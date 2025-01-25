@@ -89,18 +89,28 @@ function test_mysql(&$errors, &$errors2)
         return;
     }
 
-    // Comprobamos que la BD exista, de lo contrario la creamos
-    $db_selected = mysqli_select_db($connection, filter_input(INPUT_POST, 'db_name'));
-    if ($db_selected) {
-        guarda_config($errors);
-        return;
+    // Verificamos si la base de datos existe
+    $db_name = filter_input(INPUT_POST, 'db_name');
+    $result = mysqli_query($connection, "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$db_name'");
+    
+    if (mysqli_num_rows($result) == 0) {
+        // La base de datos no existe, la creamos
+        $sqlCrearBD = "CREATE DATABASE `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+        if (!mysqli_query($connection, $sqlCrearBD)) {
+            $errors[] = "db_mysql";
+            $errors2[] = mysqli_error($connection);
+            return;
+        }
     }
 
-    $sqlCrearBD = "CREATE DATABASE `" . filter_input(INPUT_POST, 'db_name') . "`;";
-    if (mysqli_query($connection, $sqlCrearBD)) {
-        guarda_config($errors);
+    // Seleccionamos la base de datos
+    if (!mysqli_select_db($connection, $db_name)) {
+        $errors[] = "db_mysql";
+        $errors2[] = mysqli_error($connection);
         return;
     }
+    
+    guarda_config($errors);
 
     $errors[] = "db_mysql";
     $errors2[] = mysqli_error($connection);
