@@ -207,6 +207,10 @@ abstract class fs_model
      */
     public function no_html($txt)
     {
+        if ($txt === null) {
+            return '';
+        }
+        
         $newt = str_replace(
             array('<', '>', '"', "'"), array('&lt;', '&gt;', '&quot;', '&#39;'), $txt
         );

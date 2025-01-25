@@ -185,7 +185,7 @@ class empresa extends \fs_model
             $this->lema = $data[0]['lema'];
             $this->horario = $data[0]['horario'];
             $this->pie_factura = $data[0]['pie_factura'];
-            $this->inicio_actividad = date('d-m-Y', strtotime($data[0]['inicioact']));
+            $this->inicio_actividad = $data[0]['inicioact'] ? date('d-m-Y', strtotime($data[0]['inicioact'])) : date('d-m-Y');
             $this->regimeniva = $data[0]['regimeniva'];
             $this->get_email_config();
 
