@@ -10,3 +10,7 @@
 config.php
 *.lock
 package-lock.json
+
+# Excluir plugins excepto adminlte
+/plugins/*
+!/plugins/adminlte/
