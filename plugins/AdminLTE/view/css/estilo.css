@@ -1,0 +1,53 @@
+@media print {
+    .d-print-none {
+     display: none!important;
+    }
+    #bar-chart-grouped
+    {
+        max-width: 800px;
+        max-height: 300px;
+        text-align: center;
+        float: none;
+    	margin: 0 auto;
+        margin-top: 20px;
+    	margin-bottom: 10px;
+    }
+    
+    h1{
+        margin-top: 0px;
+        margin-bottom: 0px;
+        font-size:20px;
+    }
+    
+    #mixed-chart
+    {
+        max-width: 700px;
+        max-height: 300px;
+        text-align: center;
+        float: none;
+        margin: 0 auto;
+        font-size: 20px!important;
+    }
+    
+
+    td
+    { 
+        font-size: x-small;
+        padding-top:1px!important; 
+        padding-bottom:1px!important; 
+    }
+    th
+    { 
+        font-size: x-small;
+    }
+
+    @page {size: landscape}
+    body
+    {
+    	border: 0px;
+    }
+    .container
+    {
+        width: 100%;
+    }
+   }
