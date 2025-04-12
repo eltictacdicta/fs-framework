@@ -11,6 +11,17 @@ config.php
 *.lock
 package-lock.json
 
+# Archivos de caché y logs
+/var/cache/
+/var/log/
+*.log
+
+# Archivos generados por Symfony
+*Config.php
+proxy-classes.php
+removed-ids.php
+FSFramework_KernelDevDebugContainer.php
+
 # Excluir plugins excepto adminlte
 /plugins/*
 !/plugins/adminlte/
