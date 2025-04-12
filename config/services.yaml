@@ -1,0 +1,19 @@
+# Importar configuración de plugins
+imports:
+    - { resource: services_plugins.yaml }
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    # Registra todos los servicios en el directorio src/
+    FSFramework\:
+        resource: '../src/*'
+        exclude: '../src/{Model,Template,Plugin}'
+
+    # Controladores como servicios
+    FSFramework\Controller\:
+        resource: '../src/Controller'
+        tags: ['controller.service_arguments']

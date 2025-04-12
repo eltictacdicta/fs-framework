@@ -1,7 +1,7 @@
 <?php
 /**
- * This file is part of FacturaScripts
- * Copyright (C) 2013-2020 Carlos Garcia Gomez <neorazorx@gmail.com>
+ * This file is part of FS-Framework
+ * Copyright (C) 2013-2025 Carlos Garcia Gomez <neorazorx@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -12,118 +12,62 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-if ((float) substr(phpversion(), 0, 3) < 5.6) {
-    /// comprobamos la versión de PHP
-    die('FacturaScripts necesita PHP 5.6 o superior, y usted tiene PHP ' . phpversion());
+
+// Mostrar todos los errores de PHP
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+use FSFramework\Kernel;
+use FSFramework\Plugin\PluginAutoloader;
+use Symfony\Component\ErrorHandler\Debug;
+use Symfony\Component\HttpFoundation\Request;
+
+// Comprobamos la versión de PHP
+if ((float) substr(phpversion(), 0, 3) < 8.1) {
+    die('FS-Framework necesita PHP 8.1 o superior, y usted tiene PHP ' . phpversion());
 }
 
+// Si no hay config.php redirigimos al instalador
 if (!file_exists('config.php')) {
-    /// si no hay config.php redirigimos al instalador
     header('Location: install.php');
     die('Redireccionando al instalador...');
 }
 
-define('FS_FOLDER', __DIR__);
-
-/// ampliamos el límite de ejecución de PHP a 5 minutos
-@set_time_limit(300);
-
-/// cargamos las constantes de configuración
+// Cargamos las dependencias
 require_once 'config.php';
-require_once 'base/config2.php';
-require_once 'base/fs_controller.php';
-require_once 'base/fs_edit_controller.php';
-require_once 'base/fs_list_controller.php';
-require_once 'base/fs_log_manager.php';
-require_once 'raintpl/rain.tpl.class.php';
+require_once 'vendor/autoload.php';
 
-/**
- * Registramos la función para capturar los fatal error.
- * Información importante a la hora de depurar errores.
- */
-register_shutdown_function("fatal_handler");
+// Registramos el autoloader de plugins
+PluginAutoloader::register();
 
-/// ¿Qué controlador usar?
-$pagename = '';
-if (filter_input(INPUT_GET, 'page')) {
-    $pagename = filter_input(INPUT_GET, 'page');
-} elseif (defined('FS_HOMEPAGE')) {
-    $pagename = FS_HOMEPAGE;
+// Definimos la constante FS_FOLDER si no está definida
+if (!defined('FS_FOLDER')) {
+    define('FS_FOLDER', __DIR__);
 }
 
-$fsc_error = FALSE;
-if ($pagename == '') {
-    $fsc = new fs_controller();
-} else {
-    $class_path = find_controller($pagename);
-    require_once $class_path;
+// Definimos el entorno
+$env = $_SERVER['APP_ENV'] ?? 'prod';
+$debug = (bool) ($_SERVER['APP_DEBUG'] ?? ($env !== 'prod'));
 
-    try {
-        /// ¿No se ha encontrado el controlador?
-        if ('base/fs_controller.php' === $class_path) {
-            header("HTTP/1.0 404 Not Found");
-            $fsc = new fs_controller();
-        } else {
-            $fsc = new $pagename();
-        }
-    } catch (Exception $exc) {
-        echo "<h1>Error fatal</h1>"
-        . "<ul>"
-        . "<li><b>Código:</b> " . $exc->getCode() . "</li>"
-        . "<li><b>Mensage:</b> " . $exc->getMessage() . "</li>"
-        . "</ul>";
-        $fsc_error = TRUE;
-    }
+if ($debug) {
+    umask(0000);
+    Debug::enable();
 }
 
-/// guardamos los errores en el log
-$log_manager = new fs_log_manager();
-$log_manager->save();
+// Creamos el kernel
+$kernel = new Kernel($env, $debug);
 
-/// redireccionamos a la página definida por el usuario
-if (is_null(filter_input(INPUT_GET, 'page'))) {
-    $fsc->select_default_page();
-}
+// Creamos la petición
+$request = Request::createFromGlobals();
 
-if ($fsc_error) {
-    die();
-}
+// Manejamos la petición
+$response = $kernel->handle($request);
+$response->send();
 
-if ($fsc->template) {
-    /// configuramos rain.tpl
-    raintpl::configure('base_url', NULL);
-    raintpl::configure('tpl_dir', 'view/');
-    raintpl::configure('path_replace', FALSE);
-
-    /// ¿Se puede escribir sobre la carpeta temporal?
-    if (is_writable('tmp')) {
-        raintpl::configure('cache_dir', 'tmp/' . FS_TMP_NAME);
-    } else {
-        echo '<h1>No se puede escribir sobre la carpeta tmp de FacturaScripts</h1>'
-        . '<p>Consulta la <a target="_blank" href="//facturascripts.com/ayuda" rel="nofollow">ayuda</a>.</p>';
-        die();
-    }
-
-    $tpl = new RainTPL();
-    $tpl->assign('fsc', $fsc);
-
-    if (filter_input(INPUT_POST, 'user')) {
-        $tpl->assign('nlogin', filter_input(INPUT_POST, 'user'));
-    } elseif (filter_input(INPUT_COOKIE, 'user')) {
-        $tpl->assign('nlogin', filter_input(INPUT_COOKIE, 'user'));
-    } else {
-        $tpl->assign('nlogin', '');
-    }
-
-    $tpl->draw($fsc->template);
-}
-
-/// guardamos los errores en el log (los producidos durante la carga del template)
-$log_manager->save();
-
-/// cerramos las conexiones
-$fsc->close();
+// Terminamos la petición
+$kernel->terminate($request, $response);

@@ -1,0 +1,9 @@
+twig:
+    default_path: '%kernel.project_dir%/templates'
+    paths:
+        '%kernel.project_dir%/src/Template': 'app'
+        '%kernel.project_dir%/view': 'legacy'
+        '%kernel.project_dir%/plugins/example_twig/Template': 'plugins/example_twig'
+    debug: '%kernel.debug%'
+    strict_variables: '%kernel.debug%'
+    exception_controller: null

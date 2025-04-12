@@ -1,0 +1,9 @@
+framework:
+    assets:
+        enabled: true
+        base_path: '/assets'
+        packages:
+            app:
+                base_path: '/'
+            legacy:
+                base_path: '/view'

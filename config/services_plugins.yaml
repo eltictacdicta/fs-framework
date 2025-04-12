@@ -1,0 +1,6 @@
+services:
+    # Configuración para los controladores de plugins
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false

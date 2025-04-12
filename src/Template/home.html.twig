@@ -1,0 +1,46 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="jumbotron">
+                <h1 class="display-4">{{ title }}</h1>
+                <p class="lead">{{ message }}</p>
+                <hr class="my-4">
+                <p>Este framework permite utilizar tanto el sistema de plantillas RainTPL como Twig, manteniendo compatibilidad con los plugins existentes.</p>
+                <a class="btn btn-primary btn-lg" href="{{ path('example_index') }}" role="button">Ver ejemplo con Twig</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Compatibilidad con plugins</h5>
+                    <p class="card-text">Mantiene compatibilidad con los plugins existentes mientras permite crear nuevos plugins con tecnologías modernas.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Symfony 6.4</h5>
+                    <p class="card-text">Utiliza componentes de Symfony 6.4 para aprovechar las mejores prácticas y herramientas del ecosistema PHP.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">PHP 8.1</h5>
+                    <p class="card-text">Aprovecha las características modernas de PHP 8.1 como tipos de retorno, propiedades tipadas y más.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

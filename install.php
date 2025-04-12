@@ -12,7 +12,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -92,7 +92,7 @@ function test_mysql(&$errors, &$errors2)
     // Verificamos si la base de datos existe
     $db_name = filter_input(INPUT_POST, 'db_name');
     $result = mysqli_query($connection, "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$db_name'");
-    
+
     if (mysqli_num_rows($result) == 0) {
         // La base de datos no existe, la creamos
         $sqlCrearBD = "CREATE DATABASE `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
@@ -109,7 +109,7 @@ function test_mysql(&$errors, &$errors2)
         $errors2[] = mysqli_error($connection);
         return;
     }
-    
+
     guarda_config($errors);
 
     $errors[] = "db_mysql";
@@ -161,7 +161,7 @@ function random_string($length = 20)
 /**
  * Buscamos errores
  */
-if (file_exists('config.php')) {
+if (file_exists('config.php') || file_exists(dirname(__FILE__) . '/config.php')) {
     header('Location: index.php');
 } else if (floatval(substr(phpversion(), 0, 3)) < 5.6) {
     $errors[] = 'php';
@@ -196,7 +196,8 @@ if (file_exists('config.php')) {
     $db_user = filter_input(INPUT_POST, 'db_user');
 }
 
-$system_info = 'facturascripts: ' . file_get_contents('VERSION') . "\n";
+$version_file = file_exists('VERSION') ? 'VERSION' : dirname(__FILE__) . '/VERSION';
+$system_info = 'facturascripts: ' . file_get_contents($version_file) . "\n";
 $system_info .= 'os: ' . php_uname() . "\n";
 $system_info .= 'php: ' . phpversion() . "\n";
 
@@ -376,7 +377,7 @@ $system_info = str_replace('"', "'", $system_info);
                         <h1>
                             <i class="fa fa-cloud-upload" aria-hidden="true"></i>
                             Bienvenido al instalador de FacturaScripts
-                            <small><?php echo file_get_contents('VERSION'); ?></small>
+                            <small><?php echo file_get_contents($version_file); ?></small>
                         </h1>
                     </div>
                 </div>

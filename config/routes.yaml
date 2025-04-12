@@ -1,0 +1,10 @@
+# Configuración de rutas
+controllers:
+    resource: '../src/Controller/'
+    type: annotation
+
+legacy_controller:
+    path: /{page}
+    controller: FSFramework\Controller\LegacyController::handleRequest
+    defaults:
+        page: ''

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}FS-Framework{% endblock %}</title>
+        <link rel="stylesheet" href="{{ asset('assets/css/bootstrap.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('assets/css/font-awesome.min.css') }}">
+        {% block stylesheets %}{% endblock %}
+    </head>
+    <body>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="{{ path('homepage') }}">FS-Framework</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('homepage') }}">Inicio</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('example_index') }}">Ejemplo Twig</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        {% block body %}{% endblock %}
+
+        <footer class="bg-light py-4 mt-4">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p>&copy; {{ "now"|date("Y") }} FS-Framework</p>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <p>Versión 1.0</p>
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+        <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
+        <script src="{{ asset('assets/js/bootstrap.bundle.min.js') }}"></script>
+        {% block javascripts %}{% endblock %}
+    </body>
+</html>

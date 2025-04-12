@@ -1,31 +1,25 @@
 {
-  "name": "facturascripts_2015",
+  "name": "fs-framework",
   "version": "1.0.0",
-  "description": "Software de facturación y contabilidad para pymes, fácil, libre y con actualizaciones constantes.",
+  "description": "Framework modular basado en PHP con soporte para plugins",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/NeoRazorX/facturascripts_2015.git"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npm run build-assets",
+    "build-assets": "mkdir -p public/assets && cp -R node_modules/bootstrap/dist/* public/assets/ && cp -R node_modules/font-awesome/* public/assets/"
   },
   "keywords": [
-    "facturacion",
-    "contabilidad",
-    "erp"
+    "framework",
+    "plugins",
+    "modular"
   ],
   "author": "Carlos García Gómez",
   "license": "LGPL-3.0",
-  "bugs": {
-    "url": "https://facturascripts.com/contacto"
-  },
-  "homepage": "https://facturascripts.com",
   "dependencies": {
-    "bootbox": "4.*",
-    "bootstrap": "3.*",
-    "bootswatch": "3.*",
-    "font-awesome": "4.*",
-    "jquery": "3.*"
+    "bootbox": "^5.5.3",
+    "bootstrap": "^5.3.0",
+    "bootswatch": "^5.3.0",
+    "font-awesome": "^4.7.0",
+    "jquery": "^3.7.0"
   }
 }

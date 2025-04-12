@@ -1,15 +1,43 @@
 {
-    "name": "facturascripts/facturascripts_2015",
-    "description": "Software de facturación y contabilidad para pymes, fácil, libre y con actualizaciones constantes.",
+    "name": "fs-framework/core",
+    "description": "Framework modular basado en PHP con soporte para plugins",
+    "type": "project",
+    "license": "LGPL-3.0",
     "authors": [
         {
             "name": "Carlos García Gómez",
             "email": "neorazorx@gmail.com"
         }
     ],
+    "minimum-stability": "stable",
     "require": {
-        "php": ">=5.6",
-        "phpmailer/phpmailer": "5.*",
-        "mk-j/php_xlsxwriter": "0.*"
+        "php": ">=8.1",
+        "symfony/http-foundation": "^6.4",
+        "symfony/http-kernel": "^6.4",
+        "symfony/routing": "^6.4",
+        "symfony/dependency-injection": "^6.4",
+        "symfony/config": "^6.4",
+        "symfony/yaml": "^6.4",
+        "symfony/twig-bridge": "^6.4",
+        "twig/twig": "^3.0",
+        "phpmailer/phpmailer": "^6.8",
+        "mk-j/php_xlsxwriter": "^0.38",
+        "symfony/framework-bundle": "^6.4",
+        "symfony/twig-bundle": "^6.4",
+        "symfony/asset": "^6.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "FSFramework\\": "src/"
+        },
+        "files": [
+            "base/fs_functions.php"
+        ]
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "mkdir -p tmp",
+            "chmod 777 tmp"
+        ]
     }
 }

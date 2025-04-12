@@ -1,0 +1,3 @@
+example_twig:
+    resource: ../../plugins/example_twig/Controller/
+    type: attribute
