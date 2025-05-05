@@ -329,6 +329,116 @@ $system_info = str_replace('"', "'", $system_info);
                 }
             }
             $(document).ready(function () {
+                // Manejar el clic en el botón de verificación de integridad
+                $("#btn_verificar_integridad").click(function() {
+                    // Mostrar la barra de progreso
+                    $("#resultados_integridad").show();
+                    $("#resultados_detalle").html("");
+                    $("#progress_bar").addClass("active").css("width", "100%").text("Verificando...");
+
+                    // Realizar la petición AJAX
+                    $.ajax({
+                        url: "integrity_check.php",
+                        type: "GET",
+                        dataType: "json",
+                        success: function(data) {
+                            // Ocultar la barra de progreso
+                            $("#progress_bar").removeClass("active");
+
+                            if (data.success) {
+                                // Mostrar los resultados
+                                var results = data.results;
+                                var html = "";
+
+                                // Mostrar el estado general
+                                if (results.overall_status) {
+                                    $("#progress_bar").removeClass("progress-bar-striped").addClass("progress-bar-success").css("width", "100%").text("Verificación completada con éxito");
+                                    html += "<div class='alert alert-success'><i class='fa fa-check-circle'></i> Todos los componentes están correctamente instalados y configurados.</div>";
+                                } else {
+                                    $("#progress_bar").removeClass("progress-bar-striped").addClass("progress-bar-danger").css("width", "100%").text("Verificación completada con errores");
+                                    html += "<div class='alert alert-danger'><i class='fa fa-exclamation-circle'></i> Se han encontrado problemas en algunos componentes.</div>";
+                                }
+
+                                // Crear paneles para cada categoría de verificación
+                                for (var key in results) {
+                                    if (key !== 'overall_status' && results.hasOwnProperty(key)) {
+                                        var check = results[key];
+                                        var panelClass = check.status ? 'panel-success' : 'panel-danger';
+                                        var iconClass = check.status ? 'fa-check-circle' : 'fa-exclamation-circle';
+                                        var statusText = check.status ? 'Correcto' : 'Error';
+
+                                        html += "<div class='panel " + panelClass + "'>";
+                                        html += "<div class='panel-heading'>";
+                                        html += "<h3 class='panel-title'><i class='fa " + iconClass + "'></i> " + check.name + " - " + statusText + "</h3>";
+                                        html += "</div>";
+                                        html += "<div class='panel-body'>";
+                                        html += "<p>" + check.message + "</p>";
+
+                                        // Si hay detalles, mostrarlos
+                                        if (check.details) {
+                                            html += "<ul class='list-group'>";
+
+                                            // Primero mostrar los elementos con estado de error
+                                            for (var detailKey in check.details) {
+                                                if (check.details.hasOwnProperty(detailKey)) {
+                                                    var detail = check.details[detailKey];
+                                                    if (!detail.status) {
+                                                        var itemClass = 'list-group-item-danger';
+                                                        var detailIcon = 'fa-exclamation-circle';
+
+                                                        html += "<li class='list-group-item " + itemClass + "'>";
+                                                        html += "<i class='fa " + detailIcon + "'></i> ";
+                                                        html += "<strong>" + detail.name + ":</strong> " + detail.message;
+                                                        html += "</li>";
+                                                    }
+                                                }
+                                            }
+
+                                            // Luego mostrar los elementos con estado correcto
+                                            for (var detailKey in check.details) {
+                                                if (check.details.hasOwnProperty(detailKey)) {
+                                                    var detail = check.details[detailKey];
+                                                    if (detail.status) {
+                                                        var itemClass = 'list-group-item-success';
+                                                        var detailIcon = 'fa-check-circle';
+
+                                                        // Verificar si el mensaje indica que se creará durante la instalación
+                                                        if (detail.message.indexOf('se creará durante la instalación') !== -1) {
+                                                            itemClass = 'list-group-item-info';
+                                                            detailIcon = 'fa-info-circle';
+                                                        }
+
+                                                        html += "<li class='list-group-item " + itemClass + "'>";
+                                                        html += "<i class='fa " + detailIcon + "'></i> ";
+                                                        html += "<strong>" + detail.name + ":</strong> " + detail.message;
+                                                        html += "</li>";
+                                                    }
+                                                }
+                                            }
+
+                                            html += "</ul>";
+                                        }
+
+                                        html += "</div>";
+                                        html += "</div>";
+                                    }
+                                }
+
+                                $("#resultados_detalle").html(html);
+                            } else {
+                                // Mostrar error
+                                $("#progress_bar").removeClass("progress-bar-striped").addClass("progress-bar-danger").css("width", "100%").text("Error en la verificación");
+                                $("#resultados_detalle").html("<div class='alert alert-danger'><i class='fa fa-exclamation-circle'></i> Error: " + data.error + "</div>");
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            // Mostrar error
+                            $("#progress_bar").removeClass("progress-bar-striped").addClass("progress-bar-danger").css("width", "100%").text("Error en la verificación");
+                            $("#resultados_detalle").html("<div class='alert alert-danger'><i class='fa fa-exclamation-circle'></i> Error en la petición AJAX: " + error + "</div>");
+                        }
+                    });
+                });
+
                 $("#f_configuracion_inicial").validate({
                     rules: {
                         db_type: {required: false},
@@ -659,6 +769,12 @@ $system_info = str_replace('"', "'", $system_info);
                                 </a>
                             </li>
                             <li role="presentation">
+                                <a href="#integridad" aria-controls="integridad" role="tab" data-toggle="tab">
+                                    <i class="fa fa-check-circle"></i>&nbsp;
+                                    Verificación de integridad
+                                </a>
+                            </li>
+                            <li role="presentation">
                                 <a href="#cache" aria-controls="cache" role="tab" data-toggle="tab">
                                     <i class="fa fa-wrench"></i>&nbsp;
                                     Avanzado
@@ -742,6 +858,40 @@ $system_info = str_replace('"', "'", $system_info);
                                     <p class="help-block">
                                         Solamente en algunos hostings es necesario especificar el socket de MySQL.
                                     </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div role="tabpanel" class="tab-pane" id="integridad">
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h3 class="panel-title">Verificación de integridad del sistema</h3>
+                                    </div>
+                                    <div class="panel-body">
+                                        <p class="help-block">
+                                            Esta verificación comprueba que todos los componentes necesarios para el funcionamiento
+                                            del framework estén correctamente instalados y configurados.
+                                        </p>
+                                        <p class="help-block">
+                                            <i class="fa fa-info-circle"></i> <strong>Nota:</strong> Algunos elementos como el archivo config.php,
+                                            directorios de caché, logs y plugins se crearán automáticamente durante la instalación,
+                                            por lo que es normal que no existan todavía.
+                                        </p>
+                                        <button type="button" id="btn_verificar_integridad" class="btn btn-primary">
+                                            <i class="fa fa-check-circle"></i> Ejecutar verificación de integridad
+                                        </button>
+                                        <div id="resultados_integridad" class="mt-3" style="margin-top: 15px; display: none;">
+                                            <div class="progress">
+                                                <div id="progress_bar" class="progress-bar progress-bar-striped active" role="progressbar" style="width: 100%">
+                                                    Verificando...
+                                                </div>
+                                            </div>
+                                            <div id="resultados_detalle" style="margin-top: 15px;">
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -843,11 +993,25 @@ $system_info = str_replace('"', "'", $system_info);
                 </div>
                 <div class="row">
                     <div class="col-sm-12 text-right">
+                        <button id="btn_verificar_antes_enviar" class="btn btn-sm btn-info" type="button" style="margin-right: 10px;">
+                            <i class="fa fa-check-circle" aria-hidden="true"></i>&nbsp; Verificar integridad antes de enviar
+                        </button>
                         <button id="submit_button" class="btn btn-sm btn-primary" type="submit">
                             <i class="fa fa-check" aria-hidden="true"></i>&nbsp; Aceptar
                         </button>
                     </div>
                 </div>
+                <script type="text/javascript">
+                    // Manejar el clic en el botón de verificación antes de enviar
+                    $(document).ready(function() {
+                        $("#btn_verificar_antes_enviar").click(function() {
+                            // Cambiar a la pestaña de integridad
+                            $("a[href='#integridad']").tab('show');
+                            // Ejecutar la verificación
+                            $("#btn_verificar_integridad").click();
+                        });
+                    });
+                </script>
             </form>
             <div class="row" style="margin-bottom: 20px;">
                 <div class="col-sm-12 text-center">

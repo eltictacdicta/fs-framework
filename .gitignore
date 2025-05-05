@@ -22,6 +22,10 @@ proxy-classes.php
 removed-ids.php
 FSFramework_KernelDevDebugContainer.php
 
-# Excluir plugins excepto adminlte
+# Excluir plugins excepto adminlte y business_data
 /plugins/*
 !/plugins/adminlte/
+!/plugins/business_data/
+!/plugins/example_twig/
+
+.env
