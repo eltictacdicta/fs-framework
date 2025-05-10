@@ -251,10 +251,13 @@ abstract class fs_model
             return 'NULL';
         } else if (is_bool($val)) {
             return $val ? 'TRUE' : 'FALSE';
-        } else if (preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4})$/i', $val)) {
+        } else if (is_array($val)) {
+            // Convert array to JSON string to avoid preg_match errors
+            return "'" . $this->db->escape_string(json_encode($val)) . "'";
+        } else if (is_string($val) && preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4})$/i', $val)) {
             /// es una fecha
             return "'" . Date($this->db->date_style(), strtotime($val)) . "'";
-        } else if (preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4}) ([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2})$/i', $val)) {
+        } else if (is_string($val) && preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4}) ([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2})$/i', $val)) {
             /// es una fecha+hora
             return "'" . Date($this->db->date_style() . ' H:i:s', strtotime($val)) . "'";
         }

@@ -14,17 +14,32 @@
  */
 
 // Cargar los modelos del plugin
-require_once __DIR__ . '/Model/empresa.php';
-require_once __DIR__ . '/Model/pais.php';
-require_once __DIR__ . '/Model/serie.php';
-require_once __DIR__ . '/Model/almacen.php';
-require_once __DIR__ . '/Model/agente.php';
+if (!class_exists('empresa')) {
+    require_once __DIR__ . '/Model/empresa.php';
+}
 
-// Cargar los controladores del plugin
-require_once __DIR__ . '/Controller/AdminEmpresaController.php';
-require_once __DIR__ . '/Controller/BusinessDataController.php';
+if (!class_exists('pais')) {
+    require_once __DIR__ . '/Model/pais.php';
+}
 
-// Función para registrar el plugin en el sistema
+if (!class_exists('serie')) {
+    require_once __DIR__ . '/Model/serie.php';
+}
+
+if (!class_exists('almacen')) {
+    require_once __DIR__ . '/Model/almacen.php';
+}
+
+if (!class_exists('agente')) {
+    require_once __DIR__ . '/Model/agente.php';
+}
+
+// No cargamos los controladores aquí, se cargarán automáticamente cuando se necesiten
+// a través del sistema de autoload de FacturaScripts
+
+/**
+ * Función para registrar el plugin en el sistema
+ */
 function register_business_data() {
     // Esta función se llama automáticamente cuando se activa el plugin
     // No necesita hacer nada, ya que los modelos se registran automáticamente
@@ -45,9 +60,17 @@ function enable_business_data() {
     }
 
     // Registrar la página admin_empresa en el menú
-    $fsPage = new \fs_page();
+    $fsPage = new fs_page();
     $fsPage->name = 'admin_empresa';
     $fsPage->title = 'Empresa / web';
+    $fsPage->folder = 'admin';
+    $fsPage->show_on_menu = true;
+    $fsPage->save();
+    
+    // Registrar la página business_data en el menú
+    $fsPage = new fs_page();
+    $fsPage->name = 'business_data';
+    $fsPage->title = 'Datos Empresariales';
     $fsPage->folder = 'admin';
     $fsPage->show_on_menu = true;
     $fsPage->save();
@@ -67,9 +90,15 @@ function disable_business_data() {
         require_once 'model/fs_page.php';
     }
 
-    // Eliminar la página admin_empresa del menú
-    $fsPage = new \fs_page();
+    // Eliminar las páginas del menú
+    $fsPage = new fs_page();
+    
     $page = $fsPage->get('admin_empresa');
+    if ($page) {
+        $page->delete();
+    }
+    
+    $page = $fsPage->get('business_data');
     if ($page) {
         $page->delete();
     }

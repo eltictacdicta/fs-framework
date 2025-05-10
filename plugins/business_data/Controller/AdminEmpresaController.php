@@ -16,21 +16,15 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-namespace FSFramework\Plugin\BusinessData\Controller;
 
 require_once 'extras/phpmailer/class.phpmailer.php';
 require_once 'extras/phpmailer/class.smtp.php';
-
-use FSFramework\Plugin\BusinessData\Model\Empresa;
-use FSFramework\Plugin\BusinessData\Model\Almacen;
-use FSFramework\Plugin\BusinessData\Model\Serie;
-use FSFramework\Plugin\BusinessData\Model\Pais;
 
 /**
  * Controlador de admin -> empresa.
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
-class AdminEmpresaController extends \fs_controller
+class AdminEmpresaController extends fs_controller
 {
     public $almacen;
     public $cuenta_banco;
@@ -49,13 +43,13 @@ class AdminEmpresaController extends \fs_controller
     protected function private_core()
     {
         /// inicializamos para que se creen las tablas, aunque no vayamos a configurarlo aquí
-        $this->almacen = new Almacen();
-        $this->cuenta_banco = new \cuenta_banco();
-        $this->divisa = new \divisa();
-        $this->ejercicio = new \ejercicio();
-        $this->forma_pago = new \forma_pago();
-        $this->serie = new Serie();
-        $this->pais = new Pais();
+        $this->almacen = new almacen();
+        $this->cuenta_banco = new cuenta_banco();
+        $this->divisa = new divisa();
+        $this->ejercicio = new ejercicio();
+        $this->forma_pago = new forma_pago();
+        $this->serie = new serie();
+        $this->pais = new pais();
 
         if (filter_input(INPUT_POST, 'nombre')) {
             /// guardamos solamente lo básico, ya que facturacion_base no está activado

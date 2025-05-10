@@ -1,0 +1,55 @@
+{include="header"}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h1 class="panel-title">
+                        <span class="glyphicon glyphicon-briefcase"></span> Datos Empresariales
+                    </h1>
+                </div>
+                <div class="panel-body">
+                    <p>Este plugin contiene funcionalidades relacionadas con datos empresariales</p>
+                    
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <div class="panel panel-info">
+                                <div class="panel-heading">
+                                    <h3 class="panel-title">Empresa</h3>
+                                </div>
+                                <div class="panel-body">
+                                    <dl>
+                                        <dt>Nombre:</dt>
+                                        <dd>{$fsc->empresa->nombre}</dd>
+                                        <dt>Web:</dt>
+                                        <dd>{$fsc->empresa->web}</dd>
+                                        <dt>Email:</dt>
+                                        <dd>{$fsc->empresa->email}</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="panel panel-info">
+                                <div class="panel-heading">
+                                    <h3 class="panel-title">Datos disponibles</h3>
+                                </div>
+                                <div class="panel-body">
+                                    <ul>
+                                        <li>Países: {function="count($fsc->paises)"}</li>
+                                        <li>Series: {function="count($fsc->series)"}</li>
+                                        <li>Almacenes: {function="count($fsc->almacenes)"}</li>
+                                        <li>Agentes: {function="count($fsc->agentes)"}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{include="footer"} 

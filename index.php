@@ -24,6 +24,7 @@ error_reporting(E_ALL);
 
 use FSFramework\Kernel;
 use FSFramework\Plugin\PluginAutoloader;
+use FSFramework\Plugin\LegacyPluginAutoloader;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -40,14 +41,36 @@ if (!file_exists('config.php')) {
 
 // Cargamos las dependencias
 require_once 'config.php';
-require_once 'vendor/autoload.php';
-
-// Registramos el autoloader de plugins
-PluginAutoloader::register();
 
 // Definimos la constante FS_FOLDER si no está definida
 if (!defined('FS_FOLDER')) {
     define('FS_FOLDER', __DIR__);
+}
+
+// Cargar el autoloader legacy para compatibilidad con clases antiguas
+require_once 'base/fs_legacy_autoloader.php';
+
+// Cargar el autoloader para controladores legacy
+require_once 'base/fs_controller_autoloader.php';
+
+// Cargar funciones de compatibilidad para plugins antiguos
+require_once 'base/fs_functions.php';
+
+// Cargar el autoloader para el plugin business_data
+if (file_exists('plugins/business_data/fs_business_data_autoloader.php')) {
+    require_once 'plugins/business_data/fs_business_data_autoloader.php';
+}
+
+// Cargar el autoloader de Composer
+require_once 'vendor/autoload.php';
+
+// Registramos el autoloader de plugins
+PluginAutoloader::register();
+LegacyPluginAutoloader::register();
+
+// Registrar el autoloader de compatibilidad para plugins antiguos
+if (function_exists('register_legacy_plugin_autoloader')) {
+    register_legacy_plugin_autoloader();
 }
 
 // Definimos el entorno

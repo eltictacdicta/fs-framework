@@ -2,6 +2,8 @@
 
 namespace FSFramework;
 
+use FSFramework\Plugin\LegacyPluginAutoloader;
+use FSFramework\Plugin\PluginAutoloader;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\Config\Resource\FileResource;
@@ -14,6 +16,18 @@ class Kernel extends BaseKernel
     use MicroKernelTrait;
 
     private const CONFIG_EXTS = '.{php,xml,yaml,yml}';
+
+    /**
+     * Boot the kernel and set up plugin autoloaders
+     */
+    public function boot(): void
+    {
+        parent::boot();
+        
+        // Register the plugin autoloaders
+        PluginAutoloader::register();
+        LegacyPluginAutoloader::register();
+    }
 
     public function registerBundles(): iterable
     {
