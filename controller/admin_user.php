@@ -38,7 +38,13 @@ class admin_user extends fs_controller
     public function private_core()
     {
         $this->share_extensions();
-        $this->agente = new agente();
+        
+        // Check if agente class exists before instantiating
+        if (class_exists('agente')) {
+            $this->agente = new agente();
+        } else {
+            $this->agente = null; // Set to null if class doesn't exist
+        }
 
         /// ¿El usuario tiene permiso para eliminar en esta página?
         $this->allow_delete = $this->user->admin;
@@ -238,6 +244,11 @@ class admin_user extends fs_controller
 
     private function nuevo_empleado()
     {
+        if (!class_exists('agente')) {
+            $this->new_error_msg('No se puede crear un empleado porque la clase agente no está disponible. Se ha trasladado a un plugin.');
+            return;
+        }
+        
         $age0 = new agente();
         $age0->codagente = $age0->get_new_codigo();
         $age0->nombre = filter_input(INPUT_POST, 'nnombre');

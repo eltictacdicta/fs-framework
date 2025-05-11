@@ -26,11 +26,13 @@
             }                
          });
       });
-      $("#b_nuevo_agente").click(function(event) {
-         event.preventDefault();
-         $("#modal_nuevo_agente").modal('show');
-         document.f_nuevo_agente.nnombre.focus();
-      });
+      if ($("#b_nuevo_agente").length > 0) {
+         $("#b_nuevo_agente").click(function(event) {
+            event.preventDefault();
+            $("#modal_nuevo_agente").modal('show');
+            document.f_nuevo_agente.nnombre.focus();
+         });
+      }
       $('#marcar_todo_ver').click(function() {
          var checked = $(this).prop('checked');
          $("#f_user_pages input[name='enabled[]']").prop('checked', checked);
@@ -142,6 +144,7 @@
                {/if}
             </div>
          </div>
+         {if="$fsc->agente !== null"}
          <div class="col-sm-2">
             <div class="form-group">
                <a href="{$fsc->agente->url()}">Empleado</a>:
@@ -171,6 +174,14 @@
                {/if}
             </div>
          </div>
+         {else}
+         <div class="col-sm-2">
+            <div class="form-group">
+               <label>Empleado:</label>
+               <p class="form-control-static">Funcionalidad movida a plugin</p>
+            </div>
+         </div>
+         {/if}
          <div class="col-sm-2">
             <div class="form-group">
                Página de inicio:
@@ -393,6 +404,7 @@
    </div>
 </form>
 
+{if="$fsc->agente !== null"}
 <form class="form-horizontal" role="form" name="f_nuevo_agente" action="{$fsc->url()}" method="post">
    <div class="modal" id="modal_nuevo_agente">
       <div class="modal-dialog">
@@ -445,6 +457,7 @@
       </div>
    </div>
 </form>
+{/if}
 {else}
 <div class="thumbnail">
    <img src="{#FS_PATH#}view/img/fuuu_face.png" alt="fuuuuu"/>

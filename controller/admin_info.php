@@ -25,10 +25,12 @@ class admin_info extends fs_list_controller
 {
 
     private $fsvar;
+    private $divisa_tools;
 
     public function __construct()
     {
         parent::__construct(__CLASS__, 'Información del sistema', 'admin', TRUE, TRUE);
+        $this->divisa_tools = new fs_divisa_tools();
     }
 
     public function cache_version()
@@ -54,6 +56,20 @@ class admin_info extends fs_list_controller
     public function php_version()
     {
         return phpversion();
+    }
+
+    /**
+     * Devuelve un string con el número en el formato de número predeterminado.
+     * 
+     * @param float   $num
+     * @param int     $decimales
+     * @param boolean $js
+     * 
+     * @return string
+     */
+    public function show_numero($num = 0, $decimales = FS_NF0, $js = FALSE)
+    {
+        return $this->divisa_tools->show_numero($num, $decimales, $js);
     }
 
     protected function create_tabs()

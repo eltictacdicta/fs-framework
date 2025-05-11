@@ -54,18 +54,6 @@ class fs_controller extends fs_app
     public $default_items;
 
     /**
-     *
-     * @var fs_divisa_tools
-     */
-    protected $divisa_tools;
-
-    /**
-     * La empresa
-     * @var empresa
-     */
-    public $empresa;
-
-    /**
      * Listado de extensiones de la página
      * @var array 
      */
@@ -139,10 +127,9 @@ class fs_controller extends fs_app
             $this->user = new fs_user();
             $this->check_fs_page($name, $title, $folder, $shmenu, $important);
 
-            $this->empresa = new empresa();
             $this->default_items = new fs_default_items();
             $this->login_tools = new fs_login();
-            $this->divisa_tools = new fs_divisa_tools($this->empresa->coddivisa);
+            
             $this->load_extensions();
 
             if (filter_input(INPUT_GET, 'logout')) {
@@ -168,7 +155,6 @@ class fs_controller extends fs_app
             } else {
                 $this->template = 'access_denied';
                 $this->user->clean_cache(TRUE);
-                $this->empresa->clean_cache();
             }
         } else {
             $this->template = 'no_db';
@@ -215,32 +201,6 @@ class fs_controller extends fs_app
     public function close()
     {
         $this->db->close();
-    }
-
-    /**
-     * Convierte un precio de la divisa_desde a la divisa especificada
-     * @param float $precio
-     * @param string $coddivisa_desde
-     * @param string $coddivisa
-     * @return float
-     */
-    public function divisa_convert($precio, $coddivisa_desde, $coddivisa)
-    {
-        return $this->divisa_tools->divisa_convert($precio, $coddivisa_desde, $coddivisa);
-    }
-
-    /**
-     * Convierte el precio en euros a la divisa preterminada de la empresa.
-     * Por defecto usa las tasas de conversión actuales, pero si se especifica
-     * coddivisa y tasaconv las usará.
-     * @param float $precio
-     * @param string $coddivisa
-     * @param float $tasaconv
-     * @return float
-     */
-    public function euro_convert($precio, $coddivisa = NULL, $tasaconv = NULL)
-    {
-        return $this->divisa_tools->euro_convert($precio, $coddivisa, $tasaconv);
     }
 
     /**
@@ -443,43 +403,6 @@ class fs_controller extends fs_app
             }
         }
         header('Location: index.php?page=' . $page);
-    }
-
-    /**
-     * Devuelve un string con el número en el formato de número predeterminado.
-     * @param float $num
-     * @param integer $decimales
-     * @param boolean $js
-     * @return string
-     */
-    public function show_numero($num = 0, $decimales = FS_NF0, $js = FALSE)
-    {
-        return $this->divisa_tools->show_numero($num, $decimales, $js);
-    }
-
-    /**
-     * Devuelve un string con el precio en el formato predefinido y con la
-     * divisa seleccionada (o la predeterminada).
-     * @param float $precio
-     * @param string $coddivisa
-     * @param string $simbolo
-     * @param integer $dec nº de decimales
-     * @return string
-     */
-    public function show_precio($precio = 0, $coddivisa = FALSE, $simbolo = TRUE, $dec = FS_NF0)
-    {
-        return $this->divisa_tools->show_precio($precio, $coddivisa, $simbolo, $dec);
-    }
-
-    /**
-     * Devuelve el símbolo de divisa predeterminado
-     * o bien el símbolo de la divisa seleccionada.
-     * @param string $coddivisa
-     * @return string
-     */
-    public function simbolo_divisa($coddivisa = FALSE)
-    {
-        return $this->divisa_tools->simbolo_divisa($coddivisa);
     }
 
     /**
@@ -704,27 +627,5 @@ class fs_controller extends fs_app
         if (is_null($this->default_items->showing_page())) {
             $this->default_items->set_showing_page($this->page->name);
         }
-
-        $this->default_items->set_codejercicio($this->empresa->codejercicio);
-
-        if (filter_input(INPUT_COOKIE, 'default_almacen')) {
-            $this->default_items->set_codalmacen(filter_input(INPUT_COOKIE, 'default_almacen'));
-        } else {
-            $this->default_items->set_codalmacen($this->empresa->codalmacen);
-        }
-
-        if (filter_input(INPUT_COOKIE, 'default_formapago')) {
-            $this->default_items->set_codpago(filter_input(INPUT_COOKIE, 'default_formapago'));
-        } else {
-            $this->default_items->set_codpago($this->empresa->codpago);
-        }
-
-        if (filter_input(INPUT_COOKIE, 'default_impuesto')) {
-            $this->default_items->set_codimpuesto(filter_input(INPUT_COOKIE, 'default_impuesto'));
-        }
-
-        $this->default_items->set_codpais($this->empresa->codpais);
-        $this->default_items->set_codserie($this->empresa->codserie);
-        $this->default_items->set_coddivisa($this->empresa->coddivisa);
     }
 }

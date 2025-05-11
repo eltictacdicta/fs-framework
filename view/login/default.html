@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-   <title>{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</title>
+   <title></title>
    <meta name="description" content="FacturaScripts es un software de facturación y contabilidad para pymes. Es software libre bajo licencia GNU/LGPL." />
    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
    <meta name="generator" content="FacturaScripts" />
@@ -63,7 +63,7 @@
             </button>
             <a class="navbar-brand" href="index.php">
                <i class="fa fa-lock" aria-hidden="true"></i>&nbsp;
-               {if="FS_DEMO"}DEMO FacturaScripts{elseif="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}
+               {*{if="FS_DEMO"}DEMO FacturaScripts{elseif="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}*}
             </a>
          </div>
          <div class="collapse navbar-collapse" id="fs-navbar-collapse-1">
@@ -140,9 +140,9 @@
                               {if="FS_DEMO"}
                               <img src="{#FS_PATH#}view/img/logo.png" alt="logo"/>
                               {elseif="file_exists(FS_MYDOCS.'images/logo.png')"}
-                              <img src="images/logo.png" alt="{$fsc->empresa->nombre}"/>
+                              <img src="images/logo.png" />
                               {elseif="file_exists(FS_MYDOCS.'images/logo.jpg')"}
-                              <img src="images/logo.jpg" alt="{$fsc->empresa->nombre}"/>
+                              <img src="images/logo.jpg" />
                               {else}
                               <img src="{#FS_PATH#}view/img/logo.png" alt="logo"/>
                               {/if}
@@ -233,7 +233,7 @@
    </div>
    {/if}
    
-   {include="feedback"}
+   {*{include="feedback"}*}
    
    {if="FS_DB_HISTORY"}
    <hr style="margin-top: 50px;"/>
@@ -262,7 +262,7 @@
          <div class="row">
             <div class="col-sm-6">
                <p class="navbar-text">
-                  Creado con <a class="navbar-link" target="_blank" href="https://facturascripts.com" rel="nofollow"><b>FacturaScripts</b></a>.
+                  Creado con <a class="navbar-link" target="_blank" href="https://github.com/eltictacdicta/fs-framework" rel="nofollow"><b>FSFramework</b></a>.
                </p>
             </div>
             <div class="col-sm-6">

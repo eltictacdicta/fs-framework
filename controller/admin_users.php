@@ -35,7 +35,13 @@ class admin_users extends fs_controller
 
     protected function private_core()
     {
-        $this->agente = new agente();
+        // Check if agente class exists before instantiating
+        if (class_exists('agente')) {
+            $this->agente = new agente();
+        } else {
+            $this->agente = null; // Set to null if class doesn't exist
+        }
+        
         $this->rol = new fs_rol();
 
         if (filter_input(INPUT_POST, 'nnick')) {
@@ -67,7 +73,8 @@ class admin_users extends fs_controller
 
             if ($nu->set_password(filter_input(INPUT_POST, 'npassword'))) {
                 $nu->admin = (bool) filter_input(INPUT_POST, 'nadmin');
-                if (filter_input(INPUT_POST, 'ncodagente') && filter_input(INPUT_POST, 'ncodagente') != '') {
+                // Only set codagente if the agente class exists and a value was provided
+                if (class_exists('agente') && filter_input(INPUT_POST, 'ncodagente') && filter_input(INPUT_POST, 'ncodagente') != '') {
                     $nu->codagente = filter_input(INPUT_POST, 'ncodagente');
                 }
 

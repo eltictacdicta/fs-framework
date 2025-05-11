@@ -129,7 +129,7 @@
                <tr class='clickableRow{if="$value->show_last_login()=='-'"} warning{/if}' href='{$value->url()}'>
                   <td><a href="{$value->url()}">{$value->nick}</a></td>
                   <td>{if="FS_DEMO"}XXX@XXX.com{else}{$value->email}{/if}</td>
-                  <td>{$value->get_agente_fullname()}</td>
+                  <td>{if="class_exists('agente')"}{$value->get_agente_fullname()}{else}-{/if}</td>
                   <td class="text-center">
                      {if="$value->enabled"}<span class="glyphicon glyphicon-ok"></span>{else}<span class="glyphicon glyphicon-lock"></span>{/if}
                   </td>                  
@@ -319,6 +319,7 @@
                      <input class="form-control" type="text" name="nemail" autocomplete="off"/>
                   </div>
                </div>
+               {if="$fsc->agente !== null"}
                <div class="form-group">
                   <a target="_blank" href="{$fsc->agente->url()}">Empleado</a>:
                   <select name="ncodagente" class="form-control">
@@ -333,6 +334,7 @@
                      o bien usuarios que no sean empleados, por eso está separado.
                   </p>
                </div>
+               {/if}
             </div>
             <div class="modal-footer">
                <button class="btn btn-sm btn-primary" type="submit">

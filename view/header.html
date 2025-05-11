@@ -22,31 +22,13 @@
    <script type="text/javascript" src="{#FS_PATH#}view/js/jquery-ui.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/bootbox.min.js"></script>
    <script type="text/javascript" src="{$fsc->get_js_location('base.js')}"></script>
-   <script type="text/javascript">
-      bootbox.setLocale("es");
-      
-      function show_precio(precio, coddivisa)
-      {
-         coddivisa || ( coddivisa = '{$fsc->empresa->coddivisa}' );
-         
-         if(coddivisa == '{$fsc->empresa->coddivisa}')
-         {
-            {if="FS_POS_DIVISA=='right'"}
-            return number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}')+' {$fsc->simbolo_divisa()}';
-            {else}
-            return '{$fsc->simbolo_divisa()}'+number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
-            {/if}
-         }
-         else
-         {
-            return number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
-         }
-      }
+   <script type="text/javascript" >
       function show_numero(numero)
       {
-         return number_format(numero, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
+         return number_format(numero, '{#FS_NF0#}', '{#FS_NF1#}', '{#FS_NF2#}');
       }
    </script>
+
    {loop="$fsc->extensions"}
       {if="$value->type=='head'"}{$value->text}{/if}
    {/loop}
@@ -63,7 +45,7 @@
             </button>
             <a class="navbar-brand" href="index.php">
                <i class="fa fa-home" aria-hidden="true"></i>&nbsp;
-               <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</span>
+               {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</span> *}
             </a>
          </div>
          
@@ -227,7 +209,7 @@
    </div>
    {/if}
    
-   {include="feedback"}
+   {*{include="feedback"}*}
    
    <div class="modal fade" id="modal_iframe" tabindex="-1" role="dialog">
       <div class="modal-dialog" role="document">

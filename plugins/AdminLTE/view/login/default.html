@@ -2,8 +2,8 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</title>
-        <meta name="description" content="{$fsc->empresa->lema}" />
+        <title></title>
+        <meta name="description" content="" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="generator" content="FacturaScripts" />
         <link rel="shortcut icon" href="{#FS_PATH#}view/img/favicon.ico" />
@@ -79,17 +79,16 @@
                 <img src="{#FS_PATH#}view/img/logo.png" alt="logo"/>
                 {function="fs_fake_msg()"}
                 {elseif="file_exists(FS_MYDOCS.'images/logo.png')"}
-                <img src="images/logo.png" alt="{$fsc->empresa->nombre}"/>
+                <img src="images/logo.png" />
                 {elseif="file_exists(FS_MYDOCS.'images/logo.jpg')"}
-                <img src="images/logo.jpg" alt="{$fsc->empresa->nombre}"/>
+                <img src="images/logo.jpg" />
                 {else}
                 <img src="{#FS_PATH#}view/img/logo.png" alt="logo"/>
                 {/if}
             </div>
             <div class="login-box-body">
                 <p class="login-box-msg">
-                    Inicia sesión en
-                    {if="FS_DEMO"}DEMO{elseif="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}
+                    Inicia sesión
                 </p>
                 <form name="f_login" action="index.php?nlogin={$nlogin}" method="post" class="form" role="form">
                     {if="FS_DEMO"}
@@ -117,20 +116,8 @@
                 <br/>
                 <br/>
                 <div class="social-auth-links">
-                    <a href="https://twitter.com/facturascripts" target="_blank" title="Twitter FacturaScripts " class="btn btn-social-icon btn-twitter">
-                        <i class="fa fa-twitter"></i>
-                    </a>
-                    <a href="https://plus.google.com/communities/108290867709111243870" target="_blank" title="Google+ FacturaScripts" class="btn btn-social-icon btn-google">
-                        <i class="fa fa-google"></i>
-                    </a>
-                    <a href="https://www.linkedin.com/groups/8462145/profile" target="_blank" title="Linkedin FacturaScripts" class="btn btn-social-icon btn-linkedin">
-                        <i class="fa fa-linkedin"></i>
-                    </a>
-                    <a href="https://github.com/NeoRazorX" target="_blank" title="Github FacturaScripts" class="btn btn-social-icon btn-github">
-                        <i class="fa fa-github"></i>
-                    </a>
                     <p>
-                        Creado con <a target="_blank" href="https://facturascripts.com">FacturaScripts</a>.
+                        Creado con <a target="_blank" href="https://github.com/eltictacdicta/fs-framework">FSFremework</a>.
                     </p>
                 </div>
             </div>
@@ -174,7 +161,7 @@
         </div>
         {/if}
 
-        {include="feedback"}
+        {*{include="feedback"}*}
 
         <div class="container-fluid">
             <div class="row">

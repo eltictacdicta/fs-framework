@@ -37,13 +37,18 @@ class fs_divisa_tools
      */
     private static $divisas;
 
+
     public function __construct($coddivisa = '')
     {
         if (!isset(self::$coddivisa)) {
             self::$coddivisa = $coddivisa;
 
-            $divisa_model = new divisa();
-            self::$divisas = $divisa_model->all();
+            if (class_exists('divisa')) {
+                $divisa_model = new divisa();
+                self::$divisas = $divisa_model->all();
+            } else {
+                self::$divisas = [];
+            }
         }
     }
 

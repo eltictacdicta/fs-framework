@@ -2,8 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-   <title>{$fsc->page->title} &lsaquo; {if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</title>
-   <meta name="description" content="{$fsc->empresa->nombre}" />
+   <title>{$fsc->page->title} </title>
    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
    <meta name="generator" content="FacturaScripts" />
    <link rel="shortcut icon" href="{#FS_PATH#}view/img/favicon.ico" />
@@ -24,58 +23,17 @@
    <script type="text/javascript" src="{#FS_PATH#}plugins/adminlte/view/js/app.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/base.js?updated={$fsc->today()}"></script>
    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
-   <script type="text/javascript">
-      /*
-       * This file is part of FacturaScripts
-       * Copyright (C) 2015-2017  Carlos Garcia Gomez  neorazorx@gmail.com
-       *
-       * This program is free software: you can redistribute it and/or modify
-       * it under the terms of the GNU Affero General Public License as
-       * published by the Free Software Foundation, either version 3 of the
-       * License, or (at your option) any later version.
-       *
-       * This program is distributed in the hope that it will be useful,
-       * but WITHOUT ANY WARRANTY; without even the implied warranty of
-       * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-       * GNU Affero General Public License for more details.
-       * 
-       * You should have received a copy of the GNU Affero General Public License
-       * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-       */
-      function show_precio(precio, coddivisa)
-      {
-         coddivisa || ( coddivisa = '{$fsc->empresa->coddivisa}' );
-         
-         if(coddivisa == '{$fsc->empresa->coddivisa}')
-         {
-            {if="FS_POS_DIVISA=='right'"}
-            return number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}')+' {$fsc->simbolo_divisa()}';
-            {else}
-            return '{$fsc->simbolo_divisa()}'+number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
-            {/if}
-         }
-         else
-         {
-            return number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
-         }
-      }
-      function show_numero(numero)
-      {
-         return number_format(numero, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
-      }
-      $(document).ready(function() {
-         if( $(this).width() > 769 && $(this).width() <= 1380 )
-         {
-            $("body").addClass("sidebar-collapse");
-         }
-      });
-   </script>
       <!-- Latest compiled and minified CSS -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
 
 <!-- Latest compiled and minified JavaScript -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
-
+<script type="text/javascript" >
+   function show_numero(numero)
+   {
+      return number_format(numero, '{#FS_NF0#}', '{#FS_NF1#}', '{#FS_NF2#}');
+   }
+</script>
 <!-- (Optional) Latest compiled and minified JavaScript translation files -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/i18n/defaults-*.min.js"></script>
    {loop="$fsc->extensions"}
@@ -87,7 +45,7 @@
       <header class="main-header">
          <a href="index.php" class="logo">
             <span class="logo-mini"><b>FS</b></span>
-            <span class="logo-lg"><b>{$fsc->empresa->nombrecorto}</b></span>
+            {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</span> *}
          </a>
          <nav class="navbar navbar-static-top" role="navigation">
             <a href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
@@ -262,7 +220,7 @@
             {/if}
          </section>
          
-         {include="feedback"}
+         {*{include="feedback"}*}
          
          <div class="modal fade" id="modal_iframe" tabindex="-1" role="dialog">
             <div class="modal-dialog" role="document">
