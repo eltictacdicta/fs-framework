@@ -90,17 +90,35 @@ function test_mysql(&$errors, &$errors2)
     }
 
     // Verificamos si la base de datos existe
-    $db_name = filter_input(INPUT_POST, 'db_name');
-    $result = mysqli_query($connection, "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$db_name'");
+    $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_STRING);
     
-    if (mysqli_num_rows($result) == 0) {
+    // Comprobamos que el nombre de la base de datos sea válido
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_name)) {
+        $errors[] = "db_mysql";
+        $errors2[] = "Nombre de base de datos inválido. Solo se permiten letras, números y guiones bajos.";
+        return;
+    }
+    
+    // Consulta para verificar si la base de datos existe
+    $query = "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?";
+    $stmt = mysqli_prepare($connection, $query);
+    mysqli_stmt_bind_param($stmt, "s", $db_name);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_store_result($stmt);
+    
+    if (mysqli_stmt_num_rows($stmt) == 0) {
         // La base de datos no existe, la creamos
-        $sqlCrearBD = "CREATE DATABASE `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
-        if (!mysqli_query($connection, $sqlCrearBD)) {
+        mysqli_stmt_close($stmt);
+        
+        // Creamos la base de datos usando consulta preparada
+        $query = "CREATE DATABASE `" . str_replace('`', '', $db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+        if (!mysqli_query($connection, $query)) {
             $errors[] = "db_mysql";
             $errors2[] = mysqli_error($connection);
             return;
         }
+    } else {
+        mysqli_stmt_close($stmt);
     }
 
     // Seleccionamos la base de datos
@@ -124,10 +142,21 @@ function test_postgresql(&$errors, &$errors2)
         return;
     }
 
-    $connection = @pg_connect('host=' . filter_input(INPUT_POST, 'db_host')
-            . ' port=' . filter_input(INPUT_POST, 'db_port')
-            . ' user=' . filter_input(INPUT_POST, 'db_user')
-            . ' password=' . filter_input(INPUT_POST, 'db_pass'));
+    // Sanitizamos y validamos los datos de entrada
+    $db_host = filter_input(INPUT_POST, 'db_host', FILTER_SANITIZE_STRING);
+    $db_port = filter_input(INPUT_POST, 'db_port', FILTER_SANITIZE_NUMBER_INT);
+    $db_user = filter_input(INPUT_POST, 'db_user', FILTER_SANITIZE_STRING);
+    $db_pass = filter_input(INPUT_POST, 'db_pass');
+    $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_STRING);
+    
+    // Validamos el nombre de la base de datos
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_name)) {
+        $errors[] = "db_postgresql";
+        $errors2[] = "Nombre de base de datos inválido. Solo se permiten letras, números y guiones bajos.";
+        return;
+    }
+
+    $connection = @pg_connect('host=' . $db_host . ' port=' . $db_port . ' user=' . $db_user . ' password=' . $db_pass);
 
     if (!$connection) {
         $errors[] = "db_postgresql";
@@ -136,15 +165,16 @@ function test_postgresql(&$errors, &$errors2)
     }
 
     // Comprobamos que la BD exista, de lo contrario la creamos
-    $connection2 = @pg_connect('host=' . filter_input(INPUT_POST, 'db_host') . ' port=' . filter_input(INPUT_POST, 'db_port') . ' dbname=' . filter_input(INPUT_POST, 'db_name')
-            . ' user=' . filter_input(INPUT_POST, 'db_user') . ' password=' . filter_input(INPUT_POST, 'db_pass'));
+    $connection2 = @pg_connect('host=' . $db_host . ' port=' . $db_port . ' dbname=' . $db_name . ' user=' . $db_user . ' password=' . $db_pass);
 
     if ($connection2) {
         guarda_config($errors);
         return;
     }
 
-    $sqlCrearBD = 'CREATE DATABASE "' . filter_input(INPUT_POST, 'db_name') . '";';
+    // Creamos la base de datos de forma segura
+    $db_name_escaped = pg_escape_string($connection, $db_name);
+    $sqlCrearBD = 'CREATE DATABASE "' . $db_name_escaped . '";';
     if (pg_query($connection, $sqlCrearBD)) {
         guarda_config($errors);
         return;
