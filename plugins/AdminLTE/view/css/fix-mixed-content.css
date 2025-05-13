@@ -1,0 +1,13 @@
+/**
+ * Este archivo corrige los problemas de contenido mixto (HTTP/HTTPS)
+ * en el tema AdminLTE.
+ */
+
+/* Sobrescribe cualquier referencia a imágenes inseguras */
+[style*="http://i.imgur.com/XtwPPAJ.png"] {
+    background-image: none !important;
+}
+
+[style*="http://files.softicons.com/download/toolbar-icons/flatastic-icons-part-2-by-custom-icon-design/png/512x512/data-add.png"] {
+    background-image: none !important;
+} 
