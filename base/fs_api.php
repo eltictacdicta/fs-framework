@@ -72,23 +72,26 @@ class fs_api
      */
     private function execute($function_name)
     {
+        $allowed_functions = ['lastactivity']; // Lista de funciones permitidas
         $fsext = new fs_extension();
+        
+        // Agregar funciones de extensiones a la lista permitida
         foreach ($fsext->all_4_type('api') as $ext) {
-            if ($ext->text != $function_name) {
-                continue;
-            }
+            $allowed_functions[] = $ext->text;
+        }
 
+        // Verificar si la función solicitada está en la lista permitida
+        if (in_array($function_name, $allowed_functions)) {
             try {
-                call_user_func($function_name);
+                if ($function_name == 'lastactivity') {
+                    return $this->get_last_activity();
+                } else {
+                    // Llamar a la función de extensión
+                    return call_user_func($function_name);
+                }
             } catch (Exception $exception) {
                 echo 'ERROR: ' . $exception->getMessage();
             }
-
-            return '';
-        }
-
-        if ($function_name == 'lastactivity') {
-            return $this->get_last_activity();
         }
 
         return 'Ninguna funcion API ejecutada.';

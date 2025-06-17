@@ -227,7 +227,11 @@ function fs_filter_input_post($name, $default = false)
  */
 function fs_filter_input_req($name, $default = false)
 {
-    return isset($_REQUEST[$name]) ? $_REQUEST[$name] : $default;
+    $value = isset($_REQUEST[$name]) ? $_REQUEST[$name] : $default;
+    if ($value !== $default && $value !== null) {
+        return filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    }
+    return $value;
 }
 
 /**
