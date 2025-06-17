@@ -14,3 +14,4 @@ package-lock.json
 # Excluir plugins excepto adminlte
 /plugins/*
 !/plugins/adminlte/
+!/plugins/business_data/
