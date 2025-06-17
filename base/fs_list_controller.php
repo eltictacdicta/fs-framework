@@ -348,8 +348,10 @@ abstract class fs_list_controller extends fs_controller
 
         $sql .= " WHERE 1 = 1";
         $query = '';
-        if (property_exists($this, 'empresa')) {
-            $query = mb_strtolower($this->empresa->no_html($this->query), 'UTF8');
+        if (!empty($this->query)) {
+            // Limpiamos la consulta sin depender de la empresa
+            $clean_query = htmlspecialchars(trim($this->query), ENT_QUOTES, 'UTF-8');
+            $query = mb_strtolower($clean_query, 'UTF8');
         }
         if (!empty($query)) {
             $sql .= ' AND (1 != 1';
