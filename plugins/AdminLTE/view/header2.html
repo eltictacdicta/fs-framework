@@ -2,8 +2,15 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-   <title>{$fsc->page->title} &lsaquo; {if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</title>
-   <meta name="description" content="{$fsc->empresa->nombre}" />
+   {if="in_array('business_data', $GLOBALS['plugins'])"}
+   {assign="empresa_coddivisa" value=$fsc->empresa->coddivisa}
+   {assign="empresa_simbolo" value=$fsc->simbolo_divisa()}
+   {else}
+   {assign="empresa_coddivisa" value='EUR'}
+   {assign="empresa_simbolo" value='€'}
+   {/if}
+   <title>{$fsc->page->title} &lsaquo; {if="in_array('business_data', $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}</title>
+   <meta name="description" content="{if="in_array('business_data', $GLOBALS['plugins'])"}{$fsc->empresa->nombre}{/if}" />
    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
    <meta name="generator" content="FacturaScripts" />
    <link rel="shortcut icon" href="{#FS_PATH#}view/img/favicon.ico" />
@@ -40,26 +47,32 @@
        * You should have received a copy of the GNU Affero General Public License
        * along with this program.  If not, see <http://www.gnu.org/licenses/>.
        */
+      var empresa_coddivisa = '{$empresa_coddivisa}';
+      var empresa_simbolo = '{$empresa_simbolo}';
+
       function show_precio(precio, coddivisa)
       {
-         coddivisa || ( coddivisa = '{$fsc->empresa->coddivisa}' );
-         
-         if(coddivisa == '{$fsc->empresa->coddivisa}')
+         coddivisa || ( coddivisa = empresa_coddivisa );
+
+         if(coddivisa == empresa_coddivisa)
          {
-            {if="FS_POS_DIVISA=='right'"}
-            return number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}')+' {$fsc->simbolo_divisa()}';
-            {else}
-            return '{$fsc->simbolo_divisa()}'+number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
-            {/if}
+            if(FS_POS_DIVISA == 'right')
+            {
+               return number_format(precio, FS_NF0, FS_NF1, FS_NF2) + empresa_simbolo;
+            }
+            else
+            {
+               return empresa_simbolo + number_format(precio, FS_NF0, FS_NF1, FS_NF2);
+            }
          }
          else
          {
-            return number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
+            return number_format(precio, FS_NF0, FS_NF1, FS_NF2);
          }
       }
       function show_numero(numero)
       {
-         return number_format(numero, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
+         return number_format(numero, FS_NF0, FS_NF1, FS_NF2);
       }
    </script>
    {loop="$fsc->extensions"}

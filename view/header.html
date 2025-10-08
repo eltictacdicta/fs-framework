@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-   <title>{$fsc->page->title} &lsaquo; {if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</title>
+   <title>{$fsc->page->title} &lsaquo; {if="in_array('business_data', $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}</title>
    <meta name="description" content="FacturaScripts es un software de facturación y contabilidad para pymes. Es software libre bajo licencia GNU/LGPL." />
    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
    <meta name="generator" content="FacturaScripts" />
@@ -45,7 +45,7 @@
             </button>
             <a class="navbar-brand" href="index.php">
                <i class="fa fa-home" aria-hidden="true"></i>&nbsp;
-               {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</span> *}
+               {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="in_array('business_data', $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}</span> *}
             </a>
          </div>
          

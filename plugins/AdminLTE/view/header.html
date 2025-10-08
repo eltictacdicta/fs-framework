@@ -8,23 +8,39 @@
    <link rel="shortcut icon" href="{#FS_PATH#}view/img/favicon.ico" />
    <link rel="stylesheet" href="{#FS_PATH#}view/css/bootstrap.min.css" />
    <link rel="stylesheet" href="{#FS_PATH#}view/css/font-awesome.min.css" />
-   <link rel="stylesheet" href="{#FS_PATH#}plugins/AdminLTE/view/css/AdminLTE.min.css" />
-   <link rel="stylesheet" href="{#FS_PATH#}plugins/AdminLTE/view/css/skins/_all-skins.min.css" />
+   {if="file_exists('plugins/AdminLTE/view/css/AdminLTE.min.css')"}
+   <link rel="stylesheet" href="plugins/AdminLTE/view/css/AdminLTE.min.css" />
+   {/if}
+   {if="file_exists('plugins/AdminLTE/view/css/skins/_all-skins.min.css')"}
+   <link rel="stylesheet" href="plugins/AdminLTE/view/css/skins/_all-skins.min.css" />
+   {/if}
    <link rel="stylesheet" href="{#FS_PATH#}view/css/datepicker.css" />
    <link rel="stylesheet" href="{#FS_PATH#}view/css/custom.css" />
-   <link rel="stylesheet" href="{#FS_PATH#}plugins/AdminLTE/view/css/estilo.css" />
-   <link rel="stylesheet" href="{#FS_PATH#}plugins/AdminLTE/view/css/fix-mixed-content.css" />
+   {if="file_exists('plugins/AdminLTE/view/css/estilo.css')"}
+   <link rel="stylesheet" href="plugins/AdminLTE/view/css/estilo.css" />
+   {/if}
+   {if="file_exists('plugins/AdminLTE/view/css/fix-mixed-content.css')"}
+   <link rel="stylesheet" href="plugins/AdminLTE/view/css/fix-mixed-content.css" />
+   {/if}
    <script type="text/javascript" src="{#FS_PATH#}view/js/jquery.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/bootstrap.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/jquery.autocomplete.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/bootbox.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/jquery-ui.min.js"></script>
-   <script type="text/javascript" src="{#FS_PATH#}plugins/AdminLTE/view/js/jquery.slimscroll.min.js"></script>
-   <script type="text/javascript" src="{#FS_PATH#}plugins/AdminLTE/view/js/app.min.js"></script>
-   <script type="text/javascript" src="{#FS_PATH#}plugins/AdminLTE/view/js/fix-mixed-content.js"></script>
+   {if="file_exists('plugins/AdminLTE/view/js/jquery.slimscroll.min.js')"}
+   <script type="text/javascript" src="plugins/AdminLTE/view/js/jquery.slimscroll.min.js"></script>
+   {/if}
+   {if="file_exists('plugins/AdminLTE/view/js/app.min.js')"}
+   <script type="text/javascript" src="plugins/AdminLTE/view/js/app.min.js"></script>
+   {/if}
+   {if="file_exists('plugins/AdminLTE/view/js/fix-mixed-content.js')"}
+   <script type="text/javascript" src="plugins/AdminLTE/view/js/fix-mixed-content.js"></script>
+   {/if}
    <!-- Script de respaldo para los JS de AdminLTE -->
-   <script type="text/javascript" src="{#FS_PATH#}plugins/AdminLTE/view/js/backup-scripts.js"></script>
+   {if="file_exists('plugins/AdminLTE/view/js/backup-scripts.js')"}
+   <script type="text/javascript" src="plugins/AdminLTE/view/js/backup-scripts.js"></script>
+   {/if}
    <script type="text/javascript" src="{#FS_PATH#}view/js/base.js?updated={$fsc->today()}"></script>
    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
       <!-- Latest compiled and minified CSS -->
@@ -49,7 +65,7 @@
       <header class="main-header">
          <a href="index.php" class="logo">
             <span class="logo-mini"><b>FS</b></span>
-            {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}</span> *}
+            {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="in_array('business_data', $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}</span> *}
          </a>
          <nav class="navbar navbar-static-top" role="navigation">
             <a href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
