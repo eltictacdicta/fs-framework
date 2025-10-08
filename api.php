@@ -35,110 +35,18 @@ if (file_exists('plugins/api_auth/init.php')) {
     require_once 'plugins/api_auth/init.php';
 }
 
-// También cargar las funciones API directamente aquí para asegurar disponibilidad
+// Cargar las funciones API del controlador para asegurar disponibilidad
+if (file_exists('plugins/api_auth/controller/api_controller.php')) {
+    require_once 'plugins/api_auth/controller/api_controller.php';
+}
+
+// También cargar las funciones de modelo API para registro
 if (file_exists('plugins/api_auth/model/api_functions.php')) {
     require_once 'plugins/api_auth/model/api_functions.php';
 
     // Registrar las funciones API inmediatamente después de cargarlas
     if (function_exists('register_api_auth_functions')) {
         register_api_auth_functions();
-    }
-}
-
-// Definir funciones API directamente aquí para asegurar que estén disponibles
-if (file_exists('plugins/api_auth/model/api_auth.php')) {
-    require_once 'plugins/api_auth/model/api_auth.php';
-
-    // Definir las funciones API globalmente aquí
-    if (!function_exists('api_login')) {
-        function api_login() {
-            $nick = fs_filter_input_req('nick');
-            $password = fs_filter_input_req('password');
-
-            if (empty($nick) || empty($password)) {
-                return json_encode([
-                    'success' => false,
-                    'error' => 'Usuario y contraseña son requeridos'
-                ]);
-            }
-
-            $auth_model = new api_auth();
-            $result = $auth_model->authenticate($nick, $password);
-
-            return json_encode($result);
-        }
-    }
-
-    if (!function_exists('api_logout')) {
-        function api_logout() {
-            $token = fs_filter_input_req('token');
-
-            if (empty($token)) {
-                return json_encode([
-                    'success' => false,
-                    'error' => 'Token es requerido'
-                ]);
-            }
-
-            $auth_model = new api_auth();
-            $result = $auth_model->logout($token);
-
-            return json_encode($result);
-        }
-    }
-
-    if (!function_exists('api_validate_token')) {
-        function api_validate_token() {
-            $token = fs_filter_input_req('token');
-
-            if (empty($token)) {
-                return json_encode([
-                    'success' => false,
-                    'error' => 'Token es requerido'
-                ]);
-            }
-
-            $auth_model = new api_auth();
-            $result = $auth_model->validate_token($token);
-
-            return json_encode($result);
-        }
-    }
-
-    if (!function_exists('api_logout')) {
-        function api_logout() {
-            $token = fs_filter_input_req('token');
-
-            if (empty($token)) {
-                return json_encode([
-                    'success' => false,
-                    'error' => 'Token es requerido'
-                ]);
-            }
-
-            $auth_model = new api_auth();
-            $result = $auth_model->logout($token);
-
-            return json_encode($result);
-        }
-    }
-
-    if (!function_exists('api_validate_token')) {
-        function api_validate_token() {
-            $token = fs_filter_input_req('token');
-
-            if (empty($token)) {
-                return json_encode([
-                    'success' => false,
-                    'error' => 'Token es requerido'
-                ]);
-            }
-
-            $auth_model = new api_auth();
-            $result = $auth_model->validate_token($token);
-
-            return json_encode($result);
-        }
     }
 }
 
