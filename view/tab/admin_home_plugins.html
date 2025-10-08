@@ -72,10 +72,15 @@
     <div class="row">
         <div class="col-xs-12">
             {if="!$fsc->plugin_manager->disable_add_plugins"}
-            <a href="#" class="btn btn-sm btn-success" data-toggle="modal" data-target="#modal_add_plugin">
-                <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
-                <span class="hidden-xs">&nbsp;Añadir</span>
-            </a>
+            <div style="display: inline-block;">
+                <a href="#modal_add_plugin" class="btn btn-sm btn-success" onclick="mostrar_modal_plugin(); return false;" id="btn_add_plugin_tab" title="Añadir nuevo plugin">
+                    <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+                    <span class="hidden-xs">&nbsp;Añadir</span>
+                </a>
+                <button class="btn btn-sm btn-info" onclick="mostrarModalSimple(); return false;" title="Modal simple (debug)" style="margin-left: 5px;">
+                    <span class="glyphicon glyphicon-question-sign" aria-hidden="true"></span>
+                </button>
+            </div>
             {/if}
         </div>
     </div>

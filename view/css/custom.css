@@ -51,7 +51,38 @@ ul.dropdown-menu li a:first-letter {
 }
 
 .modal-dialog {
-   z-index: 1050;
+    z-index: 1050;
+}
+
+.modal-backdrop {
+    z-index: 1040 !important;
+}
+
+.modal {
+    z-index: 1050 !important;
+}
+
+#modal_add_plugin {
+    z-index: 1060 !important;
+}
+
+#modal_add_plugin .modal-dialog {
+    z-index: 1060 !important;
+}
+
+/* Estilos adicionales para asegurar la visibilidad del modal */
+#modal_add_plugin.show {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+#modal_add_plugin {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+body.modal-open #modal_add_plugin {
+    overflow: hidden !important;
 }
 
 iframe {

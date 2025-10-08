@@ -165,11 +165,12 @@ function fs_file_get_contents($url, $timeout = 10)
         }
 
         /**
-         * En algunas configuraciones de php es necesario desactivar estos flags,
-         * en otras es necesario activarlos. habrá que buscar una solución mejor.
+         * Verificación SSL estricta para mayor seguridad
+         * Nota: Si tienes problemas con certificados auto-firmados, puedes desactivar temporalmente
          */
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt'); // Ruta típica de certificados
 
         if (defined('FS_PROXY_TYPE')) {
             curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
