@@ -15,3 +15,4 @@ package-lock.json
 /plugins/*
 !/plugins/adminlte/
 !/plugins/business_data/
+logs/api_security.log

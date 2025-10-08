@@ -74,11 +74,15 @@ class fs_api
     {
         $allowed_functions = ['lastactivity']; // Lista de funciones permitidas
         $fsext = new fs_extension();
-        
+
         // Agregar funciones de extensiones a la lista permitida
         foreach ($fsext->all_4_type('api') as $ext) {
             $allowed_functions[] = $ext->text;
         }
+
+        // Agregar funciones API del plugin api_auth directamente
+        $api_auth_functions = ['api_login', 'api_logout', 'api_validate_token', 'api_user_info', 'api_is_admin', 'api_has_access', 'api_get_pages'];
+        $allowed_functions = array_merge($allowed_functions, $api_auth_functions);
 
         // Verificar si la función solicitada está en la lista permitida
         if (in_array($function_name, $allowed_functions)) {
