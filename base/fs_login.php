@@ -296,11 +296,24 @@ class fs_login
         }
 
         /**
-         * En versiones anteriores se guardaban las contraseñas siempre en
-         * minúsculas, por eso, para dar compatibilidad comprobamos también
-         * en minúsculas.
+         * Comprobamos la contraseña con el método moderno password_verify
+         * Para compatibilidad con versiones anteriores, también verificamos con SHA1
          */
-        if ($user->password != sha1($password) && $user->password != sha1(mb_strtolower($password, 'UTF8'))) {
+        $password_verified = false;
+
+        // Verificar con el método moderno (Argon2ID)
+        if (password_verify($password, $user->password)) {
+            $password_verified = true;
+        }
+        // Para compatibilidad con versiones anteriores (SHA1)
+        elseif ($user->password == sha1($password) || $user->password == sha1(mb_strtolower($password, 'UTF8'))) {
+            $password_verified = true;
+            // Si la contraseña coincide con SHA1, actualizar el hash a Argon2ID para mayor seguridad
+            $user->set_password($password);
+            $user->save();
+        }
+
+        if (!$password_verified) {
             $this->core_log->new_error('¡Contraseña incorrecta! (' . $nick . ')');
             $this->core_log->save('¡Contraseña incorrecta! (' . $nick . ')', 'login', TRUE);
             return FALSE;

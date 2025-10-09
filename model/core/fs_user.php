@@ -326,7 +326,7 @@ class fs_user extends \fs_model
         $pass = trim($pass);
         if (mb_strlen($pass) > 1 && mb_strlen($pass) <= 32) {
             // Usar password_hash con Argon2 para mayor seguridad
-            $this->password = password_hash($pass, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4, 'threads' => 3]);
+            $this->password = password_hash($pass, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
             return TRUE;
         }
 
