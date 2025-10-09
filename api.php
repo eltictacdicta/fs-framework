@@ -22,6 +22,35 @@ define('FS_FOLDER', __DIR__);
 /// cargamos las constantes de configuración
 require_once 'config.php';
 require_once 'base/config2.php';
+
+/// Definir URL base del sistema si no está definida
+if (!defined('FS_BASE_URL')) {
+    $protocol = 'http';
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        $protocol = 'https';
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+        $protocol = 'https';
+    } elseif (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) {
+        $protocol = 'https';
+    }
+    
+    $host = 'localhost';
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $host = $_SERVER['HTTP_HOST'];
+    } elseif (!empty($_SERVER['SERVER_NAME'])) {
+        $host = $_SERVER['SERVER_NAME'];
+    }
+    
+    $base_path = (defined('FS_PATH') && FS_PATH !== '') ? FS_PATH : '';
+    if (empty($base_path) && !empty($_SERVER['SCRIPT_NAME'])) {
+        $script_dir = dirname($_SERVER['SCRIPT_NAME']);
+        if ($script_dir !== '/' && $script_dir !== '\\') {
+            $base_path = $script_dir;
+        }
+    }
+    
+    define('FS_BASE_URL', $protocol . '://' . $host . $base_path);
+}
 require_once 'base/fs_core_log.php';
 require_once 'base/fs_db2.php';
 $db = new fs_db2();
@@ -30,6 +59,9 @@ require_once 'base/fs_extended_model.php';
 require_once 'base/fs_log_manager.php';
 require_once 'base/fs_api.php';
 require_all_models();
+
+// Cargar la clase base fs_controller antes de cargar cualquier controlador que la extienda
+require_once 'base/fs_controller.php';
 
 // Inicializar plugin API Auth si existe - DESPUÉS de cargar modelos
 if (file_exists('plugins/api_auth/init.php')) {
@@ -51,17 +83,18 @@ if (file_exists('plugins/api_auth/model/api_functions.php')) {
     }
 }
 
-$db->connect();
+// ACCESO DESHABILITADO POR SEGURIDAD
+// Este archivo ha sido deprecado. Use los puntos de entrada específicos de cada plugin.
+// Para autenticación API, use: /plugins/api_auth/api.php
 
-if ($db->connected()) {
-    $api = new fs_api();
-    echo $api->run();
-} else {
-    echo 'ERROR al conectar a la base de datos';
-}
+header('HTTP/1.1 403 Forbidden');
+header('Content-Type: application/json');
 
-/// guardamos los errores en el log
-$log_manager = new fs_log_manager();
-$log_manager->save();
+echo json_encode([
+    'success' => false,
+    'error' => 'Acceso directo a la API general está deshabilitado por seguridad',
+    'message' => 'Por favor, utilice los endpoints específicos de cada plugin',
+    'api_auth_endpoint' => '/plugins/api_auth/api.php'
+]);
 
-$db->close();
+exit;

@@ -36,6 +36,35 @@ define('FS_FOLDER', __DIR__);
 /// cargamos las constantes de configuración
 require_once 'config.php';
 require_once 'base/config2.php';
+
+/// Definir URL base del sistema si no está definida
+if (!defined('FS_BASE_URL')) {
+    $protocol = 'http';
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        $protocol = 'https';
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+        $protocol = 'https';
+    } elseif (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) {
+        $protocol = 'https';
+    }
+    
+    $host = 'localhost';
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $host = $_SERVER['HTTP_HOST'];
+    } elseif (!empty($_SERVER['SERVER_NAME'])) {
+        $host = $_SERVER['SERVER_NAME'];
+    }
+    
+    $base_path = (defined('FS_PATH') && FS_PATH !== '') ? FS_PATH : '';
+    if (empty($base_path) && !empty($_SERVER['SCRIPT_NAME'])) {
+        $script_dir = dirname($_SERVER['SCRIPT_NAME']);
+        if ($script_dir !== '/' && $script_dir !== '\\') {
+            $base_path = $script_dir;
+        }
+    }
+    
+    define('FS_BASE_URL', $protocol . '://' . $host . $base_path);
+}
 require_once 'base/fs_controller.php';
 require_once 'base/fs_edit_controller.php';
 require_once 'base/fs_list_controller.php';
