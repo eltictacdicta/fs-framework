@@ -18,9 +18,9 @@
   "author": "Carlos García Gómez",
   "license": "LGPL-3.0",
   "bugs": {
-    "url": "https://facturascripts.com/contacto"
+    "url": "https://github.com/eltictacdicta/fs-framework/issues"
   },
-  "homepage": "https://facturascripts.com",
+  "homepage": "https://github.com/eltictacdicta/fs-framework",
   "dependencies": {
     "bootbox": "4.*",
     "bootstrap": "3.*",

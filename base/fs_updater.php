@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of FacturaScripts
+ * This file is part of FSFramework originally based on Facturascript 2017
  * Copyright (C) 2015-2020 Carlos Garcia Gomez <neorazorx@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ require_once 'base/fs_app.php';
 require_once 'base/fs_plugin_manager.php';
 
 /**
- * Controlador del actualizador de FacturaScripts.
+ * Controlador del actualizador de FSFramework.
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
 class fs_updater extends fs_app
@@ -215,7 +215,7 @@ class fs_updater extends fs_app
 
     private function actualizar_plugin_pago($idplugin, $name, $key)
     {
-        $url = 'https://facturascripts.com/DownloadBuild2017/' . $idplugin . '/stable?xid=' . $this->xid . '&key=' . $key;
+        $url = 'https://github.com/eltictacdicta/fs-framework/releases/download/v' . $idplugin . '/fs-framework-' . $idplugin . '.zip';
 
         /// descargamos el zip
         if (!@fs_file_download($url, FS_FOLDER . '/update-pay.zip')) {
@@ -306,7 +306,7 @@ class fs_updater extends fs_app
         if ($this->updates['core']) {
             $this->tr_updates = '<tr>'
                 . '<td><b>Núcleo</b></td>'
-                . '<td>Núcleo de FacturaScripts.</td>'
+                . '<td>Núcleo de FSFramework.</td>'
                 . '<td class="text-right">' . $this->plugin_manager->version . '</td>'
                 . '<td class="text-right"><a href="' . FS_COMMUNITY_URL . '/index.php?page=community_changelog&version='
                 . $this->updates['core'] . '" target="_blank">' . $this->updates['core'] . '</a></td>'
@@ -318,7 +318,7 @@ class fs_updater extends fs_app
         } else {
             $this->tr_options = '<tr>'
                 . '<td><b>Núcleo</b></td>'
-                . '<td>Núcleo de FacturaScripts.</td>'
+                . '<td>Núcleo de FSFramework.</td>'
                 . '<td class="text-right">' . $this->plugin_manager->version . '</td>'
                 . '<td class="text-right"><a href="' . FS_COMMUNITY_URL . '/index.php?page=community_changelog&version='
                 . $this->plugin_manager->version . '" target="_blank">' . $this->plugin_manager->version . '</a></td>'

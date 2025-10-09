@@ -2,6 +2,6 @@
 
 Este proyecto es software libre y todos los desarrolladores son bienvenidos.
 Puedes consultar la lista de tareas a realizar, la documentación y el chat
-para programadores en nuestra página web:
+para programadores en nuestro repositorio de GitHub:
 
-https://facturascripts.com/colabora
+https://github.com/eltictacdicta/fs-framework

@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of FacturaScripts
+ * This file is part of FSFramework originally based on Facturascript 2017
  * Copyright (C) 2016       Joe Nilson             <joenilson at gmail.com>
  * Copyright (C) 2017-2018  Carlos García Gómez    <neorazorx at gmail.com>
  *

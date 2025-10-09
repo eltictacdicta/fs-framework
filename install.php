@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of FacturaScripts
+ * This file is part of FSFramework originally based on Facturascript 2017
  * Copyright (C) 2013-2022 Carlos Garcia Gomez <neorazorx@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,14 +18,14 @@
  */
 error_reporting(E_ALL);
 date_default_timezone_set('Europe/Madrid');
-define('FS_COMMUNITY_URL', 'https://facturascripts.com');
+define('FS_COMMUNITY_URL', 'https://github.com/eltictacdicta/fs-framework');
 
 $errors = [];
 $errors2 = [];
 $db_type = 'MYSQL';
 $db_host = 'localhost';
 $db_port = '3306';
-$db_name = 'facturascripts';
+$db_name = 'fsframework';
 $db_user = '';
 
 function guarda_config(&$errors, $nombre_archivo = 'config.php')
@@ -244,8 +244,8 @@ $system_info = str_replace('"', "'", $system_info);
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>FacturaScripts</title>
-        <meta name="description" content="FacturaScripts es un software de facturación y contabilidad para pymes. Es software libre bajo licencia GNU/LGPL." />
+        <title>FSFramework</title>
+        <meta name="description" content="FSFramework es un software de facturación y contabilidad para pymes. Es software libre bajo licencia GNU/LGPL." />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="robots" content="noindex" />
         <link rel="shortcut icon" href="view/img/favicon.ico" />
@@ -270,7 +270,7 @@ $system_info = str_replace('"', "'", $system_info);
                         <span class="icon-bar"></span>
                         <span class="icon-bar"></span>
                     </button>
-                    <a class="navbar-brand" href="index.php">FacturaScripts</a>
+                    <a class="navbar-brand" href="index.php">FSFramework</a>
                 </div>
                 <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
                     <ul class="nav navbar-nav navbar-right">
@@ -318,7 +318,7 @@ $system_info = str_replace('"', "'", $system_info);
                             <p class="help-block">
                                 Usa este formulario para informarnos de cualquier error o duda que hayas encontrado.
                                 Para facilitarnos el trabajo este formulario también nos informa de la versión de
-                                FacturaScripts que usas, versión de php, etc...
+                                FSFramework que usas, versión de php, etc...
                             </p>
                         </div>
                         <div class="modal-body">
@@ -405,7 +405,7 @@ $system_info = str_replace('"', "'", $system_info);
                     <div class="page-header">
                         <h1>
                             <i class="fa fa-cloud-upload" aria-hidden="true"></i>
-                            Bienvenido al instalador de FacturaScripts
+                            Bienvenido al instalador de FSFramework
                             <small><?php echo file_get_contents('VERSION'); ?></small>
                         </h1>
                     </div>
@@ -424,7 +424,7 @@ $system_info = str_replace('"', "'", $system_info);
                                 </div>
                                 <div class="panel-body">
                                     <p>
-                                        La carpeta de FacturaScripts no tiene permisos de escritura.
+                                        La carpeta de FSFramework no tiene permisos de escritura.
                                         Estos permisos son necesarios para el sistema de plantillas,
                                         instalar plugins, actualizaciones, etc...
                                     </p>
@@ -464,7 +464,7 @@ $system_info = str_replace('"', "'", $system_info);
                                 </div>
                                 <div class="panel-body">
                                     <p>
-                                        FacturaScripts necesita PHP <b>5.6</b> o superior.
+                                        FSFramework necesita PHP <b>5.6</b> o superior.
                                         Tú estás usando la versión <b><?php echo phpversion() ?></b>.
                                     </p>
                                     <h3>Soluciones:</h3>
@@ -494,7 +494,7 @@ $system_info = str_replace('"', "'", $system_info);
                                 </div>
                                 <div class="panel-body">
                                     <p>
-                                        FacturaScripts necesita la extensión mbstring para poder trabajar con caracteres
+                                        FSFramework necesita la extensión mbstring para poder trabajar con caracteres
                                         no europeos (chinos, coreanos, japonenes y rusos).
                                     </p>
                                     <h3>
@@ -524,7 +524,7 @@ $system_info = str_replace('"', "'", $system_info);
                                 </div>
                                 <div class="panel-body">
                                     <p>
-                                        FacturaScripts necesita la extensión OpenSSL para poder descargar plugins,
+                                        FSFramework necesita la extensión OpenSSL para poder descargar plugins,
                                         actualizaciones y enviar emails.
                                     </p>
                                     <h3>
@@ -575,7 +575,7 @@ $system_info = str_replace('"', "'", $system_info);
                                 </div>
                                 <div class="panel-body">
                                     <p>
-                                        FacturaScripts necesita la extensión ZipArchive para poder
+                                        FSFramework necesita la extensión ZipArchive para poder
                                         descomprimir plugins y actualizaciones.
                                     </p>
                                     <h3>
@@ -883,7 +883,7 @@ $system_info = str_replace('"', "'", $system_info);
                     <hr/>
                     <small>
                         &COPY; 2013-<?php echo date('Y'); ?>
-                        <a target="_blank" href="<?php echo FS_COMMUNITY_URL; ?>" rel="nofollow">FacturaScripts</a>
+                        <a target="_blank" href="<?php echo FS_COMMUNITY_URL; ?>" rel="nofollow">FSFramework</a>
                     </small>
                 </div>
             </div>

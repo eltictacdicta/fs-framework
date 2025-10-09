@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of FacturaScripts
+ * This file is part of FSFramework originally based on Facturascript 2017
  * Copyright (C) 2015-2020 Carlos Garcia Gomez <neorazorx@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ require_once 'base/fs_plugin_manager.php';
 require_once 'base/fs_settings.php';
 
 /**
- * Panel de control de FacturaScripts.
+ * Panel de control de FSFramework.
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
 class admin_home extends fs_controller
@@ -158,8 +158,8 @@ class admin_home extends fs_controller
 
         if (FS_DEMO) {
             $this->new_advice('En el modo demo no se pueden hacer cambios en esta página.');
-            $this->new_advice('Si te gusta FacturaScripts y quieres saber más, consulta la '
-                . '<a href="https://facturascripts.com/doc/2">documentación</a>.');
+            $this->new_advice('Si te gusta FSFramework y quieres saber más, consulta la '
+                . '<a href="https://github.com/eltictacdicta/fs-framework">documentación</a>.');
             return;
         }
 
