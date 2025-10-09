@@ -126,8 +126,8 @@ class fs_updater extends fs_app
     private function actualizar_nucleo()
     {
         $urls = array(
-            'https://github.com/NeoRazorX/facturascripts_2015/archive/master.zip',
-            'https://codeload.github.com/NeoRazorX/facturascripts_2015/zip/master'
+            'https://github.com/eltictacdicta/fs-framework/archive/refs/heads/master.zip',
+            'https://codeload.github.com/eltictacdicta/fs-framework/zip/refs/heads/master'
         );
 
         foreach ($urls as $url) {
@@ -153,9 +153,9 @@ class fs_updater extends fs_app
                 rename(FS_FOLDER . '/' . $folder . '/', FS_FOLDER . '/' . $folder . '_old/');
             }
 
-            /// ahora hay que copiar todos los archivos de facturascripts-master a la raíz y borrar
-            fs_file_manager::recurse_copy(FS_FOLDER . '/facturascripts_2015-master/', FS_FOLDER);
-            fs_file_manager::del_tree(FS_FOLDER . '/facturascripts_2015-master/');
+            /// ahora hay que copiar todos los archivos de fs-framework-master a la raíz y borrar
+            fs_file_manager::recurse_copy(FS_FOLDER . '/fs-framework-master/', FS_FOLDER);
+            fs_file_manager::del_tree(FS_FOLDER . '/fs-framework-master/');
 
             $this->core_log->new_message('Actualizado correctamente.');
             $this->actualizacion_correcta('');
@@ -407,7 +407,7 @@ class fs_updater extends fs_app
 
         $version_actual = $this->plugin_manager->version;
         $this->updates['version'] = $version_actual;
-        $nueva_version = @fs_file_get_contents('https://raw.githubusercontent.com/NeoRazorX/facturascripts_2015/master/VERSION');
+        $nueva_version = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-framework/refs/heads/master/VERSION');
         if (floatval($version_actual) < floatval($nueva_version)) {
             $this->updates['core'] = $nueva_version;
         } else {

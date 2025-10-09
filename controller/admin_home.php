@@ -93,7 +93,7 @@ class admin_home extends fs_controller
         if (!$updates) {
             /// comprobamos actualizaciones del núcleo
             $version = file_get_contents('VERSION');
-            $internet_version = @fs_file_get_contents('https://raw.githubusercontent.com/NeoRazorX/facturascripts_2015/master/VERSION');
+            $internet_version = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-framework/refs/heads/master/VERSION');
             if (floatval($version) < floatval($internet_version)) {
                 $updates = TRUE;
             }
