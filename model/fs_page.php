@@ -48,6 +48,7 @@ class fs_page extends fs_model
     public $show_on_menu;
     public $exists;
     public $enabled;
+    public $allow_delete;
     public $extra_url;
 
     /**
