@@ -498,7 +498,7 @@ class fs_plugin_manager
             if ($plugin['min_version'] > 2017.000) {
                 $plugin['compatible'] = true;
                 $plugin['legacy_warning'] = true;
-                $plugin['error_msg'] = 'Aunque se ha mantenido la compatibilidad con FacturaScript, se ha quitado toda la parte de clientes y empresa ya que FSFramework es para un uso mas general. Ademas no se garantiza la compatibilidad al 100% con FacturaScript.';
+                $plugin['error_msg'] = 'Aunque se ha mantenido la compatibilidad con FacturaScript, se ha quitado toda la parte de clientes y empresa.';
             } else {
                 $plugin['compatible'] = false;
                 $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'];
