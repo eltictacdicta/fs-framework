@@ -20,7 +20,7 @@
 require_once 'model/core/fs_user.php';
 
 /**
- * Usuario de FacturaScripts. Puede estar asociado a un agente.
+ * Usuario de FSFramework. Puede estar asociado a un agente.
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */

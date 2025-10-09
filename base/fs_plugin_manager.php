@@ -445,7 +445,7 @@ class fs_plugin_manager
             'description' => 'Sin descripción.',
             'download2_url' => '',
             'enabled' => FALSE,
-            'error_msg' => 'Falta archivo facturascripts.ini',
+            'error_msg' => 'Falta archivo de configuración del plugin',
             'idplugin' => NULL,
             'min_version' => $this->version,
             'name' => $plugin_name,
@@ -455,13 +455,25 @@ class fs_plugin_manager
             'version' => 1,
             'version_url' => '',
             'wizard' => FALSE,
+            'legacy_warning' => FALSE,
         ];
 
-        if (!file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '/facturascripts.ini')) {
+        $fsframework_ini = FS_FOLDER . '/plugins/' . $plugin_name . '/fsframework.ini';
+        $facturascripts_ini = FS_FOLDER . '/plugins/' . $plugin_name . '/facturascripts.ini';
+
+        // First, try to read fsframework.ini
+        if (file_exists($fsframework_ini)) {
+            $ini_file = parse_ini_file($fsframework_ini);
+            $plugin['error_msg'] = 'Falta archivo facturascripts.ini';
+        }
+        // If fsframework.ini doesn't exist, try facturascripts.ini
+        elseif (file_exists($facturascripts_ini)) {
+            $ini_file = parse_ini_file($facturascripts_ini);
+        }
+        else {
             return $plugin;
         }
 
-        $ini_file = parse_ini_file(FS_FOLDER . '/plugins/' . $plugin_name . '/facturascripts.ini');
         foreach (['description', 'idplugin', 'min_version', 'update_url', 'version', 'version_url', 'wizard'] as $field) {
             if (isset($ini_file[$field])) {
                 $plugin[$field] = $ini_file[$field];
@@ -472,10 +484,25 @@ class fs_plugin_manager
         $plugin['version'] = (int) $plugin['version'];
         $plugin['min_version'] = (float) $plugin['min_version'];
 
-        if ($this->version >= $plugin['min_version']) {
-            $plugin['compatible'] = true;
-        } else {
-            $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'];
+        // Check compatibility based on configuration file type and version
+        if (file_exists($fsframework_ini)) {
+            // For fsframework.ini, use standard compatibility check
+            if ($this->version >= $plugin['min_version']) {
+                $plugin['compatible'] = true;
+            } else {
+                $plugin['error_msg'] = 'Requiere FSFramework ' . $plugin['min_version'];
+            }
+        }
+        else {
+            // For facturascripts.ini, check if version is greater than 2017.000
+            if ($plugin['min_version'] > 2017.000) {
+                $plugin['compatible'] = true;
+                $plugin['legacy_warning'] = true;
+                $plugin['error_msg'] = 'Aunque se ha mantenido la compatibilidad con FacturaScript, se ha quitado toda la parte de clientes y empresa ya que FSFramework es para un uso mas general. Ademas no se garantiza la compatibilidad al 100% con FacturaScript.';
+            } else {
+                $plugin['compatible'] = false;
+                $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'];
+            }
         }
 
         if (file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '/description')) {

@@ -17,6 +17,12 @@
             <td>{$value.name}</td>
             <td>
                 <p>{$value.description}</p>
+                {if="$value.legacy_warning"}
+                <div class="alert alert-warning" style="margin-top: 10px; margin-bottom: 10px;">
+                    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>&nbsp;
+                    <strong>Advertencia:</strong> {$value.error_msg}
+                </div>
+                {/if}
                 {if="$value.wizard !='' && $value.enabled"}
                 <a href="index.php?page={$value.wizard}" class="btn btn-xs btn-default">
                     <span class="glyphicon glyphicon-cog" aria-hidden="true"></span>&nbsp; Configurar

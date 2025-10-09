@@ -28,7 +28,7 @@ require_all_models();
 
 /**
  * La clase principal de la que deben heredar todos los controladores
- * (las páginas) de FacturaScripts.
+ * (las páginas) de FSFramework.
  * 
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
@@ -79,7 +79,7 @@ class fs_controller extends fs_app
     private $login_tools;
 
     /**
-     * Contiene el menú de FacturaScripts
+     * Contiene el menú de FSFramework
      * @var array
      */
     protected $menu;
@@ -537,7 +537,7 @@ class fs_controller extends fs_app
     }
 
     /**
-     * Carga el menú de facturaScripts
+     * Carga el menú de FSFramework
      * @param boolean $reload TRUE si quieres recargar
      */
     protected function load_menu($reload = FALSE)

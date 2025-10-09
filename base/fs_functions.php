@@ -333,6 +333,6 @@ function require_model($name)
 {
     if (FS_DB_HISTORY) {
         $core_log = new fs_core_log();
-        $core_log->new_error("require_model('" . $name . "') es innecesario desde FacturaScripts 2017.025.");
+        $core_log->new_error("require_model('" . $name . "') es innecesario desde FSFramework 2017.025.");
     }
 }

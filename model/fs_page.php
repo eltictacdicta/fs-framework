@@ -19,7 +19,7 @@
  */
 
 /**
- * Elemento del menú de FacturaScripts, cada uno se corresponde con un controlador.
+ * Elemento del menú de FSFramework, cada uno se corresponde con un controlador.
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */

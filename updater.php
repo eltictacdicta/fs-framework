@@ -43,8 +43,8 @@ $updater = new fs_updater();
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Actualizador de FacturaScripts</title>
-        <meta name="description" content="Script de actualización de FacturaScripts." />
+        <title>Actualizador de FSFramework</title>
+        <meta name="description" content="Script de actualización de FSFramework." />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="generator" content="FacturaScripts" />
         <meta name="robots" content="noindex" />
@@ -69,7 +69,7 @@ $updater = new fs_updater();
                     </a>
                     <div class="page-header">
                         <h1>
-                            <span class="glyphicon glyphicon-upload" aria-hidden="true"></span> Actualizador de FacturaScripts
+                            <span class="glyphicon glyphicon-upload" aria-hidden="true"></span> Actualizador de FSFramework
                         </h1>
                     </div>
                     <?php
@@ -101,7 +101,7 @@ $updater = new fs_updater();
             <div class="row">
                 <div class="col-sm-12">
                     <p class="help-block">
-                        Este actualizador permite actualizar <b>tanto el núcleo</b> de FacturaScripts
+                        Este actualizador permite actualizar <b>tanto el núcleo</b> de FSFramework
                         <b>como sus plugins</b>, incluso los de pago y los privados.
                         Si hay una actualización del núcleo tendrás que actualizar antes de poder ver si
                         también hay actualizaciones de plugins.
@@ -150,27 +150,6 @@ $updater = new fs_updater();
                                     <?php echo $updater->tr_options; ?>
                                 </table>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-sm-12">
-                    <br/>
-                    <div class="panel panel-warning">
-                        <div class="panel-heading">
-                            <h3 class="panel-title">FacturaScripts 2020</h3>
-                        </div>
-                        <div class="panel-body">
-                            FacturaScripts 2020 es un <b>rediseño desde cero</b> y para actualizar es necesario que hagas
-                            una <b>copia de seguridad</b>, instales FacturaScripts 2020 y ejecutes el <b>proceso de migración</b>.
-                            <br/>
-                            <br/>
-                            <a href="https://facturascripts.com/plugin/backups" target="_blank" class="btn btn-default">Copia de seguridad</a>
-                            &nbsp;
-                            <a href="https://facturascripts.com/descargar" target="_blank" class="btn btn-default">Instalar FacturaScripts 2020</a>
-                            &nbsp;
-                            <a href="https://facturascripts.com/publicaciones/actualizar-desde-facturascripts-2017-292" target="_blank" class="btn btn-default">Guía de migración</a>
                         </div>
                     </div>
                 </div>
@@ -245,7 +224,7 @@ $updater = new fs_updater();
             <div class="row">
                 <div class="col-xs-6">
                     <small>
-                        Creado con <a target="_blank" href="https://facturascripts.com">FacturaScripts</a>.
+                        Creado con <a target="_blank" href="https://github.com/eltictacdicta/fs-framework" rel="nofollow">FSFramework</a>.
                     </small>
                 </div>
                 <div class="col-xs-6 text-right">

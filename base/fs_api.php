@@ -36,9 +36,9 @@ class fs_api
         $version = fs_filter_input_req('v');
 
         if (!$version) {
-            return 'Version de la API de FacturaScripts ausente. Actualiza el cliente.';
+            return 'Version de la API de FSFramework ausente. Actualiza el cliente.';
         } else if ($version != '2') {
-            return 'Version de la API de FacturaScripts incorrecta. Actualiza el cliente.';
+            return 'Version de la API de FSFramework incorrecta. Actualiza el cliente.';
         } else if (!$function_name) {
             return 'Ninguna funcion ejecutada.';
         }

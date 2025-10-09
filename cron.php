@@ -17,12 +17,12 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-echo 'Iniciando cron de FacturaScripts...';
+echo 'Iniciando cron de FSFramework...';
 
 /// establecemos el límite de ejecución de PHP en 50 minutos
 @set_time_limit(3000);
 
-/// accedemos al directorio de FacturaScripts
+/// accedemos al directorio de FSFramework
 chdir(__DIR__);
 define('FS_FOLDER', __DIR__);
 

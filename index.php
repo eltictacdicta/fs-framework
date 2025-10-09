@@ -104,7 +104,7 @@ if ($fsc->template) {
     if (is_writable('tmp')) {
         raintpl::configure('cache_dir', 'tmp/' . FS_TMP_NAME);
     } else {
-        echo '<h1>No se puede escribir sobre la carpeta tmp de FacturaScripts</h1>'
+        echo '<h1>No se puede escribir sobre la carpeta tmp de FSFramework</h1>'
         . '<p>Consulta la <a target="_blank" href="//facturascripts.com/ayuda" rel="nofollow">ayuda</a>.</p>';
         die();
     }

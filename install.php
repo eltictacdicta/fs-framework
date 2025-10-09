@@ -444,7 +444,7 @@ $system_info = str_replace('"', "'", $system_info);
                                         La configuración por defecto de estas distribuciones, en concreto SELinux,
                                         bloquea cualquier intento de comprobar si la carpeta tiene permisos de escritura.
                                         Desactiva o modifica la configuración de SELinux para el correcto funcionamiento
-                                        de FacturaScripts.
+                                        de FSFramework.
                                     </p>
                                     <h3>
                                         <i class="fa fa-globe" aria-hidden="true"></i> Hosting
@@ -540,7 +540,7 @@ $system_info = str_replace('"', "'", $system_info);
                                         <i class="fa fa-windows" aria-hidden="true"></i> Windows
                                     </h3>
                                     <p class="help-block">
-                                        Ofrecemos una versión de FacturaScripts para Windows <b>con todo</b> el software necesario
+                                        Ofrecemos una versión de FSFramework para Windows <b>con todo</b> el software necesario
                                         (como OpenSSL) ya incluido de serie. Puedes encontrala en nuestra sección de
                                         <a href="<?php echo FS_COMMUNITY_URL; ?>/descargar" rel="nofollow" target="_blank">descargas</a>.
                                         Si decides utilizar <b>un empaquetado distinto</b>, y este no incluye lo necesario, deberás

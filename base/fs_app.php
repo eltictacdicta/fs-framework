@@ -196,8 +196,8 @@ class fs_app
     }
 
     /**
-     * Devuelve la versión de FacturaScripts
-     * @return string versión de FacturaScripts
+     * Devuelve la versión de FSFramework
+     * @return string versión de FSFramework
      */
     public function version()
     {

@@ -20,7 +20,7 @@
 namespace FacturaScripts\model;
 
 /**
- * Usuario de FacturaScripts. Puede estar asociado a un agente.
+ * Usuario de FSFramework. Puede estar asociado a un agente.
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
@@ -459,7 +459,7 @@ class fs_user extends \fs_model
     }
 
     /**
-     * Devuelve la lista completa de usuarios de FacturaScripts.
+     * Devuelve la lista completa de usuarios de FSFramework.
      * @return \fs_user
      */
     public function all()
@@ -484,7 +484,7 @@ class fs_user extends \fs_model
     }
 
     /**
-     * Devuelve la lista completa de usuarios activados de FacturaScripts.
+     * Devuelve la lista completa de usuarios activados de FSFramework.
      * @return \fs_user
      */
     public function all_enabled()
