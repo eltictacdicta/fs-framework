@@ -207,7 +207,7 @@ class fs_plugin_manager
         }
 
         /// lista de plugins de la comunidad, se descarga de Internet.
-        $json = @fs_file_get_contents('https://facturascripts.com/DownloadBuild2017', 10);
+        $json = @fs_file_get_contents('https://github.com/eltictacdicta/fs-framework/DownloadBuild2017', 10);
         if ($json && $json != 'ERROR') {
             $this->download_list = json_decode($json, true);
             foreach ($this->download_list as $key => $value) {

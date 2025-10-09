@@ -142,7 +142,7 @@ class admin_info extends fs_list_controller
             }
         } else if (!$cron_vars['cron_exists']) {
             $this->new_advice('Nunca se ha ejecutado el'
-                . ' <a href="https://facturascripts.com/doc/2/configuracion/en-cron" target="_blank">cron</a>,'
+                . ' <a href="https://github.com/eltictacdicta/fs-framework/doc/2/configuracion/en-cron" target="_blank">cron</a>,'
                 . ' te perderás algunas características interesantes de FSFramework.');
         } else if ($cron_vars['cron_error']) {
             $this->new_error_msg('Parece que ha habido un error con el cron. Haz clic <a href="' . $this->url()

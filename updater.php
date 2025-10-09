@@ -63,7 +63,7 @@ $updater = new fs_updater();
                         <span class="glyphicon glyphicon-arrow-left" aria-hidden="true"></span>
                         <span class="hidden-xs">&nbsp;Panel de control</span>
                     </a>
-                    <a href="https://facturascripts.com/plugins?activetab=ListPluginKey2017" target="_blank" class="btn btn-sm btn-default">
+                    <a href="https://github.com/eltictacdicta/fs-framework/plugins?activetab=ListPluginKey2017" target="_blank" class="btn btn-sm btn-default">
                         <i class="fa fa-key" aria-hidden="true"></i>
                         <span class="hidden-xs">&nbsp;Claves</span>
                     </a>
