@@ -665,7 +665,7 @@ class fs_mysql extends fs_db_engine
         }
 
         $db_default = str_replace(array('::character varying', "'"), array('', ''), $db_default);
-        $xml_default = str_replace(array('::character varying', "'"), array('', ''), $xml_default);
+        $xml_default = str_replace(array('::character varying', "'"), array('', ''), $xml_default ?? '');
         return ($db_default == $xml_default);
     }
 
