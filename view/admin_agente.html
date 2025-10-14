@@ -1,0 +1,265 @@
+{include="header"}
+
+<div class="container-fluid">
+    <div class="row">
+       <div class="col-sm-6 col-xs-7">
+          <div class="btn-group">
+             <a class="btn btn-sm btn-default" href="index.php?page=admin_agentes" title="Volver al listado">
+                <span class="glyphicon glyphicon-arrow-left"></span>
+             </a>
+             <a class="btn btn-sm btn-default" href="{$fsc->url()}" title="Recargar la página">
+                <span class="glyphicon glyphicon-refresh"></span>
+             </a>
+             {if="$fsc->page->is_default()"}
+             <a class="btn btn-sm btn-default active" href="{$fsc->url()}&default_page=FALSE" title="Marcada como página de inicio (pulsa de nuevo para desmarcar)">
+                <i class="fa fa-bookmark" aria-hidden="true"></i>
+             </a>
+             {else}
+             <a class="btn btn-sm btn-default" href="{$fsc->url()}&default_page=TRUE" title="Marcar como página de inicio">
+                <i class="fa fa-bookmark-o" aria-hidden="true"></i>
+             </a>
+             {/if}
+          </div>
+          <div class="btn-group">
+             {loop="$fsc->extensions"}
+                {if="$value->type=='button'"}
+                <a href="index.php?page={$value->from}{$value->params}" class="btn btn-sm btn-default">{$value->text}</a>
+                {/if}
+             {/loop}
+          </div>
+       </div>
+       <div class="col-sm-6 col-xs-5 text-right">
+          <h2 style="margin-top: 0px;">Editar Agente: {$fsc->agente->codagente}</h2>
+       </div>
+    </div>
+</div>
+
+{if="$fsc->agente"}
+<form name="f_editar_agente" class="form" role="form" action="{$fsc->url()}" method="post">
+    <input type="hidden" name="codagente" value="{$fsc->agente->codagente}"/>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">Información Personal</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Nombre *</label>
+                                    <input class="form-control" type="text" name="nombre" maxlength="50" value="{$fsc->agente->nombre}" required=""/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Apellidos *</label>
+                                    <input class="form-control" type="text" name="apellidos" maxlength="100" value="{$fsc->agente->apellidos}" required=""/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>DNI/CIF</label>
+                                    <input class="form-control" type="text" name="dnicif" maxlength="20" value="{$fsc->agente->dnicif}"/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <div class="input-group">
+                                        <span class="input-group-addon">
+                                            <span class="glyphicon glyphicon-envelope"></span>
+                                        </span>
+                                        <input class="form-control" type="email" name="email" value="{$fsc->agente->email}"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Teléfono</label>
+                                    <input class="form-control" type="tel" name="telefono" maxlength="20" value="{$fsc->agente->telefono}"/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Cargo</label>
+                                    <input class="form-control" type="text" name="cargo" maxlength="50" value="{$fsc->agente->cargo}"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Dirección</label>
+                            <textarea class="form-control" name="direccion" rows="2">{$fsc->agente->direccion}</textarea>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Código Postal</label>
+                                    <input class="form-control" type="text" name="codpostal" maxlength="10" value="{$fsc->agente->codpostal}"/>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Provincia</label>
+                                    <input class="form-control" type="text" name="provincia" maxlength="50" value="{$fsc->agente->provincia}"/>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Ciudad</label>
+                                    <input class="form-control" type="text" name="ciudad" maxlength="50" value="{$fsc->agente->ciudad}"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">Información Laboral</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Fecha de nacimiento</label>
+                                    <input class="form-control datepicker" type="text" name="f_nacimiento" value="{$fsc->agente->f_nacimiento}"/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Fecha de alta</label>
+                                    <input class="form-control datepicker" type="text" name="f_alta" value="{$fsc->agente->f_alta}"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Fecha de baja</label>
+                                    <input class="form-control datepicker" type="text" name="f_baja" value="{$fsc->agente->f_baja}"/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>% Comisión</label>
+                                    <input class="form-control" type="number" step="0.01" name="porcomision" value="{$fsc->agente->porcomision}"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Nº Seguridad Social</label>
+                                    <input class="form-control" type="text" name="seg_social" maxlength="20" value="{$fsc->agente->seg_social}"/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Cuenta bancaria</label>
+                                    <input class="form-control" type="text" name="banco" maxlength="50" value="{$fsc->agente->banco}"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="panel panel-info">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">Acciones</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <a href="index.php?page=admin_agentes" class="btn btn-default btn-block">
+                                <span class="glyphicon glyphicon-arrow-left"></span> Volver al listado
+                            </a>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <span class="glyphicon glyphicon-floppy-disk"></span> Guardar cambios
+                            </button>
+                        </div>
+
+                        <div class="form-group">
+                            <a href="#" onclick="delete_agente('{$fsc->agente->codagente}', '{$fsc->agente->get_fullname()}')" class="btn btn-danger btn-block">
+                                <span class="glyphicon glyphicon-trash"></span> Eliminar agente
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">Información del Agente</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Código:</label>
+                            <p class="form-control-static">{$fsc->agente->codagente}</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Nombre completo:</label>
+                            <p class="form-control-static">{$fsc->agente->get_fullname()}</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Estado:</label>
+                            <p class="form-control-static">
+                                {if="$fsc->agente->f_baja"}
+                                    <span class="label label-danger">Dado de baja</span>
+                                {else}
+                                    <span class="label label-success">Activo</span>
+                                {/if}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{else}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-danger">
+                <h4>Agente no encontrado</h4>
+                <p>No se pudo encontrar el agente solicitado. Puede que haya sido eliminado o que el código proporcionado no sea válido.</p>
+                <p><a href="index.php?page=admin_agentes" class="btn btn-default">Volver al listado de agentes</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{/if}
+
+<script type="text/javascript">
+function delete_agente(codagente, nombre) {
+    bootbox.confirm({
+        title: 'Eliminar agente',
+        message: '¿Estás seguro de que quieres eliminar el agente <b>' + nombre + '</b>?',
+        confirm: function(result) {
+            if (result) {
+                window.location.href = 'index.php?page=admin_agentes&delete=' + codagente;
+            }
+        }
+    });
+}
+</script>
+
+{include="footer"}
