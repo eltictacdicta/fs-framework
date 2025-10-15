@@ -56,6 +56,12 @@ class admin_home extends fs_controller
      */
     public $step;
 
+    /**
+     * Herramientas para trabajar con divisas
+     * @var \fs_divisa_tools
+     */
+    protected $divisa_tools;
+
     public function __construct()
     {
         parent::__construct(__CLASS__, 'Panel de control', 'admin');
@@ -129,6 +135,10 @@ class admin_home extends fs_controller
         $this->plugin_manager = new fs_plugin_manager();
         $this->settings = new fs_settings();
         $this->step = (string) $this->fs_var->simple_get('install_step');
+
+        // Inicializar herramientas de divisas
+        $coddivisa = $this->default_items->coddivisa();
+        $this->divisa_tools = new fs_divisa_tools($coddivisa);
 
         $this->exec_actions();
 
@@ -445,5 +455,20 @@ class admin_home extends fs_controller
         } else {
             $this->new_message('Error al guardar los datos.');
         }
+    }
+
+    /**
+     * Devuelve el símbolo de divisa predeterminado
+     * o bien el símbolo de la divisa seleccionada.
+     * 
+     * @param string $coddivisa
+     * @return string
+     */
+    public function simbolo_divisa($coddivisa = FALSE)
+    {
+        if (!isset($this->divisa_tools)) {
+            return '€'; // Valor por defecto si no está inicializado
+        }
+        return $this->divisa_tools->simbolo_divisa($coddivisa);
     }
 }
