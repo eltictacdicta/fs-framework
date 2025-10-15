@@ -36,7 +36,13 @@ class admin_agente extends fs_controller
     {
         $this->agente = FALSE;
 
-        $cod = filter_input(INPUT_GET, 'cod');
+        // Primero verificar si hay un POST (guardar agente)
+        if (filter_input(INPUT_POST, 'codagente')) {
+            $cod = filter_input(INPUT_POST, 'codagente');
+        } else {
+            $cod = filter_input(INPUT_GET, 'cod');
+        }
+
         if ($cod) {
             $agente_obj = new agente();
             $this->agente = $agente_obj->get($cod);
@@ -88,14 +94,16 @@ class admin_agente extends fs_controller
             $this->agente->seg_social = $agente_data['seg_social'];
             $this->agente->cargo = $agente_data['cargo'];
             $this->agente->banco = $agente_data['banco'];
-            $this->agente->f_nacimiento = $agente_data['f_nacimiento'];
-            $this->agente->f_alta = $agente_data['f_alta'];
-            $this->agente->f_baja = $agente_data['f_baja'];
+            
+            // Convertir fechas vacías a NULL
+            $this->agente->f_nacimiento = empty($agente_data['f_nacimiento']) ? NULL : $agente_data['f_nacimiento'];
+            $this->agente->f_alta = empty($agente_data['f_alta']) ? NULL : $agente_data['f_alta'];
+            $this->agente->f_baja = empty($agente_data['f_baja']) ? NULL : $agente_data['f_baja'];
+            
             $this->agente->porcomision = $agente_data['porcomision'];
 
             if ($this->agente->save()) {
                 $this->new_message('Agente ' . $this->agente->codagente . ' modificado correctamente.');
-                header('Location: ' . $this->agente->url());
             } else {
                 $this->new_error_msg('Error al modificar el agente.');
             }

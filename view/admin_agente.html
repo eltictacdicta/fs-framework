@@ -29,7 +29,13 @@
           </div>
        </div>
        <div class="col-sm-6 col-xs-5 text-right">
-          <h2 style="margin-top: 0px;">Editar Agente: {$fsc->agente->codagente}</h2>
+          <h2 style="margin-top: 0px;">
+             {if="$fsc->agente"}
+                Editar Agente: {$fsc->agente->codagente}
+             {else}
+                Editar Agente
+             {/if}
+          </h2>
        </div>
     </div>
 </div>
