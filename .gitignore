@@ -17,3 +17,10 @@ package-lock.json
 !/plugins/AdminLTE/
 !/plugins/business_data/
 logs/api_security.log
+
+# Excluir imágenes subidas por la API
+/imgs/api_auth/business_cards/*.jpg
+/imgs/api_auth/business_cards/*.jpeg
+/imgs/api_auth/business_cards/*.png
+/imgs/api_auth/business_cards/*.gif
+/imgs/api_auth/business_cards/*.webp
