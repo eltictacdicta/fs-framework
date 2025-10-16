@@ -1,18 +1,28 @@
-# Permitir acceso a imágenes
+# Desactivar rewrite para servir imágenes directamente
 <IfModule mod_rewrite.c>
     RewriteEngine Off
 </IfModule>
 
 # Permitir acceso a archivos de imagen
 <FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
-    Order allow,deny
-    Allow from all
+    # Apache 2.4+
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    # Apache 2.2
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+    
+    # Asegurar que se sirvan como imágenes, no como texto
+    ForceType image/jpeg
 </FilesMatch>
 
 # Prevenir listado de directorios
 Options -Indexes
 
-# Configurar tipos MIME
+# Configurar tipos MIME correctamente
 <IfModule mod_mime.c>
     AddType image/jpeg .jpg .jpeg
     AddType image/png .png
@@ -27,5 +37,11 @@ Options -Indexes
     ExpiresByType image/png "access plus 30 days"
     ExpiresByType image/gif "access plus 30 days"
     ExpiresByType image/webp "access plus 30 days"
+</IfModule>
+
+# Headers de seguridad y CORS
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set X-Content-Type-Options "nosniff"
 </IfModule>
 

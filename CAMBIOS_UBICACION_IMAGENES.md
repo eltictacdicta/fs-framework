@@ -52,17 +52,23 @@ fs-framework/
 │           └── {uuid}_{timestamp}_thumb.jpg    # Thumbnail
 ```
 
-## 🌐 URLs Públicas
+## 🌐 URLs en Base de Datos
 
-**Antes:**
+**Antes (URL absoluta):**
 ```
 https://otp.grupoinfrico.com/fsf/tmp/infrico_uploads/business_cards/{uuid}_{timestamp}.jpg
 ```
 
-**Después:**
+**Después (ruta relativa):**
 ```
-https://otp.grupoinfrico.com/fsf/imgs/api_auth/business_cards/{uuid}_{timestamp}.jpg
+imgs/api_auth/business_cards/{uuid}_{timestamp}.jpg
 ```
+
+**Ventaja de rutas relativas:**
+- ✅ Funciona en cualquier dominio (desarrollo, staging, producción)
+- ✅ No hay problemas de CORS
+- ✅ No se afecta por redirecciones del .htaccess
+- ✅ Más corto y eficiente
 
 ## ✅ Ventajas del Cambio
 
