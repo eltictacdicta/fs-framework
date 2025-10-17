@@ -1,0 +1,65 @@
+# .htaccess para la carpeta apk/
+# Permite la descarga de archivos APK y relacionados
+
+# Habilitar el motor de reescritura
+<IfModule mod_rewrite.c>
+    RewriteEngine Off
+</IfModule>
+
+# Permitir acceso a archivos APK
+<Files ~ "\.(apk|APK)$">
+    # Establecer el tipo MIME correcto para archivos APK
+    <IfModule mod_mime.c>
+        AddType application/vnd.android.package-archive .apk
+    </IfModule>
+    
+    # Permitir acceso
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+    
+    # Forzar descarga
+    Header set Content-Disposition "attachment"
+    
+    # Cache para 1 hora
+    Header set Cache-Control "max-age=3600, public"
+</Files>
+
+# Permitir acceso a archivos de texto, JSON y README
+<FilesMatch "\.(txt|json|md|log)$">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+</FilesMatch>
+
+# Denegar acceso a archivos PHP por seguridad
+<FilesMatch "\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Prevenir listado de directorios
+Options -Indexes
+
+# Protección adicional
+<IfModule mod_headers.c>
+    # Prevenir clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Prevenir MIME sniffing
+    Header always set X-Content-Type-Options "nosniff"
+</IfModule>
+

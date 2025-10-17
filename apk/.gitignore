@@ -1,0 +1,9 @@
+# Ignorar todos los archivos APK
+*.apk
+*.APK
+
+# Mantener archivos de configuración
+!.htaccess
+!.gitignore
+!README.md
+
