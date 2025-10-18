@@ -166,6 +166,12 @@ class admin_home extends fs_controller
             return;
         }
 
+        if (filter_input(INPUT_GET, 'download_plugin')) {
+            /// descargar plugin como archivo ZIP
+            $this->download_plugin(filter_input(INPUT_GET, 'download_plugin'));
+            return;
+        }
+
         if (FS_DEMO) {
             $this->new_advice('En el modo demo no se pueden hacer cambios en esta página.');
             $this->new_advice('Si te gusta FSFramework y quieres saber más, consulta la '
@@ -454,6 +460,90 @@ class admin_home extends fs_controller
             $this->new_message('Datos guardados correctamente.');
         } else {
             $this->new_message('Error al guardar los datos.');
+        }
+    }
+
+    /**
+     * Descarga un plugin como archivo ZIP.
+     * 
+     * @param string $plugin_name
+     */
+    private function download_plugin($plugin_name)
+    {
+        $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
+        
+        // Verificar que el plugin existe
+        if (!file_exists($plugin_path) || !is_dir($plugin_path)) {
+            $this->new_error_msg('El plugin <b>' . $plugin_name . '</b> no existe.');
+            return;
+        }
+
+        // Crear el archivo ZIP temporal
+        $zip_filename = $plugin_name . '.zip';
+        $zip_path = FS_FOLDER . '/tmp/' . $zip_filename;
+
+        // Asegurarse de que la carpeta tmp existe
+        if (!file_exists(FS_FOLDER . '/tmp')) {
+            mkdir(FS_FOLDER . '/tmp', 0777, true);
+        }
+
+        // Crear el archivo ZIP
+        $zip = new ZipArchive();
+        if ($zip->open($zip_path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
+            $this->new_error_msg('Error al crear el archivo ZIP para el plugin <b>' . $plugin_name . '</b>.');
+            return;
+        }
+
+        // Agregar archivos al ZIP recursivamente
+        $this->add_files_to_zip($zip, $plugin_path, $plugin_name);
+        $zip->close();
+
+        // Verificar que el archivo se creó correctamente
+        if (!file_exists($zip_path)) {
+            $this->new_error_msg('Error al crear el archivo ZIP.');
+            return;
+        }
+
+        // Desactivar el template para enviar el archivo
+        $this->template = FALSE;
+
+        // Enviar headers para la descarga
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
+        header('Content-Length: ' . filesize($zip_path));
+        header('Cache-Control: no-cache, must-revalidate');
+        header('Pragma: no-cache');
+
+        // Enviar el archivo
+        readfile($zip_path);
+
+        // Eliminar el archivo temporal
+        unlink($zip_path);
+    }
+
+    /**
+     * Agrega archivos a un ZIP de forma recursiva.
+     * 
+     * @param ZipArchive $zip
+     * @param string $source_path
+     * @param string $base_path
+     */
+    private function add_files_to_zip($zip, $source_path, $base_path)
+    {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($source_path, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($files as $file) {
+            $file_path = $file->getRealPath();
+            $relative_path = $base_path . '/' . substr($file_path, strlen($source_path) + 1);
+
+            if ($file->isDir()) {
+                $zip->addEmptyDir($relative_path);
+            } else {
+                $zip->addFile($file_path, $relative_path);
+            }
         }
     }
 

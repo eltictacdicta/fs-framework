@@ -31,6 +31,9 @@
                 <a href="https://github.com/eltictacdicta/fs-framework/plugin/{$value.name}" target="_blank" class="btn btn-xs btn-default">
                     <span class="glyphicon glyphicon-info-sign" aria-hidden="true"></span>&nbsp; más información
                 </a>
+                <a href="{$fsc->url()}&download_plugin={$value.name}" class="btn btn-xs btn-success" title="Descargar plugin como ZIP">
+                    <span class="glyphicon glyphicon-save" aria-hidden="true"></span>&nbsp; Descargar
+                </a>
                 {if="$value.enabled"}
                 <a class="btn btn-xs btn-warning" href="{$fsc->url()}&disable={$value.name}#plugins">
                     <span class="glyphicon glyphicon-remove"></span> Desactivar
