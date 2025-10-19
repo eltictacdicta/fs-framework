@@ -46,6 +46,9 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         fwrite($archivo, "define('FS_TMP_NAME', '" . random_string(20) . "/');\n");
         fwrite($archivo, "define('FS_COOKIES_EXPIRE', 604800);\n");
         fwrite($archivo, "define('FS_ITEM_LIMIT', 50);\n");
+        
+        /// Sistema de temas: Definimos AdminLTE como tema por defecto
+        fwrite($archivo, "define('FS_DEFAULT_THEME', 'AdminLTE');\n");
 
         $fieldsFalse = ['DB_HISTORY', 'DEMO', 'DISABLE_MOD_PLUGINS', 'DISABLE_ADD_PLUGINS', 'DISABLE_RM_PLUGINS'];
         foreach ($fieldsFalse as $name) {

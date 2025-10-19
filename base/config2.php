@@ -106,6 +106,31 @@ if (file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list')) {
     }
 }
 
+/**
+ * SISTEMA DE TEMAS: Auto-activación del tema por defecto
+ * 
+ * Si no hay plugins activados y existe el tema por defecto (AdminLTE),
+ * lo activamos automáticamente. Esto garantiza que las nuevas instalaciones
+ * tengan una interfaz moderna sin necesidad de configuración manual.
+ * 
+ * El tema puede ser configurado mediante la constante FS_DEFAULT_THEME en config.php
+ */
+if (empty($GLOBALS['plugins'])) {
+    $default_theme = defined('FS_DEFAULT_THEME') ? FS_DEFAULT_THEME : 'AdminLTE';
+    
+    if (file_exists(FS_FOLDER . '/plugins/' . $default_theme)) {
+        $GLOBALS['plugins'][] = $default_theme;
+        
+        /// Guardamos el tema por defecto en la lista de plugins activos
+        if (FS_TMP_NAME != '' && !file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list')) {
+            @file_put_contents(
+                FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list',
+                $default_theme
+            );
+        }
+    }
+}
+
 /// cargamos las funciones de los plugins
 foreach ($GLOBALS['plugins'] as $plug) {
     if (file_exists(FS_FOLDER . '/plugins/' . $plug . '/functions.php')) {

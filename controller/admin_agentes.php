@@ -40,7 +40,7 @@ class admin_agentes extends fs_controller
         $this->modificar = FALSE;
         $this->nuevo_agente = FALSE;
 
-        if (filter_input(INPUT_POST, 'codagente')) {
+        if (filter_input(INPUT_POST, 'codagente') !== NULL) {
             $this->save_agente();
         } else if (filter_input(INPUT_GET, 'delete')) {
             $this->delete_agente();
@@ -88,9 +88,9 @@ class admin_agentes extends fs_controller
             $agente_obj->seg_social = $agente_data['seg_social'];
             $agente_obj->cargo = $agente_data['cargo'];
             $agente_obj->banco = $agente_data['banco'];
-            $agente_obj->f_nacimiento = $agente_data['f_nacimiento'];
-            $agente_obj->f_alta = $agente_data['f_alta'];
-            $agente_obj->f_baja = $agente_data['f_baja'];
+            $agente_obj->f_nacimiento = ($agente_data['f_nacimiento'] != '') ? $agente_data['f_nacimiento'] : NULL;
+            $agente_obj->f_alta = ($agente_data['f_alta'] != '') ? $agente_data['f_alta'] : NULL;
+            $agente_obj->f_baja = ($agente_data['f_baja'] != '') ? $agente_data['f_baja'] : NULL;
             $agente_obj->porcomision = $agente_data['porcomision'];
 
             if ($agente_obj->save()) {
@@ -115,9 +115,9 @@ class admin_agentes extends fs_controller
                 $agente_obj->seg_social = $agente_data['seg_social'];
                 $agente_obj->cargo = $agente_data['cargo'];
                 $agente_obj->banco = $agente_data['banco'];
-                $agente_obj->f_nacimiento = $agente_data['f_nacimiento'];
-                $agente_obj->f_alta = $agente_data['f_alta'];
-                $agente_obj->f_baja = $agente_data['f_baja'];
+                $agente_obj->f_nacimiento = ($agente_data['f_nacimiento'] != '') ? $agente_data['f_nacimiento'] : NULL;
+                $agente_obj->f_alta = ($agente_data['f_alta'] != '') ? $agente_data['f_alta'] : NULL;
+                $agente_obj->f_baja = ($agente_data['f_baja'] != '') ? $agente_data['f_baja'] : NULL;
                 $agente_obj->porcomision = $agente_data['porcomision'];
 
                 if ($agente_obj->save()) {

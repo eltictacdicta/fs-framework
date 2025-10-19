@@ -10,6 +10,26 @@ En un futuro podría desarrollarse un plugin para hacerlo completamente compatib
 
 ## Mejoras
 - Compatibilidad con PHP 8.1
+- Sistema de temas con auto-activación
+- AdminLTE como tema por defecto
+
+## Sistema de Temas
+
+FSFramework incluye un sistema de temas que permite personalizar la interfaz de usuario. El tema **AdminLTE** se activa automáticamente en nuevas instalaciones, proporcionando una interfaz moderna y profesional.
+
+Para más información, consulta la [Documentación del Sistema de Temas](THEME_SYSTEM.md).
+
+### Características del Tema AdminLTE
+- ✨ Interfaz moderna basada en AdminLTE
+- 📱 Diseño responsive
+- 🎨 Múltiples skins de color
+- 🔧 Menú lateral colapsable
+
+### Configuración
+El tema por defecto se puede cambiar en `config.php`:
+```php
+define('FS_DEFAULT_THEME', 'AdminLTE');
+```
 
 ## Contribuciones
 Se anima a quien quiera contribuir al proyecto a realizar pull requests.
