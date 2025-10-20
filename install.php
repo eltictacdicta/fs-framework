@@ -103,9 +103,15 @@ function test_mysql(&$errors, &$errors2)
     }
 
     // Omitimos el valor del nombre de la BD porque lo comprobaremos más tarde
-    $connection = @new mysqli(
-        filter_input(INPUT_POST, 'db_host'), filter_input(INPUT_POST, 'db_user'), filter_input(INPUT_POST, 'db_pass'), '', intval(filter_input(INPUT_POST, 'db_port'))
-    );
+    try {
+        $connection = new mysqli(
+            filter_input(INPUT_POST, 'db_host'), filter_input(INPUT_POST, 'db_user'), filter_input(INPUT_POST, 'db_pass'), '', intval(filter_input(INPUT_POST, 'db_port'))
+        );
+    } catch (mysqli_sql_exception $e) {
+        $errors[] = "db_mysql";
+        $errors2[] = 'Los datos de conexión a la base de datos son incorrectos. Verifica el host, usuario y contraseña.';
+        return;
+    }
     if ($connection->connect_error) {
         $errors[] = "db_mysql";
         $errors2[] = $connection->connect_error;
