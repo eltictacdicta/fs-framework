@@ -28,12 +28,22 @@ $db_port = '3306';
 $db_name = 'fsframework';
 $db_user = '';
 
+// Verificar que el tema por defecto existe
+$default_theme = 'AdminLTE';
+$theme_available = file_exists(__DIR__ . '/plugins/' . $default_theme);
+
 function guarda_config(&$errors, $nombre_archivo = 'config.php')
 {
     $archivo = fopen(__DIR__ . '/' . $nombre_archivo, "w");
     if ($archivo) {
         fwrite($archivo, "<?php\n");
+        fwrite($archivo, "/**\n");
+        fwrite($archivo, " * Configuración de FSFramework\n");
+        fwrite($archivo, " * Generado automáticamente el " . date('Y-m-d H:i:s') . "\n");
+        fwrite($archivo, " */\n\n");
 
+        // Configuración de base de datos
+        fwrite($archivo, "// Configuración de base de datos\n");
         $fields = ['DB_TYPE', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS', 'CACHE_HOST', 'CACHE_PORT', 'CACHE_PREFIX'];
         foreach ($fields as $name) {
             fwrite($archivo, "define('FS_" . $name . "', '" . filter_input(INPUT_POST, strtolower($name)) . "');\n");
@@ -43,12 +53,22 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
             fwrite($archivo, "ini_set('mysqli.default_socket', '" . filter_input(INPUT_POST, 'mysql_socket') . "');\n");
         }
 
+        fwrite($archivo, "\n// Configuración general\n");
         fwrite($archivo, "define('FS_TMP_NAME', '" . random_string(20) . "/');\n");
         fwrite($archivo, "define('FS_COOKIES_EXPIRE', 604800);\n");
         fwrite($archivo, "define('FS_ITEM_LIMIT', 50);\n");
         
-        /// Sistema de temas: Definimos AdminLTE como tema por defecto
-        fwrite($archivo, "define('FS_DEFAULT_THEME', 'AdminLTE');\n");
+        // Sistema de temas: Definir tema por defecto
+        fwrite($archivo, "\n// Sistema de temas\n");
+        fwrite($archivo, "// El tema por defecto se activa automáticamente en config2.php\n");
+        fwrite($archivo, "// Si el tema no existe, el sistema usará las vistas del core\n");
+        
+        global $default_theme, $theme_available;
+        if ($theme_available) {
+            fwrite($archivo, "define('FS_DEFAULT_THEME', '" . $default_theme . "');\n");
+        } else {
+            fwrite($archivo, "// define('FS_DEFAULT_THEME', 'AdminLTE'); // Tema no encontrado, usando vistas del core\n");
+        }
 
         $fieldsFalse = ['DB_HISTORY', 'DEMO', 'DISABLE_MOD_PLUGINS', 'DISABLE_ADD_PLUGINS', 'DISABLE_RM_PLUGINS'];
         foreach ($fieldsFalse as $name) {
@@ -93,7 +113,7 @@ function test_mysql(&$errors, &$errors2)
     }
 
     // Verificamos si la base de datos existe
-    $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_STRING);
+    $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_SPECIAL_CHARS);
     
     // Comprobamos que el nombre de la base de datos sea válido
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_name)) {
@@ -110,14 +130,16 @@ function test_mysql(&$errors, &$errors2)
     mysqli_stmt_store_result($stmt);
     
     if (mysqli_stmt_num_rows($stmt) == 0) {
-        // La base de datos no existe, la creamos
+        // La base de datos no existe, intentamos crearla
         mysqli_stmt_close($stmt);
         
         // Creamos la base de datos usando consulta preparada
         $query = "CREATE DATABASE `" . str_replace('`', '', $db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
         if (!mysqli_query($connection, $query)) {
             $errors[] = "db_mysql";
-            $errors2[] = mysqli_error($connection);
+            $errors2[] = "Error al crear la base de datos: " . mysqli_error($connection);
+            $errors2[] = "Por favor, crea manualmente la base de datos '" . htmlspecialchars($db_name) . "' o proporciona un usuario con privilegios para crear bases de datos.";
+            $errors2[] = "Comando SQL: CREATE DATABASE `" . htmlspecialchars($db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
             return;
         }
     } else {
@@ -127,7 +149,8 @@ function test_mysql(&$errors, &$errors2)
     // Seleccionamos la base de datos
     if (!mysqli_select_db($connection, $db_name)) {
         $errors[] = "db_mysql";
-        $errors2[] = mysqli_error($connection);
+        $errors2[] = "Error al seleccionar la base de datos: " . mysqli_error($connection);
+        $errors2[] = "Verifica que el usuario tenga permisos sobre la base de datos '" . htmlspecialchars($db_name) . "'.";
         return;
     }
     
@@ -146,11 +169,11 @@ function test_postgresql(&$errors, &$errors2)
     }
 
     // Sanitizamos y validamos los datos de entrada
-    $db_host = filter_input(INPUT_POST, 'db_host', FILTER_SANITIZE_STRING);
+    $db_host = filter_input(INPUT_POST, 'db_host', FILTER_SANITIZE_SPECIAL_CHARS);
     $db_port = filter_input(INPUT_POST, 'db_port', FILTER_SANITIZE_NUMBER_INT);
-    $db_user = filter_input(INPUT_POST, 'db_user', FILTER_SANITIZE_STRING);
+    $db_user = filter_input(INPUT_POST, 'db_user', FILTER_SANITIZE_SPECIAL_CHARS);
     $db_pass = filter_input(INPUT_POST, 'db_pass');
-    $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_STRING);
+    $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_SPECIAL_CHARS);
     
     // Validamos el nombre de la base de datos
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_name)) {
@@ -247,34 +270,111 @@ $system_info = str_replace('"', "'", $system_info);
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>FSFramework</title>
+        <title>FSFramework - Instalador</title>
         <meta name="description" content="FSFramework es un software de facturación y contabilidad para pymes. Es software libre bajo licencia GNU/LGPL." />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="robots" content="noindex" />
         <link rel="shortcut icon" href="view/img/favicon.ico" />
+        <!-- Bootstrap y estilos core -->
         <link rel="stylesheet" href="view/css/bootstrap-yeti.min.css" />
         <link rel="stylesheet" href="view/css/font-awesome.min.css" />
+        <?php
+        // Cargar estilos de AdminLTE si está disponible (tema por defecto)
+        if (file_exists('plugins/AdminLTE/view/css/AdminLTE.min.css')) {
+            echo '<link rel="stylesheet" href="plugins/AdminLTE/view/css/AdminLTE.min.css" />' . "\n        ";
+        }
+        if (file_exists('plugins/AdminLTE/view/css/skins/_all-skins.min.css')) {
+            echo '<link rel="stylesheet" href="plugins/AdminLTE/view/css/skins/_all-skins.min.css" />' . "\n        ";
+        }
+        ?>
         <link rel="stylesheet" href="view/css/datepicker.css" />
         <link rel="stylesheet" href="view/css/custom.css" />
+        <?php
+        // Estilos adicionales de AdminLTE
+        if (file_exists('plugins/AdminLTE/view/css/estilo.css')) {
+            echo '<link rel="stylesheet" href="plugins/AdminLTE/view/css/estilo.css" />' . "\n        ";
+        }
+        ?>
+        <!-- Scripts JavaScript -->
         <script type="text/javascript" src="view/js/jquery.min.js"></script>
         <script type="text/javascript" src="view/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
         <script type="text/javascript" src="view/js/jquery.autocomplete.min.js"></script>
+        <?php
+        // Scripts de AdminLTE si están disponibles
+        if (file_exists('plugins/AdminLTE/view/js/jquery.slimscroll.min.js')) {
+            echo '<script type="text/javascript" src="plugins/AdminLTE/view/js/jquery.slimscroll.min.js"></script>' . "\n        ";
+        }
+        if (file_exists('plugins/AdminLTE/view/js/app.min.js')) {
+            echo '<script type="text/javascript" src="plugins/AdminLTE/view/js/app.min.js"></script>' . "\n        ";
+        }
+        ?>
         <script type="text/javascript" src="view/js/base.js"></script>
         <script type="text/javascript" src="view/js/jquery.validate.min.js"></script>
     </head>
+    <?php if ($theme_available) { ?>
+    <!-- Estructura AdminLTE para instalador -->
+    <body class="hold-transition skin-blue layout-top-nav">
+        <div class="wrapper">
+            <header class="main-header">
+                <nav class="navbar navbar-static-top">
+                    <div class="container">
+                        <div class="navbar-header">
+                            <a href="index.php" class="navbar-brand">
+                                <b>FS</b>Framework <small>Instalador</small>
+                            </a>
+                        </div>
+                        <!-- Menú de navegación deshabilitado - no necesario en instalador
+                        <div class="collapse navbar-collapse pull-left" id="navbar-collapse">
+                            <ul class="nav navbar-nav">
+                                <li class="active"><a href="#"><i class="fa fa-cloud-upload"></i> Instalación</a></li>
+                            </ul>
+                        </div>
+                        -->
+                        <!-- Menú de ayuda deshabilitado temporalmente
+                        <div class="navbar-custom-menu">
+                            <ul class="nav navbar-nav">
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="hidden-xs">Ayuda</span>
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a href="<?php echo FS_COMMUNITY_URL; ?>/ayuda" rel="nofollow" target="_blank">
+                                                <i class="fa fa-book"></i> Documentación
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="<?php echo FS_COMMUNITY_URL; ?>/contacto" rel="nofollow" target="_blank">
+                                                <i class="fa fa-shield"></i> Soporte oficial
+                                            </a>
+                                        </li>
+                                        <li class="divider"></li>
+                                        <li>
+                                            <a href="#" id="b_feedback">
+                                                <i class="fa fa-edit"></i> Informar de error...
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                        -->
+                    </div>
+                </nav>
+            </header>
+            <div class="content-wrapper" style="min-height: 100vh; background-color: #ecf0f5;">
+                <div class="container" style="padding-top: 20px;">
+    <?php } else { ?>
+    <!-- Estructura Bootstrap básica cuando no hay AdminLTE -->
     <body>
         <nav class="navbar navbar-default" role="navigation" style="margin: 0px;">
             <div class="container-fluid">
                 <div class="navbar-header">
-                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
-                        <span class="sr-only">Menú</span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                        <span class="icon-bar"></span>
-                    </button>
                     <a class="navbar-brand" href="index.php">FSFramework</a>
                 </div>
+                <!-- Menú de ayuda deshabilitado temporalmente
                 <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
                     <ul class="nav navbar-nav navbar-right">
                         <li>
@@ -305,8 +405,12 @@ $system_info = str_replace('"', "'", $system_info);
                         </li>
                     </ul>
                 </div>
+                -->
             </div>
         </nav>
+        <div class="container">
+    <?php } ?>
+        <!-- Modal de feedback deshabilitado temporalmente (enlaces no disponibles)
         <form name="f_feedback" action="<?php echo FS_COMMUNITY_URL; ?>/feedback" method="post" target="_blank" class="form" role="form">
             <input type="hidden" name="feedback_info" value="<?php echo $system_info; ?>"/>
             <input type="hidden" name="feedback_type" value="error"/>
@@ -346,6 +450,7 @@ $system_info = str_replace('"', "'", $system_info);
                 </div>
             </div>
         </form>
+        -->
         <script type="text/javascript">
             function change_db_type() {
                 if (document.f_configuracion_inicial.db_type.value == 'POSTGRESQL') {
@@ -402,9 +507,21 @@ $system_info = str_replace('"', "'", $system_info);
                 });
             });
         </script>
-        <div class="container">
             <div class="row">
                 <div class="col-sm-12">
+                    <?php if ($theme_available) { ?>
+                    <section class="content-header">
+                        <h1>
+                            <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                            Instalador de FSFramework
+                            <small><?php echo file_get_contents('VERSION'); ?></small>
+                        </h1>
+                        <ol class="breadcrumb">
+                            <li><a href="#"><i class="fa fa-dashboard"></i> Inicio</a></li>
+                            <li class="active">Instalación</li>
+                        </ol>
+                    </section>
+                    <?php } else { ?>
                     <div class="page-header">
                         <h1>
                             <i class="fa fa-cloud-upload" aria-hidden="true"></i>
@@ -412,8 +529,36 @@ $system_info = str_replace('"', "'", $system_info);
                             <small><?php echo file_get_contents('VERSION'); ?></small>
                         </h1>
                     </div>
+                    <?php } ?>
                 </div>
             </div>
+            <?php
+            // Mostrar información sobre el tema que se instalará
+            if ($theme_available) {
+                echo '<div class="row">' . "\n";
+                echo '    <div class="col-sm-12">' . "\n";
+                echo '        <div class="alert alert-info">' . "\n";
+                echo '            <i class="fa fa-paint-brush" aria-hidden="true"></i> ';
+                echo '            <strong>Tema AdminLTE detectado:</strong> ';
+                echo '            Se instalará automáticamente el tema <strong>' . $default_theme . '</strong> ';
+                echo '            para proporcionar una interfaz moderna y profesional.' . "\n";
+                echo '        </div>' . "\n";
+                echo '    </div>' . "\n";
+                echo '</div>' . "\n";
+            } else {
+                echo '<div class="row">' . "\n";
+                echo '    <div class="col-sm-12">' . "\n";
+                echo '        <div class="alert alert-warning">' . "\n";
+                echo '            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ';
+                echo '            <strong>Tema no encontrado:</strong> ';
+                echo '            No se encontró el tema <strong>' . $default_theme . '</strong>. ';
+                echo '            El sistema usará las vistas básicas del core. ';
+                echo '            Puedes instalar el tema más tarde desde el panel de administración.' . "\n";
+                echo '        </div>' . "\n";
+                echo '    </div>' . "\n";
+                echo '</div>' . "\n";
+            }
+            ?>
             <div class="row">
                 <div class="col-sm-12">
                     <?php
@@ -676,10 +821,58 @@ $system_info = str_replace('"', "'", $system_info);
                     <a href="<?php echo FS_COMMUNITY_URL; ?>/ayuda" rel="nofollow" target="_blank" class="btn btn-sm btn-info">
                         <i class="fa fa-book"></i>&nbsp; Ayuda
                     </a>
+                    <?php if ($theme_available) { ?>
+                    <button type="button" class="btn btn-sm btn-default" data-toggle="modal" data-target="#modal_theme_info">
+                        <i class="fa fa-paint-brush"></i>&nbsp; Info del Tema
+                    </button>
+                    <?php } ?>
                     <br/>
                     <br/>
                 </div>
             </div>
+            
+            <!-- Modal con información del tema -->
+            <?php if ($theme_available) { ?>
+            <div class="modal fade" id="modal_theme_info" tabindex="-1" role="dialog">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal">&times;</button>
+                            <h4 class="modal-title">
+                                <i class="fa fa-paint-brush"></i> Sistema de Temas - <?php echo $default_theme; ?>
+                            </h4>
+                        </div>
+                        <div class="modal-body">
+                            <p>
+                                <strong>FSFramework</strong> incluye un sistema de temas basado en plugins que permite
+                                personalizar completamente la interfaz de usuario.
+                            </p>
+                            <h5><i class="fa fa-check-circle"></i> Características de AdminLTE</h5>
+                            <ul>
+                                <li>Interfaz moderna y profesional</li>
+                                <li>Menú lateral responsive</li>
+                                <li>Múltiples skins de color</li>
+                                <li>Iconos mejorados con Font Awesome</li>
+                                <li>Optimizado para dispositivos móviles</li>
+                            </ul>
+                            <h5><i class="fa fa-cog"></i> Cómo funciona</h5>
+                            <p class="help-block">
+                                El tema se activa automáticamente después de la instalación mediante el sistema de plugins.
+                                Las vistas del tema sobrescriben las vistas básicas del sistema, proporcionando una
+                                experiencia visual mejorada sin modificar el código del core.
+                            </p>
+                            <p class="help-block">
+                                Puedes cambiar de tema en cualquier momento desde el panel de administración, en la
+                                sección de <strong>Plugins</strong>.
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-sm btn-default" data-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php } ?>
             <form name="f_configuracion_inicial" id="f_configuracion_inicial" action="install.php" class="form" role="form" method="post">
                 <div class="row">
                     <div class="col-sm-12">
@@ -890,6 +1083,12 @@ $system_info = str_replace('"', "'", $system_info);
                     </small>
                 </div>
             </div>
-        </div>
+        <?php if ($theme_available) { ?>
+                </div><!-- /.container -->
+            </div><!-- /.content-wrapper -->
+        </div><!-- /.wrapper -->
+        <?php } else { ?>
+        </div><!-- /.container -->
+        <?php } ?>
     </body>
 </html>

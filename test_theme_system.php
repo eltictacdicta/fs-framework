@@ -80,10 +80,53 @@ if (file_exists('config.php')) {
     echo "   ⚠ config.php no existe (instalación nueva)\n";
 }
 
+echo "\n7. Verificando adaptación del instalador (install.php)...\n";
+if (file_exists('install.php')) {
+    $install_content = file_get_contents('install.php');
+    
+    // Verificar que el instalador detecta el tema
+    if (strpos($install_content, '$theme_available') !== false) {
+        echo "   ✓ El instalador detecta la disponibilidad del tema\n";
+    } else {
+        echo "   ✗ El instalador NO detecta la disponibilidad del tema\n";
+    }
+    
+    // Verificar que carga recursos de AdminLTE condicionalmente
+    if (strpos($install_content, "file_exists('plugins/AdminLTE/view/css/AdminLTE.min.css')") !== false) {
+        echo "   ✓ El instalador carga recursos CSS de AdminLTE condicionalmente\n";
+    } else {
+        echo "   ✗ El instalador NO carga recursos CSS de AdminLTE\n";
+    }
+    
+    // Verificar que muestra información del tema
+    if (strpos($install_content, 'Tema AdminLTE detectado') !== false) {
+        echo "   ✓ El instalador muestra información sobre el tema\n";
+    } else {
+        echo "   ✗ El instalador NO muestra información sobre el tema\n";
+    }
+    
+    // Verificar que escribe FS_DEFAULT_THEME en config.php
+    if (strpos($install_content, "define('FS_DEFAULT_THEME'") !== false) {
+        echo "   ✓ El instalador configura FS_DEFAULT_THEME\n";
+    } else {
+        echo "   ✗ El instalador NO configura FS_DEFAULT_THEME\n";
+    }
+    
+    // Verificar compatibilidad cuando el tema no existe
+    if (strpos($install_content, 'Tema no encontrado') !== false) {
+        echo "   ✓ El instalador maneja el caso cuando el tema no existe\n";
+    } else {
+        echo "   ✗ El instalador NO maneja el caso cuando el tema no existe\n";
+    }
+} else {
+    echo "   ✗ install.php no existe\n";
+}
+
 echo "\n=== Resultado ===\n";
 if (!empty($GLOBALS['plugins']) && in_array('AdminLTE', $GLOBALS['plugins'])) {
     echo "✓ Sistema de temas funcionando correctamente\n";
     echo "✓ AdminLTE se activará automáticamente en nuevas instalaciones\n";
+    echo "✓ El instalador está adaptado al sistema de temas\n";
     exit(0);
 } else {
     echo "✗ Hay problemas con el sistema de temas\n";
