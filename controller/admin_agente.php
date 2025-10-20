@@ -29,7 +29,8 @@ class admin_agente extends fs_controller
 
     public function __construct()
     {
-        parent::__construct(__CLASS__, 'Agente', 'admin', TRUE, TRUE);
+        parent::__construct(__CLASS__, 'Agente', 'admin', TRUE, FALSE);
+        error_log("admin_agente constructor called - show_on_menu should be FALSE");
     }
 
     protected function private_core()

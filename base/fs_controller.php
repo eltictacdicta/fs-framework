@@ -510,6 +510,7 @@ class fs_controller extends fs_app
             if ($page) {
                 /// la página ya existe ¿Actualizamos?
                 if ($page->title != $title || $page->folder != $folder || $page->show_on_menu != $shmenu || $page->important != $important) {
+                    error_log("Updating page $name: show_on_menu from " . ($page->show_on_menu ? 'TRUE' : 'FALSE') . " to " . ($shmenu ? 'TRUE' : 'FALSE'));
                     $page->title = $title;
                     $page->folder = $folder;
                     $page->show_on_menu = $shmenu;
@@ -520,6 +521,7 @@ class fs_controller extends fs_app
                 $this->page = $page;
             } else {
                 /// la página no existe, guardamos.
+                error_log("Creating new page $name with show_on_menu = " . ($shmenu ? 'TRUE' : 'FALSE'));
                 $this->page->save();
             }
         }
