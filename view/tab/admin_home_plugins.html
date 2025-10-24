@@ -34,6 +34,11 @@
                 <a href="{$fsc->url()}&download_plugin={$value.name}" class="btn btn-xs btn-success" title="Descargar plugin como ZIP">
                     <span class="glyphicon glyphicon-save" aria-hidden="true"></span>&nbsp; Descargar
                 </a>
+                {if="$value.has_backup"}
+                <a class="btn btn-xs btn-info" onclick="restaurar_backup('{$value.name}'); return false;" title="Restaurar versión anterior desde backup">
+                    <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span>&nbsp; Restaurar versión anterior
+                </a>
+                {/if}
                 {if="$value.enabled"}
                 <a class="btn btn-xs btn-warning" href="{$fsc->url()}&disable={$value.name}#plugins">
                     <span class="glyphicon glyphicon-remove"></span> Desactivar

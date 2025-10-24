@@ -62,6 +62,18 @@ class admin_home extends fs_controller
      */
     protected $divisa_tools;
 
+    /**
+     * Plugin pendiente de instalación
+     * @var array|null
+     */
+    public $pending_plugin;
+
+    /**
+     * Plugin pendiente de descarga
+     * @var array|null
+     */
+    public $pending_download;
+
     public function __construct()
     {
         parent::__construct(__CLASS__, 'Panel de control', 'admin');
@@ -140,6 +152,10 @@ class admin_home extends fs_controller
         $coddivisa = $this->default_items->coddivisa();
         $this->divisa_tools = new fs_divisa_tools($coddivisa);
 
+        // Inicializar variables para plugins pendientes
+        $this->pending_plugin = isset($_SESSION['pending_plugin']) ? $_SESSION['pending_plugin'] : null;
+        $this->pending_download = isset($_SESSION['pending_download']) ? $_SESSION['pending_download'] : null;
+
         $this->exec_actions();
 
         $this->paginas = $this->all_pages();
@@ -188,6 +204,31 @@ class admin_home extends fs_controller
             if ($this->step == '1') {
                 $this->step = '2';
                 $this->fs_var->simple_save('install_step', $this->step);
+            }
+            return;
+        }
+
+        if (filter_input(INPUT_GET, 'restore_backup')) {
+            /// restaurar plugin desde backup
+            $this->restore_plugin_backup(filter_input(INPUT_GET, 'restore_backup'));
+            return;
+        }
+
+        if (filter_input(INPUT_POST, 'cancel_pending_install')) {
+            /// cancelar instalación pendiente
+            if (isset($_SESSION['pending_plugin'])) {
+                if (file_exists($_SESSION['pending_plugin']['temp_file'])) {
+                    unlink($_SESSION['pending_plugin']['temp_file']);
+                }
+                unset($_SESSION['pending_plugin']);
+            }
+            return;
+        }
+
+        if (filter_input(INPUT_POST, 'cancel_pending_download')) {
+            /// cancelar descarga pendiente
+            if (isset($_SESSION['pending_download'])) {
+                unset($_SESSION['pending_download']);
             }
             return;
         }
@@ -355,7 +396,64 @@ class admin_home extends fs_controller
      */
     private function download($plugin_id)
     {
-        $this->plugin_manager->download($plugin_id);
+        // Verificar si el plugin ya existe antes de descargar
+        $downloads = $this->plugin_manager->downloads();
+        $plugin_name = null;
+        
+        foreach ($downloads as $item) {
+            if ($item['id'] == (int) $plugin_id) {
+                $plugin_name = $item['nombre'];
+                break;
+            }
+        }
+
+        if (!$plugin_name) {
+            $this->new_error_msg('Plugin no encontrado en la lista de descargas.');
+            return;
+        }
+
+        $existing_plugin = $this->plugin_manager->check_plugin_exists($plugin_name);
+
+        if ($existing_plugin && !filter_input(INPUT_GET, 'confirm_download')) {
+            // Guardar información en sesión para el modal
+            $_SESSION['pending_download'] = [
+                'plugin_id' => $plugin_id,
+                'name' => $plugin_name,
+                'current_version' => $existing_plugin['version']
+            ];
+            
+            $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
+            return;
+        }
+
+        // Si hay confirmación, descargar con backup
+        if (filter_input(INPUT_GET, 'confirm_download') && isset($_SESSION['pending_download'])) {
+            $pending = $_SESSION['pending_download'];
+            $this->plugin_manager->download($pending['plugin_id'], true);
+            unset($_SESSION['pending_download']);
+            return;
+        }
+
+        // Plugin nuevo, descargar directamente
+        $this->plugin_manager->download($plugin_id, false);
+    }
+
+    /**
+     * Restaura un plugin desde su backup
+     *
+     * @param string $plugin_name
+     */
+    private function restore_plugin_backup($plugin_name)
+    {
+        // Desactivar el plugin si está activo
+        if (in_array($plugin_name, $this->plugin_manager->enabled())) {
+            $this->plugin_manager->disable($plugin_name);
+        }
+
+        // Restaurar el backup
+        if ($this->plugin_manager->restore_backup($plugin_name)) {
+            $this->new_message('Plugin <b>' . $plugin_name . '</b> restaurado correctamente desde el backup.');
+        }
     }
 
     /**
@@ -433,13 +531,71 @@ class admin_home extends fs_controller
 
     private function install_plugin()
     {
-        if (is_uploaded_file($_FILES['fplugin']['tmp_name'])) {
-            $this->plugin_manager->install($_FILES['fplugin']['tmp_name'], $_FILES['fplugin']['name']);
-        } else {
+        if (!is_uploaded_file($_FILES['fplugin']['tmp_name'])) {
             $this->new_error_msg('Archivo no encontrado. ¿Pesa más de '
                 . $this->get_max_file_upload() . ' MB? Ese es el límite que tienes'
                 . ' configurado en tu servidor.');
+            return;
         }
+
+        // Detectar el plugin desde el ZIP
+        $plugin_info = $this->plugin_manager->detect_plugin_from_zip($_FILES['fplugin']['tmp_name']);
+        
+        if (!$plugin_info) {
+            $this->new_error_msg('Error al leer el archivo ZIP del plugin.');
+            return;
+        }
+
+        $plugin_name = $plugin_info['name'];
+        $new_version = $plugin_info['version'];
+
+        // Verificar si el plugin ya existe
+        $existing_plugin = $this->plugin_manager->check_plugin_exists($plugin_name);
+
+        if ($existing_plugin && !filter_input(INPUT_POST, 'confirm_overwrite')) {
+            // El plugin existe y no hay confirmación, guardar el archivo temporalmente
+            $temp_file = FS_FOLDER . '/tmp/plugin_pending_install.zip';
+            move_uploaded_file($_FILES['fplugin']['tmp_name'], $temp_file);
+            
+            // Guardar información en sesión para el modal
+            $_SESSION['pending_plugin'] = [
+                'name' => $plugin_name,
+                'new_version' => $new_version,
+                'current_version' => $existing_plugin['version'],
+                'temp_file' => $temp_file
+            ];
+            
+            $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
+            return;
+        }
+
+        // Si hay confirmación pendiente, procesarla
+        if (filter_input(INPUT_POST, 'confirm_overwrite') && isset($_SESSION['pending_plugin'])) {
+            $pending = $_SESSION['pending_plugin'];
+            
+            if (!file_exists($pending['temp_file'])) {
+                $this->new_error_msg('El archivo temporal del plugin no se encuentra.');
+                unset($_SESSION['pending_plugin']);
+                return;
+            }
+
+            // Instalar con backup
+            $result = $this->plugin_manager->install($pending['temp_file'], $pending['name'] . '.zip', true);
+            
+            // Limpiar archivo temporal
+            if (file_exists($pending['temp_file'])) {
+                unlink($pending['temp_file']);
+            }
+            unset($_SESSION['pending_plugin']);
+            
+            if ($result) {
+                $this->new_message('Plugin <b>' . $result . '</b> instalado correctamente. El plugin anterior se guardó como backup.');
+            }
+            return;
+        }
+
+        // Plugin nuevo, instalar directamente
+        $this->plugin_manager->install($_FILES['fplugin']['tmp_name'], $_FILES['fplugin']['name'], false);
     }
 
     private function save_avanzado()

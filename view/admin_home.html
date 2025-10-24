@@ -15,6 +15,17 @@
             }
         });
     }
+    function restaurar_backup(name) {
+        bootbox.confirm({
+            message: '¿Desea restaurar el plugin <b>' + name + '</b> desde el backup? El plugin actual será reemplazado por la versión anterior.',
+            title: '<b>Restaurar versión anterior</b>',
+            callback: function (result) {
+                if (result) {
+                    window.location.href = '{$fsc->url()}&restore_backup=' + name + '#plugins';
+                }
+            }
+        });
+    }
     function descargar_plugin_inestable(id) {
         bootbox.confirm({
             message: 'Este plugin está marcado como inestable. Significa que <b>no se recomienda su uso</b>,\n\
@@ -185,7 +196,43 @@
             console.log('Modal existente mostrado');
         }
     };
+
+    // Función para mostrar modales de confirmación de plugins
+    function mostrar_modales_confirmacion() {
+        {if="$fsc->pending_plugin"}
+        // Mostrar modal de confirmación de instalación
+        $('#plugin_name_install').text('{$fsc->pending_plugin.name}');
+        $('#current_version_install').text('{$fsc->pending_plugin.current_version}');
+        $('#new_version_install').text('{$fsc->pending_plugin.new_version}');
+        $('#modal_confirm_overwrite_install').modal('show');
+        {/if}
+
+        {if="$fsc->pending_download"}
+        // Mostrar modal de confirmación de descarga
+        $('#plugin_name_download').text('{$fsc->pending_download.name}');
+        $('#current_version_download').text('{$fsc->pending_download.current_version}');
+        $('#link_confirm_download').attr('href', '{$fsc->url()}&download={$fsc->pending_download.plugin_id}&confirm_download=1#plugins');
+        $('#modal_confirm_overwrite_download').modal('show');
+        {/if}
+    }
+
     $(document).ready(function () {
+        // Mostrar modales de confirmación si hay plugins pendientes
+        mostrar_modales_confirmacion();
+
+        // Limpiar sesión al cancelar modal de instalación
+        $('#modal_confirm_overwrite_install').on('hidden.bs.modal', function () {
+            {if="$fsc->pending_plugin"}
+            $.post('{$fsc->url()}', { cancel_pending_install: '1' });
+            {/if}
+        });
+
+        // Limpiar sesión al cancelar modal de descarga
+        $('#modal_confirm_overwrite_download').on('hidden.bs.modal', function () {
+            {if="$fsc->pending_download"}
+            $.post('{$fsc->url()}', { cancel_pending_download: '1' });
+            {/if}
+        });
         {if="$fsc->step=='1'"}
         $('#tab_panel_control a[href="#t_descargas"]').tab('show');
         {/if}
@@ -415,5 +462,71 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de confirmación para sobrescribir plugin en instalación -->
+<div class="modal fade" id="modal_confirm_overwrite_install" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">
+                    <i class="fa fa-exclamation-triangle"></i>&nbsp; Plugin ya existe
+                </h4>
+            </div>
+            <div class="modal-body">
+                <p>Hay otro plugin con este nombre: <b><span id="plugin_name_install"></span></b></p>
+                <p>Versión actual: <b><span id="current_version_install"></span></b></p>
+                <p>Versión nueva: <b><span id="new_version_install"></span></b></p>
+                <p class="help-block">
+                    Si continúa, el plugin actual se guardará como backup (nombre_plugin_back) 
+                    y se instalará la nueva versión.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <form id="form_confirm_install" action="{$fsc->url()}#plugins" method="post" enctype="multipart/form-data">
+                    <input type="hidden" name="install" value="TRUE"/>
+                    <input type="hidden" name="confirm_overwrite" value="1"/>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" onclick="this.disabled=true;this.form.submit();">
+                        <span class="glyphicon glyphicon-ok"></span>&nbsp; Sí, sobrescribir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para sobrescribir plugin en descarga -->
+<div class="modal fade" id="modal_confirm_overwrite_download" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">
+                    <i class="fa fa-exclamation-triangle"></i>&nbsp; Plugin ya existe
+                </h4>
+            </div>
+            <div class="modal-body">
+                <p>Hay otro plugin con este nombre: <b><span id="plugin_name_download"></span></b></p>
+                <p>Versión actual: <b><span id="current_version_download"></span></b></p>
+                <p class="help-block">
+                    Si continúa, el plugin actual se guardará como backup (nombre_plugin_back) 
+                    y se descargará e instalará la nueva versión.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+                <a href="#" id="link_confirm_download" class="btn btn-primary">
+                    <span class="glyphicon glyphicon-ok"></span>&nbsp; Sí, sobrescribir
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 {include="footer"}

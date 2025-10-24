@@ -52,6 +52,12 @@ class fs_page extends fs_model
     public $extra_url;
 
     /**
+     * Array de usuarios y sus permisos para esta página.
+     * @var array
+     */
+    public $users;
+
+    /**
      * Cuando un usuario no tiene asignada una página por defecto, se selecciona
      * la primera página importante a la que tiene acceso.
      */
@@ -91,6 +97,7 @@ class fs_page extends fs_model
         $this->exists = FALSE;
         $this->enabled = FALSE;
         $this->extra_url = '';
+        $this->users = [];
     }
 
     public function __clone()

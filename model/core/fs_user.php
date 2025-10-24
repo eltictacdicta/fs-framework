@@ -120,6 +120,12 @@ class fs_user extends \fs_model
      * @var string
      */
     public $css;
+
+    /**
+     * Indica si el usuario está incluido en un rol (usado en admin_rol).
+     * @var boolean
+     */
+    public $included;
     private $menu;
 
     public function __construct($data = FALSE)

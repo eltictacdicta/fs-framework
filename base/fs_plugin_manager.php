@@ -147,7 +147,7 @@ class fs_plugin_manager
         return $disabled;
     }
 
-    public function download($plugin_id)
+    public function download($plugin_id, $create_backup = false)
     {
         if ($this->disable_mod_plugins) {
             $this->core_log->new_error('No tienes permiso para descargar plugins.');
@@ -173,6 +173,15 @@ class fs_plugin_manager
                 return false;
             }
 
+            // Crear backup si existe y se solicita
+            if ($create_backup && file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
+                if (!$this->create_backup($item['nombre'])) {
+                    $zip->close();
+                    unlink(FS_FOLDER . '/download.zip');
+                    return false;
+                }
+            }
+
             $plugins_list = fs_file_manager::scan_folder(FS_FOLDER . '/plugins');
             $zip->extractTo(FS_FOLDER . '/plugins/');
             $zip->close();
@@ -181,6 +190,10 @@ class fs_plugin_manager
             /// renombramos si es necesario
             foreach (fs_file_manager::scan_folder(FS_FOLDER . '/plugins') as $f) {
                 if (is_dir(FS_FOLDER . '/plugins/' . $f) && !in_array($f, $plugins_list)) {
+                    // Eliminar el plugin existente si hay que sobrescribir
+                    if (file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
+                        fs_file_manager::del_tree(FS_FOLDER . '/plugins/' . $item['nombre']);
+                    }
                     rename(FS_FOLDER . '/plugins/' . $f, FS_FOLDER . '/plugins/' . $item['nombre']);
                     break;
                 }
@@ -317,25 +330,76 @@ class fs_plugin_manager
         return $GLOBALS['plugins'];
     }
 
-    public function install($path, $name)
+    public function install($path, $name, $create_backup = false)
     {
         if ($this->disable_add_plugins) {
             $this->core_log->new_error('La subida de plugins está desactivada. Contacta con tu proveedor de hosting.');
-            return;
+            return false;
         }
 
         $zip = new ZipArchive();
         $res = $zip->open($path, ZipArchive::CHECKCONS);
-        if ($res === TRUE) {
-            $zip->extractTo(FS_FOLDER . '/plugins/');
-            $zip->close();
-
-            $name = $this->rename_plugin(substr($name, 0, -4));
-            $this->core_log->new_message('Plugin <b>' . $name . '</b> añadido correctamente. Ya puede activarlo.');
-            $this->clean_cache();
-        } else {
+        if ($res !== TRUE) {
             $this->core_log->new_error('Error al abrir el archivo ZIP. Código: ' . $res);
+            return false;
         }
+
+        // Extraer temporalmente para detectar el nombre real del plugin
+        $temp_dir = FS_FOLDER . '/tmp/plugin_upload_temp/';
+        if (!file_exists($temp_dir)) {
+            mkdir($temp_dir, 0777, true);
+        }
+        
+        $zip->extractTo($temp_dir);
+        $zip->close();
+
+        // Detectar el nombre del plugin extraído
+        $extracted_folders = [];
+        foreach (fs_file_manager::scan_folder($temp_dir) as $f) {
+            if (is_dir($temp_dir . $f)) {
+                $extracted_folders[] = $f;
+            }
+        }
+
+        if (empty($extracted_folders)) {
+            fs_file_manager::del_tree($temp_dir);
+            $this->core_log->new_error('El archivo ZIP no contiene ninguna carpeta de plugin válida.');
+            return false;
+        }
+
+        $plugin_folder_name = $extracted_folders[0];
+        $plugin_name = $this->rename_plugin($plugin_folder_name);
+
+        // Si el plugin ya existe y se solicita backup, crearlo
+        if ($create_backup && file_exists(FS_FOLDER . '/plugins/' . $plugin_name)) {
+            if (!$this->create_backup($plugin_name)) {
+                fs_file_manager::del_tree($temp_dir);
+                return false;
+            }
+        }
+
+        // Mover el plugin de la carpeta temporal a plugins/
+        $source = $temp_dir . $plugin_folder_name;
+        $destination = FS_FOLDER . '/plugins/' . $plugin_name;
+
+        // Si existe, eliminarlo primero
+        if (file_exists($destination)) {
+            fs_file_manager::del_tree($destination);
+        }
+
+        // Mover la carpeta
+        if (!rename($source, $destination)) {
+            fs_file_manager::del_tree($temp_dir);
+            $this->core_log->new_error('Error al mover el plugin a la carpeta de plugins.');
+            return false;
+        }
+
+        // Limpiar carpeta temporal
+        fs_file_manager::del_tree($temp_dir);
+
+        $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> añadido correctamente. Ya puede activarlo.');
+        $this->clean_cache();
+        return $plugin_name;
     }
 
     public function installed()
@@ -344,11 +408,17 @@ class fs_plugin_manager
         $disabled = $this->disabled();
 
         foreach (fs_file_manager::scan_folder(FS_FOLDER . '/plugins') as $file_name) {
-            if (!is_dir(FS_FOLDER . '/plugins/' . $file_name) || in_array($file_name, $disabled)) {
+            // Filtrar carpetas que terminen en _back
+            if (!is_dir(FS_FOLDER . '/plugins/' . $file_name) || 
+                in_array($file_name, $disabled) || 
+                substr($file_name, -5) === '_back') {
                 continue;
             }
 
-            $plugins[] = $this->get_plugin_data($file_name);
+            $plugin_data = $this->get_plugin_data($file_name);
+            // Agregar flag has_backup si existe versión backup
+            $plugin_data['has_backup'] = $this->has_backup($file_name);
+            $plugins[] = $plugin_data;
         }
 
         return $plugins;
@@ -564,5 +634,186 @@ class fs_plugin_manager
         }
 
         return true;
+    }
+
+    /**
+     * Verifica si existe un backup para un plugin
+     *
+     * @param string $plugin_name
+     * @return bool
+     */
+    public function has_backup($plugin_name)
+    {
+        return file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '_back') && 
+               is_dir(FS_FOLDER . '/plugins/' . $plugin_name . '_back');
+    }
+
+    /**
+     * Crea un backup del plugin actual
+     *
+     * @param string $plugin_name
+     * @return bool
+     */
+    public function create_backup($plugin_name)
+    {
+        $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
+        $backup_path = FS_FOLDER . '/plugins/' . $plugin_name . '_back';
+
+        if (!file_exists($plugin_path) || !is_dir($plugin_path)) {
+            $this->core_log->new_error('El plugin ' . $plugin_name . ' no existe.');
+            return false;
+        }
+
+        if (!is_writable(FS_FOLDER . '/plugins/')) {
+            $this->core_log->new_error('No tienes permisos de escritura sobre la carpeta plugins/');
+            return false;
+        }
+
+        // Si ya existe un backup, eliminarlo
+        if ($this->has_backup($plugin_name)) {
+            if (!fs_file_manager::del_tree($backup_path)) {
+                $this->core_log->new_error('Error al eliminar el backup anterior de ' . $plugin_name);
+                return false;
+            }
+        }
+
+        // Crear el backup copiando la carpeta
+        if (!fs_file_manager::recurse_copy($plugin_path, $backup_path)) {
+            $this->core_log->new_error('Error al crear el backup de ' . $plugin_name);
+            return false;
+        }
+
+        $this->core_log->new_message('Backup del plugin <b>' . $plugin_name . '</b> creado correctamente.');
+        return true;
+    }
+
+    /**
+     * Restaura un plugin desde su backup
+     *
+     * @param string $plugin_name
+     * @return bool
+     */
+    public function restore_backup($plugin_name)
+    {
+        $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
+        $backup_path = FS_FOLDER . '/plugins/' . $plugin_name . '_back';
+
+        if (!$this->has_backup($plugin_name)) {
+            $this->core_log->new_error('No existe backup para el plugin ' . $plugin_name);
+            return false;
+        }
+
+        if (!is_writable(FS_FOLDER . '/plugins/')) {
+            $this->core_log->new_error('No tienes permisos de escritura sobre la carpeta plugins/');
+            return false;
+        }
+
+        // Eliminar el plugin actual
+        if (file_exists($plugin_path)) {
+            if (!fs_file_manager::del_tree($plugin_path)) {
+                $this->core_log->new_error('Error al eliminar el plugin actual ' . $plugin_name);
+                return false;
+            }
+        }
+
+        // Renombrar el backup como el plugin principal
+        if (!rename($backup_path, $plugin_path)) {
+            $this->core_log->new_error('Error al restaurar el backup de ' . $plugin_name);
+            return false;
+        }
+
+        $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> restaurado correctamente desde el backup.');
+        $this->clean_cache();
+        return true;
+    }
+
+    /**
+     * Verifica si un plugin existe y obtiene su información
+     *
+     * @param string $plugin_name
+     * @return array|false Array con info del plugin o false si no existe
+     */
+    public function check_plugin_exists($plugin_name)
+    {
+        $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
+        
+        if (!file_exists($plugin_path) || !is_dir($plugin_path)) {
+            return false;
+        }
+
+        $plugin_data = $this->get_plugin_data($plugin_name);
+        $plugin_data['has_backup'] = $this->has_backup($plugin_name);
+        
+        return $plugin_data;
+    }
+
+    /**
+     * Detecta el nombre del plugin desde un archivo ZIP
+     *
+     * @param string $zip_path Ruta al archivo ZIP
+     * @return array|false Array con 'name' y 'version' o false si hay error
+     */
+    public function detect_plugin_from_zip($zip_path)
+    {
+        $zip = new ZipArchive();
+        $res = $zip->open($zip_path, ZipArchive::CHECKCONS);
+        
+        if ($res !== TRUE) {
+            return false;
+        }
+
+        // Crear carpeta temporal
+        $temp_dir = FS_FOLDER . '/tmp/plugin_detect_temp/';
+        if (!file_exists($temp_dir)) {
+            mkdir($temp_dir, 0777, true);
+        } else {
+            // Limpiar si ya existe
+            fs_file_manager::del_tree($temp_dir);
+            mkdir($temp_dir, 0777, true);
+        }
+
+        $zip->extractTo($temp_dir);
+        $zip->close();
+
+        // Detectar carpeta del plugin
+        $plugin_folder = null;
+        foreach (fs_file_manager::scan_folder($temp_dir) as $f) {
+            if (is_dir($temp_dir . $f)) {
+                $plugin_folder = $f;
+                break;
+            }
+        }
+
+        if (!$plugin_folder) {
+            fs_file_manager::del_tree($temp_dir);
+            return false;
+        }
+
+        $plugin_name = $this->rename_plugin($plugin_folder);
+        
+        // Intentar leer la versión del archivo ini
+        $version = 1;
+        $fsframework_ini = $temp_dir . $plugin_folder . '/fsframework.ini';
+        $facturascripts_ini = $temp_dir . $plugin_folder . '/facturascripts.ini';
+        
+        if (file_exists($fsframework_ini)) {
+            $ini_data = parse_ini_file($fsframework_ini);
+            if (isset($ini_data['version'])) {
+                $version = (int) $ini_data['version'];
+            }
+        } elseif (file_exists($facturascripts_ini)) {
+            $ini_data = parse_ini_file($facturascripts_ini);
+            if (isset($ini_data['version'])) {
+                $version = (int) $ini_data['version'];
+            }
+        }
+
+        // Limpiar carpeta temporal
+        fs_file_manager::del_tree($temp_dir);
+
+        return [
+            'name' => $plugin_name,
+            'version' => $version
+        ];
     }
 }
