@@ -111,6 +111,15 @@ class fs_extension extends fs_model
 
     public function save()
     {
+        // Validar que la página de origen (page_from) existe en fs_pages
+        if (!is_null($this->from)) {
+            $page_exists = $this->db->select("SELECT name FROM fs_pages WHERE name = " . $this->var2str($this->from) . ";");
+            if (!$page_exists) {
+                error_log("ERROR: No se puede guardar la extensión '{$this->name}' porque la página de origen '{$this->from}' no existe en fs_pages.");
+                return FALSE;
+            }
+        }
+
         if ($this->exists()) {
             $sql = "UPDATE " . $this->table_name . " SET page_to = " . $this->var2str($this->to)
                 . ", type = " . $this->var2str($this->type)
