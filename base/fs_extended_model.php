@@ -24,6 +24,7 @@ require_once 'base/fs_model.php';
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
+#[AllowDynamicProperties]
 abstract class fs_extended_model extends fs_model
 {
 

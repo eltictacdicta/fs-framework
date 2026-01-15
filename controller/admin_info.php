@@ -26,12 +26,10 @@ class admin_info extends fs_list_controller
 {
 
     private $fsvar;
-    private $divisa_tools;
 
     public function __construct()
     {
         parent::__construct(__CLASS__, 'Información del sistema', 'admin', TRUE, TRUE);
-        $this->divisa_tools = new fs_divisa_tools();
     }
 
     public function cache_version()

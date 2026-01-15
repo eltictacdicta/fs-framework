@@ -32,6 +32,7 @@ require_all_models();
  * 
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
+#[AllowDynamicProperties]
 class fs_controller extends fs_app
 {
 
@@ -49,10 +50,22 @@ class fs_controller extends fs_app
     protected $db;
 
     /**
+     *
+     * @var fs_divisa_tools
+     */
+    protected $divisa_tools;
+
+    /**
      * Permite consultar los parámetros predeterminados para series, divisas, forma de pago, etc...
      * @var fs_default_items 
      */
     public $default_items;
+
+    /**
+     * La empresa
+     * @var empresa
+     */
+    public $empresa;
 
     /**
      * Listado de extensiones de la página
@@ -130,8 +143,22 @@ class fs_controller extends fs_app
 
             $this->default_items = new fs_default_items();
             $this->login_tools = new fs_login();
-            
+
             $this->load_extensions();
+
+            if (class_exists('empresa')) {
+                $this->empresa = new empresa();
+                $empresa_data = $this->empresa->get();
+                if ($empresa_data) {
+                    $this->empresa = $empresa_data;
+                }
+            }
+
+            /// Inicializamos las herramientas de divisa con la divisa de la empresa
+            $coddivisa = ($this->empresa && isset($this->empresa->coddivisa) && $this->empresa->coddivisa)
+                ? $this->empresa->coddivisa
+                : 'EUR';
+            $this->divisa_tools = new fs_divisa_tools($coddivisa);
 
             if (filter_input(INPUT_GET, 'logout')) {
                 $this->template = 'login/default';
@@ -354,7 +381,7 @@ class fs_controller extends fs_app
      */
     protected function private_core()
     {
-        
+
     }
 
     /**
@@ -362,7 +389,7 @@ class fs_controller extends fs_app
      */
     protected function public_core()
     {
-        
+
     }
 
     /**
@@ -494,13 +521,13 @@ class fs_controller extends fs_app
         /// cargamos los datos de la página o entrada del menú actual
         $this->page = new fs_page(
             array(
-            'name' => $name,
-            'title' => $title,
-            'folder' => $folder,
-            'version' => $this->version(),
-            'show_on_menu' => $shmenu,
-            'important' => $important,
-            'orden' => 100
+                'name' => $name,
+                'title' => $title,
+                'folder' => $folder,
+                'version' => $this->version(),
+                'show_on_menu' => $shmenu,
+                'important' => $important,
+                'orden' => 100
             )
         );
 
@@ -630,5 +657,68 @@ class fs_controller extends fs_app
         if (is_null($this->default_items->showing_page())) {
             $this->default_items->set_showing_page($this->page->name);
         }
+    }
+
+    /**
+     * Convierte un precio de la divisa_desde a la divisa especificada
+     * @param float $precio
+     * @param string $coddivisa_desde
+     * @param string $coddivisa
+     * @return float
+     */
+    public function divisa_convert($precio, $coddivisa_desde, $coddivisa)
+    {
+        return $this->divisa_tools->divisa_convert($precio, $coddivisa_desde, $coddivisa);
+    }
+
+    /**
+     * Convierte el precio en euros a la divisa preterminada de la empresa.
+     * Por defecto usa las tasas de conversión actuales, pero si se especifica
+     * coddivisa y tasaconv las usará.
+     * @param float $precio
+     * @param string $coddivisa
+     * @param float $tasaconv
+     * @return float
+     */
+    public function euro_convert($precio, $coddivisa = NULL, $tasaconv = NULL)
+    {
+        return $this->divisa_tools->euro_convert($precio, $coddivisa, $tasaconv);
+    }
+
+    /**
+     * Devuelve un string con el número en el formato de número predeterminado.
+     * @param float $num
+     * @param integer $decimales
+     * @param boolean $js
+     * @return string
+     */
+    public function show_numero($num = 0, $decimales = FS_NF0, $js = FALSE)
+    {
+        return $this->divisa_tools->show_numero($num, $decimales, $js);
+    }
+
+    /**
+     * Devuelve un string con el precio en el formato predefinido y con la
+     * divisa seleccionada (o la predeterminada).
+     * @param float $precio
+     * @param string $coddivisa
+     * @param string $simbolo
+     * @param integer $dec nº de decimales
+     * @return string
+     */
+    public function show_precio($precio = 0, $coddivisa = FALSE, $simbolo = TRUE, $dec = FS_NF0)
+    {
+        return $this->divisa_tools->show_precio($precio, $coddivisa, $simbolo, $dec);
+    }
+
+    /**
+     * Devuelve el símbolo de divisa predeterminado
+     * o bien el símbolo de la divisa seleccionada.
+     * @param string $coddivisa
+     * @return string
+     */
+    public function simbolo_divisa($coddivisa = FALSE)
+    {
+        return $this->divisa_tools->simbolo_divisa($coddivisa);
     }
 }
