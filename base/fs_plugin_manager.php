@@ -303,7 +303,9 @@ class fs_plugin_manager
             return false;
         }
 
-        array_unshift($GLOBALS['plugins'], $name);
+        /// Añadimos el plugin al final de la lista para respetar el orden de dependencias
+        /// Los plugins dependientes deben cargarse después de sus dependencias
+        $GLOBALS['plugins'][] = $name;
         if (!$this->save()) {
             $this->core_log->new_error('Imposible activar el plugin <b>' . $name . '</b>.');
             return false;

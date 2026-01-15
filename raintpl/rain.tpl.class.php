@@ -730,7 +730,9 @@ class RainTPL {
 
                // replace back the @double_dot@ with ::
                $function = str_replace("@double_dot@", "::", $function);
-               $params = str_replace("@double_dot@", "::", $params);
+               if ($params !== null) {
+                  $params = str_replace("@double_dot@", "::", $params);
+               }
             } else
                $function = $params = null;
 

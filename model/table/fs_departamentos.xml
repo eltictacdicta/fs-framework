@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Document   : fs_departamentos.xml
+    Author     : Javier Trujillo
+    Description:
+        Estructura de la tabla fs_departamentos.
+-->
+<tabla>
+    <columna>
+        <nombre>coddepartamento</nombre>
+        <tipo>character varying(36)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>nombre</nombre>
+        <tipo>character varying(100)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>descripcion</nombre>
+        <tipo>character varying(500)</tipo>
+        <nulo>YES</nulo>
+    </columna>
+    <columna>
+        <nombre>activo</nombre>
+        <tipo>boolean</tipo>
+        <nulo>NO</nulo>
+        <defecto>true</defecto>
+    </columna>
+    <columna>
+        <nombre>fecha_alta</nombre>
+        <tipo>date</tipo>
+        <nulo>YES</nulo>
+    </columna>
+    <restriccion>
+        <nombre>fs_departamentos_pkey</nombre>
+        <consulta>PRIMARY KEY (coddepartamento)</consulta>
+    </restriccion>
+</tabla>

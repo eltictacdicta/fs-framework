@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Document   : fs_departamentos_users.xml
+    Author     : Javier Trujillo
+    Description:
+        Estructura de la tabla fs_departamentos_users.
+        Relaciona usuarios con departamentos y permite marcar administradores.
+-->
+<tabla>
+    <columna>
+        <nombre>coddepartamento</nombre>
+        <tipo>character varying(36)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>fs_user</nombre>
+        <tipo>character varying(12)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>es_admin</nombre>
+        <tipo>boolean</tipo>
+        <nulo>NO</nulo>
+        <defecto>false</defecto>
+    </columna>
+    <columna>
+        <nombre>fecha_alta</nombre>
+        <tipo>date</tipo>
+        <nulo>YES</nulo>
+    </columna>
+    <restriccion>
+        <nombre>fs_departamentos_users_pkey</nombre>
+        <consulta>PRIMARY KEY (coddepartamento,fs_user)</consulta>
+    </restriccion>
+    <restriccion>
+        <nombre>fs_departamentos_users_depto</nombre>
+        <consulta>FOREIGN KEY (coddepartamento) REFERENCES fs_departamentos (coddepartamento) ON DELETE CASCADE ON UPDATE CASCADE</consulta>
+    </restriccion>
+    <restriccion>
+        <nombre>fs_departamentos_users_user</nombre>
+        <consulta>FOREIGN KEY (fs_user) REFERENCES fs_users (nick) ON DELETE CASCADE ON UPDATE CASCADE</consulta>
+    </restriccion>
+</tabla>

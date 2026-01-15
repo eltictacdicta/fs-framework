@@ -1,0 +1,203 @@
+{include="header"}
+
+{if="$fsc->departamento"}
+<script type="text/javascript">
+   $(document).ready(function() {
+      $("#b_eliminar_departamento").click(function(event) {
+         event.preventDefault();
+         bootbox.confirm({
+            message: '¿Realmente desea eliminar el departamento {$fsc->departamento->coddepartamento}?',
+            title: '<b>Atención</b>',
+            callback: function(result) {
+               if (result) {
+                  window.location.href = "index.php?page=admin_departamentos&delete="+encodeURIComponent("{$fsc->departamento->coddepartamento}");
+               }
+            }                
+         });
+      });
+      // Cuando se marca un usuario como admin, automáticamente se marca como incluido
+      $("input[name='iadmin[]']").change(function() {
+         if ($(this).is(':checked')) {
+            var nick = $(this).val();
+            $("input[name='iuser[]'][value='" + nick + "']").prop('checked', true);
+         }
+      });
+      // Cuando se desmarca un usuario, automáticamente se desmarca como admin
+      $("input[name='iuser[]']").change(function() {
+         if (!$(this).is(':checked')) {
+            var nick = $(this).val();
+            $("input[name='iadmin[]'][value='" + nick + "']").prop('checked', false);
+         }
+      });
+   });
+</script>
+
+<form action="{$fsc->departamento->url()}" method="post" class="form" id="f_departamento">
+   <div class="container-fluid">
+      <div class="row">
+         <div class="col-sm-6">
+            <div class="btn-group">
+               <a class="btn btn-sm btn-default" href="index.php?page=admin_departamentos">
+                  <span class="glyphicon glyphicon-arrow-left"></span>
+                  <span class="hidden-xs">&nbsp; Departamentos</span>
+               </a>
+               <a class="btn btn-sm btn-default" href="{$fsc->departamento->url()}" title="recargar la página">
+                  <span class="glyphicon glyphicon-refresh"></span>
+               </a>
+            </div>
+            <div class="btn-group">
+               {loop="$fsc->extensions"}
+                  {if="$value->type=='button'"}
+                  <a href="index.php?page={$value->from}&coddepartamento={$fsc->departamento->coddepartamento}{$value->params}" class="btn btn-sm btn-default">{$value->text}</a>
+                  {/if}
+               {/loop}
+            </div>
+            <a class="btn btn-sm btn-success" href="index.php?page=admin_departamentos#nuevo" title="Nuevo departamento">
+               <span class="glyphicon glyphicon-plus"></span>
+            </a>
+         </div>
+         <div class="col-sm-6 text-right">
+            <div class="btn-group">
+               {if="$fsc->allow_delete"}
+               <a href="#" id="b_eliminar_departamento" class="btn btn-sm btn-danger">
+                  <span class="glyphicon glyphicon-trash"></span>
+                  <span class="hidden-xs hidden-sm">&nbsp;Eliminar</span>
+               </a>
+               {/if}
+               <button class="btn btn-sm btn-primary" type="submit" onclick="this.disabled=true;this.form.submit();">
+                  <span class="glyphicon glyphicon-floppy-disk"></span>
+                  <span class="hidden-xs">&nbsp;Guardar</span>
+               </button>
+            </div>
+         </div>
+      </div>
+      <div class="row">
+         <div class="col-sm-12">
+            <div class="page-header">
+               <h1>
+                  <i class="fa fa-building" aria-hidden="true"></i>
+                  Departamento <small>{$fsc->departamento->coddepartamento}</small>
+                  {if="$fsc->departamento->activo"}
+                  <span class="label label-success">Activo</span>
+                  {else}
+                  <span class="label label-default">Inactivo</span>
+                  {/if}
+               </h1>
+            </div>
+         </div>
+      </div>
+      <div class="row">
+         <div class="col-sm-6">
+            <div class="form-group">
+               <label>Nombre:</label>
+               <input type="text" name="nombre" value="{$fsc->departamento->nombre}" class="form-control" maxlength="100" autocomplete="off" required=""/>
+            </div>
+         </div>
+         <div class="col-sm-4">
+            <div class="form-group">
+               <label>Descripción:</label>
+               <input type="text" name="descripcion" value="{$fsc->departamento->descripcion}" class="form-control" maxlength="500" autocomplete="off"/>
+            </div>
+         </div>
+         <div class="col-sm-2">
+            <div class="form-group">
+               <label>Estado:</label>
+               <div class="checkbox">
+                  <label>
+                     <input type="checkbox" name="activo" value="1"{if="$fsc->departamento->activo"} checked=""{/if}/>
+                     Activo
+                  </label>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+   
+   <ul class="nav nav-tabs" role="tablist">
+      <li role="presentation" class="active">
+         <a href="#usuarios" aria-controls="usuarios" role="tab" data-toggle="tab">
+            <i class="fa fa-users" aria-hidden="true"></i>
+            <span class="hidden-xs">&nbsp;Usuarios</span>
+            <span class="badge">{function="count($fsc->departamento->get_users())"}</span>
+         </a>
+      </li>
+   </ul>
+   
+   <div class="tab-content">
+      <div role="tabpanel" class="tab-pane active" id="usuarios">
+         <div class="container-fluid" style="margin-top: 15px; margin-bottom: 10px;">
+            <div class="row">
+               <div class="col-sm-12">
+                  <p class="help-block">
+                     <i class="fa fa-info-circle" aria-hidden="true"></i>&nbsp;
+                     Marca los usuarios que pertenecen a este departamento.
+                     Los usuarios marcados como <span class="label label-warning">Admin</span> 
+                     serán administradores del departamento.
+                  </p>
+               </div>
+            </div>
+         </div>
+         <div class="table-responsive">
+            <table class="table table-hover">
+               <thead>
+                  <tr>
+                     <th width="50" class="text-center">Incluir</th>
+                     <th width="50" class="text-center">Admin</th>
+                     <th class="text-left">Nick</th>
+                     <th class="text-left">Email</th>
+                     <th class="text-center">Admin Sistema</th>
+                     <th class="text-right">Último login</th>
+                  </tr>
+               </thead>
+               {loop="$fsc->all_users()"}
+                  <tr{if="$value->included"} class="success"{/if}{if="$value->es_admin_depto"} class="warning"{/if}>
+                     <td class="text-center">
+                        <input type="checkbox" name="iuser[]" value="{$value->nick}"{if="$value->included"} checked=""{/if}/>
+                     </td>
+                     <td class="text-center">
+                        <input type="checkbox" name="iadmin[]" value="{$value->nick}"{if="$value->es_admin_depto"} checked=""{/if} title="Marcar como administrador del departamento"/>
+                     </td>
+                     <td>
+                        <a href="{$value->url()}">{$value->nick}</a>
+                     </td>
+                     <td>{$value->email}</td>
+                     <td class="text-center">
+                        {if="$value->admin"}
+                        <span class="label label-danger">Sí</span>
+                        {else}
+                        <span class="label label-default">No</span>
+                        {/if}
+                     </td>
+                     <td class="text-right">{$value->show_last_login()}</td>
+                  </tr>
+               {else}
+               <tr class="warning">
+                  <td colspan="6">No hay usuarios en el sistema.</td>
+               </tr>
+               {/loop}
+            </table>
+         </div>
+      </div>
+   </div>
+</form>
+{else}
+<div class="container-fluid">
+   <div class="row">
+      <div class="col-sm-12">
+         <div class="thumbnail">
+            <img src="{#FS_PATH#}view/img/fuuu_face.png" alt="fuuuuu"/>
+            <div class="caption text-center">
+               <h3>Departamento no encontrado</h3>
+               <p>
+                  <a href="index.php?page=admin_departamentos" class="btn btn-primary">
+                     <span class="glyphicon glyphicon-arrow-left"></span> Volver a departamentos
+                  </a>
+               </p>
+            </div>
+         </div>
+      </div>
+   </div>
+</div>
+{/if}
+
+{include="footer"}
