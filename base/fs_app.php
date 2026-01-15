@@ -201,6 +201,10 @@ class fs_app
      */
     public function version()
     {
-        return file_exists('VERSION') ? trim(file_get_contents('VERSION')) : '0';
+        $version = file_exists('VERSION') ? trim(file_get_contents('VERSION')) : '0';
+        if (floatval($version) < 2017.000) {
+            return '2017.901';
+        }
+        return $version;
     }
 }

@@ -351,7 +351,7 @@ class fs_plugin_manager
         if (!file_exists($temp_dir)) {
             mkdir($temp_dir, 0777, true);
         }
-        
+
         $zip->extractTo($temp_dir);
         $zip->close();
 
@@ -411,9 +411,11 @@ class fs_plugin_manager
 
         foreach (fs_file_manager::scan_folder(FS_FOLDER . '/plugins') as $file_name) {
             // Filtrar carpetas que terminen en _back
-            if (!is_dir(FS_FOLDER . '/plugins/' . $file_name) || 
-                in_array($file_name, $disabled) || 
-                substr($file_name, -5) === '_back') {
+            if (
+                !is_dir(FS_FOLDER . '/plugins/' . $file_name) ||
+                in_array($file_name, $disabled) ||
+                substr($file_name, -5) === '_back'
+            ) {
                 continue;
             }
 
@@ -541,8 +543,7 @@ class fs_plugin_manager
         // If fsframework.ini doesn't exist, try facturascripts.ini
         elseif (file_exists($facturascripts_ini)) {
             $ini_file = parse_ini_file($facturascripts_ini);
-        }
-        else {
+        } else {
             return $plugin;
         }
 
@@ -564,13 +565,12 @@ class fs_plugin_manager
             } else {
                 $plugin['error_msg'] = 'Requiere FSFramework ' . $plugin['min_version'];
             }
-        }
-        else {
+        } else {
             // For facturascripts.ini, check if version is greater than 2017.000
-            if ($plugin['min_version'] > 2017.000) {
+            if (2017.901 >= $plugin['min_version']) {
                 $plugin['compatible'] = true;
                 $plugin['legacy_warning'] = true;
-                $plugin['error_msg'] = 'Aunque se ha mantenido la compatibilidad con FacturaScript, se ha quitado toda la parte de clientes y empresa.';
+                $plugin['error_msg'] = 'Aunque se ha mantenido la compatibilidad con FacturaScript, no se garantiza la compatiblidad 100%, se recomienda usarlo en un entorno de pruebas y asegurarse que funciona correctamente antes de usarlo en proucción.';
             } else {
                 $plugin['compatible'] = false;
                 $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'];
@@ -646,8 +646,8 @@ class fs_plugin_manager
      */
     public function has_backup($plugin_name)
     {
-        return file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '_back') && 
-               is_dir(FS_FOLDER . '/plugins/' . $plugin_name . '_back');
+        return file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '_back') &&
+            is_dir(FS_FOLDER . '/plugins/' . $plugin_name . '_back');
     }
 
     /**
@@ -738,14 +738,14 @@ class fs_plugin_manager
     public function check_plugin_exists($plugin_name)
     {
         $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
-        
+
         if (!file_exists($plugin_path) || !is_dir($plugin_path)) {
             return false;
         }
 
         $plugin_data = $this->get_plugin_data($plugin_name);
         $plugin_data['has_backup'] = $this->has_backup($plugin_name);
-        
+
         return $plugin_data;
     }
 
@@ -759,7 +759,7 @@ class fs_plugin_manager
     {
         $zip = new ZipArchive();
         $res = $zip->open($zip_path, ZipArchive::CHECKCONS);
-        
+
         if ($res !== TRUE) {
             return false;
         }
@@ -792,12 +792,12 @@ class fs_plugin_manager
         }
 
         $plugin_name = $this->rename_plugin($plugin_folder);
-        
+
         // Intentar leer la versión del archivo ini
         $version = 1;
         $fsframework_ini = $temp_dir . $plugin_folder . '/fsframework.ini';
         $facturascripts_ini = $temp_dir . $plugin_folder . '/facturascripts.ini';
-        
+
         if (file_exists($fsframework_ini)) {
             $ini_data = parse_ini_file($fsframework_ini);
             if (isset($ini_data['version'])) {
