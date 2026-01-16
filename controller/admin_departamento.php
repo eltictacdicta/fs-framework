@@ -26,6 +26,12 @@ class admin_departamento extends fs_controller
 
     public $allow_delete;
     public $departamento;
+    
+    /** @var bool Indica si el plugin tarifario está activo */
+    public $tarifario_activo;
+    
+    /** @var array Familias asignadas al departamento (si tarifario está activo) */
+    public $familias_asignadas;
 
     public function __construct()
     {
@@ -36,6 +42,10 @@ class admin_departamento extends fs_controller
     {
         /// ¿El usuario tiene permiso para eliminar en esta página?
         $this->allow_delete = $this->user->admin;
+        
+        /// Verificar si el plugin tarifario está activo
+        $this->tarifario_activo = $this->is_plugin_active('tarifario');
+        $this->familias_asignadas = [];
 
         if (fs_filter_input_req('coddepartamento')) {
             $fs_departamento = new fs_departamento();
@@ -43,12 +53,97 @@ class admin_departamento extends fs_controller
         }
 
         if ($this->departamento) {
+            // Procesar acciones de familias (si tarifario está activo)
+            if ($this->tarifario_activo) {
+                $this->process_familias_actions();
+                $this->load_familias();
+            }
+            
             if (filter_input(INPUT_POST, 'nombre')) {
                 $this->modify();
             }
         } else {
             $this->new_error_msg("Departamento no encontrado.", 'error', FALSE, FALSE);
         }
+    }
+    
+    /**
+     * Verifica si un plugin está activo
+     * @param string $plugin_name
+     * @return bool
+     */
+    private function is_plugin_active($plugin_name)
+    {
+        return in_array($plugin_name, $GLOBALS['plugins']);
+    }
+    
+    /**
+     * Procesa las acciones de añadir/quitar familias
+     */
+    private function process_familias_actions()
+    {
+        if (isset($_GET['add_familia'])) {
+            $rel = new tarif_departamento_familia();
+            if ($rel->add($this->departamento->coddepartamento, $_GET['add_familia'])) {
+                $this->new_message('Familia añadida correctamente.');
+            } else {
+                $this->new_error_msg('Error al añadir la familia.');
+            }
+        } else if (isset($_GET['remove_familia']) && $this->allow_delete) {
+            $rel = new tarif_departamento_familia();
+            if ($rel->remove($this->departamento->coddepartamento, $_GET['remove_familia'])) {
+                $this->new_message('Familia eliminada correctamente.');
+            } else {
+                $this->new_error_msg('Error al eliminar la familia.');
+            }
+        }
+    }
+    
+    /**
+     * Carga las familias asignadas al departamento
+     */
+    private function load_familias()
+    {
+        $rel = new tarif_departamento_familia();
+        $this->familias_asignadas = $rel->get_familias_from_departamento($this->departamento->coddepartamento);
+    }
+    
+    /**
+     * Devuelve las familias no asignadas a este departamento
+     * @return array
+     */
+    public function get_familias_disponibles()
+    {
+        if (!$this->tarifario_activo) {
+            return [];
+        }
+        
+        $familia = new familia();
+        $disponibles = [];
+        
+        $asignadas = array_map(function($f) { return $f->codfamilia; }, $this->familias_asignadas);
+        
+        foreach ($familia->all() as $f) {
+            if (!in_array($f->codfamilia, $asignadas)) {
+                $disponibles[] = $f;
+            }
+        }
+        
+        return $disponibles;
+    }
+    
+    /**
+     * Cuenta los artículos del tarifario en las familias asignadas
+     * @return int
+     */
+    public function count_articulos_tarifario()
+    {
+        if (!$this->tarifario_activo || !$this->departamento) {
+            return 0;
+        }
+        
+        $rel = new tarif_departamento_familia();
+        return $rel->count_articulos_from_departamento($this->departamento->coddepartamento);
     }
 
     public function all_users()

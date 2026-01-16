@@ -153,14 +153,14 @@ class fs_departamento extends fs_model
 
     public function test()
     {
-        $this->coddepartamento = trim($this->coddepartamento);
-        $this->nombre = $this->no_html($this->nombre);
-        $this->descripcion = $this->no_html($this->descripcion);
-
-        // Generar UUID automáticamente si no hay código
-        if (empty($this->coddepartamento)) {
+        // Generar UUID automáticamente si no hay código (antes del trim para evitar null)
+        if (is_null($this->coddepartamento) || $this->coddepartamento === '') {
             $this->coddepartamento = $this->get_new_codigo();
         }
+        
+        $this->coddepartamento = trim($this->coddepartamento);
+        $this->nombre = $this->no_html($this->nombre);
+        $this->descripcion = is_null($this->descripcion) ? '' : $this->no_html($this->descripcion);
 
         if (strlen($this->coddepartamento) < 1 || strlen($this->coddepartamento) > 36) {
             $this->new_error_msg("Código de departamento no válido. Debe tener entre 1 y 36 caracteres.");

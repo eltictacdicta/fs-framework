@@ -121,6 +121,15 @@
             <span class="badge">{function="count($fsc->departamento->get_users())"}</span>
          </a>
       </li>
+      {if="$fsc->tarifario_activo"}
+      <li role="presentation">
+         <a href="#familias" aria-controls="familias" role="tab" data-toggle="tab">
+            <i class="fa fa-folder-open" aria-hidden="true"></i>
+            <span class="hidden-xs">&nbsp;Familias</span>
+            <span class="badge">{function="count($fsc->familias_asignadas)"}</span>
+         </a>
+      </li>
+      {/if}
    </ul>
    
    <div class="tab-content">
@@ -178,6 +187,99 @@
             </table>
          </div>
       </div>
+      
+      {if="$fsc->tarifario_activo"}
+      <div role="tabpanel" class="tab-pane" id="familias">
+         <div class="container-fluid" style="margin-top: 15px; margin-bottom: 10px;">
+            <div class="row">
+               <div class="col-md-6">
+                  <div class="panel panel-success">
+                     <div class="panel-heading">
+                        <h4 class="panel-title">
+                           <i class="fa fa-folder-open" aria-hidden="true"></i>&nbsp;
+                           Familias asignadas
+                           <span class="badge">{function="count($fsc->familias_asignadas)"}</span>
+                        </h4>
+                     </div>
+                     <div class="panel-body">
+                        {if="count($fsc->familias_asignadas) > 0"}
+                           {loop="$fsc->familias_asignadas"}
+                           <div style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+                              <div>
+                                 <span style="color: #999;">{$value->nivel}</span>
+                                 <strong>{$value->descripcion}</strong>
+                                 <small class="text-muted">({$value->codfamilia})</small>
+                              </div>
+                              {if="$fsc->allow_delete"}
+                              <a href="{$fsc->departamento->url()}&remove_familia={$value->codfamilia}" 
+                                 class="btn btn-xs btn-danger" 
+                                 title="Quitar familia"
+                                 onclick="return confirm('¿Quitar esta familia del departamento?');">
+                                 <i class="fa fa-times"></i>
+                              </a>
+                              {/if}
+                           </div>
+                           {/loop}
+                        {else}
+                           <p class="text-muted text-center">
+                              <i class="fa fa-info-circle"></i> No hay familias asignadas a este departamento.
+                           </p>
+                        {/if}
+                     </div>
+                     {if="count($fsc->familias_asignadas) > 0"}
+                     <div class="panel-footer">
+                        <small class="text-muted">
+                           <i class="fa fa-cubes"></i> 
+                           {$fsc->count_articulos_tarifario()} artículos del tarifario en estas familias
+                        </small>
+                     </div>
+                     {/if}
+                  </div>
+               </div>
+               
+               <div class="col-md-6">
+                  <div class="panel panel-default">
+                     <div class="panel-heading">
+                        <h4 class="panel-title">
+                           <i class="fa fa-plus-circle" aria-hidden="true"></i>&nbsp;
+                           Familias disponibles
+                        </h4>
+                     </div>
+                     <div class="panel-body" style="max-height: 400px; overflow-y: auto;">
+                        {loop="$fsc->get_familias_disponibles()"}
+                        <div style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+                           <div>
+                              <span style="color: #999;">{$value->nivel}</span>
+                              {$value->descripcion}
+                              <small class="text-muted">({$value->codfamilia})</small>
+                           </div>
+                           <a href="{$fsc->departamento->url()}&add_familia={$value->codfamilia}" 
+                              class="btn btn-xs btn-success" 
+                              title="Añadir familia">
+                              <i class="fa fa-plus"></i>
+                           </a>
+                        </div>
+                        {else}
+                        <p class="text-muted text-center">
+                           <i class="fa fa-check-circle"></i> Todas las familias están asignadas.
+                        </p>
+                        {/loop}
+                     </div>
+                  </div>
+               </div>
+            </div>
+            <div class="row">
+               <div class="col-sm-12">
+                  <p class="help-block">
+                     <i class="fa fa-info-circle"></i>&nbsp;
+                     Asigna las familias de artículos que corresponden a este departamento. 
+                     Los artículos del tarifario que pertenezcan a estas familias estarán asociados al departamento.
+                  </p>
+               </div>
+            </div>
+         </div>
+      </div>
+      {/if}
    </div>
 </form>
 {else}
