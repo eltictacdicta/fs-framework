@@ -1,11 +1,9 @@
 #!/bin/bash
 
 composer install
-rm -rf extras/phpmailer xlsxwriter.class.php
+rm -rf extras/phpmailer
 cp -R vendor/phpmailer/phpmailer extras/
 rm -rf extras/phpmailer/examples
-cp -R vendor/mk-j/php_xlsxwriter/xlsxwriter.class.php extras/
-rm -rf vendor composer.lock
 
 npm install
 cp node_modules/bootbox/bootbox.min.js view/js/

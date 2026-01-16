@@ -9,7 +9,7 @@ Este framework, aunque mantiene la misma lógica de FSFramework y preserva su co
 En un futuro podría desarrollarse un plugin para hacerlo completamente compatible, pero actualmente no es una prioridad. **Animo a los programadores a realizar un fork y enviar un pull request para aumentar su compatibilidad.**
 
 ## Mejoras
-- Compatibilidad con PHP 8.1
+- Compatibilidad con PHP 8.3
 - Sistema de temas con auto-activación
 - AdminLTE como tema por defecto
 
