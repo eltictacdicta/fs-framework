@@ -336,3 +336,158 @@ function require_model($name)
         $core_log->new_error("require_model('" . $name . "') es innecesario desde FSFramework 2017.025.");
     }
 }
+
+/**
+ * Descarga contenido con autenticación (para repositorios privados de GitHub).
+ * @param string $url
+ * @param string $token Token de acceso (GitHub Personal Access Token)
+ * @param integer $timeout
+ * @return string
+ */
+function fs_file_get_contents_auth($url, $token, $timeout = 10)
+{
+    if (!function_exists('curl_init')) {
+        if (class_exists('fs_core_log')) {
+            $core_log = new fs_core_log();
+            $core_log->new_error('cURL no está disponible. Se requiere para acceso a repositorios privados.');
+        }
+        return 'ERROR';
+    }
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Plugin-Manager');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    
+    // Headers de autenticación para GitHub API
+    $headers = [
+        'Accept: application/vnd.github.v3.raw',
+        'Authorization: token ' . $token
+    ];
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    
+    if (ini_get('open_basedir') === NULL) {
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    }
+
+    // Verificación SSL
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+    
+    // Ruta de certificados según el sistema operativo
+    if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
+        curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
+    }
+
+    if (defined('FS_PROXY_TYPE')) {
+        curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
+        curl_setopt($ch, CURLOPT_PROXY, FS_PROXY_HOST);
+        curl_setopt($ch, CURLOPT_PROXYPORT, FS_PROXY_PORT);
+    }
+    
+    $data = curl_exec($ch);
+    $info = curl_getinfo($ch);
+
+    if ($info['http_code'] == 200) {
+        curl_close($ch);
+        return $data;
+    } else if ($info['http_code'] == 301 || $info['http_code'] == 302) {
+        $redirs = 0;
+        return fs_curl_redirect_exec_auth($ch, $redirs, $token);
+    }
+
+    // Log de errores
+    if (class_exists('fs_core_log') && $info['http_code'] != 404) {
+        $error = curl_error($ch);
+        if ($error == '') {
+            $error = 'ERROR ' . $info['http_code'];
+            if ($info['http_code'] == 401) {
+                $error .= ' - Token de GitHub inválido o expirado';
+            } else if ($info['http_code'] == 403) {
+                $error .= ' - Acceso denegado. Verifica los permisos del token';
+            }
+        }
+
+        $core_log = new fs_core_log();
+        $core_log->new_error($error);
+        $core_log->save($url . ' - ' . $error);
+    }
+
+    curl_close($ch);
+    return 'ERROR';
+}
+
+/**
+ * Función alternativa para redirecciones con autenticación.
+ * @param resource $ch
+ * @param integer $redirects
+ * @param string $token
+ * @param boolean $curlopt_header
+ * @return string
+ */
+function fs_curl_redirect_exec_auth($ch, &$redirects, $token, $curlopt_header = false)
+{
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    // Mantener la autenticación en redirects
+    $headers = [
+        'Accept: application/vnd.github.v3.raw',
+        'Authorization: token ' . $token
+    ];
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    
+    $data = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if ($http_code == 301 || $http_code == 302) {
+        list($header) = explode("\r\n\r\n", $data, 2);
+        $matches = [];
+        preg_match("/(Location:|URI:)[^(\n)]*/i", $header, $matches);
+        $url = trim(str_replace($matches[1], "", $matches[0]));
+        $url_parsed = parse_url($url);
+        if (isset($url_parsed)) {
+            curl_setopt($ch, CURLOPT_URL, $url);
+            $redirects++;
+            return fs_curl_redirect_exec_auth($ch, $redirects, $token, $curlopt_header);
+        }
+    }
+
+    if ($curlopt_header) {
+        curl_close($ch);
+        return $data;
+    }
+
+    list(, $body) = explode("\r\n\r\n", $data, 2);
+    curl_close($ch);
+    return $body;
+}
+
+/**
+ * Descarga archivo con autenticación (para repositorios privados de GitHub).
+ * @param string $url
+ * @param string $filename
+ * @param string $token Token de acceso de GitHub
+ * @param integer $timeout
+ * @return boolean
+ */
+function fs_file_download_auth($url, $filename, $token, $timeout = 60)
+{
+    $ok = false;
+
+    try {
+        // Para descargas de ZIP desde GitHub, usar la API de contenidos
+        $data = fs_file_get_contents_auth($url, $token, $timeout);
+        if ($data && $data != 'ERROR' && file_put_contents($filename, $data) !== false) {
+            $ok = true;
+        }
+    } catch (Exception $e) {
+        if (class_exists('fs_core_log')) {
+            $core_log = new fs_core_log();
+            $core_log->new_error('Error al descargar archivo: ' . $e->getMessage());
+        }
+    }
+
+    return $ok;
+}

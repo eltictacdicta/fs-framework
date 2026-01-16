@@ -1,0 +1,242 @@
+<!-- Configuración de Plugins Privados -->
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fa fa-lock"></i>&nbsp; Configuración de Repositorios Privados
+        </h3>
+    </div>
+    <div class="panel-body">
+        <form action="{$fsc->url()}&caca={$fsc->random_string(4)}#privados" method="post" class="form-horizontal">
+            <input type="hidden" name="save_private_config" value="1"/>
+            
+            <div class="form-group">
+                <label class="col-sm-3 control-label">Token de GitHub:</label>
+                <div class="col-sm-9">
+                    <!--{$private_config=$fsc->plugin_manager->get_private_config()}-->
+                    <input type="password" class="form-control" name="github_token" 
+                           value="{$private_config.github_token}" 
+                           placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                           autocomplete="new-password"/>
+                    <p class="help-block">
+                        <i class="fa fa-info-circle"></i>
+                        Personal Access Token de GitHub con permisos de lectura en repositorios (repo scope).
+                        <a href="https://github.com/settings/tokens/new?scopes=repo&description=FSFramework%20Private%20Plugins" target="_blank">
+                            Crear un nuevo token
+                        </a>
+                    </p>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="col-sm-3 control-label">URL del JSON de Plugins:</label>
+                <div class="col-sm-9">
+                    <input type="url" class="form-control" name="private_plugins_url" 
+                           value="{$private_config.private_plugins_url}" 
+                           placeholder="https://raw.githubusercontent.com/usuario/repo-privado/main/custom_private_plugins.json"/>
+                    <p class="help-block">
+                        <i class="fa fa-info-circle"></i>
+                        URL raw del archivo JSON con la lista de plugins privados. 
+                        Usa el formato: <code>https://raw.githubusercontent.com/USUARIO/REPO/RAMA/archivo.json</code>
+                    </p>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <div class="col-sm-offset-3 col-sm-9">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa fa-save"></i>&nbsp; Guardar configuración
+                    </button>
+                    {if="$private_config.enabled"}
+                    <a href="{$fsc->url()}&caca={$fsc->random_string(4)}&test_private_connection=1#privados" class="btn btn-info">
+                        <i class="fa fa-plug"></i>&nbsp; Probar conexión
+                    </a>
+                    <a href="{$fsc->url()}&caca={$fsc->random_string(4)}&delete_private_config=1#privados" 
+                       class="btn btn-danger" 
+                       onclick="return confirm('¿Estás seguro de eliminar la configuración de plugins privados?');">
+                        <i class="fa fa-trash"></i>&nbsp; Eliminar configuración
+                    </a>
+                    {/if}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Formato del JSON de Plugins Privados -->
+<div class="panel panel-info">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fa fa-code"></i>&nbsp; Formato del JSON de Plugins Privados
+        </h3>
+    </div>
+    <div class="panel-body">
+        <p>El archivo <code>custom_private_plugins.json</code> debe tener el siguiente formato:</p>
+        <pre style="background-color: #f5f5f5; padding: 15px; border-radius: 4px;">
+[
+    {
+        "id": 1,
+        "nombre": "mi_plugin_privado",
+        "link": "https://github.com/USUARIO/mi-plugin-privado",
+        "zip_link": "https://api.github.com/repos/USUARIO/mi-plugin-privado/zipball/master",
+        "branch": "master",
+        "estable": true,
+        "tipo": "privado",
+        "ultima_modificacion": "01-01-2026"
+    }
+]</pre>
+        <div class="alert alert-success" style="margin-top: 10px;">
+            <i class="fa fa-magic"></i>&nbsp;
+            <strong>Automático:</strong> La <b>versión</b> y <b>descripción</b> se obtienen automáticamente 
+            del archivo <code>fsframework.ini</code> del repositorio. ¡No necesitas mantenerlos sincronizados!
+        </div>
+        <p class="help-block">
+            <strong>Campos obligatorios:</strong>
+            <ul>
+                <li><code>nombre</code>: Nombre del plugin (debe coincidir con la carpeta)</li>
+                <li><code>link</code>: URL del repositorio en GitHub</li>
+                <li><code>zip_link</code>: <code>https://api.github.com/repos/USUARIO/REPO/zipball/RAMA</code></li>
+            </ul>
+            <strong>Campos opcionales:</strong>
+            <ul>
+                <li><code>branch</code>: Rama del repositorio (por defecto: master)</li>
+                <li><code>estable</code>: true/false (por defecto: true)</li>
+                <li><code>imagen</code>: URL de imagen del plugin</li>
+            </ul>
+        </p>
+    </div>
+</div>
+
+<!-- Lista de Plugins Privados -->
+{if="$fsc->plugin_manager->is_private_plugins_enabled()"}
+<div class="panel panel-success">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fa fa-download"></i>&nbsp; Plugins Privados Disponibles
+            <a href="{$fsc->url()}&caca={$fsc->random_string(4)}&refresh_private_plugins=1#privados" 
+               class="btn btn-xs btn-default pull-right" title="Refrescar lista">
+                <i class="fa fa-refresh"></i>
+            </a>
+        </h3>
+    </div>
+    <div class="panel-body">
+        {if="count($fsc->plugin_manager->private_downloads()) > 0"}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th class="text-left">Plugin</th>
+                        <th class="text-left">Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {loop="$fsc->plugin_manager->private_downloads()"}
+                    <!--{$tr_class=''}-->
+                    {if="$value.instalado"}
+                    <!--{$tr_class=' class="warning"'}-->
+                    {elseif="!$value.estable"}
+                    <!--{$tr_class=' class="danger"'}-->
+                    {else}
+                    <!--{$tr_class=' class="success"'}-->
+                    {/if}
+                    <tr{$tr_class}>
+                        <td class="text-center">
+                            {if="isset($value.imagen) && $value.imagen"}
+                            <div class="thumbnail" style="max-width: 80px;">
+                                <img src="{$value.imagen}" alt="{$value.nombre}" width="80"/>
+                            </div>
+                            {else}
+                            <div class="btn btn-block btn-default disabled">
+                                <i class="fa fa-lock fa-3x" aria-hidden="true"></i>
+                            </div>
+                            {/if}
+                        </td>
+                        <td>
+                            <strong>{$value.nombre}</strong> &nbsp; 
+                            <span class="label label-info">v{$value.version}</span>
+                            <span class="label label-warning">Privado</span>
+                            <br/><br/>
+                            {if="$value.instalado"}
+                            <a href="{$fsc->url()}&caca={$fsc->random_string(4)}#plugins" class="btn btn-xs btn-default">
+                                <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>&nbsp; Instalado
+                            </a>
+                            <a href="{$fsc->url()}&caca={$fsc->random_string(4)}&download_private={$value.id}#privados" 
+                               class="btn btn-xs btn-warning" title="Actualizar plugin">
+                                <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>&nbsp; Actualizar
+                            </a>
+                            {elseif="isset($value.estable) && $value.estable"}
+                            <a href="{$fsc->url()}&caca={$fsc->random_string(4)}&download_private={$value.id}#privados" 
+                               class="btn btn-xs btn-primary">
+                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>&nbsp; Descargar
+                            </a>
+                            {else}
+                            <a href="#" class="btn btn-xs btn-primary" 
+                               onclick="if(confirm('Este plugin está marcado como inestable. ¿Deseas continuar?')) window.location.href='{$fsc->url()}&caca={$fsc->random_string(4)}&download_private={$value.id}#privados'; return false;">
+                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>&nbsp; Descargar (inestable)
+                            </a>
+                            {/if}
+                        </td>
+                        <td>
+                            {function="nl2br($value.descripcion)"}<br/>
+                            {if="isset($value.ultima_modificacion) && $value.ultima_modificacion"}
+                            <small class="text-muted">Última modificación: {$value.ultima_modificacion}</small>
+                            {/if}
+                            {if="isset($value.estable) && !$value.estable"}
+                            <span class="label label-danger" title="inestable: no lo instales a menos que sepas lo que haces">inestable</span>
+                            {/if}
+                        </td>
+                    </tr>
+                    {/loop}
+                </tbody>
+            </table>
+        </div>
+        {else}
+        <div class="alert alert-info">
+            <i class="fa fa-info-circle"></i>&nbsp;
+            No hay plugins privados disponibles. Verifica que el archivo JSON tenga el formato correcto.
+        </div>
+        {/if}
+    </div>
+</div>
+{/if}
+
+<!-- Modal para confirmación de descarga privada -->
+{if="$fsc->pending_private_download"}
+<div class="modal fade" id="modal_confirm_private_download" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">
+                    <i class="fa fa-exclamation-triangle"></i>&nbsp; Plugin Existente
+                </h4>
+            </div>
+            <div class="modal-body">
+                <p>El plugin <strong>{$fsc->pending_private_download.name}</strong> ya está instalado 
+                   (versión actual: {$fsc->pending_private_download.current_version}).</p>
+                <p>¿Deseas sobrescribirlo? Se creará un backup automático del plugin actual.</p>
+            </div>
+            <div class="modal-footer">
+                <form action="{$fsc->url()}#privados" method="post" style="display: inline;">
+                    <input type="hidden" name="cancel_pending_private_download" value="1"/>
+                    <button type="submit" class="btn btn-default">
+                        <i class="fa fa-times"></i>&nbsp; Cancelar
+                    </button>
+                </form>
+                <a href="{$fsc->url()}&download_private={$fsc->pending_private_download.plugin_id}&confirm_private_download=1#privados" 
+                   class="btn btn-warning">
+                    <i class="fa fa-download"></i>&nbsp; Sobrescribir con backup
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+$(document).ready(function() {
+    $('#modal_confirm_private_download').modal('show');
+});
+</script>
+{/if}
+

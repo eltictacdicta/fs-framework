@@ -74,6 +74,18 @@ class admin_home extends fs_controller
      */
     public $pending_download;
 
+    /**
+     * Plugin privado pendiente de descarga
+     * @var array|null
+     */
+    public $pending_private_download;
+
+    /**
+     * Resultado del test de conexión privada
+     * @var array|null
+     */
+    public $private_test_result;
+
     public function __construct()
     {
         parent::__construct(__CLASS__, 'Panel de control', 'admin');
@@ -155,6 +167,8 @@ class admin_home extends fs_controller
         // Inicializar variables para plugins pendientes
         $this->pending_plugin = isset($_SESSION['pending_plugin']) ? $_SESSION['pending_plugin'] : null;
         $this->pending_download = isset($_SESSION['pending_download']) ? $_SESSION['pending_download'] : null;
+        $this->pending_private_download = isset($_SESSION['pending_private_download']) ? $_SESSION['pending_private_download'] : null;
+        $this->private_test_result = null;
 
         $this->exec_actions();
 
@@ -230,6 +244,44 @@ class admin_home extends fs_controller
             if (isset($_SESSION['pending_download'])) {
                 unset($_SESSION['pending_download']);
             }
+            return;
+        }
+
+        if (filter_input(INPUT_POST, 'cancel_pending_private_download')) {
+            /// cancelar descarga privada pendiente
+            if (isset($_SESSION['pending_private_download'])) {
+                unset($_SESSION['pending_private_download']);
+            }
+            return;
+        }
+
+        if (filter_input(INPUT_POST, 'save_private_config')) {
+            /// guardar configuración de plugins privados
+            $this->save_private_plugins_config();
+            return;
+        }
+
+        if (filter_input(INPUT_GET, 'delete_private_config')) {
+            /// eliminar configuración de plugins privados
+            $this->delete_private_plugins_config();
+            return;
+        }
+
+        if (filter_input(INPUT_GET, 'test_private_connection')) {
+            /// probar conexión con plugins privados
+            $this->test_private_plugins_connection();
+            return;
+        }
+
+        if (filter_input(INPUT_GET, 'refresh_private_plugins')) {
+            /// refrescar lista de plugins privados
+            $this->refresh_private_plugins();
+            return;
+        }
+
+        if (filter_input(INPUT_GET, 'download_private')) {
+            /// descargar un plugin privado
+            $this->download_private(filter_input(INPUT_GET, 'download_private'));
             return;
         }
 
@@ -716,5 +768,124 @@ class admin_home extends fs_controller
             return '€'; // Valor por defecto si no está inicializado
         }
         return $this->divisa_tools->simbolo_divisa($coddivisa);
+    }
+
+    /**
+     * Guarda la configuración de plugins privados.
+     */
+    private function save_private_plugins_config()
+    {
+        $github_token = filter_input(INPUT_POST, 'github_token');
+        $private_plugins_url = filter_input(INPUT_POST, 'private_plugins_url');
+
+        if (empty($github_token) || empty($private_plugins_url)) {
+            $this->new_error_msg('Debes proporcionar tanto el token de GitHub como la URL del JSON de plugins.');
+            return;
+        }
+
+        // Validar que la URL tenga un formato válido
+        if (!filter_var($private_plugins_url, FILTER_VALIDATE_URL)) {
+            $this->new_error_msg('La URL proporcionada no es válida.');
+            return;
+        }
+
+        if ($this->plugin_manager->save_private_config($github_token, $private_plugins_url)) {
+            $this->new_message('Configuración de plugins privados guardada correctamente.');
+            
+            // Probar la conexión automáticamente
+            $test_result = $this->plugin_manager->test_private_connection();
+            if ($test_result['success']) {
+                $this->new_message($test_result['message']);
+            } else {
+                $this->new_advice($test_result['message']);
+            }
+        } else {
+            $this->new_error_msg('Error al guardar la configuración.');
+        }
+    }
+
+    /**
+     * Elimina la configuración de plugins privados.
+     */
+    private function delete_private_plugins_config()
+    {
+        if ($this->plugin_manager->delete_private_config()) {
+            $this->new_message('Configuración de plugins privados eliminada correctamente.');
+        } else {
+            $this->new_error_msg('Error al eliminar la configuración.');
+        }
+    }
+
+    /**
+     * Prueba la conexión con plugins privados.
+     */
+    private function test_private_plugins_connection()
+    {
+        $this->private_test_result = $this->plugin_manager->test_private_connection();
+        
+        if ($this->private_test_result['success']) {
+            $this->new_message($this->private_test_result['message']);
+        } else {
+            $this->new_error_msg($this->private_test_result['message']);
+        }
+    }
+
+    /**
+     * Refresca la lista de plugins privados.
+     */
+    private function refresh_private_plugins()
+    {
+        $this->plugin_manager->refresh_private_downloads();
+        $this->clean_cache();
+        $this->new_message('Lista de plugins privados actualizada.');
+    }
+
+    /**
+     * Descarga un plugin privado.
+     * 
+     * @param string $plugin_id
+     */
+    private function download_private($plugin_id)
+    {
+        // Verificar si el plugin ya existe antes de descargar
+        $private_downloads = $this->plugin_manager->private_downloads();
+        $plugin_name = null;
+        
+        foreach ($private_downloads as $item) {
+            if ($item['id'] == $plugin_id) {
+                $plugin_name = $item['nombre'];
+                break;
+            }
+        }
+
+        if (!$plugin_name) {
+            $this->new_error_msg('Plugin privado no encontrado en la lista de descargas.');
+            return;
+        }
+
+        $existing_plugin = $this->plugin_manager->check_plugin_exists($plugin_name);
+
+        if ($existing_plugin && !filter_input(INPUT_GET, 'confirm_private_download')) {
+            // Guardar información en sesión para el modal
+            $_SESSION['pending_private_download'] = [
+                'plugin_id' => $plugin_id,
+                'name' => $plugin_name,
+                'current_version' => $existing_plugin['version']
+            ];
+            
+            $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
+            return;
+        }
+
+        // Si hay confirmación, descargar con backup
+        if (filter_input(INPUT_GET, 'confirm_private_download') && isset($_SESSION['pending_private_download'])) {
+            $pending = $_SESSION['pending_private_download'];
+            $this->plugin_manager->download_private($pending['plugin_id'], true);
+            unset($_SESSION['pending_private_download']);
+            return;
+        }
+
+        // Plugin nuevo, descargar directamente
+        $this->plugin_manager->download_private($plugin_id, false);
     }
 }

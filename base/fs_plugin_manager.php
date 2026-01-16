@@ -63,6 +63,18 @@ class fs_plugin_manager
     private $download_list;
 
     /**
+     * Lista de plugins privados disponibles para descarga
+     * @var array
+     */
+    private $private_download_list;
+
+    /**
+     * Configuración de plugins privados (token, url)
+     * @var array
+     */
+    private $private_config;
+
+    /**
      *
      * @var float
      */
@@ -259,6 +271,340 @@ class fs_plugin_manager
         ];
 
         return $this->download_list;
+    }
+
+    /**
+     * Devuelve la configuración de plugins privados.
+     * @return array
+     */
+    public function get_private_config()
+    {
+        if (isset($this->private_config)) {
+            return $this->private_config;
+        }
+
+        require_once 'model/fs_var.php';
+        $fs_var = new fs_var();
+
+        $this->private_config = [
+            'github_token' => '',
+            'private_plugins_url' => '',
+            'enabled' => false
+        ];
+
+        $saved_config = $fs_var->simple_get('private_plugins_config');
+        if ($saved_config) {
+            $decoded = json_decode($saved_config, true);
+            if (is_array($decoded)) {
+                $this->private_config = array_merge($this->private_config, $decoded);
+            }
+        }
+
+        return $this->private_config;
+    }
+
+    /**
+     * Guarda la configuración de plugins privados.
+     * @param string $github_token Token de acceso de GitHub
+     * @param string $private_plugins_url URL del JSON de plugins privados
+     * @return bool
+     */
+    public function save_private_config($github_token, $private_plugins_url)
+    {
+        require_once 'model/fs_var.php';
+        $fs_var = new fs_var();
+
+        $this->private_config = [
+            'github_token' => $github_token,
+            'private_plugins_url' => $private_plugins_url,
+            'enabled' => !empty($github_token) && !empty($private_plugins_url)
+        ];
+
+        $result = $fs_var->simple_save('private_plugins_config', json_encode($this->private_config));
+        
+        // Limpiar cache de la lista de plugins privados
+        $this->cache->delete('private_download_list');
+        
+        return $result;
+    }
+
+    /**
+     * Elimina la configuración de plugins privados.
+     * @return bool
+     */
+    public function delete_private_config()
+    {
+        require_once 'model/fs_var.php';
+        $fs_var = new fs_var();
+
+        $this->private_config = null;
+        $this->private_download_list = null;
+        
+        // Limpiar cache
+        $this->cache->delete('private_download_list');
+        
+        return $fs_var->simple_delete('private_plugins_config');
+    }
+
+    /**
+     * Verifica si la configuración de plugins privados está activa.
+     * @return bool
+     */
+    public function is_private_plugins_enabled()
+    {
+        $config = $this->get_private_config();
+        return $config['enabled'] && !empty($config['github_token']) && !empty($config['private_plugins_url']);
+    }
+
+    /**
+     * Devuelve la lista de plugins privados disponibles para descarga.
+     * @return array
+     */
+    public function private_downloads()
+    {
+        if (isset($this->private_download_list)) {
+            return $this->private_download_list;
+        }
+
+        // Verificar si está configurado
+        if (!$this->is_private_plugins_enabled()) {
+            $this->private_download_list = [];
+            return $this->private_download_list;
+        }
+
+        // Buscar en la cache
+        $this->private_download_list = $this->cache->get('private_download_list');
+        if ($this->private_download_list !== false && is_array($this->private_download_list)) {
+            return $this->private_download_list;
+        }
+
+        $config = $this->get_private_config();
+        
+        // Descargar la lista de plugins privados usando autenticación
+        $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 15);
+        
+        if ($json && $json != 'ERROR') {
+            $this->private_download_list = json_decode($json, true);
+            
+            if (!is_array($this->private_download_list)) {
+                $this->core_log->new_error('Error al parsear el JSON de plugins privados. Verifica el formato del archivo.');
+                $this->private_download_list = [];
+                return $this->private_download_list;
+            }
+            
+            // Marcar cada plugin con el flag de instalado y como privado
+            // Y obtener versión/descripción del fsframework.ini del repositorio
+            foreach ($this->private_download_list as $key => $value) {
+                $this->private_download_list[$key]['instalado'] = file_exists(FS_FOLDER . '/plugins/' . $value['nombre']);
+                $this->private_download_list[$key]['privado'] = true;
+                
+                // Asegurar que tiene un ID único (prefijado para evitar colisiones)
+                if (!isset($this->private_download_list[$key]['id'])) {
+                    $this->private_download_list[$key]['id'] = 'priv_' . $key;
+                } else {
+                    $this->private_download_list[$key]['id'] = 'priv_' . $this->private_download_list[$key]['id'];
+                }
+                
+                // Obtener datos del fsframework.ini del repositorio remoto
+                $remote_ini_data = $this->get_remote_plugin_ini($value, $config['github_token']);
+                if ($remote_ini_data) {
+                    // Sobrescribir versión y descripción con los datos del ini
+                    if (isset($remote_ini_data['version'])) {
+                        $this->private_download_list[$key]['version'] = $remote_ini_data['version'];
+                    }
+                    if (isset($remote_ini_data['description'])) {
+                        $this->private_download_list[$key]['descripcion'] = $remote_ini_data['description'];
+                    }
+                    if (isset($remote_ini_data['min_version'])) {
+                        $this->private_download_list[$key]['min_version'] = $remote_ini_data['min_version'];
+                    }
+                    if (isset($remote_ini_data['require'])) {
+                        $this->private_download_list[$key]['require'] = $remote_ini_data['require'];
+                    }
+                }
+            }
+
+            $this->cache->set('private_download_list', $this->private_download_list, 3600); // Cache por 1 hora
+            return $this->private_download_list;
+        }
+
+        $this->core_log->new_error('Error al descargar la lista de plugins privados. Verifica el token y la URL.');
+        $this->private_download_list = [];
+        return $this->private_download_list;
+    }
+
+    /**
+     * Obtiene los datos del fsframework.ini de un repositorio remoto.
+     * @param array $plugin_data Datos del plugin del JSON
+     * @param string $token Token de GitHub
+     * @return array|false Array con los datos del ini o false si falla
+     */
+    private function get_remote_plugin_ini($plugin_data, $token)
+    {
+        // Construir la URL del fsframework.ini basándose en el link del repositorio
+        // Formato esperado del link: https://github.com/usuario/repo
+        if (!isset($plugin_data['link']) || empty($plugin_data['link'])) {
+            return false;
+        }
+        
+        // Extraer usuario y repo del link
+        $parsed = parse_url($plugin_data['link']);
+        if (!isset($parsed['path'])) {
+            return false;
+        }
+        
+        $path_parts = explode('/', trim($parsed['path'], '/'));
+        if (count($path_parts) < 2) {
+            return false;
+        }
+        
+        $user = $path_parts[0];
+        $repo = $path_parts[1];
+        
+        // Determinar la rama (por defecto master, pero podría ser main)
+        $branch = isset($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
+        
+        // Intentar con fsframework.ini primero, luego facturascripts.ini
+        $ini_files = ['fsframework.ini', 'facturascripts.ini'];
+        
+        foreach ($ini_files as $ini_file) {
+            $ini_url = "https://raw.githubusercontent.com/{$user}/{$repo}/{$branch}/{$ini_file}";
+            $ini_content = @fs_file_get_contents_auth($ini_url, $token, 10);
+            
+            if ($ini_content && $ini_content != 'ERROR') {
+                // Parsear el contenido del ini
+                $ini_data = @parse_ini_string($ini_content);
+                if ($ini_data && is_array($ini_data)) {
+                    return $ini_data;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Descarga un plugin privado de la lista.
+     * @param string $plugin_id ID del plugin (prefijado con 'priv_')
+     * @param bool $create_backup Crear backup antes de sobrescribir
+     * @return bool
+     */
+    public function download_private($plugin_id, $create_backup = false)
+    {
+        if ($this->disable_mod_plugins) {
+            $this->core_log->new_error('No tienes permiso para descargar plugins.');
+            return false;
+        }
+
+        if (!$this->is_private_plugins_enabled()) {
+            $this->core_log->new_error('La descarga de plugins privados no está configurada.');
+            return false;
+        }
+
+        $config = $this->get_private_config();
+
+        foreach ($this->private_downloads() as $item) {
+            if ($item['id'] != $plugin_id) {
+                continue;
+            }
+
+            $this->core_log->new_message('Descargando el plugin privado ' . $item['nombre']);
+            
+            // Descargar usando autenticación
+            if (!@fs_file_download_auth($item['zip_link'], FS_FOLDER . '/download.zip', $config['github_token'], 60)) {
+                $this->core_log->new_error('Error al descargar el plugin privado. Verifica el token y los permisos del repositorio.');
+                return false;
+            }
+
+            $zip = new ZipArchive();
+            $res = $zip->open(FS_FOLDER . '/download.zip', ZipArchive::CHECKCONS);
+            if ($res !== TRUE) {
+                $this->core_log->new_error('Error al abrir el ZIP. Código: ' . $res);
+                return false;
+            }
+
+            // Crear backup si existe y se solicita
+            if ($create_backup && file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
+                if (!$this->create_backup($item['nombre'])) {
+                    $zip->close();
+                    unlink(FS_FOLDER . '/download.zip');
+                    return false;
+                }
+            }
+
+            $plugins_list = fs_file_manager::scan_folder(FS_FOLDER . '/plugins');
+            $zip->extractTo(FS_FOLDER . '/plugins/');
+            $zip->close();
+            unlink(FS_FOLDER . '/download.zip');
+
+            // Renombrar si es necesario
+            foreach (fs_file_manager::scan_folder(FS_FOLDER . '/plugins') as $f) {
+                if (is_dir(FS_FOLDER . '/plugins/' . $f) && !in_array($f, $plugins_list)) {
+                    // Eliminar el plugin existente si hay que sobrescribir
+                    if (file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
+                        fs_file_manager::del_tree(FS_FOLDER . '/plugins/' . $item['nombre']);
+                    }
+                    rename(FS_FOLDER . '/plugins/' . $f, FS_FOLDER . '/plugins/' . $item['nombre']);
+                    break;
+                }
+            }
+
+            $this->core_log->new_message('Plugin privado añadido correctamente.');
+            return $this->enable($item['nombre']);
+        }
+
+        $this->core_log->new_error('Plugin privado no encontrado en la lista.');
+        return false;
+    }
+
+    /**
+     * Prueba la conexión con los plugins privados.
+     * @return array Array con 'success' (bool) y 'message' (string)
+     */
+    public function test_private_connection()
+    {
+        $config = $this->get_private_config();
+        
+        if (empty($config['github_token']) || empty($config['private_plugins_url'])) {
+            return [
+                'success' => false,
+                'message' => 'Configuración incompleta. Debes proporcionar el token y la URL.'
+            ];
+        }
+
+        // Intentar descargar el JSON
+        $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 10);
+        
+        if (!$json || $json == 'ERROR') {
+            return [
+                'success' => false,
+                'message' => 'No se pudo conectar. Verifica el token y la URL del JSON.'
+            ];
+        }
+
+        $plugins = json_decode($json, true);
+        if (!is_array($plugins)) {
+            return [
+                'success' => false,
+                'message' => 'El archivo JSON no tiene un formato válido.'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Conexión exitosa. Se encontraron ' . count($plugins) . ' plugin(s) disponible(s).'
+        ];
+    }
+
+    /**
+     * Refresca la cache de plugins privados.
+     * @return bool
+     */
+    public function refresh_private_downloads()
+    {
+        $this->cache->delete('private_download_list');
+        $this->private_download_list = null;
+        return true;
     }
 
     public function enable($plugin_name)

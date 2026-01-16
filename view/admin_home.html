@@ -243,6 +243,8 @@
             $('#tab_panel_control a[href="#t_plugins"]').tab('show');
         } else if (window.location.hash.substring(1) == 'descargas') {
             $('#tab_panel_control a[href="#t_descargas"]').tab('show');
+        } else if (window.location.hash.substring(1) == 'privados') {
+            $('#tab_panel_control a[href="#t_privados"]').tab('show');
         } else if (window.location.hash.substring(1) == 'avanzado') {
             $('#tab_panel_control a[href="#t_avanzado"]').tab('show');
         }
@@ -403,6 +405,15 @@
                 <span class="hidden-xs">&nbsp;Descargas</span>
             </a>
         </li>
+        <li role="presentation">
+            <a href="#t_privados" aria-controls="t_privados" role="tab" data-toggle="tab">
+                <i class="fa fa-lock"></i>
+                <span class="hidden-xs">&nbsp;Privados</span>
+                {if="$fsc->plugin_manager->is_private_plugins_enabled() && count($fsc->plugin_manager->private_downloads()) > 0"}
+                <span class="badge">{function="count($fsc->plugin_manager->private_downloads())"}</span>
+                {/if}
+            </a>
+        </li>
         {/if}
         <li role="presentation">
             <a href="#t_avanzado" aria-controls="t_avanzado" role="tab" data-toggle="tab">
@@ -421,6 +432,11 @@
         <div role="tabpanel" class="tab-pane" id="t_descargas">
             {if="!$fsc->plugin_manager->disable_mod_plugins"}
                 {include="tab/admin_home_downloads"}
+            {/if}
+        </div>
+        <div role="tabpanel" class="tab-pane" id="t_privados">
+            {if="!$fsc->plugin_manager->disable_mod_plugins"}
+                {include="tab/admin_home_private_downloads"}
             {/if}
         </div>
         <div role="tabpanel" class="tab-pane" id="t_avanzado">
