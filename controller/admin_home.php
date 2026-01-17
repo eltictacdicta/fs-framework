@@ -422,6 +422,7 @@ class admin_home extends fs_controller
      */
     private function delete_plugin($name)
     {
+        $name = basename($name);
         $this->plugin_manager->remove($name);
     }
 
@@ -450,6 +451,7 @@ class admin_home extends fs_controller
      */
     private function disable_plugin($name)
     {
+        $name = basename($name);
         $this->plugin_manager->disable($name);
     }
 
@@ -507,6 +509,7 @@ class admin_home extends fs_controller
      */
     private function restore_plugin_backup($plugin_name)
     {
+        $plugin_name = basename($plugin_name);
         // Desactivar el plugin si está activo
         if (in_array($plugin_name, $this->plugin_manager->enabled())) {
             $this->plugin_manager->disable($plugin_name);
@@ -579,6 +582,7 @@ class admin_home extends fs_controller
      */
     private function enable_plugin($name)
     {
+        $name = basename($name);
         if (!$this->plugin_manager->enable($name)) {
             return;
         }
