@@ -160,10 +160,11 @@ class fs_controller extends fs_app
                 : 'EUR';
             $this->divisa_tools = new fs_divisa_tools($coddivisa);
 
-            if (filter_input(INPUT_GET, 'logout')) {
+            $request = \FSFramework\Core\Kernel::request();
+            if ($request->query->has('logout')) {
                 $this->template = 'login/default';
                 $this->login_tools->log_out();
-            } else if (filter_input(INPUT_POST, 'new_password') && filter_input(INPUT_POST, 'new_password2') && filter_input(INPUT_POST, 'user')) {
+            } else if ($request->request->has('new_password') && $request->request->has('new_password2') && $request->request->has('user')) {
                 $this->login_tools->change_user_passwd();
                 $this->template = 'login/default';
             } else if (!$this->log_in()) {
@@ -448,7 +449,7 @@ class fs_controller extends fs_app
                 $txt .= 'database type: ' . FS_DB_TYPE . "\n";
                 $txt .= 'database version: ' . $this->db->version() . "\n";
 
-                if (FS_FOREIGN_KEYS == 0) {
+                if (defined('FS_FOREIGN_KEYS') && FS_FOREIGN_KEYS == 0) {
                     $txt .= "foreign keys: NO\n";
                 }
 

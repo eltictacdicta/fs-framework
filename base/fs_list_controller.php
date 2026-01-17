@@ -131,7 +131,7 @@ abstract class fs_list_controller extends fs_controller
              * descartamos todo excepto la primera, la última, la de enmedio,
              * la actual, las 5 anteriores y las 5 siguientes
              */
-            if (($j > 1 && $j < $current - 5 && $j != $enmedio) || ( $j > $current + 5 && $j < $i - 1 && $j != $enmedio)) {
+            if (($j > 1 && $j < $current - 5 && $j != $enmedio) || ($j > $current + 5 && $j < $i - 1 && $j != $enmedio)) {
                 unset($pages[$j]);
             }
         }
@@ -396,13 +396,14 @@ abstract class fs_list_controller extends fs_controller
 
         $this->decoration = new fs_list_decoration();
         $this->template = 'master/list_controller';
-        $this->offset = isset($_REQUEST['offset']) ? (int) $_REQUEST['offset'] : 0;
+        $request = \FSFramework\Core\Kernel::request();
+        $this->offset = $request->get('offset', 0);
         $this->create_tabs();
         $this->set_active_tab();
         $this->set_filter_values();
         $this->set_sort_option();
 
-        $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
+        $action = $request->get('action', '');
         if (!$this->exec_previous_action($action)) {
             return;
         }
@@ -424,7 +425,8 @@ abstract class fs_list_controller extends fs_controller
                 $this->active_tab = $key;
             }
 
-            if (isset($_REQUEST['tab']) && $key === $_REQUEST['tab']) {
+            $request = \FSFramework\Core\Kernel::request();
+            if ($request->get('tab') === $key) {
                 $this->active_tab = $key;
             }
         }
@@ -439,8 +441,9 @@ abstract class fs_list_controller extends fs_controller
             return;
         }
 
+        $request = \FSFramework\Core\Kernel::request();
         foreach ($this->tabs[$this->active_tab]['filters'] as $key => $filter) {
-            $value = isset($_POST[$filter->name()]) ? $_POST[$filter->name()] : $filter->value;
+            $value = $request->request->get($filter->name(), $filter->value);
             $this->tabs[$this->active_tab]['filters'][$key]->value = $value;
         }
     }
@@ -460,7 +463,8 @@ abstract class fs_list_controller extends fs_controller
                 $this->sort_option = empty($default) ? $option : $default;
             }
 
-            if (isset($_REQUEST['sort']) && $_REQUEST['sort'] == $option) {
+            $request = \FSFramework\Core\Kernel::request();
+            if ($request->get('sort') == $option) {
                 $this->sort_option = $option;
             }
         }

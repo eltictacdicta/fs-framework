@@ -1,33 +1,15 @@
 <?php
 /**
- * This file is part of FacturaScripts
- * Copyright (C) 2013-2018 Carlos Garcia Gomez <neorazorx@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
-/**
  * Helper para manejar subidas de archivos grandes por chunks usando Resumable.js
- * 
+ *
  * Uso:
  * $uploader = new fs_chunked_upload('/ruta/destino/', array('xlsx', 'xls'));
  * $result = $uploader->handle_chunk();
- * 
+ *
  * if ($result['complete']) {
- *     // Archivo completo, procesar $result['file_path']
+ * // Archivo completo, procesar $result['file_path']
  * }
- * 
+ *
  * @author FSFramework
  */
 class fs_chunked_upload
@@ -37,54 +19,124 @@ class fs_chunked_upload
      * @var string
      */
     private $upload_dir;
-    
+
     /**
      * Directorio temporal para chunks
      * @var string
      */
     private $temp_dir;
-    
+
     /**
      * Extensiones de archivo permitidas
      * @var array
      */
     private $allowed_extensions;
-    
+
     /**
      * Tamaño máximo de archivo en bytes
      * @var int
      */
     private $max_file_size;
-    
+
     /**
      * Último mensaje de error
      * @var string
      */
     private $last_error;
-    
+
+    /**
+     * @var \Symfony\Component\HttpFoundation\Request
+     */
+    private $request;
+
     /**
      * Constructor
-     * 
+     *
      * @param string $upload_dir Directorio destino
      * @param array $allowed_extensions Extensiones permitidas
      * @param int $max_file_size_mb Tamaño máximo en MB (default: 500)
      */
     public function __construct($upload_dir, $allowed_extensions = array(), $max_file_size_mb = 500)
     {
+        // Verificar acceso: solo administradores
+        $this->check_access();
+
         $this->upload_dir = rtrim($upload_dir, '/') . '/';
         $this->temp_dir = sys_get_temp_dir() . '/fs_chunks/';
         $this->allowed_extensions = array_map('strtolower', $allowed_extensions);
         $this->max_file_size = $max_file_size_mb * 1024 * 1024;
         $this->last_error = '';
-        
+
+        // Obtener request de Symfony
+        $this->request = \FSFramework\Core\Kernel::request();
+
         // Crear directorios si no existen
         $this->ensure_directory($this->upload_dir);
         $this->ensure_directory($this->temp_dir);
     }
-    
+
+    /**
+     * Verificar si el usuario tiene permiso para subir archivos
+     */
+    private function check_access()
+    {
+        // Cargar dependencias necesarias si no existen
+        if (!class_exists('fs_db2')) {
+            require_once __DIR__ . '/fs_db2.php';
+        }
+        if (!class_exists('fs_login')) {
+            require_once __DIR__ . '/fs_login.php';
+        }
+        if (!class_exists('fs_user')) {
+            if (!class_exists('fs_model')) {
+                require_once __DIR__ . '/fs_model.php';
+            }
+            // Intentar cargar modelo de usuario
+            if (file_exists(__DIR__ . '/../model/fs_user.php')) {
+                require_once __DIR__ . '/../model/fs_user.php';
+            } elseif (function_exists('require_model')) {
+                require_model('fs_user');
+            }
+        }
+
+        // Conectar BD si no está conectada
+        $db = new fs_db2();
+        if (!$db->connected()) {
+            $db->connect();
+        }
+
+        // Verificar login
+        $user = new fs_user();
+        $login = new fs_login();
+
+        // Intentar loguear con cookie si no está logueado
+        if (!$login->log_in($user)) {
+            $this->deny_access('Usuario no identificado');
+        }
+
+        // Verificar usuario y si es administrador
+        if (!$user->logged_on || !$user->admin) {
+            $this->deny_access('Acceso denegado: Se requieren permisos de administrador');
+        }
+    }
+
+    /**
+     * Denegar acceso y salir
+     */
+    private function deny_access($message)
+    {
+        http_response_code(403);
+        self::send_json_response(array(
+            'success' => false,
+            'complete' => false,
+            'message' => $message
+        ));
+    }
+
+
     /**
      * Manejar un chunk subido
-     * 
+     *
      * @param string|null $custom_filename Nombre personalizado para el archivo final
      * @return array Resultado con 'success', 'complete', 'file_path', 'message'
      */
@@ -96,14 +148,20 @@ class fs_chunked_upload
         $resumable_chunk_number = (int) $this->get_param('resumableChunkNumber');
         $resumable_total_chunks = (int) $this->get_param('resumableTotalChunks');
         $resumable_total_size = (int) $this->get_param('resumableTotalSize');
-        
+
+        // Sanitizar el nombre del archivo para evitar Path Traversal
+        if ($custom_filename) {
+            $custom_filename = basename($custom_filename);
+        }
+        $resumable_filename = basename($resumable_filename);
+
         // Manejar petición GET (verificar si chunk existe)
-        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if ($this->request->isMethod('GET')) {
             return $this->check_chunk_exists($resumable_identifier, $resumable_chunk_number);
         }
-        
+
         // Manejar petición POST (subir chunk)
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($this->request->isMethod('POST')) {
             return $this->receive_chunk(
                 $resumable_identifier,
                 $resumable_filename,
@@ -113,17 +171,17 @@ class fs_chunked_upload
                 $custom_filename
             );
         }
-        
+
         return $this->error_response('Método no soportado');
     }
-    
+
     /**
      * Verificar si un chunk ya existe (para reanudar subidas)
      */
     private function check_chunk_exists($identifier, $chunk_number)
     {
         $chunk_file = $this->get_chunk_path($identifier, $chunk_number);
-        
+
         if (file_exists($chunk_file)) {
             return array(
                 'success' => true,
@@ -131,7 +189,7 @@ class fs_chunked_upload
                 'message' => 'Chunk exists'
             );
         }
-        
+
         // Retornar 404 para indicar que no existe
         http_response_code(404);
         return array(
@@ -140,7 +198,7 @@ class fs_chunked_upload
             'message' => 'Chunk not found'
         );
     }
-    
+
     /**
      * Recibir y guardar un chunk
      */
@@ -151,39 +209,44 @@ class fs_chunked_upload
         if (!empty($this->allowed_extensions) && !in_array($ext, $this->allowed_extensions)) {
             return $this->error_response('Tipo de archivo no permitido: ' . $ext);
         }
-        
+
         // Validar tamaño total
         if ($total_size > $this->max_file_size) {
             $max_mb = round($this->max_file_size / 1024 / 1024);
             return $this->error_response("El archivo excede el tamaño máximo de {$max_mb}MB");
         }
-        
+
         // Verificar que se recibió el archivo
-        if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-            $error_code = isset($_FILES['file']) ? $_FILES['file']['error'] : 'NO_FILE';
-            return $this->error_response('Error al recibir el chunk: ' . $this->get_upload_error_message($error_code));
+        $file = $this->request->files->get('file');
+        if (!$file || !$file->isValid()) {
+            $error_message = $file ? $file->getErrorMessage() : 'No se subió ningún archivo';
+            return $this->error_response('Error al recibir el chunk: ' . $error_message);
         }
-        
+
         // Crear directorio para chunks de este archivo
         $chunk_dir = $this->temp_dir . $this->sanitize_identifier($identifier) . '/';
         $this->ensure_directory($chunk_dir);
-        
+
         // Guardar chunk
         $chunk_file = $this->get_chunk_path($identifier, $chunk_number);
-        if (!move_uploaded_file($_FILES['file']['tmp_name'], $chunk_file)) {
-            return $this->error_response('Error al guardar el chunk');
+        try {
+            $file->move(dirname($chunk_file), basename($chunk_file));
+        } catch (\Exception $e) {
+            return $this->error_response('Error al guardar el chunk: ' . $e->getMessage());
         }
-        
+
         // Verificar si todos los chunks están completos
         if ($this->all_chunks_received($identifier, $total_chunks)) {
             // Combinar chunks
             $final_filename = $custom_filename ?: $filename;
+            // Asegurarnos de que final_path esté dentro de upload_dir
+            $final_filename = basename($final_filename);
             $final_path = $this->upload_dir . $final_filename;
-            
+
             if ($this->combine_chunks($identifier, $total_chunks, $final_path)) {
                 // Limpiar chunks temporales
                 $this->cleanup_chunks($identifier);
-                
+
                 return array(
                     'success' => true,
                     'complete' => true,
@@ -196,7 +259,7 @@ class fs_chunked_upload
                 return $this->error_response('Error al combinar los chunks');
             }
         }
-        
+
         // Chunk recibido pero archivo incompleto
         return array(
             'success' => true,
@@ -206,7 +269,7 @@ class fs_chunked_upload
             'message' => "Chunk {$chunk_number}/{$total_chunks} recibido"
         );
     }
-    
+
     /**
      * Verificar si todos los chunks fueron recibidos
      */
@@ -220,7 +283,7 @@ class fs_chunked_upload
         }
         return true;
     }
-    
+
     /**
      * Combinar todos los chunks en un archivo final
      */
@@ -231,7 +294,7 @@ class fs_chunked_upload
             $this->last_error = 'No se pudo crear el archivo destino';
             return false;
         }
-        
+
         for ($i = 1; $i <= $total_chunks; $i++) {
             $chunk_file = $this->get_chunk_path($identifier, $i);
             $chunk_data = file_get_contents($chunk_file);
@@ -243,18 +306,18 @@ class fs_chunked_upload
             }
             fwrite($fp, $chunk_data);
         }
-        
+
         fclose($fp);
         return true;
     }
-    
+
     /**
      * Limpiar chunks temporales
      */
     private function cleanup_chunks($identifier)
     {
         $chunk_dir = $this->temp_dir . $this->sanitize_identifier($identifier) . '/';
-        
+
         if (is_dir($chunk_dir)) {
             $files = glob($chunk_dir . '*');
             foreach ($files as $file) {
@@ -263,7 +326,7 @@ class fs_chunked_upload
             @rmdir($chunk_dir);
         }
     }
-    
+
     /**
      * Obtener ruta de un chunk
      */
@@ -272,7 +335,7 @@ class fs_chunked_upload
         $safe_id = $this->sanitize_identifier($identifier);
         return $this->temp_dir . $safe_id . '/chunk_' . str_pad($chunk_number, 5, '0', STR_PAD_LEFT);
     }
-    
+
     /**
      * Sanitizar identificador de archivo
      */
@@ -280,21 +343,15 @@ class fs_chunked_upload
     {
         return preg_replace('/[^a-zA-Z0-9_-]/', '', $identifier);
     }
-    
+
     /**
-     * Obtener parámetro de GET o POST
+     * Obtener parámetro de GET o POST usando Symfony Request
      */
     private function get_param($name, $default = '')
     {
-        if (isset($_GET[$name])) {
-            return $_GET[$name];
-        }
-        if (isset($_POST[$name])) {
-            return $_POST[$name];
-        }
-        return $default;
+        return $this->request->get($name, $default);
     }
-    
+
     /**
      * Asegurar que un directorio existe
      */
@@ -304,7 +361,7 @@ class fs_chunked_upload
             mkdir($path, 0755, true);
         }
     }
-    
+
     /**
      * Generar respuesta de error
      */
@@ -318,25 +375,7 @@ class fs_chunked_upload
             'message' => $message
         );
     }
-    
-    /**
-     * Obtener mensaje de error de subida
-     */
-    private function get_upload_error_message($error_code)
-    {
-        $errors = array(
-            UPLOAD_ERR_INI_SIZE => 'El archivo excede el límite de PHP',
-            UPLOAD_ERR_FORM_SIZE => 'El archivo excede el límite del formulario',
-            UPLOAD_ERR_PARTIAL => 'El archivo se subió parcialmente',
-            UPLOAD_ERR_NO_FILE => 'No se subió ningún archivo',
-            UPLOAD_ERR_NO_TMP_DIR => 'Falta carpeta temporal',
-            UPLOAD_ERR_CANT_WRITE => 'Error al escribir el archivo',
-            UPLOAD_ERR_EXTENSION => 'Extensión de PHP detuvo la subida'
-        );
-        
-        return isset($errors[$error_code]) ? $errors[$error_code] : "Error desconocido ({$error_code})";
-    }
-    
+
     /**
      * Obtener último error
      */
@@ -344,14 +383,14 @@ class fs_chunked_upload
     {
         return $this->last_error;
     }
-    
+
     /**
      * Enviar respuesta JSON
      */
     public static function send_json_response($data)
     {
-        header('Content-Type: application/json');
-        echo json_encode($data);
+        $response = new \Symfony\Component\HttpFoundation\JsonResponse($data);
+        $response->send();
         exit;
     }
 }

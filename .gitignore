@@ -24,3 +24,6 @@ logs/api_security.log
 /imgs/api_auth/business_cards/*.png
 /imgs/api_auth/business_cards/*.gif
 /imgs/api_auth/business_cards/*.webp
+.ddev/config.yaml
+.ddev/
+

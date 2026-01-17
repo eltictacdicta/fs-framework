@@ -18,6 +18,8 @@
  */
 require_once 'base/fs_app.php';
 require_once 'base/fs_plugin_manager.php';
+require_once 'base/fs_user.php';
+require_once 'base/fs_login.php';
 
 /**
  * Controlador del actualizador de FSFramework.
@@ -84,10 +86,22 @@ class fs_updater extends fs_app
         $this->tr_updates = '';
         $this->xid();
 
-        if (filter_input(INPUT_COOKIE, 'user') && filter_input(INPUT_COOKIE, 'logkey')) {
+        if (class_exists('fs_login')) {
+            $user = new fs_user();
+            $login = new fs_login();
+            $login->log_in($user);
+
+            if (!$user->logged_on || !$user->admin) {
+                $this->core_log->new_error('Acceso denegado. Se requieren permisos de administrador.');
+                return;
+            }
+
             $this->process();
         } else {
-            $this->core_log->new_error('<a href="index.php">Debes iniciar sesi&oacute;n</a>');
+            // Fallback legacy behavior but secure it if possible or log error
+            // En versiones muy antiguas fs_login podría no estar disponible igual
+            // pero para esta version (moderna) es obligatorio.
+            $this->core_log->new_error('Error crítico: Sistema de autenticación no disponible.');
         }
     }
 
@@ -136,16 +150,10 @@ class fs_updater extends fs_app
                 continue;
             }
 
-            $zip = new ZipArchive();
-            $zip_status = $zip->open(FS_FOLDER . '/update-core.zip', ZipArchive::CHECKCONS);
-            if ($zip_status !== TRUE) {
-                $this->core_log->new_error('Ha habido un error con el archivo update-core.zip. Código: ' . $zip_status
-                    . '. Intente de nuevo en unos minutos.');
+            if (!fs_file_manager::extract_zip_safe(FS_FOLDER . '/update-core.zip', FS_FOLDER)) {
+                $this->core_log->new_error('Ha habido un error de seguridad o integridad con el archivo update-core.zip.');
                 return false;
             }
-
-            $zip->extractTo(FS_FOLDER);
-            $zip->close();
 
             /// eliminamos archivos antiguos y hacemos backup de los actuales
             foreach (['base', 'controller', 'extras', 'model', 'raintpl', 'view'] as $folder) {
@@ -178,23 +186,16 @@ class fs_updater extends fs_app
                 return false;
             }
 
-            $zip = new ZipArchive();
-            $zip_status = $zip->open(FS_FOLDER . '/update.zip', ZipArchive::CHECKCONS);
-            if ($zip_status !== TRUE) {
-                $this->core_log->new_error('Ha habido un error con el archivo update.zip. Código: ' . $zip_status
-                    . '. Intente de nuevo en unos minutos.');
-                return false;
-            }
-
             /// nos guardamos la lista previa de /plugins
             $plugins_list = fs_file_manager::scan_folder(FS_FOLDER . '/plugins');
 
             /// eliminamos los archivos antiguos
             fs_file_manager::del_tree(FS_FOLDER . '/plugins/' . $plugin_name);
 
-            /// descomprimimos
-            $zip->extractTo(FS_FOLDER . '/plugins/');
-            $zip->close();
+            if (!fs_file_manager::extract_zip_safe(FS_FOLDER . '/update.zip', FS_FOLDER . '/plugins/')) {
+                $this->core_log->new_error('Error al extraer update.zip. Archivo malicioso o corrupto.');
+                return false;
+            }
             unlink(FS_FOLDER . '/update.zip');
 
             /// renombramos si es necesario
@@ -224,20 +225,13 @@ class fs_updater extends fs_app
             return false;
         }
 
-        $zip = new ZipArchive();
-        $zip_status = $zip->open(FS_FOLDER . '/update-pay.zip', ZipArchive::CHECKCONS);
-        if ($zip_status !== TRUE) {
-            $this->core_log->new_error('Ha habido un error con el archivo update-pay.zip. Código: ' . $zip_status
-                . '. Intente de nuevo en unos minutos.');
-            return false;
-        }
-
         /// eliminamos los archivos antiguos
         fs_file_manager::del_tree(FS_FOLDER . '/plugins/' . $name);
 
-        /// descomprimimos
-        $zip->extractTo(FS_FOLDER . '/plugins/');
-        $zip->close();
+        if (!fs_file_manager::extract_zip_safe(FS_FOLDER . '/update-pay.zip', FS_FOLDER . '/plugins/')) {
+            $this->core_log->new_error('Error al extraer update-pay.zip. Archivo malicioso o corrupto.');
+            return false;
+        }
         unlink(FS_FOLDER . '/update-pay.zip');
 
         if (file_exists(FS_FOLDER . '/plugins/' . $name . '-master')) {

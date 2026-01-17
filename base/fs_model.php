@@ -29,6 +29,7 @@ require_once 'base/fs_default_items.php';
  * 
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
+#[AllowDynamicProperties]
 abstract class fs_model
 {
 
@@ -159,10 +160,10 @@ abstract class fs_model
     public function floatcmp($f1, $f2, $precision = 10, $round = FALSE)
     {
         if ($round || !function_exists('bccomp')) {
-            return( abs($f1 - $f2) < 6 / pow(10, $precision + 1) );
+            return (abs($f1 - $f2) < 6 / pow(10, $precision + 1));
         }
 
-        return( bccomp((string) $f1, (string) $f2, $precision) == 0 );
+        return (bccomp((string) $f1, (string) $f2, $precision) == 0);
     }
 
     /**
@@ -211,9 +212,11 @@ abstract class fs_model
         if ($txt === null) {
             return '';
         }
-        
+
         $newt = str_replace(
-            array('<', '>', '"', "'"), array('&lt;', '&gt;', '&quot;', '&#39;'), $txt
+            array('<', '>', '"', "'"),
+            array('&lt;', '&gt;', '&quot;', '&#39;'),
+            $txt
         );
 
         return trim($newt);

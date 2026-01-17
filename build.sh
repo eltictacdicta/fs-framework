@@ -1,10 +1,6 @@
 #!/bin/bash
 
 composer install
-rm -rf extras/phpmailer
-cp -R vendor/phpmailer/phpmailer extras/
-rm -rf extras/phpmailer/examples
-
 npm install
 cp node_modules/bootbox/bootbox.min.js view/js/
 cp node_modules/bootstrap/dist/css/bootstrap.min.css view/css/

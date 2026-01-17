@@ -177,4 +177,42 @@ class fs_file_manager
 
         return $result;
     }
+
+    /**
+     * Extracts a ZIP file safely, preventing directory traversal attacks (Zip Slip).
+     *
+     * @param string $zip_path Absolute path to the ZIP file.
+     * @param string $destination Absolute path to the destination directory.
+     * @return bool True on success, False on failure or security violation.
+     */
+    public static function extract_zip_safe($zip_path, $destination)
+    {
+        if (!class_exists('ZipArchive')) {
+            return false;
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($zip_path) !== TRUE) {
+            return false;
+        }
+
+        // Security check: Scan for malicious paths before extraction
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $filename = $zip->getNameIndex($i);
+
+            // Check for directory traversal attempts or absolute paths
+            if (strpos($filename, '../') !== false || strpos($filename, '..\\') !== false || strpos($filename, '/') === 0) {
+                if (class_exists('fs_core_log')) {
+                    $log = new fs_core_log();
+                    $log->new_error("ALERTA DE SEGURIDAD: Archivo malicioso detectado en ZIP: " . $filename);
+                }
+                $zip->close();
+                return false;
+            }
+        }
+
+        $res = $zip->extractTo($destination);
+        $zip->close();
+        return $res;
+    }
 }

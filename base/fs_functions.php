@@ -58,12 +58,12 @@ function fatal_handler()
     $error = error_get_last();
     if (isset($error) && in_array($error["type"], [1, 64])) {
         echo "<h1>Error fatal</h1>"
-        . "<ul>"
-        . "<li><b>Tipo:</b> " . $error["type"] . "</li>"
-        . "<li><b>Archivo:</b> " . $error["file"] . "</li>"
-        . "<li><b>Línea:</b> " . $error["line"] . "</li>"
-        . "<li><b>Mensaje:</b> " . $error["message"] . "</li>"
-        . "</ul>";
+            . "<ul>"
+            . "<li><b>Tipo:</b> " . $error["type"] . "</li>"
+            . "<li><b>Archivo:</b> " . $error["file"] . "</li>"
+            . "<li><b>Línea:</b> " . $error["line"] . "</li>"
+            . "<li><b>Mensaje:</b> " . $error["message"] . "</li>"
+            . "</ul>";
     }
 }
 
@@ -208,28 +208,34 @@ function fs_file_get_contents($url, $timeout = 10)
     return file_get_contents($url);
 }
 
-/**
- * Devuelve el equivalente a $_POST[$name], pero pudiendo definicar un valor
- * por defecto si no encuentra nada.
- * @param string $name
- * @param mixed $default
- * @return mixed
- */
 function fs_filter_input_post($name, $default = false)
 {
-    return isset($_POST[$name]) ? $_POST[$name] : $default;
+    try {
+        if (\FSFramework\Core\Kernel::getInstance()->getRequest()->request->has($name)) {
+            return \FSFramework\Core\Kernel::request()->request->get($name);
+        }
+    } catch (\Exception $e) {
+        // Fallback for when Kernel is not booted or other issues
+        return isset($_POST[$name]) ? $_POST[$name] : $default;
+    }
+    return $default;
 }
 
-/**
- * Devuelve el equivalente a $_REQUEST[$name], pero pudiendo definicar un valor
- * por defecto si no encuentra nada.
- * @param string $name
- * @param mixed $default
- * @return mixed
- */
 function fs_filter_input_req($name, $default = false)
 {
-    $value = isset($_REQUEST[$name]) ? $_REQUEST[$name] : $default;
+    try {
+        $request = \FSFramework\Core\Kernel::request();
+        // Check query (GET) first, then request (POST) - mimicking $_REQUEST behavior partially or check all
+        // Symfony $request->get() checks query, request (POST), attributes.
+        $value = $request->get($name, $default);
+
+        // If value is default, explicit check if parameter exists to avoid false positives if default is returned naturally?
+        // $request->get returns default if key not found.
+
+    } catch (\Exception $e) {
+        $value = isset($_REQUEST[$name]) ? $_REQUEST[$name] : $default;
+    }
+
     if ($value !== $default && $value !== null) {
         return filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     }
@@ -359,14 +365,14 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Plugin-Manager');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    
+
     // Headers de autenticación para GitHub API
     $headers = [
         'Accept: application/vnd.github.v3.raw',
         'Authorization: token ' . $token
     ];
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    
+
     if (ini_get('open_basedir') === NULL) {
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
     }
@@ -374,7 +380,7 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
     // Verificación SSL
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-    
+
     // Ruta de certificados según el sistema operativo
     if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
         curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
@@ -385,7 +391,7 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
         curl_setopt($ch, CURLOPT_PROXY, FS_PROXY_HOST);
         curl_setopt($ch, CURLOPT_PROXYPORT, FS_PROXY_PORT);
     }
-    
+
     $data = curl_exec($ch);
     $info = curl_getinfo($ch);
 
@@ -430,14 +436,14 @@ function fs_curl_redirect_exec_auth($ch, &$redirects, $token, $curlopt_header = 
 {
     curl_setopt($ch, CURLOPT_HEADER, true);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    
+
     // Mantener la autenticación en redirects
     $headers = [
         'Accept: application/vnd.github.v3.raw',
         'Authorization: token ' . $token
     ];
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    
+
     $data = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
@@ -510,7 +516,7 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Plugin-Manager');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    
+
     // Headers de autenticación para GitHub API
     // Usamos el header Accept para obtener el contenido raw directamente
     $headers = [
@@ -519,7 +525,7 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
         'X-GitHub-Api-Version: 2022-11-28'
     ];
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    
+
     if (ini_get('open_basedir') === NULL) {
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
     }
@@ -527,7 +533,7 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
     // Verificación SSL
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-    
+
     if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
         curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
     }
@@ -537,10 +543,10 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
         curl_setopt($ch, CURLOPT_PROXY, FS_PROXY_HOST);
         curl_setopt($ch, CURLOPT_PROXYPORT, FS_PROXY_PORT);
     }
-    
+
     $data = curl_exec($ch);
     $info = curl_getinfo($ch);
-    
+
     curl_close($ch);
 
     if ($info['http_code'] == 200) {
@@ -551,7 +557,7 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
     if ($info['http_code'] == 404) {
         return 'ERROR';
     }
-    
+
     // Log de error para depuración
     if (class_exists('fs_core_log') && $info['http_code'] != 404) {
         $core_log = new fs_core_log();

@@ -30,6 +30,10 @@ if (!file_exists('config.php')) {
 
 define('FS_FOLDER', __DIR__);
 
+/// Carga de dependencias y Kernel moderno
+require_once __DIR__ . '/vendor/autoload.php';
+\FSFramework\Core\Kernel::boot();
+
 /// ampliamos el límite de ejecución de PHP a 5 minutos
 @set_time_limit(300);
 
@@ -47,14 +51,14 @@ if (!defined('FS_BASE_URL')) {
     } elseif (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) {
         $protocol = 'https';
     }
-    
+
     $host = 'localhost';
     if (!empty($_SERVER['HTTP_HOST'])) {
         $host = $_SERVER['HTTP_HOST'];
     } elseif (!empty($_SERVER['SERVER_NAME'])) {
         $host = $_SERVER['SERVER_NAME'];
     }
-    
+
     $base_path = (defined('FS_PATH') && FS_PATH !== '') ? FS_PATH : '';
     if (empty($base_path) && !empty($_SERVER['SCRIPT_NAME'])) {
         $script_dir = dirname($_SERVER['SCRIPT_NAME']);
@@ -62,7 +66,7 @@ if (!defined('FS_BASE_URL')) {
             $base_path = $script_dir;
         }
     }
-    
+
     define('FS_BASE_URL', $protocol . '://' . $host . $base_path);
 }
 require_once 'base/fs_controller.php';
@@ -102,10 +106,10 @@ if ($pagename == '') {
         }
     } catch (Exception $exc) {
         echo "<h1>Error fatal</h1>"
-        . "<ul>"
-        . "<li><b>Código:</b> " . $exc->getCode() . "</li>"
-        . "<li><b>Mensage:</b> " . $exc->getMessage() . "</li>"
-        . "</ul>";
+            . "<ul>"
+            . "<li><b>Código:</b> " . $exc->getCode() . "</li>"
+            . "<li><b>Mensage:</b> " . $exc->getMessage() . "</li>"
+            . "</ul>";
         $fsc_error = TRUE;
     }
 }
@@ -134,7 +138,7 @@ if ($fsc->template) {
         raintpl::configure('cache_dir', 'tmp/' . FS_TMP_NAME);
     } else {
         echo '<h1>No se puede escribir sobre la carpeta tmp de FSFramework</h1>'
-        . '<p>Consulta la <a target="_blank" href="//facturascripts.com/ayuda" rel="nofollow">ayuda</a>.</p>';
+            . '<p>Consulta la <a target="_blank" href="//facturascripts.com/ayuda" rel="nofollow">ayuda</a>.</p>';
         die();
     }
 

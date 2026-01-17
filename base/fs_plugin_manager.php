@@ -178,25 +178,21 @@ class fs_plugin_manager
                 return false;
             }
 
-            $zip = new ZipArchive();
-            $res = $zip->open(FS_FOLDER . '/download.zip', ZipArchive::CHECKCONS);
-            if ($res !== TRUE) {
-                $this->core_log->new_error('Error al abrir el ZIP. Código: ' . $res);
-                return false;
-            }
-
             // Crear backup si existe y se solicita
             if ($create_backup && file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
                 if (!$this->create_backup($item['nombre'])) {
-                    $zip->close();
                     unlink(FS_FOLDER . '/download.zip');
                     return false;
                 }
             }
 
             $plugins_list = fs_file_manager::scan_folder(FS_FOLDER . '/plugins');
-            $zip->extractTo(FS_FOLDER . '/plugins/');
-            $zip->close();
+
+            if (!fs_file_manager::extract_zip_safe(FS_FOLDER . '/download.zip', FS_FOLDER . '/plugins/')) {
+                $this->core_log->new_error('Error al extraer el ZIP. Código de integridad o seguridad fallido.');
+                unlink(FS_FOLDER . '/download.zip');
+                return false;
+            }
             unlink(FS_FOLDER . '/download.zip');
 
             /// renombramos si es necesario
@@ -321,10 +317,10 @@ class fs_plugin_manager
         ];
 
         $result = $fs_var->simple_save('private_plugins_config', json_encode($this->private_config));
-        
+
         // Limpiar cache de la lista de plugins privados
         $this->cache->delete('private_download_list');
-        
+
         return $result;
     }
 
@@ -339,10 +335,10 @@ class fs_plugin_manager
 
         $this->private_config = null;
         $this->private_download_list = null;
-        
+
         // Limpiar cache
         $this->cache->delete('private_download_list');
-        
+
         return $fs_var->simple_delete('private_plugins_config');
     }
 
@@ -390,32 +386,32 @@ class fs_plugin_manager
         }
 
         $config = $this->get_private_config();
-        
+
         // Descargar la lista de plugins privados usando autenticación
         $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 15);
-        
+
         if ($json && $json != 'ERROR') {
             $this->private_download_list = json_decode($json, true);
-            
+
             if (!is_array($this->private_download_list)) {
                 $this->core_log->new_error('Error al parsear el JSON de plugins privados. Verifica el formato del archivo.');
                 $this->private_download_list = [];
                 return $this->private_download_list;
             }
-            
+
             // Marcar cada plugin con el flag de instalado y como privado
             // Y obtener versión/descripción del fsframework.ini del repositorio
             foreach ($this->private_download_list as $key => $value) {
                 $this->private_download_list[$key]['instalado'] = file_exists(FS_FOLDER . '/plugins/' . $value['nombre']);
                 $this->private_download_list[$key]['privado'] = true;
-                
+
                 // Asegurar que tiene un ID único (prefijado para evitar colisiones)
                 if (!isset($this->private_download_list[$key]['id'])) {
                     $this->private_download_list[$key]['id'] = 'priv_' . $key;
                 } else {
                     $this->private_download_list[$key]['id'] = 'priv_' . $this->private_download_list[$key]['id'];
                 }
-                
+
                 // Obtener datos del fsframework.ini del repositorio remoto
                 $remote_ini_data = $this->get_remote_plugin_ini($value, $config['github_token']);
                 if ($remote_ini_data) {
@@ -457,49 +453,49 @@ class fs_plugin_manager
         if (!isset($plugin_data['link']) || empty($plugin_data['link'])) {
             return false;
         }
-        
+
         // Extraer usuario y repo del link
         $parsed = parse_url($plugin_data['link']);
         if (!isset($parsed['path'])) {
             return false;
         }
-        
+
         $path_parts = explode('/', trim($parsed['path'], '/'));
         if (count($path_parts) < 2) {
             return false;
         }
-        
+
         $user = $path_parts[0];
         $repo = $path_parts[1];
-        
+
         // Determinar la rama (por defecto master, pero podría ser main)
         $branch = isset($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
-        
+
         // Intentar con fsframework.ini primero, luego facturascripts.ini
         // Usamos la API de GitHub para repositorios privados
         $ini_files = ['fsframework.ini', 'facturascripts.ini'];
-        
+
         foreach ($ini_files as $ini_file) {
             // Usar la API de GitHub para obtener el contenido del archivo
             $api_url = "https://api.github.com/repos/{$user}/{$repo}/contents/{$ini_file}?ref={$branch}";
             $ini_content = @fs_file_get_contents_github_api($api_url, $token, 10);
-            
+
             if ($ini_content && $ini_content != 'ERROR') {
                 // Intentar parsear con secciones primero
                 $ini_data = @parse_ini_string($ini_content, true);
-                
+
                 if ($ini_data && is_array($ini_data)) {
                     // Caso 1: Tiene la sección [plugin]
                     if (isset($ini_data['plugin']) && is_array($ini_data['plugin'])) {
                         return $ini_data['plugin'];
                     }
-                    
+
                     // Caso 2: Sin secciones - verificar si tiene claves típicas del ini
                     // (version, description, name, min_version)
                     if (isset($ini_data['version']) || isset($ini_data['description']) || isset($ini_data['name'])) {
                         return $ini_data;
                     }
-                    
+
                     // Caso 3: Puede tener otra sección (ej: [facturascripts])
                     // Buscar la primera sección que contenga datos del plugin
                     foreach ($ini_data as $section => $values) {
@@ -507,13 +503,13 @@ class fs_plugin_manager
                             return $values;
                         }
                     }
-                    
+
                     // Si no encontramos sección específica, devolver los datos tal cual
                     return $ini_data;
                 }
             }
         }
-        
+
         return false;
     }
 
@@ -543,32 +539,28 @@ class fs_plugin_manager
             }
 
             $this->core_log->new_message('Descargando el plugin privado ' . $item['nombre']);
-            
+
             // Descargar usando autenticación
             if (!@fs_file_download_auth($item['zip_link'], FS_FOLDER . '/download.zip', $config['github_token'], 60)) {
                 $this->core_log->new_error('Error al descargar el plugin privado. Verifica el token y los permisos del repositorio.');
                 return false;
             }
 
-            $zip = new ZipArchive();
-            $res = $zip->open(FS_FOLDER . '/download.zip', ZipArchive::CHECKCONS);
-            if ($res !== TRUE) {
-                $this->core_log->new_error('Error al abrir el ZIP. Código: ' . $res);
-                return false;
-            }
-
             // SIEMPRE crear backup si el plugin ya existe (para plugins privados)
             if (file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
                 if (!$this->create_backup($item['nombre'])) {
-                    $zip->close();
                     unlink(FS_FOLDER . '/download.zip');
                     return false;
                 }
             }
 
             $plugins_list = fs_file_manager::scan_folder(FS_FOLDER . '/plugins');
-            $zip->extractTo(FS_FOLDER . '/plugins/');
-            $zip->close();
+
+            if (!fs_file_manager::extract_zip_safe(FS_FOLDER . '/download.zip', FS_FOLDER . '/plugins/')) {
+                $this->core_log->new_error('Error al extraer el ZIP. Código de integridad o seguridad fallido.');
+                unlink(FS_FOLDER . '/download.zip');
+                return false;
+            }
             unlink(FS_FOLDER . '/download.zip');
 
             // Renombrar si es necesario
@@ -598,7 +590,7 @@ class fs_plugin_manager
     public function test_private_connection()
     {
         $config = $this->get_private_config();
-        
+
         if (empty($config['github_token']) || empty($config['private_plugins_url'])) {
             return [
                 'success' => false,
@@ -608,7 +600,7 @@ class fs_plugin_manager
 
         // Intentar descargar el JSON
         $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 10);
-        
+
         if (!$json || $json == 'ERROR') {
             return [
                 'success' => false,
@@ -658,7 +650,7 @@ class fs_plugin_manager
         // Forzar recarga de la lista (sin cache)
         $this->cache->delete('private_download_list');
         $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 10);
-        
+
         if (!$json || $json == 'ERROR') {
             $result['error'] = 'No se pudo descargar el JSON';
             return $result;
@@ -688,14 +680,14 @@ class fs_plugin_manager
                 $user = $path_parts[0];
                 $repo = $path_parts[1];
                 $branch = isset($plugin['branch']) ? $plugin['branch'] : 'master';
-                
+
                 $api_url = "https://api.github.com/repos/{$user}/{$repo}/contents/fsframework.ini?ref={$branch}";
                 $plugin_debug['api_url'] = $api_url;
 
                 // Intentar obtener el contenido
                 $ini_content = @fs_file_get_contents_github_api($api_url, $config['github_token'], 10);
                 $plugin_debug['ini_response'] = ($ini_content && $ini_content != 'ERROR') ? substr($ini_content, 0, 200) : 'ERROR o vacío';
-                
+
                 if ($ini_content && $ini_content != 'ERROR') {
                     $ini_data = @parse_ini_string($ini_content, true);
                     $plugin_debug['ini_parsed'] = $ini_data;
@@ -801,21 +793,16 @@ class fs_plugin_manager
             return false;
         }
 
-        $zip = new ZipArchive();
-        $res = $zip->open($path, ZipArchive::CHECKCONS);
-        if ($res !== TRUE) {
-            $this->core_log->new_error('Error al abrir el archivo ZIP. Código: ' . $res);
-            return false;
-        }
-
         // Extraer temporalmente para detectar el nombre real del plugin
         $temp_dir = FS_FOLDER . '/tmp/plugin_upload_temp/';
         if (!file_exists($temp_dir)) {
             mkdir($temp_dir, 0777, true);
         }
 
-        $zip->extractTo($temp_dir);
-        $zip->close();
+        if (!fs_file_manager::extract_zip_safe($path, $temp_dir)) {
+            $this->core_log->new_error('Error al extraer el archivo ZIP.');
+            return false;
+        }
 
         // Detectar el nombre del plugin extraído
         $extracted_folders = [];
@@ -1224,13 +1211,6 @@ class fs_plugin_manager
      */
     public function detect_plugin_from_zip($zip_path)
     {
-        $zip = new ZipArchive();
-        $res = $zip->open($zip_path, ZipArchive::CHECKCONS);
-
-        if ($res !== TRUE) {
-            return false;
-        }
-
         // Crear carpeta temporal
         $temp_dir = FS_FOLDER . '/tmp/plugin_detect_temp/';
         if (!file_exists($temp_dir)) {
@@ -1241,8 +1221,9 @@ class fs_plugin_manager
             mkdir($temp_dir, 0777, true);
         }
 
-        $zip->extractTo($temp_dir);
-        $zip->close();
+        if (!fs_file_manager::extract_zip_safe($zip_path, $temp_dir)) {
+            return false;
+        }
 
         // Detectar carpeta del plugin
         $plugin_folder = null;

@@ -88,7 +88,8 @@ abstract class fs_edit_controller extends fs_controller
      */
     protected function edit_action()
     {
-        if (isset($_POST['petition_id']) && $this->duplicated_petition($_POST['petition_id'])) {
+        $request = \FSFramework\Core\Kernel::request();
+        if ($request->request->has('petition_id') && $this->duplicated_petition($request->request->get('petition_id'))) {
             $this->new_error_msg('Petición duplicada. Has hecho doble clic sobre el botón y se han'
                 . ' enviado dos peticiones. O tienes el ratón roto.');
             return false;
@@ -118,8 +119,9 @@ abstract class fs_edit_controller extends fs_controller
         }
 
         $this->model = new $model_class();
-        if (isset($_REQUEST['code']) && !empty($_REQUEST['code'])) {
-            $this->model->load_from_code($_REQUEST['code']);
+        $code = \FSFramework\Core\Kernel::request()->get('code');
+        if (!empty($code)) {
+            $this->model->load_from_code($code);
         }
     }
 
@@ -137,7 +139,8 @@ abstract class fs_edit_controller extends fs_controller
         $this->set_edit_columns();
 
         /// acciones
-        $action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
+        /// acciones
+        $action = \FSFramework\Core\Kernel::request()->get('action', '');
         switch ($action) {
             case 'delete':
                 $this->delete_action();
@@ -156,17 +159,19 @@ abstract class fs_edit_controller extends fs_controller
      */
     protected function process_form_value($col_name, $type)
     {
+        $request = \FSFramework\Core\Kernel::request();
         switch ($type) {
             case 'bool':
-                $this->model->{$col_name} = isset($_POST[$col_name]);
+                $this->model->{$col_name} = $request->request->has($col_name);
                 break;
 
             case 'date':
-                $this->model->{$col_name} = empty($_POST[$col_name]) ? null : $_POST[$col_name];
+                $val = $request->request->get($col_name);
+                $this->model->{$col_name} = empty($val) ? null : $val;
                 break;
 
             default:
-                $this->model->{$col_name} = isset($_POST[$col_name]) ? $_POST[$col_name] : $this->model->{$col_name};
+                $this->model->{$col_name} = $request->request->get($col_name, $this->model->{$col_name});
         }
     }
 
