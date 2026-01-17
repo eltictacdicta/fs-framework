@@ -132,9 +132,9 @@
                 <tbody>
                     {loop="$fsc->plugin_manager->private_downloads()"}
                     <!--{$tr_class=''}-->
-                    {if="$value.instalado"}
+                    {if="isset($value.instalado) && $value.instalado"}
                     <!--{$tr_class=' class="warning"'}-->
-                    {elseif="!$value.estable"}
+                    {elseif="isset($value.estable) && !$value.estable"}
                     <!--{$tr_class=' class="danger"'}-->
                     {else}
                     <!--{$tr_class=' class="success"'}-->
@@ -153,10 +153,12 @@
                         </td>
                         <td>
                             <strong>{$value.nombre}</strong> &nbsp; 
+                            {if="isset($value.version) && $value.version"}
                             <span class="label label-info">v{$value.version}</span>
+                            {/if}
                             <span class="label label-warning">Privado</span>
                             <br/><br/>
-                            {if="$value.instalado"}
+                            {if="isset($value.instalado) && $value.instalado"}
                             <a href="{$fsc->url()}&caca={$fsc->random_string(4)}#plugins" class="btn btn-xs btn-default">
                                 <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>&nbsp; Instalado
                             </a>
@@ -164,7 +166,7 @@
                                class="btn btn-xs btn-warning" title="Actualizar plugin">
                                 <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>&nbsp; Actualizar
                             </a>
-                            {elseif="isset($value.estable) && $value.estable"}
+                            {elseif="!isset($value.estable) || $value.estable"}
                             <a href="{$fsc->url()}&caca={$fsc->random_string(4)}&download_private={$value.id}#privados" 
                                class="btn btn-xs btn-primary">
                                 <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>&nbsp; Descargar
@@ -177,7 +179,11 @@
                             {/if}
                         </td>
                         <td>
+                            {if="isset($value.descripcion) && $value.descripcion"}
                             {function="nl2br($value.descripcion)"}<br/>
+                            {else}
+                            <span class="text-muted">Sin descripción disponible</span><br/>
+                            {/if}
                             {if="isset($value.ultima_modificacion) && $value.ultima_modificacion"}
                             <small class="text-muted">Última modificación: {$value.ultima_modificacion}</small>
                             {/if}
@@ -200,43 +206,31 @@
 </div>
 {/if}
 
-<!-- Modal para confirmación de descarga privada -->
+<!-- Confirmación de descarga privada -->
 {if="$fsc->pending_private_download"}
-<div class="modal fade" id="modal_confirm_private_download" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-warning">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-                <h4 class="modal-title">
-                    <i class="fa fa-exclamation-triangle"></i>&nbsp; Plugin Existente
-                </h4>
-            </div>
-            <div class="modal-body">
-                <p>El plugin <strong>{$fsc->pending_private_download.name}</strong> ya está instalado 
-                   (versión actual: {$fsc->pending_private_download.current_version}).</p>
-                <p>¿Deseas sobrescribirlo? Se creará un backup automático del plugin actual.</p>
-            </div>
-            <div class="modal-footer">
-                <form action="{$fsc->url()}#privados" method="post" style="display: inline;">
-                    <input type="hidden" name="cancel_pending_private_download" value="1"/>
-                    <button type="submit" class="btn btn-default">
-                        <i class="fa fa-times"></i>&nbsp; Cancelar
-                    </button>
-                </form>
-                <a href="{$fsc->url()}&download_private={$fsc->pending_private_download.plugin_id}&confirm_private_download=1#privados" 
-                   class="btn btn-warning">
-                    <i class="fa fa-download"></i>&nbsp; Sobrescribir con backup
-                </a>
-            </div>
-        </div>
+<!--{$pending_priv=$fsc->pending_private_download}-->
+<div class="panel panel-warning">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fa fa-exclamation-triangle"></i>&nbsp; Confirmación requerida
+        </h3>
+    </div>
+    <div class="panel-body">
+        <p>El plugin <strong>{$pending_priv['name']}</strong> ya está instalado 
+           (versión actual: <strong>{$pending_priv['current_version']}</strong>).</p>
+        <p>¿Deseas sobrescribirlo? Se creará un backup automático del plugin actual.</p>
+        <hr/>
+        <form action="{$fsc->url()}#privados" method="post" style="display: inline;">
+            <input type="hidden" name="cancel_pending_private_download" value="1"/>
+            <button type="submit" class="btn btn-default">
+                <i class="fa fa-times"></i>&nbsp; Cancelar
+            </button>
+        </form>
+        <a href="{$fsc->url()}&download_private={$pending_priv['plugin_id']}&confirm_private_download=1#privados" 
+           class="btn btn-warning">
+            <i class="fa fa-download"></i>&nbsp; Sobrescribir con backup
+        </a>
     </div>
 </div>
-<script>
-$(document).ready(function() {
-    $('#modal_confirm_private_download').modal('show');
-});
-</script>
 {/if}
 

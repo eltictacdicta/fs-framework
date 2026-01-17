@@ -285,6 +285,14 @@ class admin_home extends fs_controller
             return;
         }
 
+        if (filter_input(INPUT_GET, 'debug_private_ini')) {
+            /// debug de lectura de ini remoto
+            $this->template = false;
+            header('Content-Type: application/json');
+            echo json_encode($this->plugin_manager->debug_remote_ini(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         if (filter_input(INPUT_POST, 'modpages')) {
             /// activar/desactivas páginas del menú
             $this->enable_pages();
@@ -835,57 +843,27 @@ class admin_home extends fs_controller
      */
     private function refresh_private_plugins()
     {
+        // Limpiar TODA la caché para forzar recarga completa
+        $this->cache->clean();
         $this->plugin_manager->refresh_private_downloads();
-        $this->clean_cache();
         $this->new_message('Lista de plugins privados actualizada.');
     }
 
     /**
      * Descarga un plugin privado.
+     * Siempre crea backup automático si el plugin ya existe.
      * 
      * @param string $plugin_id
      */
     private function download_private($plugin_id)
     {
-        // Verificar si el plugin ya existe antes de descargar
-        $private_downloads = $this->plugin_manager->private_downloads();
-        $plugin_name = null;
-        
-        foreach ($private_downloads as $item) {
-            if ($item['id'] == $plugin_id) {
-                $plugin_name = $item['nombre'];
-                break;
-            }
-        }
-
-        if (!$plugin_name) {
-            $this->new_error_msg('Plugin privado no encontrado en la lista de descargas.');
-            return;
-        }
-
-        $existing_plugin = $this->plugin_manager->check_plugin_exists($plugin_name);
-
-        if ($existing_plugin && !filter_input(INPUT_GET, 'confirm_private_download')) {
-            // Guardar información en sesión para el modal
-            $_SESSION['pending_private_download'] = [
-                'plugin_id' => $plugin_id,
-                'name' => $plugin_name,
-                'current_version' => $existing_plugin['version']
-            ];
-            
-            $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
-            return;
-        }
-
-        // Si hay confirmación, descargar con backup
-        if (filter_input(INPUT_GET, 'confirm_private_download') && isset($_SESSION['pending_private_download'])) {
-            $pending = $_SESSION['pending_private_download'];
-            $this->plugin_manager->download_private($pending['plugin_id'], true);
+        // Limpiar cualquier sesión pendiente anterior
+        if (isset($_SESSION['pending_private_download'])) {
             unset($_SESSION['pending_private_download']);
-            return;
         }
+        $this->pending_private_download = null;
 
-        // Plugin nuevo, descargar directamente
-        $this->plugin_manager->download_private($plugin_id, false);
+        // Descargar el plugin (siempre crea backup si ya existe)
+        $this->plugin_manager->download_private($plugin_id);
     }
 }

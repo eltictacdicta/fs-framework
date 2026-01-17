@@ -358,11 +358,12 @@ class fs_plugin_manager
 
     /**
      * Devuelve la lista de plugins privados disponibles para descarga.
+     * @param bool $force_reload Forzar recarga ignorando caché
      * @return array
      */
-    public function private_downloads()
+    public function private_downloads($force_reload = false)
     {
-        if (isset($this->private_download_list)) {
+        if (!$force_reload && isset($this->private_download_list) && !empty($this->private_download_list)) {
             return $this->private_download_list;
         }
 
@@ -372,10 +373,20 @@ class fs_plugin_manager
             return $this->private_download_list;
         }
 
-        // Buscar en la cache
-        $this->private_download_list = $this->cache->get('private_download_list');
-        if ($this->private_download_list !== false && is_array($this->private_download_list)) {
-            return $this->private_download_list;
+        // Buscar en la cache (solo si no se fuerza recarga)
+        if (!$force_reload) {
+            $cached = $this->cache->get('private_download_list');
+            // Verificar que la caché tenga datos válidos (con versión o descripción)
+            if ($cached !== false && is_array($cached) && !empty($cached)) {
+                // Verificar si al menos el primer plugin tiene datos del INI
+                $first_plugin = reset($cached);
+                if (isset($first_plugin['version']) || isset($first_plugin['descripcion'])) {
+                    $this->private_download_list = $cached;
+                    return $this->private_download_list;
+                }
+                // Si la caché no tiene datos del INI, invalidarla
+                $this->cache->delete('private_download_list');
+            }
         }
 
         $config = $this->get_private_config();
@@ -465,16 +476,39 @@ class fs_plugin_manager
         $branch = isset($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
         
         // Intentar con fsframework.ini primero, luego facturascripts.ini
+        // Usamos la API de GitHub para repositorios privados
         $ini_files = ['fsframework.ini', 'facturascripts.ini'];
         
         foreach ($ini_files as $ini_file) {
-            $ini_url = "https://raw.githubusercontent.com/{$user}/{$repo}/{$branch}/{$ini_file}";
-            $ini_content = @fs_file_get_contents_auth($ini_url, $token, 10);
+            // Usar la API de GitHub para obtener el contenido del archivo
+            $api_url = "https://api.github.com/repos/{$user}/{$repo}/contents/{$ini_file}?ref={$branch}";
+            $ini_content = @fs_file_get_contents_github_api($api_url, $token, 10);
             
             if ($ini_content && $ini_content != 'ERROR') {
-                // Parsear el contenido del ini
-                $ini_data = @parse_ini_string($ini_content);
+                // Intentar parsear con secciones primero
+                $ini_data = @parse_ini_string($ini_content, true);
+                
                 if ($ini_data && is_array($ini_data)) {
+                    // Caso 1: Tiene la sección [plugin]
+                    if (isset($ini_data['plugin']) && is_array($ini_data['plugin'])) {
+                        return $ini_data['plugin'];
+                    }
+                    
+                    // Caso 2: Sin secciones - verificar si tiene claves típicas del ini
+                    // (version, description, name, min_version)
+                    if (isset($ini_data['version']) || isset($ini_data['description']) || isset($ini_data['name'])) {
+                        return $ini_data;
+                    }
+                    
+                    // Caso 3: Puede tener otra sección (ej: [facturascripts])
+                    // Buscar la primera sección que contenga datos del plugin
+                    foreach ($ini_data as $section => $values) {
+                        if (is_array($values) && (isset($values['version']) || isset($values['description']))) {
+                            return $values;
+                        }
+                    }
+                    
+                    // Si no encontramos sección específica, devolver los datos tal cual
                     return $ini_data;
                 }
             }
@@ -489,7 +523,7 @@ class fs_plugin_manager
      * @param bool $create_backup Crear backup antes de sobrescribir
      * @return bool
      */
-    public function download_private($plugin_id, $create_backup = false)
+    public function download_private($plugin_id, $create_backup = true)
     {
         if ($this->disable_mod_plugins) {
             $this->core_log->new_error('No tienes permiso para descargar plugins.');
@@ -523,8 +557,8 @@ class fs_plugin_manager
                 return false;
             }
 
-            // Crear backup si existe y se solicita
-            if ($create_backup && file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
+            // SIEMPRE crear backup si el plugin ya existe (para plugins privados)
+            if (file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
                 if (!$this->create_backup($item['nombre'])) {
                     $zip->close();
                     unlink(FS_FOLDER . '/download.zip');
@@ -590,10 +624,88 @@ class fs_plugin_manager
             ];
         }
 
+        // Probar lectura del ini del primer plugin
+        $ini_test = '';
+        if (count($plugins) > 0 && isset($plugins[0]['link'])) {
+            $ini_data = $this->get_remote_plugin_ini($plugins[0], $config['github_token']);
+            if ($ini_data) {
+                $ini_test = ' | INI leído correctamente: v' . (isset($ini_data['version']) ? $ini_data['version'] : '?');
+            } else {
+                $ini_test = ' | Error al leer fsframework.ini del primer plugin';
+            }
+        }
+
         return [
             'success' => true,
-            'message' => 'Conexión exitosa. Se encontraron ' . count($plugins) . ' plugin(s) disponible(s).'
+            'message' => 'Conexión exitosa. Se encontraron ' . count($plugins) . ' plugin(s) disponible(s).' . $ini_test
         ];
+    }
+
+    /**
+     * Método de depuración para probar la lectura del ini remoto.
+     * @param string $plugin_name Nombre del plugin a probar
+     * @return array Resultado del debug
+     */
+    public function debug_remote_ini($plugin_name = null)
+    {
+        $config = $this->get_private_config();
+        $result = [
+            'token_presente' => !empty($config['github_token']),
+            'token_length' => strlen($config['github_token']),
+            'plugins' => []
+        ];
+
+        // Forzar recarga de la lista (sin cache)
+        $this->cache->delete('private_download_list');
+        $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 10);
+        
+        if (!$json || $json == 'ERROR') {
+            $result['error'] = 'No se pudo descargar el JSON';
+            return $result;
+        }
+
+        $plugins = json_decode($json, true);
+        if (!is_array($plugins)) {
+            $result['error'] = 'JSON inválido';
+            return $result;
+        }
+
+        foreach ($plugins as $plugin) {
+            if ($plugin_name && $plugin['nombre'] !== $plugin_name) {
+                continue;
+            }
+
+            $plugin_debug = [
+                'nombre' => $plugin['nombre'],
+                'link' => isset($plugin['link']) ? $plugin['link'] : 'NO DEFINIDO',
+                'branch' => isset($plugin['branch']) ? $plugin['branch'] : 'master (default)',
+            ];
+
+            // Construir URL de la API
+            if (isset($plugin['link'])) {
+                $parsed = parse_url($plugin['link']);
+                $path_parts = explode('/', trim($parsed['path'], '/'));
+                $user = $path_parts[0];
+                $repo = $path_parts[1];
+                $branch = isset($plugin['branch']) ? $plugin['branch'] : 'master';
+                
+                $api_url = "https://api.github.com/repos/{$user}/{$repo}/contents/fsframework.ini?ref={$branch}";
+                $plugin_debug['api_url'] = $api_url;
+
+                // Intentar obtener el contenido
+                $ini_content = @fs_file_get_contents_github_api($api_url, $config['github_token'], 10);
+                $plugin_debug['ini_response'] = ($ini_content && $ini_content != 'ERROR') ? substr($ini_content, 0, 200) : 'ERROR o vacío';
+                
+                if ($ini_content && $ini_content != 'ERROR') {
+                    $ini_data = @parse_ini_string($ini_content, true);
+                    $plugin_debug['ini_parsed'] = $ini_data;
+                }
+            }
+
+            $result['plugins'][] = $plugin_debug;
+        }
+
+        return $result;
     }
 
     /**
@@ -602,8 +714,12 @@ class fs_plugin_manager
      */
     public function refresh_private_downloads()
     {
+        // Eliminar la caché de la lista de plugins privados
         $this->cache->delete('private_download_list');
+        // Resetear la variable interna para forzar recarga
         $this->private_download_list = null;
+        // Forzar recarga inmediata con los datos del INI
+        $this->private_downloads(true);
         return true;
     }
 
@@ -900,7 +1016,12 @@ class fs_plugin_manager
         }
 
         $plugin['enabled'] = in_array($plugin_name, $this->enabled());
-        $plugin['version'] = (int) $plugin['version'];
+        // Mantener versión como string si tiene formato semántico (x.y.z), sino convertir a int
+        if (strpos($plugin['version'], '.') !== false) {
+            $plugin['version'] = (string) $plugin['version'];
+        } else {
+            $plugin['version'] = (int) $plugin['version'];
+        }
         $plugin['min_version'] = (float) $plugin['min_version'];
 
         // Check compatibility based on configuration file type and version

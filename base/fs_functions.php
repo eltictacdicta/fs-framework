@@ -491,3 +491,78 @@ function fs_file_download_auth($url, $filename, $token, $timeout = 60)
 
     return $ok;
 }
+
+/**
+ * Obtiene el contenido de un archivo usando la API de GitHub (para repositorios privados).
+ * @param string $api_url URL de la API de GitHub (https://api.github.com/repos/owner/repo/contents/path)
+ * @param string $token Token de acceso de GitHub
+ * @param integer $timeout
+ * @return string|false Contenido del archivo o 'ERROR' si falla
+ */
+function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
+{
+    if (!function_exists('curl_init')) {
+        return 'ERROR';
+    }
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $api_url);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Plugin-Manager');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    
+    // Headers de autenticación para GitHub API
+    // Usamos el header Accept para obtener el contenido raw directamente
+    $headers = [
+        'Accept: application/vnd.github.v3.raw',
+        'Authorization: token ' . $token,
+        'X-GitHub-Api-Version: 2022-11-28'
+    ];
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    
+    if (ini_get('open_basedir') === NULL) {
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    }
+
+    // Verificación SSL
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+    
+    if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
+        curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
+    }
+
+    if (defined('FS_PROXY_TYPE')) {
+        curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
+        curl_setopt($ch, CURLOPT_PROXY, FS_PROXY_HOST);
+        curl_setopt($ch, CURLOPT_PROXYPORT, FS_PROXY_PORT);
+    }
+    
+    $data = curl_exec($ch);
+    $info = curl_getinfo($ch);
+    
+    curl_close($ch);
+
+    if ($info['http_code'] == 200) {
+        return $data;
+    }
+
+    // Si falla con raw, intentar obtener JSON y decodificar base64
+    if ($info['http_code'] == 404) {
+        return 'ERROR';
+    }
+    
+    // Log de error para depuración
+    if (class_exists('fs_core_log') && $info['http_code'] != 404) {
+        $core_log = new fs_core_log();
+        $error_msg = 'GitHub API error: ' . $info['http_code'];
+        if ($info['http_code'] == 401) {
+            $error_msg .= ' - Token inválido';
+        } elseif ($info['http_code'] == 403) {
+            $error_msg .= ' - Acceso denegado o rate limit';
+        }
+        $core_log->save($api_url . ' - ' . $error_msg);
+    }
+
+    return 'ERROR';
+}
