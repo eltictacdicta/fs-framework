@@ -898,7 +898,7 @@ function tln_sanitize(
                 }
                 $trusted .= tln_tagprint($tagname, $attary, $tagtype);
                 $trusted .= $free_content;
-                $trusted .= tln_tagprint($tagname, null, 2);
+                $trusted .= tln_tagprint($tagname, array(), 2);
             }
             continue;
         }
