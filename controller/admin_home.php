@@ -196,11 +196,7 @@ class admin_home extends fs_controller
             return;
         }
 
-        if (filter_input(INPUT_GET, 'download_plugin')) {
-            /// descargar plugin como archivo ZIP
-            $this->download_plugin(filter_input(INPUT_GET, 'download_plugin'));
-            return;
-        }
+
 
         if (FS_DEMO) {
             $this->new_advice('En el modo demo no se pueden hacer cambios en esta página.');
@@ -211,6 +207,12 @@ class admin_home extends fs_controller
 
         if (!$this->user->admin) {
             $this->new_error_msg('Sólo un administrador puede hacer cambios en esta página.');
+            return;
+        }
+
+        if (filter_input(INPUT_GET, 'download_plugin')) {
+            /// descargar plugin como archivo ZIP
+            $this->download_plugin(filter_input(INPUT_GET, 'download_plugin'));
             return;
         }
 
@@ -394,7 +396,7 @@ class admin_home extends fs_controller
         }
 
         /// ordenamos
-        usort($pages, function($a, $b) {
+        usort($pages, function ($a, $b) {
             if ($a->name == $b->name) {
                 return 0;
             } else if ($a->name > $b->name) {
@@ -459,7 +461,7 @@ class admin_home extends fs_controller
         // Verificar si el plugin ya existe antes de descargar
         $downloads = $this->plugin_manager->downloads();
         $plugin_name = null;
-        
+
         foreach ($downloads as $item) {
             if ($item['id'] == (int) $plugin_id) {
                 $plugin_name = $item['nombre'];
@@ -481,7 +483,7 @@ class admin_home extends fs_controller
                 'name' => $plugin_name,
                 'current_version' => $existing_plugin['version']
             ];
-            
+
             $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
             return;
         }
@@ -600,7 +602,7 @@ class admin_home extends fs_controller
 
         // Detectar el plugin desde el ZIP
         $plugin_info = $this->plugin_manager->detect_plugin_from_zip($_FILES['fplugin']['tmp_name']);
-        
+
         if (!$plugin_info) {
             $this->new_error_msg('Error al leer el archivo ZIP del plugin.');
             return;
@@ -616,7 +618,7 @@ class admin_home extends fs_controller
             // El plugin existe y no hay confirmación, guardar el archivo temporalmente
             $temp_file = FS_FOLDER . '/tmp/plugin_pending_install.zip';
             move_uploaded_file($_FILES['fplugin']['tmp_name'], $temp_file);
-            
+
             // Guardar información en sesión para el modal
             $_SESSION['pending_plugin'] = [
                 'name' => $plugin_name,
@@ -624,7 +626,7 @@ class admin_home extends fs_controller
                 'current_version' => $existing_plugin['version'],
                 'temp_file' => $temp_file
             ];
-            
+
             $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
             return;
         }
@@ -632,7 +634,7 @@ class admin_home extends fs_controller
         // Si hay confirmación pendiente, procesarla
         if (filter_input(INPUT_POST, 'confirm_overwrite') && isset($_SESSION['pending_plugin'])) {
             $pending = $_SESSION['pending_plugin'];
-            
+
             if (!file_exists($pending['temp_file'])) {
                 $this->new_error_msg('El archivo temporal del plugin no se encuentra.');
                 unset($_SESSION['pending_plugin']);
@@ -641,13 +643,13 @@ class admin_home extends fs_controller
 
             // Instalar con backup
             $result = $this->plugin_manager->install($pending['temp_file'], $pending['name'] . '.zip', true);
-            
+
             // Limpiar archivo temporal
             if (file_exists($pending['temp_file'])) {
                 unlink($pending['temp_file']);
             }
             unset($_SESSION['pending_plugin']);
-            
+
             if ($result) {
                 $this->new_message('Plugin <b>' . $result . '</b> instalado correctamente. El plugin anterior se guardó como backup.');
             }
@@ -686,8 +688,9 @@ class admin_home extends fs_controller
      */
     private function download_plugin($plugin_name)
     {
+        $plugin_name = basename($plugin_name);
         $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
-        
+
         // Verificar que el plugin existe
         if (!file_exists($plugin_path) || !is_dir($plugin_path)) {
             $this->new_error_msg('El plugin <b>' . $plugin_name . '</b> no existe.');
@@ -799,7 +802,7 @@ class admin_home extends fs_controller
 
         if ($this->plugin_manager->save_private_config($github_token, $private_plugins_url)) {
             $this->new_message('Configuración de plugins privados guardada correctamente.');
-            
+
             // Probar la conexión automáticamente
             $test_result = $this->plugin_manager->test_private_connection();
             if ($test_result['success']) {
@@ -830,7 +833,7 @@ class admin_home extends fs_controller
     private function test_private_plugins_connection()
     {
         $this->private_test_result = $this->plugin_manager->test_private_connection();
-        
+
         if ($this->private_test_result['success']) {
             $this->new_message($this->private_test_result['message']);
         } else {
