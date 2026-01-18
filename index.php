@@ -34,6 +34,18 @@ define('FS_FOLDER', __DIR__);
 require_once __DIR__ . '/vendor/autoload.php';
 \FSFramework\Core\Kernel::boot();
 
+/// --- Symfony Routing Bridge ---
+try {
+    $response = \FSFramework\Core\Kernel::handleRequest();
+    if ($response) {
+        $response->send();
+        exit;
+    }
+} catch (\Throwable $e) {
+    error_log("Global Symfony Router Bridge Error: " . $e->getMessage());
+}
+// ------------------------------
+
 /// ampliamos el límite de ejecución de PHP a 5 minutos
 @set_time_limit(300);
 
