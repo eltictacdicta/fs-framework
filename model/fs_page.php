@@ -130,12 +130,12 @@ class fs_page extends fs_model
 
     public function is_default()
     {
-        return ( $this->name == $this->default_items->default_page() );
+        return ($this->name == $this->default_items->default_page());
     }
 
     public function showing()
     {
-        return ( $this->name == $this->default_items->showing_page() );
+        return ($this->name == $this->default_items->showing_page());
     }
 
     public function exists()

@@ -22,6 +22,10 @@ if (!file_exists('config.php')) {
 
 define('FS_FOLDER', __DIR__);
 
+/// Carga de dependencias y Kernel moderno
+require_once __DIR__ . '/vendor/autoload.php';
+\FSFramework\Core\Kernel::boot();
+
 /// ampliamos el límite de ejecución de PHP a 5 minutos
 @set_time_limit(300);
 ignore_user_abort(true);
@@ -40,130 +44,129 @@ $updater = new fs_updater();
 
 ?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Actualizador de FSFramework</title>
-        <meta name="description" content="Script de actualización de FSFramework." />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="generator" content="FacturaScripts" />
-        <meta name="robots" content="noindex" />
-        <link rel="shortcut icon" href="view/img/favicon.ico" />
-        <link rel="stylesheet" href="view/css/bootstrap-yeti.min.css" />
-        <link rel="stylesheet" href="view/css/font-awesome.min.css" />
-        <script type="text/javascript" src="view/js/jquery.min.js"></script>
-        <script type="text/javascript" src="view/js/bootstrap.min.js"></script>
-    </head>
-    <body>
-        <br/>
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-12">
-                    <a href="index.php?page=admin_home&updated=TRUE" class="btn btn-sm btn-default">
-                        <span class="glyphicon glyphicon-arrow-left" aria-hidden="true"></span>
-                        <span class="hidden-xs">&nbsp;Panel de control</span>
-                    </a>
-                    <a href="https://github.com/eltictacdicta/fs-framework/plugins?activetab=ListPluginKey2017" target="_blank" class="btn btn-sm btn-default">
-                        <i class="fa fa-key" aria-hidden="true"></i>
-                        <span class="hidden-xs">&nbsp;Claves</span>
-                    </a>
-                    <div class="page-header">
-                        <h1>
-                            <span class="glyphicon glyphicon-upload" aria-hidden="true"></span> Actualizador de FSFramework
-                        </h1>
-                    </div>
-                    <?php
-                    if (count($updater->get_errors()) > 0) {
-                        echo '<div class="alert alert-danger"><ul>';
-                        foreach ($updater->get_errors() as $error) {
-                            echo '<li>' . $error . '</li>';
-                        }
-                        echo '</ul></div>';
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Actualizador de FSFramework</title>
+    <meta name="description" content="Script de actualización de FSFramework." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content="FacturaScripts" />
+    <meta name="robots" content="noindex" />
+    <link rel="shortcut icon" href="view/img/favicon.ico" />
+    <link rel="stylesheet" href="view/css/bootstrap-yeti.min.css" />
+    <link rel="stylesheet" href="view/css/font-awesome.min.css" />
+    <script type="text/javascript" src="view/js/jquery.min.js"></script>
+    <script type="text/javascript" src="view/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+    <br />
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-12">
+                <a href="index.php?page=admin_home&updated=TRUE" class="btn btn-sm btn-default">
+                    <span class="glyphicon glyphicon-arrow-left" aria-hidden="true"></span>
+                    <span class="hidden-xs">&nbsp;Panel de control</span>
+                </a>
+                <div class="page-header">
+                    <h1>
+                        <span class="glyphicon glyphicon-upload" aria-hidden="true"></span> Actualizador de FSFramework
+                    </h1>
+                </div>
+                <?php
+                if (count($updater->get_errors()) > 0) {
+                    echo '<div class="alert alert-danger"><ul>';
+                    foreach ($updater->get_errors() as $error) {
+                        echo '<li>' . $error . '</li>';
                     }
+                    echo '</ul></div>';
+                }
 
-                    if (count($updater->get_messages()) > 0) {
-                        echo '<div class="alert alert-info"><ul>';
-                        foreach ($updater->get_messages() as $msg) {
-                            echo '<li>' . $msg . '</li>';
-                        }
-                        echo '</ul></div>';
+                if (count($updater->get_messages()) > 0) {
+                    echo '<div class="alert alert-info"><ul>';
+                    foreach ($updater->get_messages() as $msg) {
+                        echo '<li>' . $msg . '</li>';
+                    }
+                    echo '</ul></div>';
 
-                        if ($updater->btn_fin) {
-                            echo '<a href="index.php?page=admin_home&updated=TRUE" class="btn btn-sm btn-info">'
+                    if ($updater->btn_fin) {
+                        echo '<a href="index.php?page=admin_home&updated=TRUE" class="btn btn-sm btn-info">'
                             . '<span class="glyphicon glyphicon-ok" aria-hidden="true"></span> &nbsp; Finalizar'
                             . '</a></br/></br/>';
-                        }
                     }
+                }
 
-                    ?>
-                </div>
+                ?>
             </div>
-            <div class="row">
-                <div class="col-sm-12">
-                    <p class="help-block">
-                        Este actualizador permite actualizar <b>tanto el núcleo</b> de FSFramework
-                        <b>como sus plugins</b>, incluso los de pago y los privados.
-                        Si hay una actualización del núcleo tendrás que actualizar antes de poder ver si
-                        también hay actualizaciones de plugins.
-                    </p>
-                    <br/>
-                    <ul class="nav nav-tabs" role="tablist">
-                        <li role="presentation" class="active">
-                            <a href="#actualizaciones" aria-controls="actualizaciones" role="tab" data-toggle="tab">
-                                <span class="glyphicon glyphicon-upload" aria-hidden="true"></span>
-                                <span class="hidden-xs">&nbsp;Actualizaciones</span>
-                            </a>
-                        </li>
-                        <li role="presentation">
-                            <a href="#opciones" aria-controls="opciones" role="tab" data-toggle="tab">
-                                <span class="glyphicon glyphicon-wrench" aria-hidden="true"></span>
-                                <span class="hidden-xs">&nbsp;Opciones</span>
-                            </a>
-                        </li>
-                    </ul>
-                    <div class="tab-content">
-                        <div role="tabpanel" class="tab-pane active" id="actualizaciones">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-left">Nombre</th>
-                                            <th class="text-left">Descripción</th>
-                                            <th class="text-right">Versión</th>
-                                            <th class="text-right">Nueva versión</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <?php echo $updater->tr_updates; ?>
-                                </table>
-                            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <p class="help-block">
+                    Este actualizador permite actualizar <b>tanto el núcleo</b> de FSFramework
+                    <b>como sus plugins</b>, incluso los de pago y los privados.
+                    Si hay una actualización del núcleo tendrás que actualizar antes de poder ver si
+                    también hay actualizaciones de plugins.
+                </p>
+                <br />
+                <ul class="nav nav-tabs" role="tablist">
+                    <li role="presentation" class="active">
+                        <a href="#actualizaciones" aria-controls="actualizaciones" role="tab" data-toggle="tab">
+                            <span class="glyphicon glyphicon-upload" aria-hidden="true"></span>
+                            <span class="hidden-xs">&nbsp;Actualizaciones</span>
+                        </a>
+                    </li>
+                    <li role="presentation">
+                        <a href="#opciones" aria-controls="opciones" role="tab" data-toggle="tab">
+                            <span class="glyphicon glyphicon-wrench" aria-hidden="true"></span>
+                            <span class="hidden-xs">&nbsp;Opciones</span>
+                        </a>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div role="tabpanel" class="tab-pane active" id="actualizaciones">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">Nombre</th>
+                                        <th class="text-left">Descripción</th>
+                                        <th class="text-right">Versión</th>
+                                        <th class="text-right">Nueva versión</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <?php echo $updater->tr_updates; ?>
+                            </table>
                         </div>
-                        <div role="tabpanel" class="tab-pane" id="opciones">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-left">Opción</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <?php echo $updater->tr_options; ?>
-                                </table>
-                            </div>
+                    </div>
+                    <div role="tabpanel" class="tab-pane" id="opciones">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">Opción</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <?php echo $updater->tr_options; ?>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <?php
-        if (!isset($updater->updates)) {
-            /// nada
-        } else if ($updater->updates['plugins']) {
-            foreach ($updater->check_for_plugin_updates() as $plug) {
-                if ($plug['depago']) {
+    </div>
+    <?php
+    if (!isset($updater->updates)) {
+        /// nada
+    } else if ($updater->updates['plugins']) {
+        foreach ($updater->check_for_plugin_updates() as $plug) {
+            if ($plug['depago']) {
 
-                    ?>
-                    <form action="updater.php?idplugin=<?php echo $plug['idplugin'] . '&name=' . $plug['name']; ?>" method="post" class="form">
+                ?>
+                    <form action="updater.php?idplugin=<?php echo $plug['idplugin'] . '&name=' . $plug['name']; ?>" method="post"
+                        class="form">
                         <div class="modal" id="modal_key_<?php echo $plug['name']; ?>" tabindex="-1" role="dialog">
                             <div class="modal-dialog" role="document">
                                 <div class="modal-content">
@@ -174,14 +177,17 @@ $updater = new fs_updater();
                                         <h4 class="modal-title">
                                             <i class="fa fa-key" aria-hidden="true"></i> Añadir clave de actualización
                                         </h4>
-                                        <p class="help-block">Imprescindible para actualizar el plugin <b><?php echo $plug['name']; ?></b>.</p>
+                                        <p class="help-block">Imprescindible para actualizar el plugin
+                                            <b><?php echo $plug['name']; ?></b>.
+                                        </p>
                                     </div>
                                     <div class="modal-body">
                                         <div class="row">
                                             <div class="col-xs-12">
                                                 <div class="form-group">
                                                     Clave:
-                                                    <input type="text" name="key" class="form-control" autocomplete="off" autofocus=""/>
+                                                    <input type="text" name="key" class="form-control" autocomplete="off"
+                                                        autofocus="" />
                                                     <p class="help-block">
                                                         ¿No sabes cual es tu clave? Puedes consultarla pulsando el botón
                                                         <b>ver mis claves</b>.
@@ -191,7 +197,8 @@ $updater = new fs_updater();
                                         </div>
                                         <div class="row">
                                             <div class="col-xs-6">
-                                                <a href="<?php echo FS_COMMUNITY_URL; ?>/index.php?page=community_tus_plugins" target="_blank" class="btn btn-sm btn-warning">
+                                                <a href="<?php echo FS_COMMUNITY_URL; ?>/index.php?page=community_tus_plugins"
+                                                    target="_blank" class="btn btn-sm btn-warning">
                                                     <span class="glyphicon glyphicon-eye-open" aria-hidden="true"></span>
                                                     <span class="hidden-xs">&nbsp;Ver mis claves</span>
                                                 </a>
@@ -208,45 +215,47 @@ $updater = new fs_updater();
                             </div>
                         </div>
                     </form>
-                    <?php
-                }
+                <?php
             }
         }
+    }
 
-        ?>
-        <br/><br/>
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-12">
-                    <hr/>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-xs-6">
-                    <small>
-                        Creado con <a target="_blank" href="https://github.com/eltictacdicta/fs-framework" rel="nofollow">FSFramework</a>.
-                    </small>
-                </div>
-                <div class="col-xs-6 text-right">
-                    <span class="label label-default">
-                        <span class="glyphicon glyphicon-time" aria-hidden="true"></span>
-                        &nbsp; <?php echo $updater->duration(); ?>
-                    </span>
-                </div>
+    ?>
+    <br /><br />
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-12">
+                <hr />
             </div>
         </div>
-        <?php
-        if (!FS_DEMO) {
-            $url = FS_COMMUNITY_URL . '/index.php?page=community_stats'
-                . '&add=TRUE&version=' . $updater->plugin_manager->version . '&plugins=' . implode(',', $updater->plugins);
-
-            ?>
-            <div style="display: none;">
-                <iframe src="<?php echo $url; ?>" height="0"></iframe>
+        <div class="row">
+            <div class="col-xs-6">
+                <small>
+                    Creado con <a target="_blank" href="https://github.com/eltictacdicta/fs-framework"
+                        rel="nofollow">FSFramework</a>.
+                </small>
             </div>
-            <?php
-        }
+            <div class="col-xs-6 text-right">
+                <span class="label label-default">
+                    <span class="glyphicon glyphicon-time" aria-hidden="true"></span>
+                    &nbsp; <?php echo $updater->duration(); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+    <?php
+    if (!FS_DEMO) {
+        $url = FS_COMMUNITY_URL . '/index.php?page=community_stats'
+            . '&add=TRUE&version=' . $updater->plugin_manager->version . '&plugins=' . implode(',', $updater->plugins);
 
         ?>
-    </body>
+        <div style="display: none;">
+            <iframe src="<?php echo $url; ?>" height="0"></iframe>
+        </div>
+        <?php
+    }
+
+    ?>
+</body>
+
 </html>

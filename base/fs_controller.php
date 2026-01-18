@@ -35,6 +35,15 @@ require_all_models();
 #[AllowDynamicProperties]
 class fs_controller extends fs_app
 {
+    use \FSFramework\Traits\ResponseTrait;
+
+    /**
+     * Objeto Request de Symfony HttpFoundation para acceso a parámetros
+     * de la petición de forma moderna y segura.
+     * @var \Symfony\Component\HttpFoundation\Request
+     */
+    protected $request;
+
 
     /**
      * Nombre del controlador (lo utilizamos en lugar de __CLASS__ porque __CLASS__
@@ -134,6 +143,7 @@ class fs_controller extends fs_app
     {
         parent::__construct($name);
         $this->class_name = $name;
+        $this->request = \FSFramework\Core\Kernel::request();
         $this->db = new fs_db2();
         $this->extensions = [];
 
@@ -160,11 +170,10 @@ class fs_controller extends fs_app
                 : 'EUR';
             $this->divisa_tools = new fs_divisa_tools($coddivisa);
 
-            $request = \FSFramework\Core\Kernel::request();
-            if ($request->query->has('logout')) {
+            if ($this->request->query->has('logout')) {
                 $this->template = 'login/default';
                 $this->login_tools->log_out();
-            } else if ($request->request->has('new_password') && $request->request->has('new_password2') && $request->request->has('user')) {
+            } else if ($this->request->request->has('new_password') && $this->request->request->has('new_password2') && $this->request->request->has('user')) {
                 $this->login_tools->change_user_passwd();
                 $this->template = 'login/default';
             } else if (!$this->log_in()) {
@@ -231,6 +240,23 @@ class fs_controller extends fs_app
     {
         $this->db->close();
     }
+
+    /**
+     * Devuelve el objeto Request de Symfony HttpFoundation.
+     * Permite acceso moderno a parámetros de la petición.
+     * 
+     * Uso:
+     *   $this->getRequest()->query->get('id');     // GET parameter
+     *   $this->getRequest()->request->get('name'); // POST parameter
+     *   $this->getRequest()->get('field');         // GET o POST
+     * 
+     * @return \Symfony\Component\HttpFoundation\Request
+     */
+    public function getRequest(): \Symfony\Component\HttpFoundation\Request
+    {
+        return $this->request;
+    }
+
 
     /**
      * Devuelve la lista de menús

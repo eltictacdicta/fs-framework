@@ -81,4 +81,18 @@ class Kernel
         $kernel = self::getInstance();
         return $kernel->getRouter() ? $kernel->getRouter()->handle($kernel->getRequest()) : null;
     }
+
+    /**
+     * Helper to get the router statically for URL generation.
+     * 
+     * Uso:
+     *   Kernel::router()->generate('admin_users');
+     *   Kernel::router()->generateLegacyUrl('admin_home', ['id' => 1]);
+     * 
+     * @return Router|null
+     */
+    public static function router(): ?Router
+    {
+        return self::getInstance()->getRouter();
+    }
 }

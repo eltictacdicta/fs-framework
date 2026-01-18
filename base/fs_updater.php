@@ -18,11 +18,11 @@
  */
 require_once 'base/fs_app.php';
 require_once 'base/fs_plugin_manager.php';
-require_once 'base/fs_user.php';
-require_once 'base/fs_login.php';
+require_once 'base/fs_db2.php';
 
 /**
  * Controlador del actualizador de FSFramework.
+ * Usa autenticación directa a BD para evitar disparar verificación de tablas.
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
 class fs_updater extends fs_app
@@ -76,33 +76,127 @@ class fs_updater extends fs_app
      */
     public $xid;
 
+    /**
+     * Información del usuario autenticado (obtenida por consulta directa).
+     * @var array|null
+     */
+    private $authenticated_user = null;
+
     public function __construct()
     {
         parent::__construct(__CLASS__);
         $this->btn_fin = FALSE;
-        $this->plugin_manager = new fs_plugin_manager();
+        $this->plugin_manager = new fs_plugin_manager(); // Siempre inicializar para evitar null
         $this->plugins = [];
         $this->tr_options = '';
         $this->tr_updates = '';
         $this->xid();
 
-        if (class_exists('fs_login')) {
-            $user = new fs_user();
-            $login = new fs_login();
-            $login->log_in($user);
-
-            if (!$user->logged_on || !$user->admin) {
-                $this->core_log->new_error('Acceso denegado. Se requieren permisos de administrador.');
-                return;
-            }
-
-            $this->process();
-        } else {
-            // Fallback legacy behavior but secure it if possible or log error
-            // En versiones muy antiguas fs_login podría no estar disponible igual
-            // pero para esta version (moderna) es obligatorio.
-            $this->core_log->new_error('Error crítico: Sistema de autenticación no disponible.');
+        // Autenticar usando consulta directa a BD (sin instanciar modelos)
+        if (!$this->authenticateDirectly()) {
+            $this->core_log->new_error('Acceso denegado. Se requieren permisos de administrador.');
+            return;
         }
+
+        // Procesar después de autenticación exitosa
+        $this->process();
+    }
+
+    /**
+     * Autentica al usuario usando consulta directa a BD.
+     * Evita instanciar modelos que disparan verificación de tablas.
+     * @return bool TRUE si el usuario es admin autenticado
+     */
+    private function authenticateDirectly()
+    {
+        // Obtener cookies usando Symfony Request si está disponible, o filter_input
+        $nick = null;
+        $logkey = null;
+
+        try {
+            if (class_exists('\\FSFramework\\Core\\Kernel')) {
+                $request = \FSFramework\Core\Kernel::request();
+                $nick = $request->cookies->get('user');
+                $logkey = $request->cookies->get('logkey');
+            }
+        } catch (\Exception $e) {
+            // Fallback si el Kernel no está disponible
+        }
+
+        // Fallback a filter_input si Symfony no está disponible
+        if ($nick === null) {
+            $nick = filter_input(INPUT_COOKIE, 'user');
+        }
+        if ($logkey === null) {
+            $logkey = filter_input(INPUT_COOKIE, 'logkey');
+        }
+
+        if (empty($nick) || empty($logkey)) {
+            return false;
+        }
+
+        // Conectar a BD y verificar usuario directamente
+        $db = new fs_db2();
+        $db->connect();
+        if (!$db->connected()) {
+            $this->core_log->new_error('Error de conexión a la base de datos.');
+            return false;
+        }
+
+        // Consulta directa para obtener usuario (sin usar fs_model)
+        $sql = "SELECT nick, log_key, admin, enabled FROM fs_users WHERE nick = " . $this->var2str($nick) . " LIMIT 1;";
+        $data = $db->select($sql);
+
+        if (!$data || count($data) === 0) {
+            return false;
+        }
+
+        $user = $data[0];
+
+        // Verificar log_key
+        if ($user['log_key'] !== $logkey) {
+            return false;
+        }
+
+        // Verificar que está habilitado (compatible con MySQL 0/1 y PostgreSQL t/f)
+        if (!$this->toBool($user['enabled'])) {
+            return false;
+        }
+
+        // Verificar que es admin
+        if (!$this->toBool($user['admin'])) {
+            return false;
+        }
+
+        $this->authenticated_user = $user;
+        return true;
+    }
+
+    /**
+     * Escapa cadenas para uso en SQL (método auxiliar).
+     * @param mixed $val
+     * @return string
+     */
+    private function var2str($val)
+    {
+        if (is_null($val)) {
+            return 'NULL';
+        }
+        $db = new fs_db2();
+        return "'" . $db->escape_string($val) . "'";
+    }
+
+    /**
+     * Convierte valor de BD a boolean (compatible MySQL/PostgreSQL).
+     * @param mixed $val
+     * @return bool
+     */
+    private function toBool($val)
+    {
+        if ($val === true || $val === 1 || $val === '1' || $val === 't' || $val === 'true') {
+            return true;
+        }
+        return false;
     }
 
     /**
