@@ -207,4 +207,13 @@ class fs_app
         }
         return $version;
     }
+
+    /**
+     * Devuelve la versión real de FSFramework (para mostrar en UI)
+     * @return string versión real de FSFramework
+     */
+    public function fs_version()
+    {
+        return file_exists('VERSION') ? trim(file_get_contents('VERSION')) : '0';
+    }
 }

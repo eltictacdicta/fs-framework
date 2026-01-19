@@ -10,11 +10,13 @@
                             <span class="glyphicon glyphicon-refresh"></span>
                         </a>
                         {if="$fsc->page->is_default()"}
-                        <a class="btn btn-xs btn-default active" href="{$fsc->url()}&amp;default_page=FALSE" title="Marcada como página de inicio (pulsa de nuevo para desmarcar)">
+                        <a class="btn btn-xs btn-default active" href="{$fsc->url()}&amp;default_page=FALSE"
+                            title="Marcada como página de inicio (pulsa de nuevo para desmarcar)">
                             <i class="fa fa-bookmark" aria-hidden="true"></i>
                         </a>
                         {else}
-                        <a class="btn btn-xs btn-default" href="{$fsc->url()}&amp;default_page=TRUE" title="Marcar como página de inicio">
+                        <a class="btn btn-xs btn-default" href="{$fsc->url()}&amp;default_page=TRUE"
+                            title="Marcar como página de inicio">
                             <i class="fa fa-bookmark-o" aria-hidden="true"></i>
                         </a>
                         {/if}
@@ -40,7 +42,8 @@
                 </tr>
             </thead>
             <tr>
-                <td><a href="{#FS_COMMUNITY_URL#}/index.php?page=community_changelog&version={$fsc->version()}" target="_blank">{$fsc->version()}</a></td>
+                <td><a href="{#FS_COMMUNITY_URL#}/index.php?page=community_changelog&version={$fsc->fs_version()}"
+                        target="_blank">{$fsc->fs_version()}</a></td>
                 <td class="text-center">{$fsc->php_version()}</td>
                 <td class="text-center">{$fsc->fs_db_name()}</td>
                 <td class="text-center">{$fsc->fs_db_version()}</td>
@@ -53,7 +56,8 @@
             <div class="btn-group">
                 {loop="$fsc->extensions"}
                 {if="$value->type=='button'"}
-                <a href="index.php?page={$value->from}{$value->params}" class="btn btn-xs btn-default">{$value->text}</a>
+                <a href="index.php?page={$value->from}{$value->params}"
+                    class="btn btn-xs btn-default">{$value->text}</a>
                 {/if}
                 {/loop}
             </div>
@@ -70,7 +74,7 @@
     {if="$fsc->get_locks()"}
     <div class="row">
         <div class="col-sm-12">
-            <br/>
+            <br />
             <div class="panel panel-warning">
                 <div class="panel-heading">
                     <h3 class="panel-title">Bloqueos en la base de datos</h3>
