@@ -16,6 +16,22 @@ class UpdaterController
      */
     private $updater;
 
+    /**
+     * Legacy constructor for index.php compatibility.
+     * When instantiated by legacy index.php, we hijack execution to use the modern handler.
+     */
+    public function __construct()
+    {
+        // If we are in a legacy context (index.php), handle request and exit.
+        // This prevents index.php from trying to access missing properties like $template or calling close().
+        if (basename($_SERVER['PHP_SELF']) === 'index.php') {
+            $request = Request::createFromGlobals();
+            $response = $this->handle($request);
+            $response->send();
+            exit();
+        }
+    }
+
     public function handle(Request $request): Response
     {
         $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__);
