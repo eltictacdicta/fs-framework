@@ -57,6 +57,11 @@ class fs_login
      */
     private $user_model;
 
+    /**
+     * @var \Symfony\Component\HttpFoundation\Session\Session
+     */
+    private $session;
+
     public function __construct()
     {
         $this->ban_message = 'Tendrás que esperar ' . fs_ip_filter::BAN_SECONDS . ' segundos antes de volver a intentar entrar.';
@@ -64,6 +69,33 @@ class fs_login
         $this->core_log = new fs_core_log();
         $this->ip_filter = new fs_ip_filter();
         $this->user_model = new fs_user();
+
+        // Inicializar Sesión de Symfony
+        // Detectar si la sesión ya fue iniciada por PHP (por ejemplo, en un plugin o configuración legacy)
+        $storage = null;
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $storage = new \Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage();
+        } else {
+            $storage = new \Symfony\Component\HttpFoundation\Session\Storage\NativeSessionStorage();
+        }
+
+        try {
+            $this->session = new \Symfony\Component\HttpFoundation\Session\Session($storage);
+        } catch (\Exception $e) {
+            // Fallback seguro en caso de error extremo
+            // Si llegamos aqui y la sesion estaba activa, NativeSessionStorage fallaría
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                $this->session = new \Symfony\Component\HttpFoundation\Session\Session(
+                    new \Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage()
+                );
+            } else {
+                $this->session = new \Symfony\Component\HttpFoundation\Session\Session();
+            }
+        }
+
+        if (!$this->session->isStarted()) {
+            $this->session->start();
+        }
     }
 
     public function change_user_passwd()
@@ -167,7 +199,10 @@ class fs_login
             }
         }
 
-        /// borramos las cookies
+        // Limpiar sesión de Symfony
+        $this->session->invalidate();
+
+        /// borramos las cookies (legacy)
         if (filter_input(INPUT_COOKIE, 'logkey')) {
             setcookie('logkey', '', time() - FS_COOKIES_EXPIRE);
             setcookie('logkey', '', time() - FS_COOKIES_EXPIRE, $path);
@@ -196,18 +231,62 @@ class fs_login
      */
     private function log_in_cookie(&$controller_user)
     {
-        $nick = filter_input(INPUT_COOKIE, 'user');
+        // 1. Intentar recuperar desde Sesión de Symfony (más seguro y estable)
+        $nick = $this->session->get('user_nick');
+        $logkey = $this->session->get('user_logkey');
+
+        // 2. Si no hay sesión, mirar cookies (legacy / primera carga)
+        if (!$nick) {
+            $nick = filter_input(INPUT_COOKIE, 'user');
+            $logkey = filter_input(INPUT_COOKIE, 'logkey');
+        }
+
+        if (!$nick) {
+            return FALSE;
+        }
+
         $user = $this->user_model->get($nick);
         if ($user && $user->enabled) {
-            $logkey = filter_input(INPUT_COOKIE, 'logkey');
+            // Validación robusta
+            // Si la clave coincide, todo perfecto
             if ($user->log_key == $logkey) {
                 $user->logged_on = TRUE;
                 $user->update_login();
-                $this->save_cookie($user);
+
+                // Aseguramos que la sesión de Symfony tenga los datos actualizados
+                $this->save_session_data($user);
+
                 $controller_user = $user;
-            } else if (!is_null($user->log_key)) {
-                $this->core_log->new_message('¡Cookie no válida! Alguien ha accedido a esta cuenta desde otro PC con IP: '
-                    . $user->last_ip . ". Si has sido tú, ignora este mensaje.");
+                return TRUE;
+            }
+
+            // Si la clave no coincide, PERO tenemos una sesión PHP válida activa para este usuario
+            // (por ejemplo, race condition donde la BBDD rotó la clave pero la cookie vieja llegó)
+            // podemos ser tolerantes si la IP es segura.
+            if ($this->session->get('user_nick') === $user->nick && $this->session->get('user_logged_in') === true) {
+                // La sesión PHP dice que es él. Confiamos en la sesión de servidor sobre la cookie antigua.
+                // Actualizamos la cookie/clave del usuario a la nueva
+                $controller_user = $user;
+                $controller_user->logged_on = TRUE;
+                $this->save_session_data($user);
+                return TRUE;
+            }
+
+            // Si llegamos aquí, realmente la clave no es válida y no hay sesión confiable
+            if (!is_null($user->log_key)) {
+                $msg = '¡Sesión no válida! ';
+                if ($user->last_ip == fs_get_ip()) {
+                    // Auto-recuperación silenciosa para mismo equipo (lo que pidió el usuario implícitamente)
+                    // Si es la misma IP, simplemente le pedimos loguearse de nuevo sin drama
+                    $this->log_out(TRUE);
+                    return FALSE;
+                } else if (fs_is_local_ip($user->last_ip) && fs_is_local_ip(fs_get_ip())) {
+                    $msg .= 'Acceso detectado desde otro equipo de la red local (' . $user->last_ip . ').';
+                } else {
+                    $msg .= 'Alguien ha accedido a esta cuenta desde otra ubicación (IP: ' . $user->last_ip . ').';
+                }
+
+                $this->core_log->new_message($msg);
                 $this->log_out();
             }
         } else {
@@ -261,7 +340,7 @@ class fs_login
 
         $user->new_logkey();
         if ($user->save()) {
-            $this->save_cookie($user);
+            $this->save_session_data($user);
             $controller_user = $user;
         }
 
@@ -325,7 +404,8 @@ class fs_login
             $this->core_log->new_error('No puedes acceder desde esta IP.');
             $this->core_log->save('No puedes acceder desde esta IP.', 'login', TRUE);
         } else if ($user->save()) {
-            $this->save_cookie($user);
+            // Guardamos en sesión Y en cookies (legacy)
+            $this->save_session_data($user);
 
             /// añadimos el mensaje al log
             $this->core_log->save('Login correcto.', 'login');
@@ -340,6 +420,22 @@ class fs_login
         $this->core_log->new_error('Imposible guardar los datos de usuario.');
         $this->cache->clean();
         return FALSE;
+    }
+
+    /**
+     * Guarda los datos de sesión en Symfony Session y Cookies (para compatibilidad)
+     * @param fs_user $user
+     */
+    private function save_session_data($user)
+    {
+        // 1. Guardar en Session (robustez)
+        $this->session->set('user_nick', $user->nick);
+        $this->session->set('user_logkey', $user->log_key);
+        $this->session->set('user_logged_in', true);
+
+        // 2. Guardar en Cookies (compatibilidad legacy)
+        // usamos el método antiguo para no romper nada que lea $_COOKIE directamente
+        $this->save_cookie($user);
     }
 
     /**

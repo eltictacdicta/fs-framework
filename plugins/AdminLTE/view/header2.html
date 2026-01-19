@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
+
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
    {if="in_array('business_data', $GLOBALS['plugins'])"}
@@ -9,8 +10,11 @@
    {assign="empresa_coddivisa" value='EUR'}
    {assign="empresa_simbolo" value='€'}
    {/if}
-   <title>{$fsc->page->title} &lsaquo; {if="in_array('business_data', $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}</title>
-   <meta name="description" content="{if="in_array('business_data', $GLOBALS['plugins'])"}{$fsc->empresa->nombre}{/if}" />
+   <title>{$fsc->page->title} &lsaquo; {if="in_array('business_data',
+      $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}
+   </title>
+   <meta name="description" content="{if=" in_array('business_data', $GLOBALS['plugins'])"}{$fsc->empresa->nombre}{/if}"
+   />
    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
    <meta name="generator" content="FacturaScripts" />
    <link rel="shortcut icon" href="{#FS_PATH#}view/img/favicon.ico" />
@@ -27,7 +31,11 @@
    <script type="text/javascript" src="{#FS_PATH#}view/js/bootbox.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/jquery-ui.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}plugins/adminlte/view/js/jquery.slimscroll.min.js"></script>
+   {if="file_exists('plugins/AdminLTE/view/js/adminlte.min.js')"}
+   <script type="text/javascript" src="{#FS_PATH#}plugins/adminlte/view/js/adminlte.min.js"></script>
+   {elseif="file_exists('plugins/AdminLTE/view/js/app.min.js')"}
    <script type="text/javascript" src="{#FS_PATH#}plugins/adminlte/view/js/app.min.js"></script>
+   {/if}
    <script type="text/javascript" src="{#FS_PATH#}view/js/base.js?updated={$fsc->today()}"></script>
    <script type="text/javascript">
       /*
@@ -50,35 +58,30 @@
       var empresa_coddivisa = '{$empresa_coddivisa}';
       var empresa_simbolo = '{$empresa_simbolo}';
 
-      function show_precio(precio, coddivisa)
-      {
-         coddivisa || ( coddivisa = empresa_coddivisa );
+      function show_precio(precio, coddivisa) {
+         coddivisa || (coddivisa = empresa_coddivisa);
 
-         if(coddivisa == empresa_coddivisa)
-         {
-            if(FS_POS_DIVISA == 'right')
-            {
+         if (coddivisa == empresa_coddivisa) {
+            if (FS_POS_DIVISA == 'right') {
                return number_format(precio, FS_NF0, FS_NF1, FS_NF2) + empresa_simbolo;
             }
-            else
-            {
+            else {
                return empresa_simbolo + number_format(precio, FS_NF0, FS_NF1, FS_NF2);
             }
          }
-         else
-         {
+         else {
             return number_format(precio, FS_NF0, FS_NF1, FS_NF2);
          }
       }
-      function show_numero(numero)
-      {
+      function show_numero(numero) {
          return number_format(numero, FS_NF0, FS_NF1, FS_NF2);
       }
    </script>
    {loop="$fsc->extensions"}
-      {if="$value->type=='head'"}{$value->text}{/if}
+   {if="$value->type=='head'"}{$value->text}{/if}
    {/loop}
 </head>
+
 <body>
    {if="$fsc->get_errors()"}
    <div class="alert alert-danger hidden-print">

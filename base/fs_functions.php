@@ -260,13 +260,30 @@ function fs_fix_html($txt)
  */
 function fs_get_ip()
 {
-    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $field) {
+    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $field) {
         if (isset($_SERVER[$field])) {
-            return $_SERVER[$field];
+            // Si hay varias IPs en X-Forwarded-For, cogemos la primera
+            $ips = explode(',', $_SERVER[$field]);
+            return trim($ips[0]);
         }
     }
 
     return '';
+}
+
+/**
+ * Devuelve TRUE si la IP es local o privada.
+ * @param string $ip
+ * @return boolean
+ */
+function fs_is_local_ip($ip)
+{
+    if (in_array($ip, ['127.0.0.1', '::1', 'localhost'])) {
+        return TRUE;
+    }
+
+    // Rangos privados: 10.x.x.x, 172.16.x.x-172.31.x.x, 192.168.x.x
+    return (bool) preg_match('/^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/', $ip);
 }
 
 /**

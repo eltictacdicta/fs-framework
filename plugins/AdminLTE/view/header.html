@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
+
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
    <title>{$fsc->page->title} </title>
@@ -31,7 +32,9 @@
    {if="file_exists('plugins/AdminLTE/view/js/jquery.slimscroll.min.js')"}
    <script type="text/javascript" src="plugins/AdminLTE/view/js/jquery.slimscroll.min.js"></script>
    {/if}
-   {if="file_exists('plugins/AdminLTE/view/js/app.min.js')"}
+   {if="file_exists('plugins/AdminLTE/view/js/adminlte.min.js')"}
+   <script type="text/javascript" src="plugins/AdminLTE/view/js/adminlte.min.js"></script>
+   {elseif="file_exists('plugins/AdminLTE/view/js/app.min.js')"}
    <script type="text/javascript" src="plugins/AdminLTE/view/js/app.min.js"></script>
    {/if}
    {if="file_exists('plugins/AdminLTE/view/js/fix-mixed-content.js')"}
@@ -43,54 +46,58 @@
    {/if}
    <script type="text/javascript" src="{#FS_PATH#}view/js/base.js?updated={$fsc->today()}"></script>
    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
-      <!-- Latest compiled and minified CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
+   <!-- Latest compiled and minified CSS -->
+   <link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
 
-<!-- Latest compiled and minified JavaScript -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
-<script type="text/javascript" >
-   function show_numero(numero)
-   {
-      return number_format(numero, '{#FS_NF0#}', '{#FS_NF1#}', '{#FS_NF2#}');
-   }
-</script>
-<!-- (Optional) Latest compiled and minified JavaScript translation files -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/i18n/defaults-*.min.js"></script>
+   <!-- Latest compiled and minified JavaScript -->
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
+   <script type="text/javascript">
+      function show_numero(numero) {
+         return number_format(numero, '{#FS_NF0#}', '{#FS_NF1#}', '{#FS_NF2#}');
+      }
+   </script>
+   <!-- (Optional) Latest compiled and minified JavaScript translation files -->
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/i18n/defaults-*.min.js"></script>
    {loop="$fsc->extensions"}
-      {if="$value->type=='head'"}{$value->text}{/if}
+   {if="$value->type=='head'"}{$value->text}{/if}
    {/loop}
 </head>
+
 <body class="hold-transition skin-blue sidebar-mini">
    <div class="wrapper">
       <header class="main-header">
          <a href="index.php" class="logo">
             <span class="logo-mini"><b>FS</b></span>
-            {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="in_array('business_data', $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}</span> *}
+            {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="in_array('business_data',
+               $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}</span>
+            *}
          </a>
          <nav class="navbar navbar-static-top" role="navigation">
-            <a href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
+            <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button">
                <span class="sr-only">Menú</span>
             </a>
             <div class="navbar-custom-menu">
                <ul class="nav navbar-nav">
                   <li class="dropdown">
-                     <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" title="Acceso rápido">
+                     <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"
+                        title="Acceso rápido">
                         <i class="fa fa-plus-square"></i>
                      </a>
                      <ul class="dropdown-menu">
                         {$menu_ar_vacio=TRUE}
                         {loop="$fsc->user->get_menu()"}
-                           {if="$value->important"}
-                           <li><a href="{$value->url()}">{$value->title}</a></li>
-                           {$menu_ar_vacio=FALSE}
-                           {/if}
+                        {if="$value->important"}
+                        <li><a href="{$value->url()}">{$value->title}</a></li>
+                        {$menu_ar_vacio=FALSE}
+                        {/if}
                         {/loop}
                         {if="$menu_ar_vacio"}
                         <li><a href="#">Vacío</a></li>
                         {/if}
                      </ul>
                   </li>
-                  
+
                   {if="$fsc->check_for_updates()"}
                   <li>
                      <a href="updater.php" target="_blank" class="bg-primary" title="Hay actualizaciones disponibles">
@@ -99,7 +106,7 @@
                      </a>
                   </li>
                   {/if}
-                  
+
                   {if="$fsc->get_last_changes()"}
                   <li class="dropdown">
                      <a href="#" class="dropdown-toggle" data-toggle="dropdown">
@@ -107,21 +114,21 @@
                      </a>
                      <ul class="dropdown-menu">
                         {loop="$fsc->get_last_changes()"}
-                           <li title="{if="$value['nuevo']"}creado{else}modificado{/if} el {$value['cambio']}">
-                              <a href="{$value['url']}">
-                                 {if="$value['nuevo']"}
-                                 <i class="fa fa-file"></i>
-                                 {else}
-                                 <i class="fa fa-pencil-square-o"></i>
-                                 {/if}
-                                 {$value['texto']}
-                              </a>
-                           </li>
+                        <li title="{if=" $value['nuevo']"}creado{else}modificado{/if} el {$value['cambio']}">
+                           <a href="{$value['url']}">
+                              {if="$value['nuevo']"}
+                              <i class="fa fa-file"></i>
+                              {else}
+                              <i class="fa fa-pencil-square-o"></i>
+                              {/if}
+                              {$value['texto']}
+                           </a>
+                        </li>
                         {/loop}
                      </ul>
                   </li>
                   {/if}
-                  
+
                   <!-- Help dropdown menu - commented out
                   <li class="dropdown">
                      <a href="#" class="dropdown-toggle" data-toggle="dropdown" title="Ayuda">
@@ -137,15 +144,16 @@
                      </ul>
                   </li>
                   -->
-                  
+
                   <li class="dropdown user user-menu">
                      <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                        <img src='{function="get_gravatar($fsc->user->email)"}' class="user-image" alt="User Image"/>
+                        <img src='{function="get_gravatar($fsc->user->email)"}' class="user-image" alt="User Image" />
                         <span class="hidden-xs">{$fsc->user->nick}</span>
                      </a>
                      <ul class="dropdown-menu">
                         <li class="user-header">
-                           <img src='{function="get_gravatar($fsc->user->email)"}' class="img-circle" alt="User Image"/>
+                           <img src='{function="get_gravatar($fsc->user->email)"}' class="img-circle"
+                              alt="User Image" />
                            <p>
                               {$fsc->user->get_agente_fullname()}
                               <small>{$fsc->user->email}</small>
@@ -174,7 +182,7 @@
          <section class="sidebar">
             <div class="user-panel">
                <div class="pull-left image">
-                  <img src='{function="get_gravatar($fsc->user->email)"}' class='img-circle' alt='{$fsc->user->nick}'/>
+                  <img src='{function="get_gravatar($fsc->user->email)"}' class='img-circle' alt='{$fsc->user->nick}' />
                </div>
                <div class="pull-left info">
                   <p>{$fsc->user->email}</p>
@@ -184,30 +192,34 @@
             {if="in_array('community3',$GLOBALS['plugins'])"}
             <form action="index.php?page=community_search" method="post" class="sidebar-form">
                <div class="input-group">
-                  <input type="text" name="query" class="form-control" placeholder="Artículo..." autocomplete="off"/>
+                  <input type="text" name="query" class="form-control" placeholder="Artículo..." autocomplete="off" />
                   <span class="input-group-btn">
-                     <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                     <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i
+                           class="fa fa-search"></i></button>
                   </span>
                </div>
             </form>
             {elseif="in_array('facturacion_base',$GLOBALS['plugins'])"}
             <form action="index.php?page=ventas_articulos" method="post" class="sidebar-form">
                <div class="input-group">
-                  <input type="text" name="query" class="form-control" placeholder="Artículo..." autocomplete="off"/>
+                  <input type="text" name="query" class="form-control" placeholder="Artículo..." autocomplete="off" />
                   <span class="input-group-btn">
-                     <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                     <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i
+                           class="fa fa-search"></i></button>
                   </span>
                </div>
             </form>
             {/if}
-            <ul class="sidebar-menu">
+            <ul class="sidebar-menu" data-widget="tree">
                <li class="header">Menú</li>
                {loop="$fsc->folders()"}
-               <li class="treeview{if="$value1==$fsc->page->folder"} active{/if}">
+               <li class="treeview{if=" $value1==$fsc->page->folder"} active{/if}">
                   <a href="#">
                      {function="adminlte_menu_icon($value1)"}
                      <span class="text-capitalize">{$value1}</span>
-                     <i class="fa fa-angle-left pull-right"></i>
+                     <span class="pull-right-container">
+                        <i class="fa fa-angle-left pull-right"></i>
+                     </span>
                   </a>
                   <ul class="treeview-menu">
                      {loop="$fsc->pages($value1)"}
@@ -215,11 +227,11 @@
                         <a href="{$value2->url()}">
                            {function="adminlte_page_icon($value2)"} {$value2->title}
                         </a>
-                     </li>
-                     {/loop}
-                  </ul>
                </li>
                {/loop}
+            </ul>
+            </li>
+            {/loop}
             </ul>
          </section>
       </aside>
@@ -241,9 +253,9 @@
             </div>
             {/if}
          </section>
-         
+
          {*{include="feedback"}*}
-         
+
          <div class="modal fade" id="modal_iframe" tabindex="-1" role="dialog">
             <div class="modal-dialog" role="document">
                <div class="modal-content">

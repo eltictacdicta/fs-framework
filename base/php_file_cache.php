@@ -41,13 +41,14 @@ class php_file_cache
 
     public function __construct()
     {
+        $base = defined('FS_FOLDER') ? FS_FOLDER : getcwd();
         self::$config = array(
-            'cache_path' => 'tmp/' . FS_TMP_NAME . 'cache',
+            'cache_path' => $base . '/tmp/' . FS_TMP_NAME . 'cache',
             'expires' => 180,
         );
 
         if (!file_exists(self::$config['cache_path'])) {
-            mkdir(self::$config['cache_path']);
+            @mkdir(self::$config['cache_path'], 0777, true);
         }
     }
 
@@ -128,7 +129,11 @@ class php_file_cache
      */
     public function flush()
     {
-        foreach (scandir(getcwd() . '/' . self::$config['cache_path']) as $file_name) {
+        if (!file_exists(self::$config['cache_path'])) {
+            return TRUE;
+        }
+
+        foreach (scandir(self::$config['cache_path']) as $file_name) {
             if (substr($file_name, -4) == '.php') {
                 unlink(self::$config['cache_path'] . '/' . $file_name);
             }

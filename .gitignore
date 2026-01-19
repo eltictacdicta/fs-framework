@@ -24,4 +24,4 @@ logs/api_security.log
 /imgs/api_auth/business_cards/*.webp
 .ddev/config.yaml
 .ddev/
-
+AdminLTE-2.4.18
