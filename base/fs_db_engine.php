@@ -68,7 +68,7 @@ abstract class fs_db_engine
 
     abstract public function escape_string($str);
 
-    abstract public function exec($sql, $transaction = TRUE);
+    abstract public function exec($sql, $transaction = TRUE, $params = []);
 
     abstract public function generate_table($table_name, $xml_cols, $xml_cons);
 
@@ -88,9 +88,9 @@ abstract class fs_db_engine
 
     abstract public function rollback();
 
-    abstract public function select($sql);
+    abstract public function select($sql, $params = []);
 
-    abstract public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0);
+    abstract public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0, $params = []);
 
     abstract public function sql_to_int($col_name);
 

@@ -216,7 +216,7 @@ class fs_postgresql extends fs_db_engine
      * @param boolean $transaction
      * @return boolean
      */
-    public function exec($sql, $transaction = TRUE)
+    public function exec($sql, $transaction = TRUE, $params = [])
     {
         $result = FALSE;
 
@@ -228,7 +228,12 @@ class fs_postgresql extends fs_db_engine
                 $this->begin_transaction();
             }
 
-            $aux = @pg_query(self::$link, $sql);
+            if (!empty($params)) {
+                $aux = @pg_query_params(self::$link, $sql, $params);
+            } else {
+                $aux = @pg_query(self::$link, $sql);
+            }
+
             if ($aux) {
                 pg_free_result($aux);
                 $result = TRUE;
@@ -462,7 +467,7 @@ class fs_postgresql extends fs_db_engine
      * @param string $sql
      * @return array
      */
-    public function select($sql)
+    public function select($sql, $params = [])
     {
         $result = FALSE;
 
@@ -470,7 +475,15 @@ class fs_postgresql extends fs_db_engine
             /// añadimos la consulta sql al historial
             self::$core_log->new_sql($sql);
 
-            $aux = pg_query(self::$link, $sql);
+            self::$core_log->new_sql($sql);
+
+            if (!empty($params)) {
+                $sql = $this->convert_placeholders($sql);
+                $aux = pg_query_params(self::$link, $sql, $params);
+            } else {
+                $aux = pg_query(self::$link, $sql);
+            }
+
             if ($aux) {
                 $result = pg_fetch_all($aux);
                 pg_free_result($aux);
@@ -497,11 +510,11 @@ class fs_postgresql extends fs_db_engine
      * @param integer $offset
      * @return array
      */
-    public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0)
+    public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0, $params = [])
     {
         /// añadimos limit y offset a la consulta sql
         $sql .= ' LIMIT ' . $limit . ' OFFSET ' . $offset . ';';
-        return $this->select($sql);
+        return $this->select($sql, $params);
     }
 
     /**
@@ -587,5 +600,19 @@ class fs_postgresql extends fs_db_engine
                 $this->exec("CREATE SEQUENCE " . $aux[1] . " START " . $num . ";");
             }
         }
+    }
+
+    /**
+     * Convierte los placeholders ? a $1, $2, etc. para PostgreSQL.
+     * @param string $sql
+     * @return string
+     */
+    private function convert_placeholders($sql)
+    {
+        $i = 0;
+        return preg_replace_callback('/\?/', function ($matches) use (&$i) {
+            $i++;
+            return '$' . $i;
+        }, $sql);
     }
 }

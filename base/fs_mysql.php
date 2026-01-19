@@ -298,7 +298,7 @@ class fs_mysql extends fs_db_engine
      * @param boolean $transaction
      * @return boolean
      */
-    public function exec($sql, $transaction = TRUE)
+    public function exec($sql, $transaction = TRUE, $params = [])
     {
         $result = FALSE;
 
@@ -311,7 +311,18 @@ class fs_mysql extends fs_db_engine
             }
 
             $i = 0;
-            if (self::$link->multi_query($sql)) {
+            if (!empty($params) && method_exists(self::$link, 'execute_query')) {
+                /// Use execute_query for parameterized execution
+                try {
+                    $stmt = self::$link->execute_query($sql, $params);
+                    $result = TRUE;
+                } catch (Exception $e) {
+                    $error = 'Error al ejecutar la consulta con parámetros: ' . $e->getMessage() .
+                        '. La secuencia ocupa la posición ' . count(self::$core_log->get_sql_history());
+                    self::$core_log->new_error($error);
+                    self::$core_log->save($error);
+                }
+            } else if (self::$link->multi_query($sql)) {
                 do {
                     $i++;
                 } while (self::$link->more_results() && self::$link->next_result());
@@ -541,7 +552,7 @@ class fs_mysql extends fs_db_engine
      * @param string $sql
      * @return array
      */
-    public function select($sql)
+    public function select($sql, $params = [])
     {
         $result = FALSE;
 
@@ -549,13 +560,26 @@ class fs_mysql extends fs_db_engine
             /// añadimos la consulta sql al historial
             self::$core_log->new_sql($sql);
 
-            $aux = self::$link->query($sql);
+            if (!empty($params) && method_exists(self::$link, 'execute_query')) {
+                try {
+                    $aux = self::$link->execute_query($sql, $params);
+                } catch (Exception $e) {
+                    $aux = FALSE;
+                    self::$core_log->new_error($e->getMessage());
+                    self::$core_log->save($e->getMessage());
+                }
+            } else {
+                $aux = self::$link->query($sql);
+            }
+
             if ($aux) {
                 $result = [];
                 while ($row = $aux->fetch_array(MYSQLI_ASSOC)) {
                     $result[] = $row;
                 }
-                $aux->free();
+                if (is_object($aux)) {
+                    $aux->free();
+                }
             } else {
                 /// añadimos el error a la lista de errores
                 self::$core_log->new_error(self::$link->error);
@@ -580,11 +604,11 @@ class fs_mysql extends fs_db_engine
      * @param integer $offset
      * @return array
      */
-    public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0)
+    public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0, $params = [])
     {
         /// añadimos limit y offset a la consulta sql
         $sql .= ' LIMIT ' . $limit . ' OFFSET ' . $offset . ';';
-        return $this->select($sql);
+        return $this->select($sql, $params);
     }
 
     /**
@@ -677,7 +701,9 @@ class fs_mysql extends fs_db_engine
     private function fix_postgresql($sql)
     {
         return str_replace(
-            array('::character varying', 'without time zone', 'now()', 'CURRENT_TIMESTAMP', 'CURRENT_DATE'), array('', '', "'00:00'", "'" . date('Y-m-d') . " 00:00:00'", date("'Y-m-d'")), $sql
+            array('::character varying', 'without time zone', 'now()', 'CURRENT_TIMESTAMP', 'CURRENT_DATE'),
+            array('', '', "'00:00'", "'" . date('Y-m-d') . " 00:00:00'", date("'Y-m-d'")),
+            $sql
         );
     }
 

@@ -143,9 +143,9 @@ class fs_updater extends fs_app
             return false;
         }
 
-        // Consulta directa para obtener usuario (sin usar fs_model)
-        $sql = "SELECT nick, log_key, admin, enabled FROM fs_users WHERE nick = " . $this->var2str($nick) . " LIMIT 1;";
-        $data = $db->select($sql);
+        // Consulta con parámetros para prevenir SQL Injection
+        $sql = "SELECT nick, log_key, admin, enabled FROM fs_users WHERE nick = ? LIMIT 1;";
+        $data = $db->select($sql, [$nick]);
 
         if (!$data || count($data) === 0) {
             return false;
@@ -172,19 +172,7 @@ class fs_updater extends fs_app
         return true;
     }
 
-    /**
-     * Escapa cadenas para uso en SQL (método auxiliar).
-     * @param mixed $val
-     * @return string
-     */
-    private function var2str($val)
-    {
-        if (is_null($val)) {
-            return 'NULL';
-        }
-        $db = new fs_db2();
-        return "'" . $db->escape_string($val) . "'";
-    }
+
 
     /**
      * Convierte valor de BD a boolean (compatible MySQL/PostgreSQL).

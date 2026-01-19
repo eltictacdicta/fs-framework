@@ -169,7 +169,7 @@ class fs_db2
      * @param boolean $transaction
      * @return boolean
      */
-    public function exec($sql, $transaction = NULL)
+    public function exec($sql, $transaction = NULL, $params = [])
     {
         /// usamos self::$auto_transactions como valor por defecto para la función
         if (is_null($transaction)) {
@@ -179,7 +179,7 @@ class fs_db2
         /// limpiamos la lista de tablas, ya que podría haber cambios al ejecutar este sql.
         self::$table_list = FALSE;
 
-        return self::$engine->exec($sql, $transaction);
+        return self::$engine->exec($sql, $transaction, $params);
     }
 
     /**
@@ -312,9 +312,9 @@ class fs_db2
      * @param string $sql
      * @return array|false
      */
-    public function select($sql)
+    public function select($sql, $params = [])
     {
-        return self::$engine->select($sql);
+        return self::$engine->select($sql, $params);
     }
 
     /**
@@ -327,9 +327,9 @@ class fs_db2
      * @param integer $offset
      * @return array|false
      */
-    public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0)
+    public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0, $params = [])
     {
-        return self::$engine->select_limit($sql, $limit, $offset);
+        return self::$engine->select_limit($sql, $limit, $offset, $params);
     }
 
     /**
