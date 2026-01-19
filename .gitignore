@@ -3,12 +3,10 @@
 /nbproject/
 /node_modules/
 /tmp/
-/vendor/
 .DS_Store
 .htaccess
 .vscode
 config.php
-*.lock
 package-lock.json
 
 # Excluir plugins excepto adminlte
