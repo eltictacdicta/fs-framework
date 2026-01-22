@@ -1,5 +1,0 @@
-# Requisitos para la herramienta de conversión de tarifa Excel a JSON
-# Instalar con: pip install -r requirements.txt
-
-openpyxl>=3.0.0
-pandas>=1.3.0
