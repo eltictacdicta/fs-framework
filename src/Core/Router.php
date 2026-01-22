@@ -87,10 +87,16 @@ class Router
     {
         $collection = new RouteCollection();
 
-        // Escanear controladores del núcleo
+        // Escanear controladores del núcleo (legacy)
         $controllerDir = $this->rootFolder . '/controller';
         if (is_dir($controllerDir)) {
             $this->scanControllerDirectory($controllerDir, $collection);
+        }
+
+        // Escanear controladores modernos en src/Controller
+        $srcControllerDir = $this->rootFolder . '/src/Controller';
+        if (is_dir($srcControllerDir)) {
+            $this->scanControllerDirectory($srcControllerDir, $collection);
         }
 
         // Escanear controladores de plugins activos

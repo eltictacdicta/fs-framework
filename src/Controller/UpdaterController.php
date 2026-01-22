@@ -34,7 +34,7 @@ class UpdaterController
 
     public function handle(Request $request): Response
     {
-        $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__);
+        $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__, 2);
         
         // Cargamos configuración si no está cargada
         if (!defined('FS_DB_NAME')) {

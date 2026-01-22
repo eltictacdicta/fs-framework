@@ -17,7 +17,7 @@ $kernel = \FSFramework\Core\Kernel::boot();
 ignore_user_abort(true);
 
 // Instanciamos y ejecutamos el controlador
-require_once __DIR__ . '/controller/UpdaterController.php';
+require_once __DIR__ . '/src/Controller/UpdaterController.php';
 $controller = new UpdaterController();
 $response = $controller->handle($kernel->getRequest());
 $response->send();
