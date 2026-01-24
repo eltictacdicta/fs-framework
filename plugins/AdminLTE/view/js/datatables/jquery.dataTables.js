@@ -277,7 +277,12 @@
 	
 	
 	var _stripHtml = function ( d ) {
-		return d.replace( _re_html, '' );
+		var prev;
+		do {
+			prev = d;
+			d = d.replace( _re_html, '' );
+		} while ( d !== prev );
+		return d;
 	};
 	
 	
