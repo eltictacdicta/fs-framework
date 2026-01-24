@@ -14472,7 +14472,7 @@
 			return _empty(a) ?
 				'' :
 				a.replace ?
-					a.replace( /<.*?>/g, "" ).toLowerCase() :
+					a.replace( /[<>]/g, "" ).toLowerCase() :
 					a+'';
 		},
 	
