@@ -963,14 +963,14 @@ $system_info = str_replace('"', "'", $system_info);
                                             <div class="form-group">
                                                 Servidor:
                                                 <input class="form-control" type="text" name="db_host"
-                                                    value="<?php echo $db_host; ?>" autocomplete="off" />
+                                                    value="<?php echo htmlspecialchars($db_host, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" />
                                             </div>
                                         </div>
                                         <div class="col-sm-4">
                                             <div class="form-group">
                                                 Puerto:
                                                 <input class="form-control" type="number" name="db_port"
-                                                    value="<?php echo $db_port; ?>" autocomplete="off" />
+                                                    value="<?php echo htmlspecialchars($db_port, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" />
                                             </div>
                                         </div>
                                     </div>
@@ -983,7 +983,7 @@ $system_info = str_replace('"', "'", $system_info);
                                                         <i class="fa fa-database fa-fw"></i>
                                                     </span>
                                                     <input class="form-control" type="text" name="db_name"
-                                                        value="<?php echo $db_name; ?>" autocomplete="off" />
+                                                        value="<?php echo htmlspecialchars($db_name, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" />
                                                 </div>
                                             </div>
                                         </div>
@@ -995,7 +995,7 @@ $system_info = str_replace('"', "'", $system_info);
                                                         <i class="fa fa-user fa-fw"></i>
                                                     </span>
                                                     <input class="form-control" type="text" name="db_user"
-                                                        value="<?php echo $db_user; ?>" autocomplete="off" />
+                                                        value="<?php echo htmlspecialchars($db_user, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" />
                                                 </div>
                                             </div>
                                         </div>
