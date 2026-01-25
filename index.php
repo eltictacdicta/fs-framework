@@ -34,6 +34,10 @@ define('FS_FOLDER', __DIR__);
 require_once __DIR__ . '/vendor/autoload.php';
 \FSFramework\Core\Kernel::boot();
 
+/// cargamos las constantes de configuración
+require_once 'config.php';
+require_once 'base/config2.php';
+
 /// --- Symfony Routing Bridge ---
 try {
     $response = \FSFramework\Core\Kernel::handleRequest();
@@ -46,12 +50,10 @@ try {
 }
 // ------------------------------
 
+
 /// ampliamos el límite de ejecución de PHP a 5 minutos
 @set_time_limit(300);
 
-/// cargamos las constantes de configuración
-require_once 'config.php';
-require_once 'base/config2.php';
 
 /// Definir URL base del sistema si no está definida
 if (!defined('FS_BASE_URL')) {
@@ -85,7 +87,7 @@ require_once 'base/fs_controller.php';
 require_once 'base/fs_edit_controller.php';
 require_once 'base/fs_list_controller.php';
 require_once 'base/fs_log_manager.php';
-require_once 'raintpl/rain.tpl.class.php';
+
 
 /**
  * Registramos la función para capturar los fatal error.
@@ -99,6 +101,44 @@ if (filter_input(INPUT_GET, 'page')) {
     $pagename = filter_input(INPUT_GET, 'page');
 } elseif (defined('FS_HOMEPAGE')) {
     $pagename = FS_HOMEPAGE;
+}
+
+// Support for Modern Controllers (Bridge) - High Priority to avoid legacy 404 headers
+if (!empty($pagename)) {
+    if (isset($GLOBALS['plugins'])) {
+        foreach ($GLOBALS['plugins'] as $plugin) {
+            $modernDir = __DIR__ . '/plugins/' . $plugin . '/Controller';
+            if (is_dir($modernDir)) {
+                foreach (scandir($modernDir) as $file) {
+                    if (substr($file, -4) === '.php') {
+                        $className = substr($file, 0, -4);
+                        $fullClass = "FacturaScripts\\Plugins\\$plugin\\Controller\\$className";
+                        if (class_exists($fullClass)) {
+                            $temp = new $fullClass();
+                            $cName = $className;
+                            if (method_exists($temp, 'getPageData')) {
+                                $pd = $temp->getPageData();
+                                if (isset($pd['name']))
+                                    $cName = $pd['name'];
+                            }
+
+                            if ($cName === $pagename) {
+                                // FOUND IT!
+                                if (method_exists($temp, 'handle')) {
+                                    $resp = $temp->handle(\FSFramework\Core\Kernel::request());
+                                    $resp->send();
+                                    exit;
+                                } elseif (method_exists($temp, 'run')) {
+                                    $temp->run();
+                                    exit;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 $fsc_error = FALSE;
@@ -139,33 +179,12 @@ if ($fsc_error) {
     die();
 }
 
+
 if ($fsc->template) {
-    /// configuramos rain.tpl
-    raintpl::configure('base_url', NULL);
-    raintpl::configure('tpl_dir', 'view/');
-    raintpl::configure('path_replace', FALSE);
-
-    /// ¿Se puede escribir sobre la carpeta temporal?
-    if (is_writable('tmp')) {
-        raintpl::configure('cache_dir', 'tmp/' . FS_TMP_NAME);
-    } else {
-        echo '<h1>No se puede escribir sobre la carpeta tmp de FSFramework</h1>'
-            . '<p>Consulta la <a target="_blank" href="//facturascripts.com/ayuda" rel="nofollow">ayuda</a>.</p>';
-        die();
-    }
-
-    $tpl = new RainTPL();
-    $tpl->assign('fsc', $fsc);
-
-    if (filter_input(INPUT_POST, 'user')) {
-        $tpl->assign('nlogin', filter_input(INPUT_POST, 'user'));
-    } elseif (filter_input(INPUT_COOKIE, 'user')) {
-        $tpl->assign('nlogin', filter_input(INPUT_COOKIE, 'user'));
-    } else {
-        $tpl->assign('nlogin', '');
-    }
-
-    $tpl->draw($fsc->template);
+    echo \FacturaScripts\Core\Html::render($fsc->template, [
+        'fsc' => $fsc,
+        'nlogin' => filter_input(INPUT_POST, 'user') ?? filter_input(INPUT_COOKIE, 'user') ?? ''
+    ]);
 }
 
 /// guardamos los errores en el log (los producidos durante la carga del template)

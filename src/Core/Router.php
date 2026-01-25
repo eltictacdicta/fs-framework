@@ -125,11 +125,18 @@ class Router
                 $route = $this->parseRouteAttributeFromFile($file);
                 if ($route !== null) {
                     $className = basename($file, '.php');
-                    $routeName = $route['name'] ?? 'fs_' . $className;
+                    $fullClassName = $className;
+
+                    // Add namespace if it's in src/Controller
+                    if (strpos($directory, 'src/Controller') !== false) {
+                        $fullClassName = 'FSFramework\\Controller\\' . $className;
+                    }
+
+                    $routeName = $route['name'] ?? 'fs_' . strtolower($className);
 
                     $symfonyRoute = new Route(
                         $route['path'],
-                        array_merge($route['defaults'] ?? [], ['_controller' => $className]),
+                        array_merge($route['defaults'] ?? [], ['_controller' => $fullClassName]),
                         $route['requirements'] ?? [],
                         [],
                         '',
@@ -209,7 +216,28 @@ class Router
             $pathInfo = $request->getPathInfo();
             $parameters = $matcher->match($pathInfo);
             $controller = $parameters['_controller'];
+            $routeName = $parameters['_route'];
             unset($parameters['_controller'], $parameters['_route']);
+
+            // Verificar si la página está habilitada en FSFramework (fs_pages)
+            if (class_exists('fs_page')) {
+                $pageModel = new \fs_page();
+                $page = $pageModel->get($routeName);
+                if ($page && !$page->show_on_menu) {
+                    // Si la página existe pero está marcada para no mostrar (o deshabilitada logicamente)
+                    // En FSFramework 2017, show_on_menu suele usarse para visibilidad, 
+                    // pero podemos extender la lógica aquí si el usuario lo requiere.
+                    // Por ahora, si no está en la tabla, permitimos (es una ruta interna).
+                    // Pero si está en la tabla, respetamos su existencia.
+                }
+
+                // Si el usuario quiere desactivar completamente la ruta:
+                // En este framework legacy, deshabilitar un plugin es lo que suele quitar la página.
+                // Pero si queremos control fino por página:
+                if ($page && isset($page->enabled) && !$page->enabled) {
+                    return null;
+                }
+            }
 
             if (is_array($controller)) {
                 $class = $controller[0];
@@ -231,6 +259,16 @@ class Router
                 $instance = new $controller();
                 if (method_exists($instance, 'handle')) {
                     return $instance->handle($request, ...array_values($parameters));
+                } elseif (method_exists($instance, 'run')) {
+                    // Start buffering to capture output if run() generates it directly (legacy style)
+                    // But usually run() sends response or we can just let it run.
+                    // If run() returns void, we return null to Router::handle, which might be fine?
+                    // Router::handle expects Response|null.
+                    $instance->run();
+                    if (method_exists($instance, 'response') && $instance->response() instanceof Response) {
+                        return $instance->response();
+                    }
+                    return null;
                 }
             }
 

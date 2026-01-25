@@ -326,7 +326,8 @@ abstract class fs_model
         }
 
         if ($sql != '' && !$this->db->exec($sql)) {
-            $this->new_error_msg('Error al comprobar la tabla ' . $table_name);
+            $msg = 'Error al comprobar la tabla ' . $table_name . ' [SQL: ' . $sql . '] [Error: ' . $this->db->get_error_msg() . ']';
+            $this->new_error_msg($msg);
             return FALSE;
         }
 

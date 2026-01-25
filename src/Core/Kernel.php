@@ -43,6 +43,7 @@ class Kernel
     {
         if (self::$instance === null) {
             self::$instance = new self();
+            \FacturaScripts\Core\Plugins::init();
         }
         return self::$instance;
     }
@@ -94,5 +95,14 @@ class Kernel
     public static function router(): ?Router
     {
         return self::getInstance()->getRouter();
+    }
+
+    /**
+     * Returns the current version of the framework.
+     * Aligned with modern FacturaScripts year-based versioning.
+     */
+    public static function version(): float
+    {
+        return 2025.101;
     }
 }

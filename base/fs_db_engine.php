@@ -94,6 +94,8 @@ abstract class fs_db_engine
 
     abstract public function sql_to_int($col_name);
 
+    abstract public function get_error_msg();
+
     abstract public function version();
 
     public function __construct()

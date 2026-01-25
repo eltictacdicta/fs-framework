@@ -61,7 +61,39 @@ class fs_access extends fs_model
 
     protected function install()
     {
-        return '';
+        return "INSERT INTO fs_access (fs_user, fs_page, allow_delete) VALUES ('admin', 'admin_home', TRUE);";
+    }
+
+    /**
+     * @return string
+     */
+    public function xml_table()
+    {
+        return <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<table>
+    <columna>
+        <nombre>fs_user</nombre>
+        <tipo>character varying(32)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>fs_page</nombre>
+        <tipo>character varying(50)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>allow_delete</nombre>
+        <tipo>boolean</tipo>
+        <nulo>NO</nulo>
+        <defecto>FALSE</defecto>
+    </columna>
+    <restriccion>
+        <nombre>fs_access_pkey</nombre>
+        <consulta>PRIMARY KEY (fs_user, fs_page)</consulta>
+    </restriccion>
+</table>
+XML;
     }
 
     public function exists()
@@ -71,8 +103,8 @@ class fs_access extends fs_model
         }
 
         return $this->db->select("SELECT * FROM " . $this->table_name
-                . " WHERE fs_user = " . $this->var2str($this->fs_user)
-                . " AND fs_page = " . $this->var2str($this->fs_page) . ";");
+            . " WHERE fs_user = " . $this->var2str($this->fs_user)
+            . " AND fs_page = " . $this->var2str($this->fs_page) . ";");
     }
 
     public function save()
@@ -94,14 +126,14 @@ class fs_access extends fs_model
     public function delete()
     {
         return $this->db->exec("DELETE FROM " . $this->table_name
-                . " WHERE fs_user = " . $this->var2str($this->fs_user)
-                . " AND fs_page = " . $this->var2str($this->fs_page) . ";");
+            . " WHERE fs_user = " . $this->var2str($this->fs_user)
+            . " AND fs_page = " . $this->var2str($this->fs_page) . ";");
     }
 
     /**
      * Devuelve todos los permisos de acceso del usuario.
      * @param string $nick
-     * @return \fs_access
+     * @return array
      */
     public function all_from_nick($nick)
     {

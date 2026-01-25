@@ -96,9 +96,11 @@ if (!file_exists('plugins')) {
 /// Cargamos la lista de plugins activos
 $GLOBALS['plugins'] = [];
 if (file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list')) {
-    $list = explode(',', file_get_contents(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list'));
+    $list_raw = file_get_contents(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list');
+    $list = explode(',', $list_raw);
     if (!empty($list)) {
         foreach ($list as $f) {
+            $f = trim($f);
             if (file_exists('plugins/' . $f)) {
                 $GLOBALS['plugins'][] = $f;
             }
@@ -117,10 +119,10 @@ if (file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list')) {
  */
 if (empty($GLOBALS['plugins'])) {
     $default_theme = defined('FS_DEFAULT_THEME') ? FS_DEFAULT_THEME : 'AdminLTE';
-    
+
     if (file_exists(FS_FOLDER . '/plugins/' . $default_theme)) {
         $GLOBALS['plugins'][] = $default_theme;
-        
+
         /// Guardamos el tema por defecto en la lista de plugins activos
         if (FS_TMP_NAME != '' && !file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list')) {
             @file_put_contents(

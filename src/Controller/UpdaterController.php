@@ -1,4 +1,5 @@
 <?php
+namespace FSFramework\Controller;
 
 use FSFramework\Attribute\FSRoute;
 use Symfony\Component\HttpFoundation\Request;
@@ -45,10 +46,10 @@ class UpdaterController
         require_once $root . '/base/fs_updater.php';
         
         // Limpiar caché de archivos (requisito del usuario: solo archivos)
-        $cache = new fs_cache();
+        $cache = new \fs_cache();
         $cache->clean();
 
-        $updater = new fs_updater();
+        $updater = new \fs_updater();
         
         ob_start();
         ?>

@@ -542,6 +542,15 @@ class fs_postgresql extends fs_db_engine
     }
 
     /**
+     * Devuelve el último error de la base de datos.
+     * @return string
+     */
+    public function get_error_msg()
+    {
+        return self::$link ? pg_last_error(self::$link) : 'Link no disponible';
+    }
+
+    /**
      * Devuelve TRUE si la secuancia solicitada existe.
      * @param string $seq_name
      * @return boolean

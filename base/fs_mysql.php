@@ -28,6 +28,13 @@ class fs_mysql extends fs_db_engine
 {
 
     /**
+     * El último error ocurrido.
+     * @var string
+     */
+    private static $last_error = '';
+
+
+    /**
      * Inicia una transacción SQL.
      * @return boolean
      */
@@ -247,11 +254,14 @@ class fs_mysql extends fs_db_engine
             self::$link = @new mysqli(FS_DB_HOST, FS_DB_USER, FS_DB_PASS, FS_DB_NAME, intval(FS_DB_PORT));
 
             if (self::$link->connect_error) {
-                self::$core_log->new_error(self::$link->connect_error);
+                $error_msg = 'Error de conexión MySQL (' . self::$link->connect_errno . ') ' . self::$link->connect_error;
+                self::$core_log->new_error($error_msg);
+                error_log("FS_DEBUG: " . $error_msg);
                 self::$link = NULL;
             } else {
                 self::$link->set_charset('utf8');
                 $connected = TRUE;
+                error_log("FS_DEBUG: Connected to database " . FS_DB_NAME . " on " . FS_DB_HOST);
 
                 if (!FS_FOREIGN_KEYS) {
                     /// desactivamos las claves ajenas
@@ -300,8 +310,12 @@ class fs_mysql extends fs_db_engine
      */
     public function exec($sql, $transaction = TRUE, $params = [])
     {
-        $result = FALSE;
+        $i = 0;
+        if (!self::$link) {
+            $this->connect();
+        }
 
+        $result = FALSE;
         if (self::$link) {
             /// añadimos la consulta sql al historial
             self::$core_log->new_sql($sql);
@@ -310,26 +324,28 @@ class fs_mysql extends fs_db_engine
                 $this->begin_transaction();
             }
 
-            $i = 0;
-            if (!empty($params) && method_exists(self::$link, 'execute_query')) {
-                /// Use execute_query for parameterized execution
-                try {
+            try {
+                if (!empty($params) && method_exists(self::$link, 'execute_query')) {
+                    /// Use execute_query for parameterized execution
                     $stmt = self::$link->execute_query($sql, $params);
                     $result = TRUE;
-                } catch (Exception $e) {
-                    $error = 'Error al ejecutar la consulta con parámetros: ' . $e->getMessage() .
-                        '. La secuencia ocupa la posición ' . count(self::$core_log->get_sql_history());
-                    self::$core_log->new_error($error);
-                    self::$core_log->save($error);
+                } else if (self::$link->multi_query($sql)) {
+                    do {
+                        $i++;
+                    } while (self::$link->more_results() && self::$link->next_result());
+                    $result = TRUE;
                 }
-            } else if (self::$link->multi_query($sql)) {
-                do {
-                    $i++;
-                } while (self::$link->more_results() && self::$link->next_result());
+            } catch (mysqli_sql_exception $e) {
+                self::$last_error = $e->getMessage();
+                $error = 'Error al ejecutar la consulta ' . $i . ': ' . self::$last_error .
+                    '. La secuencia ocupa la posición ' . count(self::$core_log->get_sql_history());
+                self::$core_log->new_error($error);
+                self::$core_log->save($error);
             }
 
-            if (self::$link->errno) {
-                $error = 'Error al ejecutar la consulta ' . $i . ': ' . self::$link->error .
+            if (self::$link->errno && !$result) {
+                self::$last_error = self::$link->error;
+                $error = 'Error al ejecutar la consulta ' . $i . ': ' . self::$last_error .
                     '. La secuencia ocupa la posición ' . count(self::$core_log->get_sql_history());
                 self::$core_log->new_error($error);
                 self::$core_log->save($error);
@@ -525,15 +541,15 @@ class fs_mysql extends fs_db_engine
     public function list_tables()
     {
         $tables = [];
-        $aux = $this->select("SHOW TABLES;");
+        $sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = '" . FS_DB_NAME . "';";
+        $aux = $this->select($sql);
         if ($aux) {
             foreach ($aux as $a) {
-                if (isset($a['Tables_in_' . FS_DB_NAME])) {
-                    $tables[] = array('name' => $a['Tables_in_' . FS_DB_NAME]);
-                }
+                $tables[] = array('name' => $a['table_name']);
             }
         }
 
+        error_log("FS_DEBUG: list_tables() for '" . FS_DB_NAME . "' returned " . count($tables) . " tables");
         return $tables;
     }
 
@@ -554,22 +570,25 @@ class fs_mysql extends fs_db_engine
      */
     public function select($sql, $params = [])
     {
-        $result = FALSE;
+        if (!self::$link) {
+            $this->connect();
+        }
 
+        $result = FALSE;
         if (self::$link) {
             /// añadimos la consulta sql al historial
             self::$core_log->new_sql($sql);
 
-            if (!empty($params) && method_exists(self::$link, 'execute_query')) {
-                try {
+            try {
+                if (!empty($params) && method_exists(self::$link, 'execute_query')) {
                     $aux = self::$link->execute_query($sql, $params);
-                } catch (Exception $e) {
-                    $aux = FALSE;
-                    self::$core_log->new_error($e->getMessage());
-                    self::$core_log->save($e->getMessage());
+                } else {
+                    $aux = self::$link->query($sql);
                 }
-            } else {
-                $aux = self::$link->query($sql);
+            } catch (mysqli_sql_exception $e) {
+                self::$last_error = $e->getMessage();
+                error_log("FS_DEBUG: Query EXCEPTION: $sql Error: " . self::$last_error);
+                $aux = FALSE;
             }
 
             if ($aux) {
@@ -581,9 +600,11 @@ class fs_mysql extends fs_db_engine
                     $aux->free();
                 }
             } else {
+                self::$last_error = self::$link->error;
+                error_log("FS_DEBUG: Query FAILED: $sql Error: " . self::$last_error);
                 /// añadimos el error a la lista de errores
-                self::$core_log->new_error(self::$link->error);
-                self::$core_log->save(self::$link->error);
+                self::$core_log->new_error(self::$last_error);
+                self::$core_log->save(self::$last_error);
             }
 
             /// aumentamos el contador de selects realizados
@@ -628,6 +649,15 @@ class fs_mysql extends fs_db_engine
     public function version()
     {
         return self::$link ? 'MYSQL ' . self::$link->server_version : FALSE;
+    }
+
+    /**
+     * Devuelve el último error de la base de datos.
+     * @return string
+     */
+    public function get_error_msg()
+    {
+        return self::$last_error ?: (self::$link ? self::$link->error : 'Link no disponible');
     }
 
     /**

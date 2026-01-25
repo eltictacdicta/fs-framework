@@ -171,6 +171,10 @@ class fs_db2
      */
     public function exec($sql, $transaction = NULL, $params = [])
     {
+        if (!$this->connected()) {
+            $this->connect();
+        }
+
         /// usamos self::$auto_transactions como valor por defecto para la función
         if (is_null($transaction)) {
             $transaction = self::$auto_transactions;
@@ -202,6 +206,15 @@ class fs_db2
     public function get_auto_transactions()
     {
         return self::$auto_transactions;
+    }
+
+    /**
+     * Devuelve el último mensaje de error de la base de datos.
+     * @return string
+     */
+    public function get_error_msg()
+    {
+        return self::$engine->get_error_msg();
     }
 
     /**
@@ -314,6 +327,10 @@ class fs_db2
      */
     public function select($sql, $params = [])
     {
+        if (!$this->connected()) {
+            $this->connect();
+        }
+
         return self::$engine->select($sql, $params);
     }
 

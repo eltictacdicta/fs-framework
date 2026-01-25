@@ -78,7 +78,7 @@ class fs_plugin_manager
      *
      * @var float
      */
-    public $version = 2017.901;
+    public $version = 2025.101;
 
     public function __construct()
     {
@@ -103,6 +103,8 @@ class fs_plugin_manager
 
         if (file_exists('VERSION')) {
             $this->version = (float) trim(file_get_contents(FS_FOLDER . '/VERSION'));
+        } elseif (class_exists('FSFramework\\Core\\Kernel')) {
+            $this->version = \FSFramework\Core\Kernel::version();
         }
     }
 
@@ -940,23 +942,77 @@ class fs_plugin_manager
             require_once 'plugins/' . $plugin_name . '/functions.php';
         }
 
-        /// buscamos controladores
+        /// buscamos controladores clásicos
+        $page_list = [];
         if (file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '/controller')) {
-            $page_list = [];
             foreach (fs_file_manager::scan_files(FS_FOLDER . '/plugins/' . $plugin_name . '/controller', 'php') as $f) {
                 $page_name = substr($f, 0, -4);
-                $page_list[] = $page_name;
-
                 require_once 'plugins/' . $plugin_name . '/controller/' . $f;
-                $new_fsc = new $page_name();
 
-                if (!$new_fsc->page->save()) {
-                    $this->core_log->new_error("Imposible guardar la página " . $page_name);
+                if (class_exists($page_name)) {
+                    $page_list[] = $page_name;
+                    $new_fsc = new $page_name();
+                    if (!$new_fsc->page->save()) {
+                        $this->core_log->new_error("Imposible guardar la página " . $page_name);
+                    }
+                    unset($new_fsc);
                 }
-
-                unset($new_fsc);
             }
+        }
 
+        /// buscamos controladores modernos
+        if (file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '/Controller')) {
+            foreach (fs_file_manager::scan_files(FS_FOLDER . '/plugins/' . $plugin_name . '/Controller', 'php') as $f) {
+                $short_name = substr($f, 0, -4);
+                $full_class = "FacturaScripts\\Plugins\\$plugin_name\\Controller\\$short_name";
+
+                if (class_exists($full_class)) {
+                    $page_list[] = $short_name;
+                    $new_fsc = new $full_class();
+
+                    // Si el controlador moderno tiene la propiedad legacy 'page' (vía Base\Controller)
+                    if (isset($new_fsc->page) && $new_fsc->page instanceof fs_page) {
+                        if (!$new_fsc->page->save()) {
+                            $this->core_log->new_error("Imposible guardar la página moderna " . $short_name);
+                        }
+                    } else {
+                        // Si no hereda de Base\Controller, creamos una entrada básica
+                        $page = new fs_page();
+                        $page->name = $short_name;
+                        $page->title = $short_name;
+                        $page->folder = 'new';
+                        if (!$page->save()) {
+                            $this->core_log->new_error("Imposible guardar la página moderna básica " . $short_name);
+                        }
+                    }
+                    unset($new_fsc);
+
+                    // Asegurar permisos para administradores
+                    if (class_exists('fs_access')) {
+                        // Re-instanciar para obtener el nombre real de la página
+                        $temp_fsc = new $full_class();
+                        // Obtener nombre de página: prioridad a getPageData, luego objeto page, luego short_name
+                        $realPageName = $short_name;
+                        if (method_exists($temp_fsc, 'getPageData')) {
+                            $pd = $temp_fsc->getPageData();
+                            if (!empty($pd['name'])) {
+                                $realPageName = $pd['name'];
+                            }
+                        } elseif (isset($temp_fsc->page) && !empty($temp_fsc->page->name)) {
+                            $realPageName = $temp_fsc->page->name;
+                        }
+
+                        $access = new \fs_access();
+                        $access->fs_user = 'admin';
+                        $access->fs_page = $realPageName;
+                        $access->allow_delete = TRUE;
+                        $access->save();
+                    }
+                }
+            }
+        }
+
+        if (!empty($page_list)) {
             $this->core_log->new_message('Se han activado automáticamente las siguientes páginas: ' . implode(', ', $page_list) . '.');
         }
     }
@@ -987,7 +1043,7 @@ class fs_plugin_manager
         // First, try to read fsframework.ini
         if (file_exists($fsframework_ini)) {
             $ini_file = parse_ini_file($fsframework_ini);
-            $plugin['error_msg'] = 'Falta archivo facturascripts.ini';
+            $plugin['error_msg'] = '';
         }
         // If fsframework.ini doesn't exist, try facturascripts.ini
         elseif (file_exists($facturascripts_ini)) {
@@ -1021,7 +1077,7 @@ class fs_plugin_manager
             }
         } else {
             // For facturascripts.ini, check if version is greater than 2017.000
-            if (2017.901 >= $plugin['min_version']) {
+            if ($this->version >= $plugin['min_version']) {
                 $plugin['compatible'] = true;
                 $plugin['legacy_warning'] = true;
                 $plugin['error_msg'] = 'Aunque se ha mantenido la compatibilidad con FacturaScript, no se garantiza la compatiblidad 100%, se recomienda usarlo en un entorno de pruebas y asegurarse que funciona correctamente antes de usarlo en proucción.';

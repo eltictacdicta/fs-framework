@@ -19,11 +19,15 @@
         "symfony/routing": "^7.4",
         "symfony/config": "^7.4",
         "symfony/yaml": "^7.4",
-        "zircote/swagger-php": "^6.0"
+        "zircote/swagger-php": "^6.0",
+        "twig/twig": "^3.0",
+        "symfony/console": "^7.0"
     },
     "autoload": {
         "psr-4": {
-            "FSFramework\\": "src/"
+            "FSFramework\\": "src/",
+            "FacturaScripts\\": "src/FacturaScripts/",
+            "FacturaScripts\\Plugins\\": "plugins/"
         }
     },
     "config": {
