@@ -170,6 +170,12 @@ class Html
                 'mb_strtolower',
                 'mb_strtoupper',
                 'base64_encode',
+                'base64_decode',
+                'urlencode',
+                'urldecode',
+                'rawurlencode',
+                'rawurldecode',
+                'http_build_query',
             ];
             foreach ($phpFunctions as $func) {
                 self::$twig->addFunction(new \Twig\TwigFunction($func, $func));

@@ -99,13 +99,44 @@ class RainToTwig
         // {$fsc->url()} -> {{ fsc.url() }}
         // {function="name(args)"} -> {{ name(args) }}
         // {$var=$val} -> {% set var = val %}
+        // {$var+=$val} -> {% set var = var + val %}
         // {$var|filter} -> {{ var|filter }} (with filter translation)
         $content = preg_replace_callback('/{(\$[a-zA-Z_][^{}]*)}/', function ($matches) {
             $expr = self::translateExpression($matches[1]);
 
-            // Check for assignment: var = value
-            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*=(.*)$/', $expr)) {
-                return "{% set $expr %}";
+            // Check for compound assignment: var += value, var -= value, etc.
+            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*\+=\s*(.*)$/', $expr, $compoundMatch)) {
+                $var = $compoundMatch[1];
+                $val = $compoundMatch[2];
+                return "{% set $var = $var + $val %}";
+            }
+            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*-=\s*(.*)$/', $expr, $compoundMatch)) {
+                $var = $compoundMatch[1];
+                $val = $compoundMatch[2];
+                return "{% set $var = $var - $val %}";
+            }
+            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*\*=\s*(.*)$/', $expr, $compoundMatch)) {
+                $var = $compoundMatch[1];
+                $val = $compoundMatch[2];
+                return "{% set $var = $var * $val %}";
+            }
+            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*\/=\s*(.*)$/', $expr, $compoundMatch)) {
+                $var = $compoundMatch[1];
+                $val = $compoundMatch[2];
+                return "{% set $var = $var / $val %}";
+            }
+            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*\.=\s*(.*)$/', $expr, $compoundMatch)) {
+                // .= is string concatenation in PHP, use ~ in Twig
+                $var = $compoundMatch[1];
+                $val = $compoundMatch[2];
+                return "{% set $var = $var ~ $val %}";
+            }
+
+            // Check for simple assignment: var = value
+            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*=\s*(.*)$/', $expr, $assignMatch)) {
+                $var = $assignMatch[1];
+                $val = $assignMatch[2];
+                return "{% set $var = $val %}";
             }
 
             // Translate RainTPL filters to Twig filters
