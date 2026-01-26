@@ -103,3 +103,154 @@ iframe {
     float:none;
     vertical-align: middle !important;
 }
+
+/*
+ * ============================
+ * Login Page Fix
+ * ============================
+ */
+
+/* Corregir el centrado de la página de login */
+.login-page {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 100vh !important;
+    background-color: #d2d6de !important;
+    padding: 1rem !important;
+}
+
+/* Asegurar que los alerts en login no rompan el layout */
+.login-page > .alert {
+    width: 100%;
+    max-width: 360px;
+    margin-bottom: 1rem;
+}
+
+/* Login box centrado */
+.login-box {
+    width: 360px !important;
+    margin: 0 auto !important;
+}
+
+/* Thumbnail/logo en login */
+.login-box > .thumbnail {
+    background-color: #fff;
+    padding: 1rem;
+    margin-bottom: 0;
+    border-radius: 4px 4px 0 0;
+    text-align: center;
+    border: 1px solid #d2d6de;
+    border-bottom: none;
+}
+
+.login-box > .thumbnail img {
+    max-width: 200px;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+}
+
+/* Login box body */
+.login-box-body {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #d2d6de;
+    border-top: none;
+}
+
+/* Si no hay thumbnail, el body tiene border-radius completo */
+.login-box > .login-box-body:first-child {
+    border-radius: 4px;
+    border: 1px solid #d2d6de;
+}
+
+.login-box-msg {
+    margin-bottom: 15px;
+    text-align: center;
+    color: #666;
+}
+
+/* Social auth links en login */
+.login-box .social-auth-links {
+    margin-top: 10px;
+    text-align: center;
+}
+
+/* Footer del login (container-fluid después del login-box) */
+.login-page > .container-fluid {
+    margin-top: 20px;
+    text-align: center;
+    width: 100%;
+    max-width: 360px;
+}
+
+.login-page > .container-fluid .help-block {
+    color: #666;
+    font-size: 12px;
+}
+
+/*
+ * ============================
+ * Form Feedback Icons Fix (Bootstrap 3 style)
+ * ============================
+ */
+
+/* Contenedor con feedback necesita position relative */
+.has-feedback {
+    position: relative;
+}
+
+/* El input necesita padding a la derecha para el icono */
+.has-feedback .form-control {
+    padding-right: 42.5px;
+}
+
+/* Posicionar el icono dentro del input */
+.form-control-feedback {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    display: block;
+    width: 34px;
+    height: 34px;
+    line-height: 34px;
+    text-align: center;
+    pointer-events: none;
+    color: #777;
+}
+
+/* Para inputs más grandes */
+.input-lg + .form-control-feedback,
+.input-group-lg + .form-control-feedback,
+.form-group-lg .form-control + .form-control-feedback {
+    width: 46px;
+    height: 46px;
+    line-height: 46px;
+}
+
+/* Para inputs más pequeños */
+.input-sm + .form-control-feedback,
+.input-group-sm + .form-control-feedback,
+.form-group-sm .form-control + .form-control-feedback {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+}
+
+/* Colores de estado para los iconos */
+.has-success .form-control-feedback {
+    color: #3c763d;
+}
+
+.has-warning .form-control-feedback {
+    color: #8a6d3b;
+}
+
+.has-error .form-control-feedback {
+    color: #a94442;
+}

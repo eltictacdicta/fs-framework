@@ -2512,10 +2512,19 @@ th {
 /* Login Page */
 .login-page {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: #e5e7eb;
+  background-color: #d2d6de;
+  padding: 1rem;
+}
+
+/* Asegurar que los alerts en login no rompan el layout */
+.login-page > .alert {
+  width: 100%;
+  max-width: 24rem;
+  margin-bottom: 1rem;
 }
 
 .login-box {
@@ -2524,17 +2533,53 @@ th {
   margin: 0 auto;
 }
 
+/* Thumbnail/logo en login */
+.login-box > .thumbnail {
+  background-color: #fff;
+  padding: 1rem;
+  margin-bottom: 0;
+  border-radius: 0.25rem 0.25rem 0 0;
+  text-align: center;
+  border: 1px solid #d1d5db;
+  border-bottom: none;
+}
+
+.login-box > .thumbnail img {
+  max-width: 200px;
+  height: auto;
+  margin: 0 auto;
+}
+
 .login-box-body {
   padding: 1.5rem;
   background-color: #fff;
-  border-radius: 0.25rem;
+  border-radius: 0 0 0.25rem 0.25rem;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  border: 1px solid #d1d5db;
+  border-top: none;
+}
+
+/* Si no hay thumbnail, el body tiene border-radius completo */
+.login-box-body:first-child {
+  border-radius: 0.25rem;
+  border: 1px solid #d1d5db;
 }
 
 .login-box-msg {
   margin-bottom: 1rem;
   text-align: center;
   color: #4b5563;
+}
+
+/* Footer del login (container-fluid después del login-box) */
+.login-page > .container-fluid {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.login-page > .container-fluid .help-block {
+  color: #666;
+  font-size: 0.875rem;
 }
 
 /* Main Layout */
