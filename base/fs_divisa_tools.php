@@ -93,7 +93,8 @@ class fs_divisa_tools
             $coddivisa = self::$coddivisa;
         }
 
-        // Asegurar que $dec nunca sea null para evitar deprecation en PHP 8+
+        // Asegurar que los valores nunca sean null para evitar deprecation en PHP 8+
+        $precio = $precio ?? 0;
         $dec = $dec ?? 0;
 
         if (FS_POS_DIVISA == 'right') {
@@ -122,7 +123,8 @@ class fs_divisa_tools
      */
     public function show_numero($num = 0, $decimales = FS_NF0, $js = FALSE)
     {
-        // Asegurar que $decimales nunca sea null para evitar deprecation en PHP 8+
+        // Asegurar que los valores nunca sean null para evitar deprecation en PHP 8+
+        $num = $num ?? 0;
         $decimales = $decimales ?? 0;
 
         if ($js) {
