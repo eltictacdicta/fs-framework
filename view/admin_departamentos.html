@@ -113,6 +113,7 @@
    <div class="modal-dialog">
       <div class="modal-content">
          <form name="f_nuevo_departamento" class="form" role="form" action="{$fsc->url()}" method="post">
+            {{ csrf_field() }}
             <div class="modal-header">
                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
                <h4 class="modal-title">

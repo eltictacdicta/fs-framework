@@ -1,4 +1,5 @@
 <form id="f_enable_pages" action="{$fsc->url()}" method="post" class="form">
+    {{ csrf_field() }}
     <input type="hidden" name="modpages" value="TRUE"/>
     <div class="table-responsive">
         <table class="table table-hover">

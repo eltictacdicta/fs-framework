@@ -58,6 +58,7 @@
 </ul>
 
 <form name="f_custom_search" action="{$fsc->url()}&tab={$fsc->active_tab}" method="post" class="form">
+    {{ csrf_field() }}
     <input type="hidden" name="offset" value="{$fsc->offset}"/>
     <div class="container-fluid" style="margin-top: 15px; margin-bottom: 10px;">
         <div class="row">

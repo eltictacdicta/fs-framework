@@ -24,6 +24,7 @@
       </div>
    </div>
    <form action="{$fsc->url()}" method="post" class="form">
+      {{ csrf_field() }}
       <input type="hidden" name="guardar" value="TRUE"/>
       <div class="row">
       {loop="$fsc->folders()"}

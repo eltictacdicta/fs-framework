@@ -6,6 +6,9 @@ use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 use Twig\Source;
 use FacturaScripts\Core\Template\RainToTwig;
+use FSFramework\Translation\FSTranslator;
+use FSFramework\Twig\TranslationExtension;
+use FSFramework\Security\CsrfManager;
 
 /**
  * Bridge for HTML rendering (RainTPL + Twig)
@@ -56,6 +59,11 @@ class Html
                 'cache' => FS_FOLDER . '/tmp/twig_cache',
                 'debug' => true,
             ]);
+
+            // Initialize the translation system and register Twig extension
+            FSTranslator::initialize(FS_FOLDER);
+            FSTranslator::loadAllPluginTranslations();
+            self::$twig->addExtension(new TranslationExtension());
 
             // Register common PHP functions as Twig functions
             $phpFunctions = [
@@ -119,6 +127,22 @@ class Html
                 }
                 return str_ends_with($file, '.html') ? $file : $file . '.html';
             }));
+
+            // Register CSRF protection functions
+            self::$twig->addFunction(new \Twig\TwigFunction(
+                'csrf_token',
+                [CsrfManager::class, 'generateToken']
+            ));
+            self::$twig->addFunction(new \Twig\TwigFunction(
+                'csrf_field',
+                [CsrfManager::class, 'field'],
+                ['is_safe' => ['html']]
+            ));
+            self::$twig->addFunction(new \Twig\TwigFunction(
+                'csrf_meta',
+                [CsrfManager::class, 'metaTag'],
+                ['is_safe' => ['html']]
+            ));
 
             // Load plugin functions.php files and register custom functions
             foreach ($GLOBALS['plugins'] ?? [] as $plugin) {

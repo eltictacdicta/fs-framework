@@ -35,6 +35,7 @@
 
 <div class="container-fluid">
     <form action="{$fsc->model->url('edit')}" method="post" class="form">
+        {{ csrf_field() }}
         <input type="hidden" name="action" value="edit"/>
         <input type="hidden" name="petition_id" value="{$fsc->random_string()}"/>
         <div class="row">

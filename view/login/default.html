@@ -116,6 +116,7 @@
    {/if}
    
    <form name="f_login" action="index.php?nlogin={$nlogin}" method="post" class="form" role="form">
+      {{ csrf_field() }}
       <div id="box_login" class="container">
          <div class="row">
             <div class="col-md-6 col-md-offset-3">
@@ -193,6 +194,7 @@
       <div class="modal-dialog">
          <div class="modal-content">
             <form name="f_new_password" action="index.php" method="post" class="form" role="form">
+               {{ csrf_field() }}
                <div class="modal-header">
                   <button type="button" class="close" data-dismiss="modal">
                      <span aria-hidden="true">&times;</span><span class="sr-only">Cerrar</span>

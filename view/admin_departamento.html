@@ -33,6 +33,7 @@
 </script>
 
 <form action="{$fsc->departamento->url()}" method="post" class="form" id="f_departamento">
+   {{ csrf_field() }}
    <div class="container-fluid">
       <div class="row">
          <div class="col-sm-6">

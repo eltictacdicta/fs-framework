@@ -42,6 +42,7 @@
 
 {if="$fsc->agente"}
 <form name="f_editar_agente" class="form" role="form" action="{$fsc->url()}" method="post">
+    {{ csrf_field() }}
     <input type="hidden" name="codagente" value="{$fsc->agente->codagente}"/>
 
     <div class="container-fluid">

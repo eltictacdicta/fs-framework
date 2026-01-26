@@ -36,8 +36,8 @@ This codebase currently has **no automated tests**. Do not attempt to run test c
 ## Code Style Guidelines
 
 ### PHP Version Compatibility
-- Minimum PHP 5.6, optimized for PHP 8.1
-- Avoid PHP 8+ specific syntax unless necessary for fixes
+- Minimum PHP 8.2 (required for Symfony 7.4)
+- Uses modern PHP 8 features including attributes and typed properties
 
 ### File Header
 All PHP files must include the license header:
@@ -187,3 +187,199 @@ require_once 'base/fs_db2.php';
 2. Controller patterns: Use `filter_input()` for form data
 3. URL generation: Use `$this->url()` or direct `index.php?page=...`
 4. Default items: Use `$this->default_items` for series, warehouses, etc.
+
+### Internationalization (i18n)
+
+FSFramework includes a translation system based on Symfony Translation Component.
+
+#### Using Translations in Templates (Twig)
+```twig
+{# As function #}
+{{ trans('login-text') }}
+{{ trans('hello', {'%name%': 'Juan'}) }}
+
+{# As filter #}
+{{ 'save'|trans }}
+```
+
+#### Using Translations in PHP
+```php
+use FSFramework\Translation\FSTranslator;
+
+// Simple translation
+echo FSTranslator::trans('login-text');
+
+// With parameters
+echo FSTranslator::trans('hello', ['%name%' => 'Juan']);
+
+// Change locale
+FSTranslator::setLocale('en_EN');
+```
+
+#### Creating Translations for Plugins
+
+**New format (recommended):** `plugins/MyPlugin/translations/messages.{locale}.yaml`
+```yaml
+# plugins/MyPlugin/translations/messages.es.yaml
+my-plugin-title: "Mi Plugin"
+my-button: "Ejecutar"
+```
+
+**FS2025 format (compatibility):** `plugins/MyPlugin/Translation/{locale}.json`
+```json
+{
+    "my-plugin-title": "Mi Plugin",
+    "my-button": "Ejecutar"
+}
+```
+
+See `docs/TRANSLATION.md` for complete documentation.
+
+### Security: CSRF Protection
+
+FSFramework includes CSRF (Cross-Site Request Forgery) protection using Symfony Security CSRF.
+
+#### Using CSRF in Templates
+
+```twig
+{# Add to any form with method="post" #}
+<form method="post" action="{{ fsc.url() }}">
+    {{ csrf_field() }}
+    <input type="text" name="campo" />
+    <button type="submit">Guardar</button>
+</form>
+
+{# For AJAX requests, include meta tag in head #}
+{{ csrf_meta() }}
+```
+
+#### Configuration
+
+Add to `config.php`:
+```php
+// CSRF mode: false = soft (warnings only), true = strict (blocks invalid requests)
+define('FS_CSRF_STRICT', false);
+```
+
+#### Checking CSRF in Controllers
+
+```php
+// CSRF is automatically validated in pre_private_core()
+// Check if validation passed:
+if (!$this->isCsrfValid()) {
+    // Log for auditing during transition period
+    error_log("Form submitted without valid CSRF token");
+}
+```
+
+### Event System
+
+FSFramework includes an event dispatcher compatible with legacy extensions.
+
+#### Dispatching Events
+
+```php
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Event\ModelEvent;
+
+// Get dispatcher instance
+$dispatcher = FSEventDispatcher::getInstance();
+
+// Dispatch model events
+$event = $dispatcher->dispatchModelEvent('before_save', $myModel);
+if ($event->isCancelled()) {
+    return false;
+}
+```
+
+#### Listening to Events
+
+```php
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Event\ModelEvent;
+
+$dispatcher = FSEventDispatcher::getInstance();
+
+$dispatcher->addListener(ModelEvent::BEFORE_SAVE, function(ModelEvent $event) {
+    $model = $event->getModel();
+    // Validate or modify before save
+    if (!$model->isValid()) {
+        $event->cancel('Invalid data');
+    }
+});
+```
+
+#### Available Events
+
+- `controller.before_action`: Before private_core() executes
+- `controller.after_action`: After private_core() completes
+- `model.before_save`: Before a model is saved
+- `model.after_save`: After a model is saved successfully
+- `model.before_delete`: Before a model is deleted
+- `model.after_delete`: After a model is deleted successfully
+
+### Model Validation (Symfony Validator)
+
+FSFramework supports Symfony Validator constraints via the `ValidatorTrait`.
+
+#### Using Validation in Models
+
+```php
+use FSFramework\Traits\ValidatorTrait;
+use Symfony\Component\Validator\Constraints as Assert;
+
+class MiModelo extends fs_model {
+    use ValidatorTrait;
+    
+    #[Assert\NotBlank(message: 'El código es obligatorio')]
+    #[Assert\Length(max: 10, maxMessage: 'Máximo 10 caracteres')]
+    public $codigo;
+    
+    #[Assert\Email(message: 'Email inválido')]
+    public $email;
+    
+    #[Assert\PositiveOrZero]
+    public $cantidad;
+    
+    public function test() {
+        // Use Symfony validation
+        if (!$this->validate()) {
+            return false;
+        }
+        // Additional legacy validations if needed
+        return parent::test();
+    }
+}
+```
+
+#### Dynamic Validation (without attributes)
+
+```php
+// Validate a single value
+$isValid = $this->validateValue($email, [
+    new Assert\NotBlank(),
+    new Assert\Email()
+]);
+
+// Using the fluent builder
+$constraints = self::constraints()
+    ->notBlank()
+    ->length(min: 1, max: 100)
+    ->get();
+
+$isValid = $this->validateValue($value, $constraints);
+```
+
+### Symfony Components Used
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| `symfony/http-foundation` | ^7.4 | Request/Response handling |
+| `symfony/routing` | ^7.4 | Modern routing with attributes |
+| `symfony/security-csrf` | ^7.4 | CSRF token protection |
+| `symfony/event-dispatcher` | ^7.4 | Event system |
+| `symfony/validator` | ^7.4 | Model validation |
+| `symfony/translation` | ^7.4 | Internationalization |
+| `symfony/cache` | ^7.4 | Caching |
+| `symfony/console` | ^7.4 | CLI commands |
+| `twig/twig` | ^3.0 | Template engine |
