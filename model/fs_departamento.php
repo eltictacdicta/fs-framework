@@ -122,7 +122,9 @@ class fs_departamento extends fs_model
      */
     public function count_users()
     {
-        $data = $this->db->select("SELECT COUNT(*) as total FROM fs_departamentos_users WHERE coddepartamento = " . $this->var2str($this->coddepartamento) . ";");
+        // Instanciar el modelo para asegurar que la tabla existe
+        $du = new fs_departamento_user();
+        $data = $this->db->select("SELECT COUNT(*) as total FROM " . $du->table_name() . " WHERE coddepartamento = " . $this->var2str($this->coddepartamento) . ";");
         if ($data) {
             return intval($data[0]['total']);
         }
@@ -135,7 +137,9 @@ class fs_departamento extends fs_model
      */
     public function count_admins()
     {
-        $data = $this->db->select("SELECT COUNT(*) as total FROM fs_departamentos_users WHERE coddepartamento = " . $this->var2str($this->coddepartamento) . " AND es_admin = TRUE;");
+        // Instanciar el modelo para asegurar que la tabla existe
+        $du = new fs_departamento_user();
+        $data = $this->db->select("SELECT COUNT(*) as total FROM " . $du->table_name() . " WHERE coddepartamento = " . $this->var2str($this->coddepartamento) . " AND es_admin = TRUE;");
         if ($data) {
             return intval($data[0]['total']);
         }
@@ -240,8 +244,10 @@ class fs_departamento extends fs_model
     {
         $lista = [];
 
+        // Instanciar el modelo para asegurar que la tabla existe
+        $du = new fs_departamento_user();
         $sql = "SELECT * FROM " . $this->table_name . " WHERE coddepartamento IN "
-            . "(SELECT coddepartamento FROM fs_departamentos_users WHERE fs_user = " . $this->var2str($nick) . ");";
+            . "(SELECT coddepartamento FROM " . $du->table_name() . " WHERE fs_user = " . $this->var2str($nick) . ");";
         $data = $this->db->select($sql);
         if ($data) {
             foreach ($data as $d) {
@@ -261,8 +267,10 @@ class fs_departamento extends fs_model
     {
         $lista = [];
 
+        // Instanciar el modelo para asegurar que la tabla existe
+        $du = new fs_departamento_user();
         $sql = "SELECT * FROM " . $this->table_name . " WHERE coddepartamento IN "
-            . "(SELECT coddepartamento FROM fs_departamentos_users WHERE fs_user = " . $this->var2str($nick) . " AND es_admin = TRUE);";
+            . "(SELECT coddepartamento FROM " . $du->table_name() . " WHERE fs_user = " . $this->var2str($nick) . " AND es_admin = TRUE);";
         $data = $this->db->select($sql);
         if ($data) {
             foreach ($data as $d) {
