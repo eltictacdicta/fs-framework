@@ -34,7 +34,28 @@ class admin_info extends fs_list_controller
 
     public function cache_version()
     {
+        // Usar el nuevo CacheManager si está disponible
+        if (class_exists('FSFramework\\Cache\\CacheManager')) {
+            return \FSFramework\Cache\CacheManager::getInstance()->version();
+        }
+        // Fallback al sistema legacy
         return $this->cache->version();
+    }
+
+    /**
+     * Obtiene información detallada del sistema de caché.
+     * 
+     * @return array
+     */
+    public function cache_info()
+    {
+        if (class_exists('FSFramework\\Cache\\CacheManager')) {
+            return \FSFramework\Cache\CacheManager::getInstance()->getInfo();
+        }
+        return [
+            'type' => $this->cache->version(),
+            'legacy' => true
+        ];
     }
 
     public function fs_db_name()
@@ -134,10 +155,7 @@ class admin_info extends fs_list_controller
             $cron_vars['cron_lock'] = FALSE;
             $this->fsvar->array_save($cron_vars);
         } else if (isset($_GET['clean_cache'])) {
-            fs_file_manager::clear_raintpl_cache();
-            if ($this->cache->clean()) {
-                $this->new_message("Cache limpiada correctamente.");
-            }
+            $this->clean_all_cache();
         } else if (!$cron_vars['cron_exists']) {
             $this->new_advice('Nunca se ha ejecutado el'
                 . ' <a href="https://github.com/eltictacdicta/fs-framework/doc/2/configuracion/en-cron" target="_blank">cron</a>,'
@@ -158,5 +176,55 @@ class admin_info extends fs_list_controller
         }
 
         return true;
+    }
+
+    /**
+     * Limpia todas las cachés del sistema.
+     * Usa el nuevo CacheManager con soporte legacy.
+     */
+    protected function clean_all_cache()
+    {
+        $messages = [];
+        $hasErrors = false;
+
+        // Usar el nuevo CacheManager si está disponible
+        if (class_exists('FSFramework\\Cache\\CacheManager')) {
+            $cacheManager = \FSFramework\Cache\CacheManager::getInstance();
+            $results = $cacheManager->clearAll();
+            
+            foreach ($results as $type => $success) {
+                $typeName = match($type) {
+                    'symfony' => 'Caché Symfony',
+                    'twig' => 'Caché Twig',
+                    'legacy_templates' => 'Plantillas RainTPL',
+                    'legacy_file_cache' => 'Caché de archivos legacy',
+                    'legacy_memcache' => 'Memcache legacy',
+                    default => ucfirst($type)
+                };
+                
+                if ($success) {
+                    $messages[] = $typeName . ' limpiada';
+                } else {
+                    $messages[] = $typeName . ' (error)';
+                    $hasErrors = true;
+                }
+            }
+            
+            if (!$hasErrors) {
+                $this->new_message('Caché limpiada correctamente: ' . implode(', ', $messages));
+            } else {
+                $this->new_advice('Caché parcialmente limpiada: ' . implode(', ', $messages));
+            }
+        } else {
+            // Fallback al sistema legacy
+            fs_file_manager::clear_raintpl_cache();
+            fs_file_manager::clear_twig_cache();
+            
+            if ($this->cache->clean()) {
+                $this->new_message('Caché limpiada correctamente (modo legacy).');
+            } else {
+                $this->new_error_msg('Error al limpiar la caché.');
+            }
+        }
     }
 }

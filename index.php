@@ -30,13 +30,15 @@ if (!file_exists('config.php')) {
 
 define('FS_FOLDER', __DIR__);
 
-/// Carga de dependencias y Kernel moderno
+/// Carga de dependencias
 require_once __DIR__ . '/vendor/autoload.php';
-\FSFramework\Core\Kernel::boot();
 
-/// cargamos las constantes de configuración
+/// cargamos las constantes de configuración (DEBE ser antes de Kernel::boot para que $GLOBALS['plugins'] esté disponible)
 require_once 'config.php';
 require_once 'base/config2.php';
+
+/// Boot del Kernel moderno (inicializa plugins de FS2025)
+\FSFramework\Core\Kernel::boot();
 
 /// --- Symfony Routing Bridge ---
 try {
@@ -104,6 +106,7 @@ if (filter_input(INPUT_GET, 'page')) {
 }
 
 // Support for Modern Controllers (Bridge) - High Priority to avoid legacy 404 headers
+// FS2025 plugins use Controller/ folder with PascalCase class names
 if (!empty($pagename)) {
     if (isset($GLOBALS['plugins'])) {
         foreach ($GLOBALS['plugins'] as $plugin) {
@@ -113,25 +116,53 @@ if (!empty($pagename)) {
                     if (substr($file, -4) === '.php') {
                         $className = substr($file, 0, -4);
                         $fullClass = "FacturaScripts\\Plugins\\$plugin\\Controller\\$className";
-                        if (class_exists($fullClass)) {
-                            $temp = new $fullClass();
-                            $cName = $className;
-                            if (method_exists($temp, 'getPageData')) {
-                                $pd = $temp->getPageData();
-                                if (isset($pd['name']))
-                                    $cName = $pd['name'];
+                        
+                        // Skip if class doesn't exist (autoloader didn't find it)
+                        if (!class_exists($fullClass)) {
+                            continue;
+                        }
+                        
+                        // Check if this controller matches the requested page
+                        // FS2025 controllers can define 'name' in getPageData() or use class name
+                        $cName = $className;
+                        
+                        // Use reflection to check getPageData without instantiating
+                        $reflection = new \ReflectionClass($fullClass);
+                        if ($reflection->hasMethod('getPageData')) {
+                            // Instantiate to get page data
+                            try {
+                                // Create without running constructor logic by using newInstanceWithoutConstructor
+                                // then manually call getPageData
+                                $tempInstance = $reflection->newInstanceWithoutConstructor();
+                                if (method_exists($tempInstance, 'getPageData')) {
+                                    $pd = $tempInstance->getPageData();
+                                    if (isset($pd['name']) && !empty($pd['name'])) {
+                                        $cName = $pd['name'];
+                                    }
+                                }
+                            } catch (\Throwable $e) {
+                                // If reflection fails, just use class name
                             }
+                        }
 
-                            if ($cName === $pagename) {
-                                // FOUND IT!
-                                if (method_exists($temp, 'handle')) {
-                                    $resp = $temp->handle(\FSFramework\Core\Kernel::request());
-                                    $resp->send();
+                        if ($cName === $pagename) {
+                            // FOUND IT! Create proper instance and run
+                            try {
+                                $controller = new $fullClass();
+                                
+                                if (method_exists($controller, 'handle')) {
+                                    $resp = $controller->handle(\FSFramework\Core\Kernel::request());
+                                    if ($resp) {
+                                        $resp->send();
+                                    }
                                     exit;
-                                } elseif (method_exists($temp, 'run')) {
-                                    $temp->run();
+                                } elseif (method_exists($controller, 'run')) {
+                                    $controller->run();
                                     exit;
                                 }
+                            } catch (\Throwable $e) {
+                                error_log("Error loading modern controller $fullClass: " . $e->getMessage());
+                                // Continue to try legacy controller
                             }
                         }
                     }
@@ -145,24 +176,48 @@ $fsc_error = FALSE;
 if ($pagename == '') {
     $fsc = new fs_controller();
 } else {
-    $class_path = find_controller($pagename);
-    require_once $class_path;
-
-    try {
-        /// ¿No se ha encontrado el controlador?
-        if ('base/fs_controller.php' === $class_path) {
-            header("HTTP/1.0 404 Not Found");
-            $fsc = new fs_controller();
-        } else {
-            $fsc = new $pagename();
+    // First check if it's a FS2025 modern controller
+    $modernController = find_modern_controller($pagename);
+    
+    if ($modernController) {
+        // FS2025 controller - use full namespace class
+        try {
+            $fsc = new $modernController['class']();
+            if (method_exists($fsc, 'run')) {
+                $fsc->run();
+                exit;
+            }
+        } catch (\Throwable $exc) {
+            echo "<h1>Error fatal (FS2025)</h1>"
+                . "<ul>"
+                . "<li><b>Clase:</b> " . $modernController['class'] . "</li>"
+                . "<li><b>Código:</b> " . $exc->getCode() . "</li>"
+                . "<li><b>Mensaje:</b> " . $exc->getMessage() . "</li>"
+                . "<li><b>Archivo:</b> " . $exc->getFile() . ":" . $exc->getLine() . "</li>"
+                . "</ul>";
+            $fsc_error = TRUE;
         }
-    } catch (Exception $exc) {
-        echo "<h1>Error fatal</h1>"
-            . "<ul>"
-            . "<li><b>Código:</b> " . $exc->getCode() . "</li>"
-            . "<li><b>Mensage:</b> " . $exc->getMessage() . "</li>"
-            . "</ul>";
-        $fsc_error = TRUE;
+    } else {
+        // Legacy controller handling
+        $class_path = find_controller($pagename);
+        require_once $class_path;
+
+        try {
+            /// ¿No se ha encontrado el controlador?
+            if ('base/fs_controller.php' === $class_path) {
+                header("HTTP/1.0 404 Not Found");
+                $fsc = new fs_controller();
+            } else {
+                $fsc = new $pagename();
+            }
+        } catch (Exception $exc) {
+            echo "<h1>Error fatal</h1>"
+                . "<ul>"
+                . "<li><b>Código:</b> " . $exc->getCode() . "</li>"
+                . "<li><b>Mensaje:</b> " . $exc->getMessage() . "</li>"
+                . "</ul>";
+            $fsc_error = TRUE;
+        }
     }
 }
 

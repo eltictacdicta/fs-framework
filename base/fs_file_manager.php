@@ -52,6 +52,27 @@ class fs_file_manager
     }
 
     /**
+     * Clear Twig template cache files.
+     */
+    public static function clear_twig_cache()
+    {
+        $twigCacheDir = FS_FOLDER . '/tmp/twig_cache';
+        if (file_exists($twigCacheDir) && is_dir($twigCacheDir)) {
+            self::del_tree($twigCacheDir);
+            @mkdir($twigCacheDir, 0777, true);
+        }
+    }
+
+    /**
+     * Clear all template caches (RainTPL + Twig).
+     */
+    public static function clear_all_template_cache()
+    {
+        self::clear_raintpl_cache();
+        self::clear_twig_cache();
+    }
+
+    /**
      * Recursive delete directory.
      *
      * @param string $folder

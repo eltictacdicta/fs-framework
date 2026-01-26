@@ -370,6 +370,208 @@ $constraints = self::constraints()
 $isValid = $this->validateValue($value, $constraints);
 ```
 
+### Dependency Injection Container
+
+FSFramework includes a Service Container compatible with legacy code.
+
+#### Using the Container (Service Locator pattern)
+
+```php
+use FSFramework\DependencyInjection\Container;
+
+// Get services
+$db = Container::get('db');
+$request = Container::get('request');
+$events = Container::get('event_dispatcher');
+
+// Shortcuts for common services
+$db = Container::db();
+$request = Container::request();
+$hasher = Container::passwordHasher();
+
+// Get any class (auto-wired)
+$empresa = Container::get(Empresa::class);
+```
+
+#### Registering Custom Services
+
+```php
+// In a plugin's config/services.php
+return function(\Symfony\Component\DependencyInjection\ContainerBuilder $container) {
+    $container->register('my_service', MyService::class)
+        ->setPublic(true)
+        ->setAutowired(true);
+};
+```
+
+### Password Hashing (Secure)
+
+FSFramework provides secure password hashing with automatic legacy migration.
+
+```php
+use FSFramework\Security\PasswordHasherService;
+
+$hasher = new PasswordHasherService();
+
+// Hash a new password (uses bcrypt by default)
+$hash = $hasher->hash('my_password');
+
+// Verify password
+if ($hasher->verify($hash, 'my_password')) {
+    // Password correct
+}
+
+// Verify with automatic migration from SHA1/MD5 legacy
+$storedHash = $user->password;
+if ($hasher->verifyAndMigrate($storedHash, $plainPassword, $legacySalt, function($newHash) use ($user) {
+    $user->password = $newHash;
+    $user->save();
+})) {
+    // Password correct, migrated to bcrypt if it was legacy
+}
+```
+
+### User Security Adapter
+
+Wrap `fs_user` for Symfony Security compatibility:
+
+```php
+use FSFramework\Security\UserAdapter;
+
+// Create adapter from existing fs_user
+$adapter = new UserAdapter($fsUser);
+
+// Or load by nick
+$adapter = UserAdapter::fromNick('admin');
+
+// Use Symfony Security methods
+$roles = $adapter->getRoles();           // ['ROLE_USER', 'ROLE_ADMIN', ...]
+$identifier = $adapter->getUserIdentifier(); // 'admin'
+
+// Check permissions
+if ($adapter->hasAccessTo('admin_users')) { ... }
+if ($adapter->canDeleteIn('ventas')) { ... }
+```
+
+### Form Helper
+
+Create Symfony Forms with CSRF protection:
+
+```php
+use FSFramework\Form\FormHelper;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\Core\Type\EmailType;
+use Symfony\Component\Form\Extension\Core\Type\SubmitType;
+
+// Create form
+$form = FormHelper::create()
+    ->add('nombre', TextType::class, ['label' => 'Nombre'])
+    ->add('email', EmailType::class)
+    ->add('guardar', SubmitType::class, ['label' => 'Guardar'])
+    ->getForm();
+
+// Handle request
+if (FormHelper::handleRequest($form)) {
+    $data = $form->getData();
+    // Process form...
+}
+
+// Or create from model
+$form = FormHelper::createForModel($cliente, [
+    'nombre' => FormHelper::TEXT,
+    'email' => FormHelper::EMAIL,
+    'activo' => FormHelper::CHECKBOX,
+]);
+```
+
+### Cache Management (Symfony Cache)
+
+FSFramework includes a unified cache system using Symfony Cache, optimized for administrative systems where changes must be reflected quickly.
+
+#### Features
+
+- **Short default TTL (180s)**: Ideal for admin systems where data changes frequently
+- **Multiple adapters**: ArrayAdapter (per-request) + FilesystemAdapter + Memcached (if available)
+- **Legacy support**: Integrates with existing fs_cache, RainTPL, and Twig cache
+- **Unified clearing**: One method to clear all cache types
+
+#### Using CacheManager
+
+```php
+use FSFramework\Cache\CacheManager;
+use FSFramework\DependencyInjection\Container;
+
+// Get instance via Container
+$cache = Container::cache();
+
+// Or directly
+$cache = CacheManager::getInstance();
+
+// Get with callback (recommended - auto-generates if missing)
+$users = $cache->get('all_users', function() {
+    return $this->db->select("SELECT * FROM fs_users");
+});
+
+// Get with custom TTL (60 seconds)
+$stats = $cache->get('dashboard_stats', fn() => $this->calculateStats(), 60);
+
+// Simple get/set
+$cache->set('my_key', $value, CacheManager::SHORT_TTL);
+$value = $cache->getItem('my_key', $default);
+
+// Check existence
+if ($cache->has('my_key')) { ... }
+
+// Delete
+$cache->delete('my_key');
+$cache->deleteMultiple(['key1', 'key2']);
+```
+
+#### TTL Constants
+
+| Constant | Value | Use Case |
+|----------|-------|----------|
+| `SHORT_TTL` | 30s | Very dynamic data (counters, status) |
+| `DEFAULT_TTL` | 180s | Standard cache for admin systems |
+| `MEDIUM_TTL` | 600s | Semi-static data (config, menus) |
+| `LONG_TTL` | 3600s | Rarely changing data |
+
+#### Clearing Cache
+
+```php
+// Clear application cache only
+$cache->clear();
+
+// Clear Twig template cache only
+$cache->clearTwigCache();
+
+// Clear legacy RainTPL templates
+$cache->clearLegacyTemplateCache();
+
+// Clear ALL caches (Symfony + Twig + RainTPL + php_file_cache + Memcache)
+$results = $cache->clearAll();
+// Returns: ['symfony' => true, 'twig' => true, 'legacy_templates' => true, ...]
+
+// Check if all cleared successfully
+if ($cache->clearAllSuccessful()) {
+    echo "All caches cleared!";
+}
+```
+
+#### Cache Information
+
+```php
+$info = $cache->getInfo();
+// Returns: ['type' => 'Symfony Cache', 'adapters' => [...], 'memcached_available' => bool, ...]
+
+$version = $cache->version();
+// Returns: 'Symfony Cache + Memcached' or 'Symfony Cache (Filesystem)'
+```
+
+#### Admin Interface
+
+The "Limpiar caché" button in admin_info (`index.php?page=admin_info&clean_cache=TRUE`) now clears all cache types and shows detailed results.
+
 ### Symfony Components Used
 
 | Component | Version | Purpose |
@@ -377,8 +579,11 @@ $isValid = $this->validateValue($value, $constraints);
 | `symfony/http-foundation` | ^7.4 | Request/Response handling |
 | `symfony/routing` | ^7.4 | Modern routing with attributes |
 | `symfony/security-csrf` | ^7.4 | CSRF token protection |
+| `symfony/security-core` | ^7.4 | User authentication, password hashing |
 | `symfony/event-dispatcher` | ^7.4 | Event system |
 | `symfony/validator` | ^7.4 | Model validation |
+| `symfony/dependency-injection` | ^7.4 | Service container |
+| `symfony/form` | ^7.4 | Form handling |
 | `symfony/translation` | ^7.4 | Internationalization |
 | `symfony/cache` | ^7.4 | Caching |
 | `symfony/console` | ^7.4 | CLI commands |

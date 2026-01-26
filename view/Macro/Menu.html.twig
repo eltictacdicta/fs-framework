@@ -1,0 +1,220 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * Menu rendering macros for sidebar and navigation
+ */
+#}
+
+{#
+ * Render a single menu item
+ * @param object page - Page object with url(), title, showing()
+ * @param boolean isActive - Whether this item is active
+ #}
+{% macro menuItem(page, isActive) %}
+<li{% if isActive %} class="active"{% endif %}>
+    <a href="{{ page.url() }}">
+        {% if page.icon is defined and page.icon %}
+            <i class="fa fa-{{ page.icon }}" aria-hidden="true"></i>
+        {% else %}
+            <i class="fa fa-circle-o" aria-hidden="true"></i>
+        {% endif %}
+        <span>{{ page.title }}</span>
+    </a>
+</li>
+{% endmacro %}
+
+{#
+ * Render a treeview menu group (AdminLTE sidebar)
+ * @param string folder - Folder name
+ * @param array pages - Array of page objects
+ * @param boolean isActive - Whether this folder is active
+ * @param string icon - Folder icon
+ #}
+{% macro treeviewMenu(folder, pages, isActive, icon) %}
+<li class="treeview{% if isActive %} active{% endif %}">
+    <a href="#">
+        <i class="fa fa-{{ icon|default('folder') }}" aria-hidden="true"></i>
+        <span class="text-capitalize">{{ folder }}</span>
+        <span class="pull-right-container">
+            <i class="fa fa-angle-left pull-right"></i>
+        </span>
+    </a>
+    <ul class="treeview-menu">
+        {% for page in pages %}
+        <li{% if page.showing is defined and page.showing() %} class="active"{% endif %}>
+            <a href="{{ page.url() }}">
+                {% if page.icon is defined and page.icon %}
+                    <i class="fa fa-{{ page.icon }}" aria-hidden="true"></i>
+                {% else %}
+                    <i class="fa fa-circle-o" aria-hidden="true"></i>
+                {% endif %}
+                {{ page.title }}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</li>
+{% endmacro %}
+
+{#
+ * Render a dropdown menu in navbar
+ * @param string title - Dropdown title
+ * @param string icon - Dropdown icon
+ * @param array items - Array of menu items
+ #}
+{% macro navbarDropdown(title, icon, items) %}
+<li class="dropdown">
+    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+        {% if icon %}<i class="fa fa-{{ icon }}" aria-hidden="true"></i>{% endif %}
+        {% if title %}<span class="hidden-xs">{{ title }}</span>{% endif %}
+    </a>
+    <ul class="dropdown-menu">
+        {% for item in items %}
+            {% if item.divider is defined and item.divider %}
+            <li class="divider"></li>
+            {% else %}
+            <li>
+                <a href="{{ item.url }}">
+                    {% if item.icon %}<i class="fa fa-{{ item.icon }}" aria-hidden="true"></i>{% endif %}
+                    {{ item.label }}
+                </a>
+            </li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+</li>
+{% endmacro %}
+
+{#
+ * Render breadcrumbs
+ * @param array items - Array of breadcrumb items [{label, url}]
+ #}
+{% macro breadcrumbs(items) %}
+<ol class="breadcrumb">
+    {% for item in items %}
+        {% if loop.last %}
+        <li class="active">{{ item.label }}</li>
+        {% else %}
+        <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+        {% endif %}
+    {% endfor %}
+</ol>
+{% endmacro %}
+
+{#
+ * Render pagination
+ * @param int currentPage - Current page number
+ * @param int totalPages - Total number of pages
+ * @param string baseUrl - Base URL for pagination links
+ #}
+{% macro pagination(currentPage, totalPages, baseUrl) %}
+{% if totalPages > 1 %}
+<nav aria-label="Page navigation">
+    <ul class="pagination">
+        {# Previous button #}
+        <li{% if currentPage <= 1 %} class="disabled"{% endif %}>
+            <a href="{% if currentPage > 1 %}{{ baseUrl }}&page={{ currentPage - 1 }}{% else %}#{% endif %}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+        
+        {# Page numbers #}
+        {% set start = max(1, currentPage - 2) %}
+        {% set end = min(totalPages, currentPage + 2) %}
+        
+        {% if start > 1 %}
+        <li><a href="{{ baseUrl }}&page=1">1</a></li>
+        {% if start > 2 %}<li class="disabled"><span>...</span></li>{% endif %}
+        {% endif %}
+        
+        {% for i in start..end %}
+        <li{% if i == currentPage %} class="active"{% endif %}>
+            <a href="{{ baseUrl }}&page={{ i }}">{{ i }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if end < totalPages %}
+        {% if end < totalPages - 1 %}<li class="disabled"><span>...</span></li>{% endif %}
+        <li><a href="{{ baseUrl }}&page={{ totalPages }}">{{ totalPages }}</a></li>
+        {% endif %}
+        
+        {# Next button #}
+        <li{% if currentPage >= totalPages %} class="disabled"{% endif %}>
+            <a href="{% if currentPage < totalPages %}{{ baseUrl }}&page={{ currentPage + 1 }}{% else %}#{% endif %}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
+{% endmacro %}
+
+{#
+ * Get icon for menu folder (AdminLTE style)
+ * Maps folder names to Font Awesome icons
+ * @param string folder - Folder name
+ #}
+{% macro folderIcon(folder) %}
+{% set icons = {
+    'admin': 'wrench',
+    'ventas': 'shopping-cart',
+    'compras': 'truck',
+    'almacen': 'cubes',
+    'contabilidad': 'book',
+    'informes': 'bar-chart',
+    'utilidades': 'cogs',
+    'configuracion': 'cog',
+    'ayuda': 'question-circle'
+} %}
+<i class="fa fa-{{ icons[folder|lower]|default('folder') }}" aria-hidden="true"></i>
+{% endmacro %}
+
+{#
+ * Render tabs navigation (Bootstrap 5 style mapped to BS3)
+ * @param array tabs - Array of tab definitions [{id, label, active}]
+ #}
+{% macro tabsNav(tabs) %}
+<ul class="nav nav-pills mb-3" role="tablist">
+    {% for tab in tabs %}
+    <li class="nav-item" role="presentation">
+        <button class="nav-link{% if tab.active %} active{% endif %}" 
+                id="{{ tab.id }}-tab" 
+                data-bs-toggle="tab" 
+                data-bs-target="#{{ tab.id }}"
+                type="button" 
+                role="tab" 
+                aria-controls="{{ tab.id }}" 
+                aria-selected="{{ tab.active ? 'true' : 'false' }}">
+            {% if tab.icon %}<i class="fa fa-{{ tab.icon }} me-2"></i>{% endif %}
+            {{ tab.label }}
+        </button>
+    </li>
+    {% endfor %}
+</ul>
+{% endmacro %}
+
+{#
+ * Start tab content container
+ #}
+{% macro tabContentStart() %}
+<div class="tab-content" id="myTabContent">
+{% endmacro %}
+
+{#
+ * Render a tab pane
+ * @param string id - Tab pane ID
+ * @param boolean active - Whether this pane is active
+ #}
+{% macro tabPaneStart(id, active) %}
+<div class="tab-pane fade{% if active %} show active{% endif %}" id="{{ id }}" role="tabpanel" aria-labelledby="{{ id }}-tab">
+{% endmacro %}
+
+{% macro tabPaneEnd() %}
+</div>
+{% endmacro %}
+
+{% macro tabContentEnd() %}
+</div>
+{% endmacro %}

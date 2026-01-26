@@ -1,0 +1,263 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * Login page template (native Twig)
+ */
+#}
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>{{ trans('login') }} - FSFramework</title>
+    <meta name="description" content="FSFramework - Software de facturación y contabilidad" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content="FSFramework" />
+    <meta name="robots" content="noindex" />
+    
+    {% if file_exists('images/favicon.ico') %}
+    <link rel="shortcut icon" href="{{ constant('FS_PATH') }}images/favicon.ico" />
+    {% else %}
+    <link rel="shortcut icon" href="{{ constant('FS_PATH') }}view/img/favicon.ico" />
+    {% endif %}
+    
+    <link rel="stylesheet" href="{{ constant('FS_PATH') }}view/css/bootstrap-yeti.min.css" />
+    <link rel="stylesheet" href="{{ constant('FS_PATH') }}view/css/font-awesome.min.css" />
+    <link rel="stylesheet" href="{{ constant('FS_PATH') }}view/css/custom.css" />
+    <link rel="stylesheet" href="{{ constant('FS_PATH') }}view/css/bt5.css" />
+    
+    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.min.js"></script>
+    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.ui.shake.js"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        .login-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 450px;
+            width: 100%;
+            padding: 2rem;
+        }
+        .login-logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .login-logo img {
+            max-width: 120px;
+            height: auto;
+        }
+        .login-title {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+        .form-control-lg {
+            height: calc(1.5em + 1rem + 2px);
+            padding: 0.5rem 1rem;
+            font-size: 1.125rem;
+            border-radius: 0.5rem;
+        }
+        .btn-login {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            border-radius: 0.5rem;
+        }
+        .footer-links {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        .footer-links a {
+            color: #666;
+            margin: 0 0.5rem;
+        }
+        .alert {
+            border-radius: 0.5rem;
+        }
+    </style>
+    
+    <script type="text/javascript">
+        $(document).ready(function() {
+            {% if fsc.get_errors() %}
+            $("#login-card").effect("shake", { times: 3 }, 300);
+            {% endif %}
+            
+            {% if constant('FS_DEMO') is defined and constant('FS_DEMO') %}
+            document.f_login.user.focus();
+            {% else %}
+            document.f_login.password.focus();
+            {% endif %}
+            
+            $("#b_new_password").click(function(event) {
+                event.preventDefault();
+                $("#modal_new_password").modal('show');
+                document.f_new_password.new_password.focus();
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card" id="login-card">
+            {% if fsc.get_errors() %}
+            <div class="alert alert-danger alert-dismissible" role="alert">
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <ul class="mb-0 list-unstyled">
+                {% for error in fsc.get_errors() %}
+                    <li>{{ error|raw }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            {% if fsc.get_messages() %}
+            <div class="alert alert-success alert-dismissible" role="alert">
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <ul class="mb-0 list-unstyled">
+                {% for msg in fsc.get_messages() %}
+                    <li>{{ msg|raw }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <div class="login-logo">
+                {% if file_exists(constant('FS_MYDOCS') ~ 'images/logo.png') %}
+                <img src="images/logo.png" alt="Logo" />
+                {% elseif file_exists(constant('FS_MYDOCS') ~ 'images/logo.jpg') %}
+                <img src="images/logo.jpg" alt="Logo" />
+                {% else %}
+                <img src="{{ constant('FS_PATH') }}view/img/logo.png" alt="FSFramework" />
+                {% endif %}
+            </div>
+            
+            <div class="login-title">
+                <h2><i class="fa fa-user" aria-hidden="true"></i> {{ trans('login') }}</h2>
+                <p class="text-muted">
+                    {% if constant('FS_DEMO') is defined and constant('FS_DEMO') %}
+                    {{ trans('login-demo-text') }}
+                    {% else %}
+                    {{ trans('login-text') }}
+                    {% endif %}
+                </p>
+            </div>
+            
+            <form name="f_login" action="index.php?nlogin={{ nlogin }}" method="post">
+                {{ csrf_field() }}
+                
+                {% if constant('FS_DEMO') is defined and constant('FS_DEMO') %}
+                <input type="hidden" name="password" value="demo"/>
+                <div class="form-group mb-3">
+                    <input type="text" name="user" class="form-control form-control-lg" 
+                           placeholder="{{ trans('email') }}" required="" autocomplete="off"/>
+                </div>
+                {% else %}
+                <div class="form-group mb-3">
+                    <label class="form-label">{{ trans('user') }}</label>
+                    <select name="user" class="form-control form-control-lg" 
+                            onchange="document.f_login.password.focus()">
+                    {% for user in fsc.user.all() %}
+                        <option value="{{ user.nick }}"{% if user.nick == nlogin %} selected=""{% endif %}>
+                            {{ user.nick }}
+                        </option>
+                    {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label">{{ trans('password') }}</label>
+                    <input type="password" name="password" class="form-control form-control-lg" 
+                           maxlength="32" required="" placeholder="{{ trans('password') }}"/>
+                </div>
+                {% endif %}
+                
+                <button class="btn btn-primary btn-login btn-block w-100" type="submit" id="login">
+                    <i class="fa fa-sign-in" aria-hidden="true"></i>&nbsp; {{ trans('login') }}
+                </button>
+                
+                {% if not (constant('FS_DEMO') is defined and constant('FS_DEMO')) %}
+                <div class="text-center mt-3">
+                    <a href="#" id="b_new_password" class="text-muted">
+                        <small>{{ trans('forgot-password') }}</small>
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+            
+            <div class="footer-links">
+                <a href="https://github.com/eltictacdicta/fs-framework" target="_blank" rel="nofollow">
+                    <i class="fa fa-book"></i> {{ trans('documentation') }}
+                </a>
+                <a href="https://github.com/eltictacdicta/fs-framework/issues" target="_blank" rel="nofollow">
+                    <i class="fa fa-shield"></i> {{ trans('support') }}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    {# Modal para cambiar contraseña #}
+    {% if not (constant('FS_DEMO') is defined and constant('FS_DEMO')) %}
+    <div class="modal fade" id="modal_new_password" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form name="f_new_password" action="index.php" method="post">
+                    {{ csrf_field() }}
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                        <h4 class="modal-title">{{ trans('forgot-password') }}</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group mb-3">
+                            <label>{{ trans('user') }}</label>
+                            <select name="user" class="form-control">
+                            {% for user in fsc.user.all() %}
+                                <option value="{{ user.nick }}"{% if user.nick == nlogin %} selected=""{% endif %}>
+                                    {{ user.nick }}
+                                </option>
+                            {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>{{ trans('new-password') }}</label>
+                            <input type="password" class="form-control" name="new_password" 
+                                   maxlength="32" placeholder="{{ trans('new-password') }}" required=""/>
+                            <input type="password" class="form-control mt-2" name="new_password2" 
+                                   maxlength="32" placeholder="{{ trans('repeat-password') }}" required=""/>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>{{ trans('db-password') }}</label>
+                            <input type="password" class="form-control" name="db_password" 
+                                   placeholder="{{ trans('db-password') }}"/>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fa fa-wrench" aria-hidden="true"></i>&nbsp; {{ trans('change') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

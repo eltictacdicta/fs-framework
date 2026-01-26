@@ -1,0 +1,324 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see http://www.gnu.org/licenses/.
+ */
+#}
+{% extends "Master/Base.html.twig" %}
+
+{% block bodyContent %}
+<div class="wrapper">
+    {% block header %}
+    <header class="main-header">
+        {% block navbar %}
+        <nav class="navbar navbar-static-top" role="navigation">
+            <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button">
+                <span class="sr-only">{{ trans('menu') }}</span>
+            </a>
+            <div class="navbar-custom-menu">
+                <ul class="nav navbar-nav">
+                    {% block navbar_quick_access %}
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" title="{{ trans('quick-access') }}">
+                            <i class="fa fa-plus-square"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            {% set menu_empty = true %}
+                            {% for page in fsc.user.get_menu() %}
+                                {% if page.important %}
+                                <li><a href="{{ page.url() }}">{{ page.title }}</a></li>
+                                {% set menu_empty = false %}
+                                {% endif %}
+                            {% endfor %}
+                            {% if menu_empty %}
+                            <li><a href="#">{{ trans('empty') }}</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% endblock %}
+                    
+                    {% block navbar_updates %}
+                    {% if fsc.check_for_updates() %}
+                    <li>
+                        <a href="updater.php" target="_blank" class="bg-primary" title="{{ trans('updates-available') }}">
+                            <i class="fa fa-download hidden-xs"></i>
+                            <span class="visible-xs">{{ trans('updates') }}</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endblock %}
+                    
+                    {% block navbar_history %}
+                    {% if fsc.get_last_changes() %}
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                            <i class="fa fa-files-o"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            {% for change in fsc.get_last_changes() %}
+                            <li title="{% if change.nuevo %}{{ trans('created') }}{% else %}{{ trans('modified') }}{% endif %} {{ change.cambio }}">
+                                <a href="{{ change.url }}">
+                                    {% if change.nuevo %}
+                                    <i class="fa fa-file"></i>
+                                    {% else %}
+                                    <i class="fa fa-pencil-square-o"></i>
+                                    {% endif %}
+                                    {{ change.texto }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                    {% endif %}
+                    {% endblock %}
+                    
+                    {% block navbar_user %}
+                    <li class="dropdown user user-menu">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                            <img src="{{ get_gravatar(fsc.user.email) }}" class="user-image" alt="User Image" />
+                            <span class="hidden-xs">{{ fsc.user.nick }}</span>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li class="user-header">
+                                <img src="{{ get_gravatar(fsc.user.email) }}" class="img-circle" alt="User Image" />
+                                <p>
+                                    {{ fsc.user.get_agente_fullname() }}
+                                    <small>{{ fsc.user.email }}</small>
+                                    <small>{{ fsc.user.last_login }}</small>
+                                </p>
+                            </li>
+                            <li class="user-footer">
+                                <div class="pull-left">
+                                    <a href="{{ fsc.user.url() }}" class="btn btn-default btn-flat">
+                                        <i class="fa fa-user"></i> {{ trans('profile') }}
+                                    </a>
+                                </div>
+                                <div class="pull-right">
+                                    <a href="{{ fsc.url() }}&logout=TRUE" class="btn btn-default btn-flat">
+                                        <i class="fa fa-sign-out"></i> {{ trans('logout') }}
+                                    </a>
+                                </div>
+                            </li>
+                        </ul>
+                    </li>
+                    {% endblock %}
+                </ul>
+            </div>
+        </nav>
+        {% endblock %}
+    </header>
+    {% endblock %}
+    
+    {% block sidebar %}
+    <aside class="main-sidebar">
+        <section class="sidebar">
+            {% block sidebar_user_panel %}
+            <div class="user-panel">
+                <div class="pull-left image">
+                    <img src="{{ get_gravatar(fsc.user.email) }}" class="img-circle" alt="{{ fsc.user.nick }}" />
+                </div>
+                <div class="pull-left info">
+                    <p>{{ fsc.user.email }}</p>
+                    <a href="#"><i class="fa fa-circle text-success"></i> {{ fsc.user.nick }}</a>
+                </div>
+            </div>
+            {% endblock %}
+            
+            {% block sidebar_search %}
+            {% if in_array('community3', GLOBALS.plugins) %}
+            <form action="index.php?page=community_search" method="post" class="sidebar-form">
+                <div class="input-group">
+                    <input type="text" name="query" class="form-control" placeholder="{{ trans('search') }}..." autocomplete="off" />
+                    <span class="input-group-btn">
+                        <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                    </span>
+                </div>
+            </form>
+            {% elseif in_array('facturacion_base', GLOBALS.plugins) %}
+            <form action="index.php?page=ventas_articulos" method="post" class="sidebar-form">
+                <div class="input-group">
+                    <input type="text" name="query" class="form-control" placeholder="{{ trans('article') }}..." autocomplete="off" />
+                    <span class="input-group-btn">
+                        <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                    </span>
+                </div>
+            </form>
+            {% endif %}
+            {% endblock %}
+            
+            {% block sidebar_menu %}
+            {# Get current page name from URL for FS2025 plugin detection #}
+            {% set currentPage = app.request.get('page') ?? '' %}
+            {% if currentPage == '' and fsc.page is defined %}
+                {% set currentPage = fsc.page.name ?? '' %}
+            {% endif %}
+            
+            <ul class="sidebar-menu" data-widget="tree">
+                <li class="header">{{ trans('menu') }}</li>
+                {% for folder in fsc.folders() %}
+                {# Check if any page in this folder is active #}
+                {% set folderActive = (folder == fsc.page.folder) %}
+                {% if not folderActive %}
+                    {% for page in fsc.pages(folder) %}
+                        {% if page.name is defined and page.name == currentPage %}
+                            {% set folderActive = true %}
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+                <li class="treeview{% if folderActive %} active menu-open{% endif %}">
+                    <a href="#">
+                        {{ adminlte_menu_icon(folder)|raw }}
+                        <span class="text-capitalize">{{ folder }}</span>
+                        <span class="pull-right-container">
+                            <i class="fa fa-angle-left pull-right"></i>
+                        </span>
+                    </a>
+                    <ul class="treeview-menu"{% if folderActive %} style="display: block;"{% endif %}>
+                        {% for page in fsc.pages(folder) %}
+                        {# Check if this specific page is active #}
+                        {% set pageActive = false %}
+                        {% if page.showing is defined and page.showing() %}
+                            {% set pageActive = true %}
+                        {% elseif page.name is defined and page.name == currentPage %}
+                            {% set pageActive = true %}
+                        {% endif %}
+                        <li{% if pageActive %} class="active"{% endif %}>
+                            <a href="{{ page.url() }}">
+                                {{ adminlte_page_icon(page)|raw }} {{ page.title }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endblock %}
+        </section>
+    </aside>
+    {% endblock %}
+    
+    {% block content_wrapper %}
+    <div class="content-wrapper"{% block content_wrapper_style %} style="background-color: white;"{% endblock %}>
+        {% block content_header %}
+        <section class="content-header">
+            {% block messages %}
+            {% if fsc.get_errors() %}
+            <div class="alert alert-danger hidden-print">
+                <ul class="mb-0">
+                {% for error in fsc.get_errors() %}
+                    <li>{{ error|raw }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if fsc.get_messages() %}
+            <div class="alert alert-success hidden-print">
+                <ul class="mb-0">
+                {% for msg in fsc.get_messages() %}
+                    <li>{{ msg|raw }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if fsc.get_advices() %}
+            <div class="alert alert-info hidden-print">
+                <ul class="mb-0">
+                {% for advice in fsc.get_advices() %}
+                    <li>{{ advice|raw }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% endblock %}
+        </section>
+        {% endblock %}
+        
+        {% block body_content %}
+        <section class="content">
+            {% block main %}{% endblock %}
+        </section>
+        {% endblock %}
+    </div>
+    {% endblock %}
+    
+    {% block footer %}
+    <footer class="main-footer hidden-print">
+        <div class="pull-right hidden-xs">
+            <b>{{ trans('version') }}</b> {{ fsc.fs_version() }}
+        </div>
+        {{ trans('created-with') }} <a target="_blank" href="https://github.com/eltictacdicta/fs-framework">FSFramework</a> &nbsp;
+        <span class="label label-default">{{ trans('queries') }}: {{ fsc.selects() }}</span>
+        <span class="label label-default">{{ trans('transactions') }}: {{ fsc.transactions() }}</span>
+        <span class="label label-default">
+            <span class="glyphicon glyphicon-time" aria-hidden="true" title="{{ trans('page-processed-in') }} {{ fsc.duration() }}"></span>
+            &nbsp; {{ fsc.duration() }}
+        </span>
+    </footer>
+    {% endblock %}
+</div>
+
+{# Modal iframe for extensions #}
+<div class="modal fade" id="modal_iframe" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">Modal title</h4>
+            </div>
+            <iframe src="" width="100%" height="600" frameBorder="0">
+                {{ trans('browser-no-frames') }}
+            </iframe>
+        </div>
+    </div>
+</div>
+
+{# Hidden iframes for extensions #}
+{% if fsc.extensions is defined %}
+{% if defined('FS_DB_HISTORY') and constant('FS_DB_HISTORY') %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="panel panel-default hidden-print">
+                <div class="panel-heading">
+                    <h3 class="panel-title">{{ trans('sql-queries') }}:</h3>
+                </div>
+                <div class="panel-body">
+                    <ol style="font-size: 11px; margin: 0px; padding: 0px 0px 0px 20px;">
+                        {% for query in fsc.get_db_history() %}<li>{{ query }}</li>{% endfor %}
+                    </ol>
+                </div>
+            </div>
+            {% for ext in fsc.extensions %}
+            {% if ext.type == 'hidden_iframe' %}
+            <iframe src="index.php?page={{ ext.from }}{{ ext.params }}" width="100%"></iframe>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="hidden">
+    {% for ext in fsc.extensions %}
+    {% if ext.type == 'hidden_iframe' %}
+    <iframe src="index.php?page={{ ext.from }}{{ ext.params }}"></iframe>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

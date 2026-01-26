@@ -69,14 +69,49 @@ function fatal_handler()
 
 /**
  * Devuelve la ruta del controlador solicitado.
+ * Soporta tanto plugins legacy (controller/) como FS2025 (Controller/).
  * @param string $name
  * @return string
  */
 function find_controller($name)
 {
     foreach ($GLOBALS['plugins'] as $plugin) {
+        // Legacy plugins: controller/ folder (lowercase)
         if (file_exists(FS_FOLDER . '/plugins/' . $plugin . '/controller/' . $name . '.php')) {
             return 'plugins/' . $plugin . '/controller/' . $name . '.php';
+        }
+        
+        // FS2025 plugins: Controller/ folder (PascalCase)
+        // Check if controller class name matches the page name
+        $modernPath = FS_FOLDER . '/plugins/' . $plugin . '/Controller/' . $name . '.php';
+        if (file_exists($modernPath)) {
+            return 'plugins/' . $plugin . '/Controller/' . $name . '.php';
+        }
+        
+        // FS2025: Also check all controllers for matching page name in getPageData()
+        $modernDir = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
+        if (is_dir($modernDir)) {
+            foreach (scandir($modernDir) as $file) {
+                if (substr($file, -4) !== '.php') continue;
+                
+                $className = substr($file, 0, -4);
+                $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
+                
+                if (class_exists($fullClass)) {
+                    try {
+                        $reflection = new \ReflectionClass($fullClass);
+                        $tempInstance = $reflection->newInstanceWithoutConstructor();
+                        if (method_exists($tempInstance, 'getPageData')) {
+                            $pd = $tempInstance->getPageData();
+                            if (isset($pd['name']) && $pd['name'] === $name) {
+                                return 'plugins/' . $plugin . '/Controller/' . $file;
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        // Continue checking
+                    }
+                }
+            }
         }
     }
 
@@ -85,6 +120,55 @@ function find_controller($name)
     }
 
     return 'base/fs_controller.php';
+}
+
+/**
+ * Busca información de un controlador FS2025 por nombre de página.
+ * @param string $pageName
+ * @return array|false Array con 'plugin', 'class', 'file' o false si no encontrado
+ */
+function find_modern_controller($pageName)
+{
+    foreach ($GLOBALS['plugins'] as $plugin) {
+        $modernDir = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
+        if (!is_dir($modernDir)) continue;
+        
+        foreach (scandir($modernDir) as $file) {
+            if (substr($file, -4) !== '.php') continue;
+            
+            $className = substr($file, 0, -4);
+            $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
+            
+            if (!class_exists($fullClass)) continue;
+            
+            try {
+                $reflection = new \ReflectionClass($fullClass);
+                $tempInstance = $reflection->newInstanceWithoutConstructor();
+                
+                // Get page name from getPageData or use class name
+                $detectedName = $className;
+                if (method_exists($tempInstance, 'getPageData')) {
+                    $pd = $tempInstance->getPageData();
+                    if (isset($pd['name']) && !empty($pd['name'])) {
+                        $detectedName = $pd['name'];
+                    }
+                }
+                
+                if ($detectedName === $pageName) {
+                    return [
+                        'plugin' => $plugin,
+                        'class' => $fullClass,
+                        'className' => $className,
+                        'file' => $modernDir . '/' . $file
+                    ];
+                }
+            } catch (\Throwable $e) {
+                // Continue checking
+            }
+        }
+    }
+    
+    return false;
 }
 
 /**

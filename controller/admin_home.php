@@ -339,6 +339,7 @@ class admin_home extends fs_controller
 
     /**
      * Devuelve las páginas/controladore de los plugins activos.
+     * Soporta tanto plugins legacy (controller/) como FS2025 (Controller/).
      *
      * @return \fs_page[]
      */
@@ -349,18 +350,53 @@ class admin_home extends fs_controller
 
         /// añadimos las páginas de los plugins
         foreach ($this->plugin_manager->enabled() as $plugin) {
-            if (!file_exists(FS_FOLDER . '/plugins/' . $plugin . '/controller')) {
-                continue;
+            // Legacy plugins: controller/ folder (lowercase)
+            $legacyPath = FS_FOLDER . '/plugins/' . $plugin . '/controller';
+            if (file_exists($legacyPath)) {
+                foreach (fs_file_manager::scan_files($legacyPath, 'php') as $file_name) {
+                    $p = new fs_page();
+                    $p->name = substr($file_name, 0, -4);
+                    $p->exists = TRUE;
+                    $p->show_on_menu = FALSE;
+                    if (!in_array($p->name, $page_names)) {
+                        $pages[] = $p;
+                        $page_names[] = $p->name;
+                    }
+                }
             }
 
-            foreach (fs_file_manager::scan_files(FS_FOLDER . '/plugins/' . $plugin . '/controller', 'php') as $file_name) {
-                $p = new fs_page();
-                $p->name = substr($file_name, 0, -4);
-                $p->exists = TRUE;
-                $p->show_on_menu = FALSE;
-                if (!in_array($p->name, $page_names)) {
-                    $pages[] = $p;
-                    $page_names[] = $p->name;
+            // FS2025 plugins: Controller/ folder (PascalCase)
+            $modernPath = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
+            if (file_exists($modernPath)) {
+                foreach (fs_file_manager::scan_files($modernPath, 'php') as $file_name) {
+                    $className = substr($file_name, 0, -4);
+                    $fullClass = "FacturaScripts\\Plugins\\$plugin\\Controller\\$className";
+                    
+                    // Get page name from getPageData() if available
+                    $pageName = $className;
+                    if (class_exists($fullClass)) {
+                        try {
+                            $reflection = new \ReflectionClass($fullClass);
+                            $tempInstance = $reflection->newInstanceWithoutConstructor();
+                            if (method_exists($tempInstance, 'getPageData')) {
+                                $pd = $tempInstance->getPageData();
+                                if (isset($pd['name']) && !empty($pd['name'])) {
+                                    $pageName = $pd['name'];
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            // Use class name as fallback
+                        }
+                    }
+                    
+                    if (!in_array($pageName, $page_names)) {
+                        $p = new fs_page();
+                        $p->name = $pageName;
+                        $p->exists = TRUE;
+                        $p->show_on_menu = FALSE;
+                        $pages[] = $p;
+                        $page_names[] = $pageName;
+                    }
                 }
             }
         }
@@ -523,11 +559,42 @@ class admin_home extends fs_controller
 
     /**
      * Activa una página/controlador.
+     * Soporta tanto controladores legacy como FS2025.
      * 
      * @param \fs_page $page
      */
     private function enable_page($page)
     {
+        // First, check for FS2025 modern controller
+        $modernController = find_modern_controller($page->name);
+        if ($modernController) {
+            // FS2025 controller found - create/update page entry
+            try {
+                $fullClass = $modernController['class'];
+                $controller = new $fullClass();
+                
+                // The constructor of FS2025 controllers already saves the page
+                // Just verify it was saved correctly
+                if (isset($controller->page) && $controller->page->exists()) {
+                    return true;
+                }
+                
+                // Fallback: manually get page data and save
+                if (method_exists($controller, 'getPageData')) {
+                    $pageData = $controller->getPageData();
+                    $page->title = $pageData['title'] ?? $page->name;
+                    $page->folder = $pageData['menu'] ?? 'admin';
+                    $page->show_on_menu = $pageData['showonmenu'] ?? true;
+                    $page->orden = $pageData['ordernum'] ?? 100;
+                    return $page->save();
+                }
+            } catch (\Throwable $e) {
+                $this->new_error_msg("Error al cargar controlador FS2025 <b>" . $page->name . "</b>: " . $e->getMessage());
+                return false;
+            }
+        }
+        
+        // Legacy controller handling
         $class_name = find_controller($page->name);
         /// ¿No se ha encontrado el controlador?
         if ('base/fs_controller.php' === $class_name) {

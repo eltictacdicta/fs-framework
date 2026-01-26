@@ -3,6 +3,7 @@
 /nbproject/
 /node_modules/
 /tmp/
+/MyFiles/
 .DS_Store
 .htaccess
 .vscode

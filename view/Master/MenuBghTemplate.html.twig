@@ -1,0 +1,206 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see http://www.gnu.org/licenses/.
+ *
+ * MenuBghTemplate - Variant with light background for content area
+ * Compatible with FS2025 plugins that use Bootstrap 5 classes
+ */
+#}
+{% extends "Master/MenuTemplate.html.twig" %}
+
+{# Override content wrapper style for light background #}
+{% block content_wrapper_style %} style="background-color: #f4f6f9; min-height: 100vh;"{% endblock %}
+
+{# Override content header to add spacing and modern look #}
+{% block content_header %}
+<section class="content-header">
+    {% block page_header %}{% endblock %}
+    
+    {% block messages %}
+    <div class="container-fluid">
+        {% if fsc.get_errors() %}
+        <div class="alert alert-danger alert-dismissible hidden-print" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <ul class="mb-0 list-unstyled">
+            {% for error in fsc.get_errors() %}
+                <li>{{ error|raw }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% if fsc.get_messages() %}
+        <div class="alert alert-success alert-dismissible hidden-print" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <ul class="mb-0 list-unstyled">
+            {% for msg in fsc.get_messages() %}
+                <li>{{ msg|raw }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% if fsc.get_advices() %}
+        <div class="alert alert-info alert-dismissible hidden-print" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <ul class="mb-0 list-unstyled">
+            {% for advice in fsc.get_advices() %}
+                <li>{{ advice|raw }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    {% endblock %}
+</section>
+{% endblock %}
+
+{# Override body_content to provide 'body' block for FS2025 plugins #}
+{% block body_content %}
+<section class="content">
+    {% block body %}{% endblock %}
+</section>
+{% endblock %}
+
+{# Additional styles for Bootstrap 5 compatibility #}
+{% block head %}
+{{ parent() }}
+<style>
+    {# Remove link underlines in content area to match AdminLTE style #}
+    .content-wrapper a {
+        text-decoration: none;
+    }
+    .content-wrapper a:hover {
+        text-decoration: none;
+    }
+    
+    {# But keep underline for explicit links in text #}
+    .content-wrapper p a,
+    .content-wrapper .card-text a {
+        text-decoration: underline;
+    }
+    .content-wrapper p a:hover,
+    .content-wrapper .card-text a:hover {
+        text-decoration: none;
+    }
+    
+    {# Table links should not be underlined #}
+    .content-wrapper .table a {
+        text-decoration: none;
+        color: #3c8dbc;
+    }
+    .content-wrapper .table a:hover {
+        text-decoration: underline;
+    }
+    
+    {# Card shadows for modern look #}
+    .card.shadow, .shadow {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+    }
+    
+    {# Nav pills styling to look like Bootstrap 5 #}
+    .nav-pills .nav-link {
+        border-radius: 0.25rem;
+        padding: 0.5rem 1rem;
+        color: #6c757d;
+        background-color: transparent;
+        border: none;
+        text-decoration: none;
+    }
+    .nav-pills .nav-link:hover {
+        color: #495057;
+        background-color: #e9ecef;
+        text-decoration: none;
+    }
+    .nav-pills .nav-link.active {
+        color: #fff;
+        background-color: #3c8dbc;
+    }
+    
+    {# Tab content improvements #}
+    .tab-pane {
+        padding-top: 1rem;
+    }
+    .tab-pane.fade:not(.show) {
+        display: none;
+    }
+    .tab-pane.fade.show {
+        display: block;
+    }
+    
+    {# Button spinner action class #}
+    .btn-spin-action:disabled {
+        cursor: wait;
+    }
+    
+    {# Content padding adjustments #}
+    .content-wrapper .content {
+        padding: 15px;
+    }
+    
+    {# Cards in content area #}
+    .content .card {
+        margin-bottom: 1rem;
+        border: 1px solid rgba(0, 0, 0, 0.125);
+        border-radius: 0.25rem;
+        background-color: #fff;
+    }
+    .content .card-body {
+        padding: 1.25rem;
+    }
+    .content .card-footer {
+        padding: 0.75rem 1.25rem;
+        background-color: rgba(0, 0, 0, 0.03);
+        border-top: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    .content .card-header {
+        padding: 0.75rem 1.25rem;
+        background-color: rgba(0, 0, 0, 0.03);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    
+    {# Table responsive improvements #}
+    .table-responsive {
+        overflow-x: auto;
+    }
+    
+    {# Form control file for Bootstrap 5 style #}
+    .form-control-file {
+        display: block;
+        width: 100%;
+    }
+    
+    {# Container margin fix for bg-light sections #}
+    .bg-light {
+        background-color: #f8f9fa !important;
+    }
+    .pt-4 { padding-top: 1.5rem !important; }
+    .pb-5 { padding-bottom: 3rem !important; }
+    .pb-4 { padding-bottom: 1.5rem !important; }
+    .mb-3 { margin-bottom: 1rem !important; }
+    .mb-4 { margin-bottom: 1.5rem !important; }
+    .mb-5 { margin-bottom: 3rem !important; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .me-2 { margin-right: 0.5rem !important; }
+    .ms-2 { margin-left: 0.5rem !important; }
+    .p-2 { padding: 0.5rem !important; }
+</style>
+{% endblock %}

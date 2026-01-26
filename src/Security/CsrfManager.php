@@ -23,8 +23,10 @@ use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use Symfony\Component\Security\Csrf\TokenGenerator\UriSafeTokenGenerator;
 use Symfony\Component\Security\Csrf\TokenStorage\SessionTokenStorage;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage;
 
 /**
  * Gestor de tokens CSRF para protección de formularios.
@@ -71,11 +73,16 @@ class CsrfManager
             // Asegurar que la sesión está iniciada
             self::ensureSession();
             
-            // Crear RequestStack para el storage
-            $requestStack = new RequestStack();
+            // Crear Request desde globals y asignarle la sesión
+            $request = Request::createFromGlobals();
+            $request->setSession(self::$session);
             
-            // Usar almacenamiento en sesión
-            $storage = new SessionTokenStorage(self::$session);
+            // Crear RequestStack y añadir el request
+            $requestStack = new RequestStack();
+            $requestStack->push($request);
+            
+            // Usar almacenamiento en sesión (Symfony 7.x requiere RequestStack)
+            $storage = new SessionTokenStorage($requestStack);
             
             // Generador de tokens seguros
             $generator = new UriSafeTokenGenerator();
@@ -88,6 +95,7 @@ class CsrfManager
 
     /**
      * Asegura que existe una sesión PHP activa.
+     * Usa PhpBridgeSessionStorage para integrarse con sesiones ya iniciadas por PHP.
      */
     private static function ensureSession(): void
     {
@@ -95,7 +103,9 @@ class CsrfManager
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
-            self::$session = new Session();
+            // Usar PhpBridgeSessionStorage para sesiones ya iniciadas por código legacy
+            $storage = new PhpBridgeSessionStorage();
+            self::$session = new Session($storage);
         }
     }
 
