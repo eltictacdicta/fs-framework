@@ -26,9 +26,37 @@
    <script type="text/javascript" src="{#FS_PATH#}view/js/bootbox.min.js"></script>
    <script type="text/javascript" src="{$fsc->get_js_location('base.js')}"></script>
    <script type="text/javascript" >
+      {if="in_array('business_data', $GLOBALS['plugins'])"}
+      var empresa_coddivisa = '{$fsc->empresa->coddivisa}';
+      var empresa_simbolo = '{$fsc->simbolo_divisa()}';
+      {else}
+      var empresa_coddivisa = 'EUR';
+      var empresa_simbolo = '€';
+      {/if}
+
+      function show_precio(precio, coddivisa)
+      {
+         coddivisa || ( coddivisa = empresa_coddivisa );
+
+         if(coddivisa == empresa_coddivisa)
+         {
+            if('{#FS_POS_DIVISA#}' == 'right')
+            {
+               return number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}') + empresa_simbolo;
+            }
+            else
+            {
+               return empresa_simbolo + number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
+            }
+         }
+         else
+         {
+            return number_format(precio, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
+         }
+      }
       function show_numero(numero)
       {
-         return number_format(numero, '{#FS_NF0#}', '{#FS_NF1#}', '{#FS_NF2#}');
+         return number_format(numero, {#FS_NF0#}, '{#FS_NF1#}', '{#FS_NF2#}');
       }
    </script>
 

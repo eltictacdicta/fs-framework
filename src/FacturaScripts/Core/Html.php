@@ -260,14 +260,18 @@ class Html
                 }
             }
 
-            // Register plugin-specific functions (AdminLTE and others)
+            // Register plugin-specific functions (AdminLTE, facturacion_base, and others)
             $pluginFunctions = [
+                // AdminLTE functions
                 'get_gravatar',
                 'adminlte_menu_icon',
                 'adminlte_page_icon',
+                // facturacion_base functions
+                'plantilla_email',
+                'fs_tipos_id_fiscal',
+                // Other plugin functions
                 'fs_honest_orig',
                 'fs_fake_msg',
-                'fs_tipos_id_fiscal',
             ];
             foreach ($pluginFunctions as $func) {
                 if (function_exists($func)) {
