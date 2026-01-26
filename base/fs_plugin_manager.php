@@ -75,10 +75,22 @@ class fs_plugin_manager
     private $private_config;
 
     /**
-     *
+     * Versión de FSFramework (archivo VERSION)
      * @var float
      */
     public $version = 2025.101;
+
+    /**
+     * Versión mínima compatible con FacturaScripts 2017 (archivo VERSION-FS2017)
+     * @var float
+     */
+    public $version_fs2017 = 2017.000;
+
+    /**
+     * Versión mínima compatible con FacturaScripts 2025 (archivo VERSION-FS2025)
+     * @var float
+     */
+    public $version_fs2025 = 2025.000;
 
     public function __construct()
     {
@@ -101,10 +113,21 @@ class fs_plugin_manager
             }
         }
 
-        if (file_exists('VERSION')) {
+        // Cargar versión principal de FSFramework
+        if (file_exists(FS_FOLDER . '/VERSION')) {
             $this->version = (float) trim(file_get_contents(FS_FOLDER . '/VERSION'));
         } elseif (class_exists('FSFramework\\Core\\Kernel')) {
             $this->version = \FSFramework\Core\Kernel::version();
+        }
+
+        // Cargar versión de compatibilidad FS2017
+        if (file_exists(FS_FOLDER . '/VERSION-FS2017')) {
+            $this->version_fs2017 = (float) trim(file_get_contents(FS_FOLDER . '/VERSION-FS2017'));
+        }
+
+        // Cargar versión de compatibilidad FS2025
+        if (file_exists(FS_FOLDER . '/VERSION-FS2025')) {
+            $this->version_fs2025 = (float) trim(file_get_contents(FS_FOLDER . '/VERSION-FS2025'));
         }
     }
 
@@ -1069,21 +1092,34 @@ class fs_plugin_manager
 
         // Check compatibility based on configuration file type and version
         if (file_exists($fsframework_ini)) {
-            // For fsframework.ini, use standard compatibility check
+            // Para fsframework.ini, comparar con VERSION principal
             if ($this->version >= $plugin['min_version']) {
                 $plugin['compatible'] = true;
             } else {
                 $plugin['error_msg'] = 'Requiere FSFramework ' . $plugin['min_version'];
             }
         } else {
-            // For facturascripts.ini, check if version is greater than 2017.000
-            if ($this->version >= $plugin['min_version']) {
-                $plugin['compatible'] = true;
-                $plugin['legacy_warning'] = true;
-                $plugin['error_msg'] = 'Aunque se ha mantenido la compatibilidad con FacturaScript, no se garantiza la compatiblidad 100%, se recomienda usarlo en un entorno de pruebas y asegurarse que funciona correctamente antes de usarlo en proucción.';
+            // Para facturascripts.ini, determinar si es arquitectura nueva (FS2025) o antigua (FS2017)
+            if ($plugin['min_version'] >= 2025) {
+                // Arquitectura nueva FS2025 - comparar con VERSION-FS2025
+                if ($this->version_fs2025 >= $plugin['min_version']) {
+                    $plugin['compatible'] = true;
+                    $plugin['legacy_warning'] = true;
+                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
+                } else {
+                    $plugin['compatible'] = false;
+                    $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. La versión de compatibilidad FS2025 actual es ' . $this->version_fs2025;
+                }
             } else {
-                $plugin['compatible'] = false;
-                $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'];
+                // Arquitectura antigua FS2017 - comparar con VERSION-FS2017
+                if ($this->version_fs2017 >= $plugin['min_version']) {
+                    $plugin['compatible'] = true;
+                    $plugin['legacy_warning'] = true;
+                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2017 (arquitectura antigua). Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
+                } else {
+                    $plugin['compatible'] = false;
+                    $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. La versión de compatibilidad FS2017 actual es ' . $this->version_fs2017;
+                }
             }
         }
 

@@ -2,6 +2,9 @@
 /**
  * Actualizador de FSFramework (Delegado a Symfony)
  */
+
+use FSFramework\Controller\UpdaterController;
+
 if (!file_exists('config.php')) {
     die('Archivo config.php no encontrado. No puedes actualizar sin instalar.');
 }
@@ -17,7 +20,6 @@ $kernel = \FSFramework\Core\Kernel::boot();
 ignore_user_abort(true);
 
 // Instanciamos y ejecutamos el controlador
-require_once __DIR__ . '/src/Controller/UpdaterController.php';
 $controller = new UpdaterController();
 $response = $controller->handle($kernel->getRequest());
 $response->send();
