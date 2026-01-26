@@ -1,5 +1,7 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+// Tailwind CSS v4 - Configuration is now done in CSS with @theme
+// This file is kept for compatibility with tools that may still read it
+export default {
     content: [
         "./view/**/*.html",
         "./view/**/*.twig",
@@ -7,9 +9,5 @@ module.exports = {
         "./plugins/**/view/**/*.twig",
         "./src/**/*.php",
         "./controller/**/*.php"
-    ],
-    theme: {
-        extend: {},
-    },
-    plugins: [],
+    ]
 }

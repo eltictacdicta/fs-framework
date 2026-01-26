@@ -93,6 +93,9 @@ class fs_divisa_tools
             $coddivisa = self::$coddivisa;
         }
 
+        // Asegurar que $dec nunca sea null para evitar deprecation en PHP 8+
+        $dec = $dec ?? 0;
+
         if (FS_POS_DIVISA == 'right') {
             if ($simbolo) {
                 return number_format($precio, $dec, FS_NF1, FS_NF2) . ' ' . $this->simbolo_divisa($coddivisa);
@@ -119,6 +122,9 @@ class fs_divisa_tools
      */
     public function show_numero($num = 0, $decimales = FS_NF0, $js = FALSE)
     {
+        // Asegurar que $decimales nunca sea null para evitar deprecation en PHP 8+
+        $decimales = $decimales ?? 0;
+
         if ($js) {
             return number_format($num, $decimales, '.', '');
         }

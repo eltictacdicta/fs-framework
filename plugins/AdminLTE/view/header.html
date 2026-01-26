@@ -23,6 +23,10 @@
    {if="file_exists('plugins/AdminLTE/view/css/fix-mixed-content.css')"}
    <link rel="stylesheet" href="plugins/AdminLTE/view/css/fix-mixed-content.css" />
    {/if}
+   <!-- Tailwind al final para máxima prioridad -->
+   {if="file_exists('view/css/tailwind.css')"}
+   <link rel="stylesheet" href="{#FS_PATH#}view/css/tailwind.css" />
+   {/if}
    <script type="text/javascript" src="{#FS_PATH#}view/js/jquery.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/bootstrap.min.js"></script>
    <script type="text/javascript" src="{#FS_PATH#}view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
@@ -67,12 +71,7 @@
 <body class="hold-transition skin-blue sidebar-mini">
    <div class="wrapper">
       <header class="main-header">
-         <a href="index.php" class="logo">
-            <span class="logo-mini"><b>FS</b></span>
-            {* <span class="hidden-sm">{if="FS_DEMO"}DEMO{elseif="in_array('business_data',
-               $GLOBALS['plugins'])"}{if="$fsc->empresa->nombrecorto"}{$fsc->empresa->nombrecorto}{else}{$fsc->empresa->nombre}{/if}{/if}</span>
-            *}
-         </a>
+   
          <nav class="navbar navbar-static-top" role="navigation">
             <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button">
                <span class="sr-only">Menú</span>

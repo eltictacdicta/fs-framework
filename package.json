@@ -4,7 +4,9 @@
   "description": "Software de facturación y contabilidad para pymes, fácil, libre y con actualizaciones constantes.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:css": "npx @tailwindcss/cli -i ./view/css/app.css -o ./view/css/tailwind.css --minify",
+    "watch:css": "npx @tailwindcss/cli -i ./view/css/app.css -o ./view/css/tailwind.css --watch"
   },
   "repository": {
     "type": "git",
@@ -27,5 +29,9 @@
     "bootswatch": "3.*",
     "font-awesome": "4.*",
     "jquery": "3.*"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "tailwindcss": "^4.1.18"
   }
 }

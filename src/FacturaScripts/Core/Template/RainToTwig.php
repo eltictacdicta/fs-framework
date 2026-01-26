@@ -99,6 +99,7 @@ class RainToTwig
         // {$fsc->url()} -> {{ fsc.url() }}
         // {function="name(args)"} -> {{ name(args) }}
         // {$var=$val} -> {% set var = val %}
+        // {$var|filter} -> {{ var|filter }} (with filter translation)
         $content = preg_replace_callback('/{(\$[a-zA-Z_][^{}]*)}/', function ($matches) {
             $expr = self::translateExpression($matches[1]);
 
@@ -106,6 +107,9 @@ class RainToTwig
             if (preg_match('/^([a-zA-Z0-9_\.]+)\s*=(.*)$/', $expr)) {
                 return "{% set $expr %}";
             }
+
+            // Translate RainTPL filters to Twig filters
+            $expr = self::translateFilters($expr);
 
             return "{{ $expr|raw }}";
         }, $content);
@@ -124,6 +128,57 @@ class RainToTwig
         $content = preg_replace('/{#([a-zA-Z_][a-zA-Z0-9_]*)#{0,1}}/', "{{ constant('$1') }}", $content);
 
         return $content;
+    }
+
+    /**
+     * Translates RainTPL filters to Twig filters.
+     * 
+     * @param string $expr
+     * @return string
+     */
+    protected static function translateFilters(string $expr): string
+    {
+        // Map RainTPL filters to Twig equivalents
+        $filterMap = [
+            'count' => 'length',
+            'sizeof' => 'length',
+            'upper' => 'upper',
+            'lower' => 'lower',
+            'capitalize' => 'capitalize',
+            'ucfirst' => 'capitalize',
+            'strtoupper' => 'upper',
+            'strtolower' => 'lower',
+            'nl2br' => 'nl2br',
+            'escape' => 'escape',
+            'e' => 'escape',
+            'trim' => 'trim',
+            'strip_tags' => 'striptags',
+            'json_encode' => 'json_encode',
+            'json' => 'json_encode',
+            'reverse' => 'reverse',
+            'sort' => 'sort',
+            'keys' => 'keys',
+            'values' => 'values',
+            'first' => 'first',
+            'last' => 'last',
+            'join' => 'join',
+            'split' => 'split',
+            'default' => 'default',
+            'date' => 'date',
+            'abs' => 'abs',
+            'round' => 'round',
+            'floor' => 'floor',
+            'ceil' => 'ceil',
+            'number_format' => 'number_format',
+        ];
+
+        // Replace filters in the expression
+        foreach ($filterMap as $rainFilter => $twigFilter) {
+            // Match filter at end of expression or followed by another filter
+            $expr = preg_replace('/\|' . preg_quote($rainFilter, '/') . '(?=\||$)/', '|' . $twigFilter, $expr);
+        }
+
+        return $expr;
     }
 
     /**
