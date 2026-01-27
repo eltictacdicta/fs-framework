@@ -6,7 +6,7 @@ Software libre bajo licencia GNU/LGPL.
 
 ## Advertencia
 
-Este framework mantiene la lógica original de FacturaScripts 2017 pero ha sido modernizado con componentes de Symfony 7.4 y migrado a Twig como motor de plantillas principal. **No es 100% compatible con la funcionalidad base de facturación original**, pero ofrece compatibilidad parcial con plugins de FacturaScripts 2025.
+Este framework mantiene la lógica original de FacturaScripts 2017 pero ha sido modernizado con componentes de Symfony 7.4 y migrado a Twig como motor de plantillas principal. **No es 100% compatible con la funcionalidad base de facturación original**, en el futuro ofrecerá compatibilidad parcial con plugins de FacturaScripts 2025.
 
 ## Novedades Principales
 

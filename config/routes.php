@@ -1,20 +1,13 @@
 <?php
 
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
 
 return function (RoutingConfigurator $routes): void {
 
     // Ruta de prueba global para el CMS
+    // Nota: Usar una clase controladora en lugar de Closure permite el cacheo de rutas
     $routes->add('cms_test', '/cms-test')
-        ->controller(function (Request $request) {
-            return new JsonResponse([
-                'success' => true,
-                'message' => 'Global Symfony Routing is working!',
-                'type' => 'CMS Core'
-            ]);
-        })
+        ->controller('FSFramework\Controller\CmsTestController::index')
         ->methods(['GET']);
 
     // Podemos importar las rutas de la API aquí también para centralizar, 

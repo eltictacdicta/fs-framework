@@ -2,31 +2,18 @@
 
 namespace FSFramework\Attribute;
 
-use Attribute;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Atributo para registro declarativo de rutas en controladores.
+ * Attribute for defining routes in controllers.
  * 
- * Uso:
- * #[FSRoute('/admin/users', methods: ['GET'], name: 'admin_users')]
- * class admin_users extends fs_controller { ... }
+ * Use this attribute to define routes for your controllers in FSFramework.
+ * It works similar to Symfony's Route attribute but with FSFramework integration.
+ *
+ * @author Javier Trujillo <mistertekcom@gmail.com>
  */
-#[Attribute(Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE)]
-class FSRoute
+#[\Attribute(\Attribute::IS_REPEATABLE | \Attribute::TARGET_CLASS | \Attribute::TARGET_METHOD)]
+class FSRoute extends Route
 {
-    /**
-     * @param string $path Ruta URL (ej: '/admin/users' o '/api/v1/users/{id}')
-     * @param array $methods Métodos HTTP permitidos (GET, POST, PUT, DELETE, etc.)
-     * @param string|null $name Nombre único de la ruta para generación de URLs
-     * @param array $defaults Valores por defecto para parámetros de ruta
-     * @param array $requirements Requisitos regex para parámetros (ej: ['id' => '\d+'])
-     */
-    public function __construct(
-        public string $path,
-        public array $methods = ['GET'],
-        public ?string $name = null,
-        public array $defaults = [],
-        public array $requirements = []
-    ) {
-    }
+    // No se necesita código adicional - hereda toda la funcionalidad de Symfony Route
 }
