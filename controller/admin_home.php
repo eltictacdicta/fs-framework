@@ -216,6 +216,18 @@ class admin_home extends fs_controller
             return;
         }
 
+        if (filter_input(INPUT_GET, 'activate_theme')) {
+            /// activar tema
+            $themeName = filter_input(INPUT_GET, 'activate_theme');
+            $themeManager = \FSFramework\Core\ThemeManager::getInstance();
+            if ($themeManager->activateTheme($themeName)) {
+                $this->new_message('Tema <b>' . htmlspecialchars($themeName) . '</b> activado correctamente.');
+            } else {
+                $this->new_error_msg('Error al activar el tema <b>' . htmlspecialchars($themeName) . '</b>.');
+            }
+            return;
+        }
+
         if (filter_input(INPUT_GET, 'skip')) {
             if ($this->step == '1') {
                 $this->step = '2';
@@ -371,7 +383,7 @@ class admin_home extends fs_controller
                 foreach (fs_file_manager::scan_files($modernPath, 'php') as $file_name) {
                     $className = substr($file_name, 0, -4);
                     $fullClass = "FacturaScripts\\Plugins\\$plugin\\Controller\\$className";
-                    
+
                     // Get page name from getPageData() if available
                     $pageName = $className;
                     if (class_exists($fullClass)) {
@@ -388,7 +400,7 @@ class admin_home extends fs_controller
                             // Use class name as fallback
                         }
                     }
-                    
+
                     if (!in_array($pageName, $page_names)) {
                         $p = new fs_page();
                         $p->name = $pageName;
@@ -572,13 +584,13 @@ class admin_home extends fs_controller
             try {
                 $fullClass = $modernController['class'];
                 $controller = new $fullClass();
-                
+
                 // The constructor of FS2025 controllers already saves the page
                 // Just verify it was saved correctly
                 if (isset($controller->page) && $controller->page->exists()) {
                     return true;
                 }
-                
+
                 // Fallback: manually get page data and save
                 if (method_exists($controller, 'getPageData')) {
                     $pageData = $controller->getPageData();
@@ -593,7 +605,7 @@ class admin_home extends fs_controller
                 return false;
             }
         }
-        
+
         // Legacy controller handling
         $class_name = find_controller($page->name);
         /// ¿No se ha encontrado el controlador?

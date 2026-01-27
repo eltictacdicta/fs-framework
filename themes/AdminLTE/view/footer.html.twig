@@ -1,0 +1,58 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * AdminLTE Theme - Footer
+ * Native Twig version (migrated from RainTPL)
+ */
+#}
+<br />
+<div class="container-fluid">
+   <div class="row">
+      <div class="col-sm-12">
+         {% if constant('FS_DB_HISTORY') %}
+         <div class="panel panel-default hidden-print">
+            <div class="panel-heading">
+               <h3 class="panel-title">{{ 'sql_queries'|trans }}:</h3>
+            </div>
+            <div class="panel-body">
+               <ol style="font-size: 11px; margin: 0px; padding: 0px 0px 0px 20px;">
+                  {% for query in fsc.get_db_history() %}<li>{{ query }}</li>{% endfor %}
+               </ol>
+            </div>
+         </div>
+         {% for ext in fsc.extensions %}
+         {% if ext.type == 'hidden_iframe' %}
+         <iframe src="index.php?page={{ ext.from }}{{ ext.params|raw }}" width="100%"></iframe>
+         {% endif %}
+         {% endfor %}
+         {% else %}
+         <div class="hidden">
+            {% for ext in fsc.extensions %}
+            {% if ext.type == 'hidden_iframe' %}
+            <iframe src="index.php?page={{ ext.from }}{{ ext.params|raw }}"></iframe>
+            {% endif %}
+            {% endfor %}
+         </div>
+         {% endif %}
+      </div>
+   </div>
+</div>
+</div>
+<footer class="main-footer hidden-print">
+   <div class="pull-right hidden-xs">
+      <b>{{ 'version'|trans }}</b> {{ fsc.fs_version() }}
+   </div>
+   {{ 'created_with'|trans }} <a target="_blank" href="https://github.com/eltictacdicta/fs-framework">FSFramework</a> &nbsp;
+   <span class="label label-default">{{ 'queries'|trans }}: {{ fsc.selects() }}</span>
+   <span class="label label-default">{{ 'transactions'|trans }}: {{ fsc.transactions() }}</span>
+   <span class="label label-default">
+      <span class="glyphicon glyphicon-time" aria-hidden="true" title="{{ 'page_processed_in'|trans }} {{ fsc.duration() }}"></span>
+      &nbsp; {{ fsc.duration() }}
+   </span>
+</footer>
+</div>
+</body>
+
+</html>

@@ -66,18 +66,21 @@ class TranslationExtension extends AbstractExtension
         return [
             // Función principal de traducción
             new TwigFunction('trans', [$this, 'trans']),
-            
+
             // Alias de trans para compatibilidad con FS2025
             new TwigFunction('__', [$this, 'trans']),
-            
+
             // Función para pluralización (ICU MessageFormat)
             new TwigFunction('trans_choice', [$this, 'transChoice']),
-            
+
             // Obtener locale actual
             new TwigFunction('getLocale', [$this, 'getLocale']),
-            
+
             // Obtener idiomas disponibles
             new TwigFunction('getAvailableLanguages', [$this, 'getAvailableLanguages']),
+
+            // Alias i18n para compatibilidad FS2025 (y uso general)
+            new TwigFunction('i18n', [$this, 'trans']),
         ];
     }
 
@@ -91,7 +94,7 @@ class TranslationExtension extends AbstractExtension
         return [
             // Filtro de traducción (permite usar 'texto'|trans)
             new TwigFilter('trans', [$this, 'trans']),
-            
+
             // Filtro de pluralización
             new TwigFilter('trans_choice', [$this, 'transChoice']),
         ];
