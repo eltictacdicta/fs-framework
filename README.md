@@ -6,26 +6,8 @@ Software libre bajo licencia GNU/LGPL.
 
 ## Advertencia
 
-Este framework mantiene la lógica original de FacturaScripts 2017 pero ha sido modernizado con componentes de Symfony 7.4 y migrado a Twig como motor de plantillas principal. **No es 100% compatible con la funcionalidad base de facturación original**, pero ofrece compatibilidad parcial con plugins de FacturaScripts 2025.
-graph TD
-    subgraph templates [Jerarquía de Plantillas Twig]
-        BaseTemplate["Base.html.twig<br/>(HTML base, assets)"]
-        MenuTemplate["MenuTemplate.html.twig<br/>(navbar + sidebar AdminLTE)"]
-        MenuBghTemplate["MenuBghTemplate.html.twig<br/>(extends MenuTemplate)"]
-        PluginTemplate["Plugin View<br/>(Backup.html.twig)"]
-    end
-    
-    subgraph legacy [Compatibilidad Legacy]
-        RainTPL["Plugin Legacy<br/>(admin_empresa.html)"]
-        RainToTwig["RainToTwig<br/>Traductor"]
-        LegacyHeader["header.html<br/>(auto-incluido)"]
-    end
-    
-    BaseTemplate --> MenuTemplate
-    MenuTemplate --> MenuBghTemplate
-    MenuBghTemplate --> PluginTemplate
-    RainTPL --> RainToTwig
-    RainToTwig --> LegacyHeader
+Este framework mantiene la lógica original de FacturaScripts 2017 pero ha sido modernizado con componentes de Symfony 7.4 y migrado a Twig como motor de plantillas principal. **No es 100% compatible con la funcionalidad base de facturación original**, en el futuro ofrecerá compatibilidad parcial con plugins de FacturaScripts 2025.
+
 ## Novedades Principales
 
 ### Migración Completa a Twig

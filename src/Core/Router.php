@@ -2,7 +2,6 @@
 
 namespace FSFramework\Core;
 
-use FSFramework\Attribute\FSRoute;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,7 +13,7 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
-use Symfony\Component\Routing\Exception\RouteNotFoundException;
+use Symfony\Component\Routing\Attribute\Route as RouteAttribute;
 
 class Router
 {
@@ -35,14 +34,36 @@ class Router
     {
         // Intentar cargar desde caché en producción
         if ($this->shouldUseCache() && file_exists(self::$cacheFile)) {
-            $cached = include self::$cacheFile;
-            if ($cached instanceof RouteCollection) {
-                return $cached;
+            try {
+                $cached = include self::$cacheFile;
+                if ($cached instanceof RouteCollection) {
+                    return $cached;
+                }
+            } catch (\Throwable $e) {
+                // Caché corrupto, eliminar y regenerar
+                @unlink(self::$cacheFile);
+                error_log("Router: Cache corrupted, regenerating - " . $e->getMessage());
             }
         }
 
         $collection = new RouteCollection();
 
+        // 1. Cargar rutas definidas en archivos PHP (config/routes.php y plugins)
+        $this->loadRoutesFromFiles($collection);
+
+        // 2. Cargar rutas con atributos #[Route] usando reflexión (compatible con Symfony 7.x)
+        $this->loadRoutesFromAttributes($collection);
+
+        // Guardar en caché si está habilitado
+        if ($this->shouldUseCache()) {
+            $this->cacheRoutes($collection);
+        }
+
+        return $collection;
+    }
+
+    private function loadRoutesFromFiles(RouteCollection $collection): void
+    {
         // Cargar rutas del núcleo
         $configDir = $this->rootFolder . '/config';
         if (is_dir($configDir)) {
@@ -68,142 +89,203 @@ class Router
                 }
             }
         }
-
-        // Escanear atributos #[FSRoute] en controladores
-        $collection->addCollection($this->loadRoutesFromAttributes());
-
-        // Guardar en caché si está habilitado
-        if ($this->shouldUseCache()) {
-            $this->cacheRoutes($collection);
-        }
-
-        return $collection;
     }
 
     /**
-     * Escanea controladores buscando atributos #[FSRoute]
+     * Carga rutas desde atributos #[Route] en controladores.
+     * Compatible con Symfony 7.x que eliminó AnnotationDirectoryLoader.
      */
-    private function loadRoutesFromAttributes(): RouteCollection
+    private function loadRoutesFromAttributes(RouteCollection $collection): void
     {
-        $collection = new RouteCollection();
-
-        // Escanear controladores del núcleo (legacy)
-        $controllerDir = $this->rootFolder . '/controller';
-        if (is_dir($controllerDir)) {
-            $this->scanControllerDirectory($controllerDir, $collection);
+        // Cargar controladores del núcleo (src/Controller)
+        $coreControllerDir = $this->rootFolder . '/src/Controller';
+        if (is_dir($coreControllerDir)) {
+            $this->loadAttributeRoutesFromDirectory($collection, $coreControllerDir, 'FSFramework\\Controller\\');
         }
 
-        // Escanear controladores modernos en src/Controller
-        $srcControllerDir = $this->rootFolder . '/src/Controller';
-        if (is_dir($srcControllerDir)) {
-            $this->scanControllerDirectory($srcControllerDir, $collection);
+        // Cargar controladores legacy (controller/)
+        $legacyControllerDir = $this->rootFolder . '/controller';
+        if (is_dir($legacyControllerDir)) {
+            $legacyRoutes = $this->loadLegacyControllerRoutes($legacyControllerDir);
+            $collection->addCollection($legacyRoutes);
         }
 
-        // Escanear controladores de plugins activos
+        // Cargar controladores de plugins
         $pluginsDir = $this->rootFolder . '/plugins';
         if (is_dir($pluginsDir) && isset($GLOBALS['plugins'])) {
             foreach ($GLOBALS['plugins'] as $plugin) {
                 $pluginControllerDir = $pluginsDir . '/' . $plugin . '/controller';
                 if (is_dir($pluginControllerDir)) {
-                    $this->scanControllerDirectory($pluginControllerDir, $collection);
+                    $pluginRoutes = $this->loadLegacyControllerRoutes($pluginControllerDir);
+                    $collection->addCollection($pluginRoutes);
+                }
+
+                $pluginModernControllerDir = $pluginsDir . '/' . $plugin . '/Controller';
+                if (is_dir($pluginModernControllerDir)) {
+                    try {
+                        $namespace = 'FacturaScripts\\Plugins\\' . $plugin . '\\Controller\\';
+                        $this->loadAttributeRoutesFromDirectory($collection, $pluginModernControllerDir, $namespace);
+                    } catch (\Exception $e) {
+                        error_log("Error loading plugin routes: " . $e->getMessage());
+                    }
                 }
             }
         }
-
-        return $collection;
     }
 
     /**
-     * Escanea un directorio de controladores buscando atributos FSRoute
-     * Usa parsing de tokens para evitar cargar archivos antes de tiempo.
+     * Carga rutas con atributos desde un directorio de controladores usando reflexión.
+     * Este método es compatible con Symfony 7.x.
      */
-    private function scanControllerDirectory(string $directory, RouteCollection $collection): void
+    private function loadAttributeRoutesFromDirectory(RouteCollection $collection, string $directory, string $namespace): void
     {
         $files = glob($directory . '/*.php');
+        
         foreach ($files as $file) {
-            try {
-                $route = $this->parseRouteAttributeFromFile($file);
-                if ($route !== null) {
-                    $className = basename($file, '.php');
-                    $fullClassName = $className;
-
-                    // Add namespace if it's in src/Controller
-                    if (strpos($directory, 'src/Controller') !== false) {
-                        $fullClassName = 'FSFramework\\Controller\\' . $className;
-                    }
-
-                    $routeName = $route['name'] ?? 'fs_' . strtolower($className);
-
-                    $symfonyRoute = new Route(
-                        $route['path'],
-                        array_merge($route['defaults'] ?? [], ['_controller' => $fullClassName]),
-                        $route['requirements'] ?? [],
-                        [],
-                        '',
-                        [],
-                        $route['methods'] ?? ['GET']
-                    );
-
-                    $collection->add($routeName, $symfonyRoute);
+            $className = $namespace . basename($file, '.php');
+            
+            if (!class_exists($className)) {
+                // Intentar incluir el archivo si la clase no está cargada
+                require_once $file;
+                if (!class_exists($className)) {
+                    continue;
                 }
-            } catch (\Throwable $e) {
-                error_log("Error scanning controller file {$file}: " . $e->getMessage());
+            }
+
+            try {
+                $this->loadAttributeRoutesFromClass($collection, $className);
+            } catch (\Exception $e) {
+                error_log("Error loading routes from class {$className}: " . $e->getMessage());
             }
         }
     }
 
     /**
-     * Parsea un archivo PHP buscando el atributo #[FSRoute] sin cargarlo.
-     * Esto evita el error de clases padre no definidas.
-     * 
-     * @return array|null Array con path, methods, name, defaults, requirements o null si no tiene FSRoute
+     * Carga rutas desde una clase usando reflexión para leer atributos #[Route].
      */
-    private function parseRouteAttributeFromFile(string $file): ?array
+    private function loadAttributeRoutesFromClass(RouteCollection $collection, string $className): void
     {
-        $content = file_get_contents($file);
-        if ($content === false) {
-            return null;
+        $reflectionClass = new \ReflectionClass($className);
+        
+        // Obtener prefijo de ruta a nivel de clase (si existe)
+        $classPrefix = '';
+        $classNamePrefix = '';
+        $classDefaults = [];
+        $classMethods = [];
+        $classRequirements = [];
+        $classHost = '';
+        $classSchemes = [];
+        
+        // Buscar atributos Route y FSRoute a nivel de clase
+        $classAttributes = array_merge(
+            $reflectionClass->getAttributes(RouteAttribute::class, \ReflectionAttribute::IS_INSTANCEOF),
+            $reflectionClass->getAttributes(\FSFramework\Attribute\FSRoute::class, \ReflectionAttribute::IS_INSTANCEOF)
+        );
+        
+        foreach ($classAttributes as $attribute) {
+            $routeAttr = $attribute->newInstance();
+            $classPrefix = $routeAttr->getPath() ?? $classPrefix;
+            $classNamePrefix = $routeAttr->getName() ?? $classNamePrefix;
+            $classDefaults = array_merge($classDefaults, $routeAttr->getDefaults());
+            $classMethods = $routeAttr->getMethods() ?: $classMethods;
+            $classRequirements = array_merge($classRequirements, $routeAttr->getRequirements());
+            $classHost = $routeAttr->getHost() ?? $classHost;
+            $classSchemes = $routeAttr->getSchemes() ?: $classSchemes;
         }
 
-        // Buscar patrón #[FSRoute(...)]
-        // Soporta: #[FSRoute('/path')] o #[\FSFramework\Attribute\FSRoute('/path', ...)]
-        $pattern = '/#\[(?:\\\\?FSFramework\\\\Attribute\\\\)?FSRoute\s*\(\s*([\'"])([^\'"]+)\1(?:\s*,\s*(.+?))?\s*\)\s*\]/s';
+        // Procesar métodos de la clase
+        foreach ($reflectionClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+            // Ignorar métodos heredados de clases padre o métodos mágicos
+            if ($method->class !== $className || str_starts_with($method->getName(), '__')) {
+                continue;
+            }
+            
+            // Buscar atributos Route y FSRoute en los métodos
+            $methodAttributes = array_merge(
+                $method->getAttributes(RouteAttribute::class, \ReflectionAttribute::IS_INSTANCEOF),
+                $method->getAttributes(\FSFramework\Attribute\FSRoute::class, \ReflectionAttribute::IS_INSTANCEOF)
+            );
 
-        if (!preg_match($pattern, $content, $matches)) {
-            return null;
-        }
-
-        $route = [
-            'path' => $matches[2],
-            'methods' => ['GET'],
-            'name' => null,
-            'defaults' => [],
-            'requirements' => []
-        ];
-
-        // Parsear parámetros adicionales si existen
-        if (isset($matches[3]) && !empty($matches[3])) {
-            $paramsStr = $matches[3];
-
-            // Buscar methods: ['GET', 'POST']
-            if (preg_match('/methods\s*:\s*\[([^\]]+)\]/', $paramsStr, $methodMatch)) {
-                $methods = [];
-                preg_match_all('/[\'"]([A-Z]+)[\'"]/', $methodMatch[1], $methodMatches);
-                if (!empty($methodMatches[1])) {
-                    $methods = $methodMatches[1];
+            foreach ($methodAttributes as $attribute) {
+                $routeAttr = $attribute->newInstance();
+                
+                // Construir path completo (prefijo de clase + path del método)
+                $methodPath = $routeAttr->getPath() ?? '';
+                $path = $classPrefix . $methodPath;
+                
+                // Construir nombre de ruta (prefijo de clase + nombre del método)
+                $methodName = $routeAttr->getName();
+                if ($classNamePrefix && $methodName) {
+                    $routeName = $classNamePrefix . $methodName;
+                } elseif ($methodName) {
+                    $routeName = $methodName;
+                } else {
+                    $routeName = $this->generateRouteName($className, $method->getName());
                 }
-                $route['methods'] = $methods;
-            }
+                
+                $defaults = array_merge($classDefaults, $routeAttr->getDefaults(), [
+                    '_controller' => $className . '::' . $method->getName()
+                ]);
+                
+                $requirements = array_merge($classRequirements, $routeAttr->getRequirements());
+                $options = $routeAttr->getOptions();
+                $host = $routeAttr->getHost() ?? $classHost;
+                $schemes = $routeAttr->getSchemes() ?: $classSchemes;
+                $methods = $routeAttr->getMethods() ?: $classMethods ?: [];
+                $condition = $routeAttr->getCondition() ?? '';
 
-            // Buscar name: 'route_name'
-            if (preg_match('/name\s*:\s*[\'"]([^\'"]+)[\'"]/', $paramsStr, $nameMatch)) {
-                $route['name'] = $nameMatch[1];
+                $route = new Route(
+                    $path,
+                    $defaults,
+                    $requirements,
+                    $options,
+                    $host ?: '',
+                    $schemes,
+                    $methods,
+                    $condition
+                );
+
+                $collection->add($routeName, $route);
             }
         }
-
-        return $route;
     }
 
+    /**
+     * Genera un nombre de ruta único basado en la clase y método.
+     */
+    private function generateRouteName(string $className, string $methodName): string
+    {
+        $shortClass = (new \ReflectionClass($className))->getShortName();
+        return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $shortClass) . '_' . $methodName);
+    }
+
+    private function loadLegacyControllerRoutes(string $directory): RouteCollection
+    {
+        $collection = new RouteCollection();
+        $files = glob($directory . '/*.php');
+        
+        foreach ($files as $file) {
+            $className = basename($file, '.php');
+            
+            // Crear ruta legacy para compatibilidad
+            $route = new \Symfony\Component\Routing\Route(
+                '/index.php?page=' . $className,
+                [
+                    '_controller' => $className,
+                    'page' => $className
+                ],
+                [],
+                [],
+                '',
+                [],
+                ['GET', 'POST']
+            );
+            
+            $collection->add('legacy_' . strtolower($className), $route);
+        }
+        
+        return $collection;
+    }
 
     public function handle(Request $request): ?Response
     {
@@ -219,51 +301,18 @@ class Router
             $routeName = $parameters['_route'];
             unset($parameters['_controller'], $parameters['_route']);
 
-            // Verificar si la página está habilitada en FSFramework (fs_pages)
-            if (class_exists('fs_page')) {
-                $pageModel = new \fs_page();
-                $page = $pageModel->get($routeName);
-                if ($page && !$page->show_on_menu) {
-                    // Si la página existe pero está marcada para no mostrar (o deshabilitada logicamente)
-                    // En FSFramework 2017, show_on_menu suele usarse para visibilidad, 
-                    // pero podemos extender la lógica aquí si el usuario lo requiere.
-                    // Por ahora, si no está en la tabla, permitimos (es una ruta interna).
-                    // Pero si está en la tabla, respetamos su existencia.
-                }
-
-                // Si el usuario quiere desactivar completamente la ruta:
-                // En este framework legacy, deshabilitar un plugin es lo que suele quitar la página.
-                // Pero si queremos control fino por página:
-                if ($page && isset($page->enabled) && !$page->enabled) {
-                    return null;
-                }
-            }
-
-            if (is_array($controller)) {
-                $class = $controller[0];
-                $method = $controller[1];
-
-                if (class_exists($class)) {
-                    $instance = new $class();
-                    return $instance->$method($request, ...array_values($parameters));
-                }
-            }
-
-            // Soporte para controladores FSFramework con atributo #[FSRoute]
+            // Manejo de controladores legacy
             if (is_string($controller) && class_exists($controller)) {
-                // Verificar si es un controlador legacy de FSFramework
+                // Si es un controlador legacy (hereda de fs_controller)
                 if (is_subclass_of($controller, 'fs_controller')) {
-                    // Los controladores legacy usan el flujo normal de FSFramework
-                    return null;
+                    return null; // Dejar que el index.php legacy lo maneje
                 }
+
+                // Controlador moderno
                 $instance = new $controller();
                 if (method_exists($instance, 'handle')) {
                     return $instance->handle($request, ...array_values($parameters));
                 } elseif (method_exists($instance, 'run')) {
-                    // Start buffering to capture output if run() generates it directly (legacy style)
-                    // But usually run() sends response or we can just let it run.
-                    // If run() returns void, we return null to Router::handle, which might be fine?
-                    // Router::handle expects Response|null.
                     $instance->run();
                     if (method_exists($instance, 'response') && $instance->response() instanceof Response) {
                         return $instance->response();
@@ -288,15 +337,6 @@ class Router
         return null;
     }
 
-    /**
-     * Genera una URL para una ruta con nombre
-     *
-     * @param string $routeName Nombre de la ruta
-     * @param array $parameters Parámetros para la ruta
-     * @param int $referenceType Tipo de referencia URL (absoluta, relativa, etc.)
-     * @return string
-     * @throws RouteNotFoundException
-     */
     public function generate(string $routeName, array $parameters = [], int $referenceType = UrlGenerator::ABSOLUTE_PATH): string
     {
         if ($this->context === null) {
@@ -311,13 +351,6 @@ class Router
         return $this->urlGenerator->generate($routeName, $parameters, $referenceType);
     }
 
-    /**
-     * Genera una URL para una página legacy del sistema
-     *
-     * @param string $pageName Nombre de la página
-     * @param array $params Parámetros adicionales
-     * @return string
-     */
     public function generateLegacyUrl(string $pageName, array $params = []): string
     {
         $url = 'index.php?page=' . urlencode($pageName);
@@ -332,9 +365,6 @@ class Router
         return $this->routes;
     }
 
-    /**
-     * Limpia la caché de rutas
-     */
     public function clearCache(): bool
     {
         if (file_exists(self::$cacheFile)) {
@@ -343,31 +373,56 @@ class Router
         return true;
     }
 
-    /**
-     * Determina si se debe usar caché de rutas
-     */
     private function shouldUseCache(): bool
     {
-        // Solo usar caché si FS_DEBUG no está definido o es false
         return !defined('FS_DEBUG') || !FS_DEBUG;
     }
 
-    /**
-     * Guarda las rutas en caché
-     */
     private function cacheRoutes(RouteCollection $routes): void
     {
+        // Verificar si hay closures que impidan la serialización
+        if ($this->hasClosureControllers($routes)) {
+            // No se puede cachear si hay closures
+            return;
+        }
+
         $cacheDir = dirname(self::$cacheFile);
         if (!is_dir($cacheDir)) {
             @mkdir($cacheDir, 0755, true);
         }
 
-        // Nota: RouteCollection no es directamente serializable de forma completa,
-        // pero podemos guardar una versión simplificada para debugging
-        $content = "<?php\n// Routes cache generated at " . date('Y-m-d H:i:s') . "\n";
-        $content .= "// This is a placeholder - full caching requires Symfony Cache component with compiled matchers\n";
-        $content .= "return null;\n";
+        try {
+            $serialized = serialize($routes);
+            // Usar base64 para evitar problemas de escapado de caracteres especiales
+            $encoded = base64_encode($serialized);
+            $content = "<?php\n// Routes cache generated at " . date('Y-m-d H:i:s') . "\n";
+            $content .= "return unserialize(base64_decode('" . $encoded . "'));\n";
+            @file_put_contents(self::$cacheFile, $content);
+        } catch (\Exception $e) {
+            // Si falla la serialización (closures u otros), simplemente no cachear
+            error_log("Router: Unable to cache routes - " . $e->getMessage());
+        }
+    }
 
-        @file_put_contents(self::$cacheFile, $content);
+    /**
+     * Verifica si alguna ruta tiene un controlador Closure que no se puede serializar.
+     */
+    private function hasClosureControllers(RouteCollection $routes): bool
+    {
+        foreach ($routes as $route) {
+            $controller = $route->getDefault('_controller');
+            if ($controller instanceof \Closure) {
+                return true;
+            }
+            // También verificar si es un array con closure
+            if (is_array($controller)) {
+                foreach ($controller as $item) {
+                    if ($item instanceof \Closure) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 }
