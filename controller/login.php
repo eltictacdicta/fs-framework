@@ -5,7 +5,13 @@ if (isset($GLOBALS['config2']['site_url'])) {
     exit();
 }
 
+// Importar clase para redirecciones seguras (prevención de Open Redirect)
+use FSFramework\Security\SafeRedirect;
+
 $fsc->template = 'login.html.twig';
+
+// URL por defecto para redirecciones
+$defaultRedirectUrl = $fsc->url();
 
 // Comprobamos si hay variables en sesión, para restaurarlas o si se ha seleccionado otra db
 if (isset($_SESSION['variable_buffer'])) {
@@ -24,11 +30,9 @@ if (isset($_SESSION['variable_buffer'])) {
 }
 
 if ($fsc->user->logged_on) {
-    if (isset($_REQUEST['redir'])) {
-        header('Location: ' . $_REQUEST['redir']);
-    } else {
-        header('Location: ' . $fsc->url());
-    }
+    // Redirección segura: valida que la URL sea interna antes de redirigir
+    $safeUrl = SafeRedirect::getFromRequest($defaultRedirectUrl);
+    header('Location: ' . $safeUrl);
     exit();
 } else if (isset($_POST['nick']) && isset($_POST['password'])) {
     if ($fsc->user->login($_POST['nick'], $_POST['password'])) {
@@ -36,22 +40,18 @@ if ($fsc->user->logged_on) {
             $fsc->user->set_cookie();
         }
 
-        if (isset($_REQUEST['redir'])) {
-            header('Location: ' . $_REQUEST['redir']);
-        } else {
-            header('Location: ' . $fsc->url());
-        }
+        // Redirección segura: valida que la URL sea interna antes de redirigir
+        $safeUrl = SafeRedirect::getFromRequest($defaultRedirectUrl);
+        header('Location: ' . $safeUrl);
         exit();
     } else {
         $fsc->mensaje_login = 'Nick o contraseña incorrectos.';
     }
 } elseif (isset($_GET['autologin'])) {
     if ($fsc->user->login_from_cookie($_GET['autologin'])) {
-        if (isset($_REQUEST['redir'])) {
-            header('Location: ' . $_REQUEST['redir']);
-        } else {
-            header('Location: ' . $fsc->url());
-        }
+        // Redirección segura: valida que la URL sea interna antes de redirigir
+        $safeUrl = SafeRedirect::getFromRequest($defaultRedirectUrl);
+        header('Location: ' . $safeUrl);
         exit();
     }
 } elseif (isset($_GET['logout'])) {
