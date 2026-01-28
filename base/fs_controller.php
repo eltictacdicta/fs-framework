@@ -50,6 +50,11 @@ class fs_controller extends fs_app
      */
     protected $csrf_valid = true;
 
+    /**
+     * Indica si es una petición AJAX.
+     * @var bool
+     */
+    protected $is_ajax = false;
 
     /**
      * Nombre del controlador (lo utilizamos en lugar de __CLASS__ porque __CLASS__
@@ -152,6 +157,11 @@ class fs_controller extends fs_app
         $this->request = \FSFramework\Core\Kernel::request();
         $this->db = new fs_db2();
         $this->extensions = [];
+        
+        // Detect AJAX requests
+        $this->is_ajax = $this->request->isXmlHttpRequest() 
+            || $this->request->query->has('ajax') 
+            || $this->request->request->has('ajax');
 
         if ($this->db->connect()) {
             $this->user = new fs_user();
@@ -330,6 +340,17 @@ class fs_controller extends fs_app
     public function isCsrfValid(): bool
     {
         return $this->csrf_valid;
+    }
+
+    /**
+     * Indica si la petición actual es AJAX.
+     * Detecta via X-Requested-With header o parámetro ajax=1.
+     * 
+     * @return bool
+     */
+    public function isAjax(): bool
+    {
+        return $this->is_ajax;
     }
 
     /**

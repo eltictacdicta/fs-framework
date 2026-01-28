@@ -147,7 +147,7 @@ class Container
         foreach ($plugins as $plugin) {
             $servicesFile = $root . '/plugins/' . $plugin . '/config/services.php';
             if (file_exists($servicesFile)) {
-                $configurator = require $servicesFile;
+                $configurator = require_once $servicesFile;
                 if (is_callable($configurator)) {
                     $configurator(self::$container);
                 }

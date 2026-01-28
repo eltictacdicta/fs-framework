@@ -25,6 +25,9 @@ logs/api_security.log
 /imgs/api_auth/business_cards/*.png
 /imgs/api_auth/business_cards/*.gif
 /imgs/api_auth/business_cards/*.webp
+
+# Excluir directorio imgs y subdirectorios
+/imgs/
 .ddev/config.yaml
 .ddev/
 AdminLTE-2.4.18

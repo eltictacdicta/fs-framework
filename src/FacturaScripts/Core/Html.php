@@ -56,6 +56,47 @@ class Html
     }
 
     /**
+     * Render a template for AJAX requests (without header/footer).
+     * Returns only the main content, suitable for embedding via AJAX.
+     * 
+     * @param string $template Template name
+     * @param array $params Parameters to pass to the template
+     * @return string Rendered HTML content only
+     */
+    public static function renderAjax(string $template, array $params = []): string
+    {
+        // Mark as AJAX mode to templates
+        $params['is_ajax'] = true;
+        $params['ajax_mode'] = true;
+        
+        // Render the template normally
+        $html = self::render($template, $params);
+        
+        // Try to extract just the main content
+        // Look for content-wrapper or similar containers
+        $patterns = [
+            '/<div[^>]*class="[^"]*content-wrapper[^"]*"[^>]*>(.*)<\/div>\s*<footer/si',
+            '/<section[^>]*class="[^"]*content[^"]*"[^>]*>(.*)<\/section>/si',
+            '/<main[^>]*>(.*)<\/main>/si',
+            '/<div[^>]*class="[^"]*container-fluid[^"]*"[^>]*>(.*)<\/div>\s*<\/div>\s*<footer/si',
+        ];
+        
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                return trim($matches[1]);
+            }
+        }
+        
+        // If no pattern matched, try to strip header and footer completely
+        // Remove everything before <body> tag content and after </footer>
+        $html = preg_replace('/^.*<body[^>]*>/si', '', $html);
+        $html = preg_replace('/<footer.*$/si', '', $html);
+        $html = preg_replace('/<\/body>.*$/si', '', $html);
+        
+        return trim($html);
+    }
+
+    /**
      * Get execution time since first render call
      * 
      * @return float Execution time in seconds

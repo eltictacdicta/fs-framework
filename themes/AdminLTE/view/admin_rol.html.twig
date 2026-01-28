@@ -170,7 +170,7 @@
                         {% if value.admin %}
                         <i class="fa fa-lock" aria-hidden="true"></i>
                         {% else %}
-                        <input type="checkbox" id="enabled_{{ key }}" name="iuser[]" value="{{ value.nick }}" {% if value.included %} checked=""{% endif %}/>
+                        <input type="checkbox" id="user_enabled_{{ key }}" name="iuser[]" value="{{ value.nick }}" {% if value.included %} checked=""{% endif %}/>
                         {% endif %}
                      </td>
                      <td>

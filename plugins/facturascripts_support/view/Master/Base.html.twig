@@ -27,6 +27,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content="FSFramework" />
     <meta name="robots" content="noindex" />
+    {{ csrf_meta() }}
     {% endblock %}
     
     {% block icons %}
@@ -101,6 +102,9 @@
     
     {# Base JS #}
     <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/base.js?v={{ fsc.today() }}"></script>
+    
+    {# AJAX Loader with security (replacement for iframes) #}
+    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/ajax-loader.js?v={{ fsc.today() }}"></script>
     
     {# Number format helper #}
     <script type="text/javascript">

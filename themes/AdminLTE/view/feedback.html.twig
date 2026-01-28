@@ -52,12 +52,12 @@
 </form>
 
 {% if fsc.empresa and not constant('FS_DEMO') and random(49)==0 %}
-<div style="display: none;">
+{# Background tasks via AJAX instead of hidden iframes #}
+<script>
+$(function() {
     {% if random(2)>0 and fsc.user.logged_on %}
-    <iframe src="index.php?page=admin_home&check4updates=TRUE" height="0"></iframe>
-    {% else %}
-    <!--{% set plugin_list = fsc.get_plugins()|join(',') %}-->
-    <iframe src="{{ constant('FS_COMMUNITY_URL') }}/index.php?page=community_stats&add=TRUE&version={{ fsc.version() }}&plugins={{ plugin_list }}" height="0"></iframe>
+    FSAjaxLoader.backgroundTask('index.php?page=admin_home&check4updates=TRUE&ajax=1');
     {% endif %}
-</div>
+});
+</script>
 {% endif %}

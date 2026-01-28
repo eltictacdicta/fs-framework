@@ -237,7 +237,7 @@
          {% for value in fsc.extensions %}
             {% if value.type == 'tab' %}
             <li role="presentation">
-               <a href="#ext_{{ value.name }}" aria-controls="ext_{{ value.name }}" role="tab" data-toggle="tab">{{ value.text }}</a>
+               <a href="#ext_{{ value.name }}" aria-controls="ext_{{ value.name }}" role="tab" data-toggle="tab" data-ajax-url="index.php?page={{ value.from }}{{ value.params }}&snick={{ fsc.suser.nick }}&ajax=1">{{ value.text }}</a>
             </li>
             {% endif %}
          {% endfor %}
@@ -400,8 +400,12 @@
          </div>
          {% for value in fsc.extensions %}
             {% if value.type == 'tab' %}
-            <div role="tabpanel" class="tab-pane" id="ext_{{ value.name }}">
-               <iframe src="index.php?page={{ value.from }}{{ value.params }}&snick={{ fsc.suser.nick }}" width="100%" height="2000"></iframe>
+            <div role="tabpanel" class="tab-pane" id="ext_{{ value.name }}" data-ajax-src="index.php?page={{ value.from }}{{ value.params }}&snick={{ fsc.suser.nick }}&ajax=1">
+               {# Content loaded via AJAX when tab is activated #}
+               <div class="text-center" style="padding: 40px;">
+                  <i class="fa fa-spinner fa-spin fa-3x text-muted"></i>
+                  <p class="text-muted" style="margin-top: 15px;">Cargando contenido...</p>
+               </div>
             </div>
             {% endif %}
          {% endfor %}

@@ -22,19 +22,27 @@
                </ol>
             </div>
          </div>
+         {# Hidden extensions executed via AJAX instead of iframes #}
          {% for ext in fsc.extensions %}
          {% if ext.type == 'hidden_iframe' %}
-         <iframe src="index.php?page={{ ext.from }}{{ ext.params|raw }}" width="100%"></iframe>
+         <script>
+            $(function() {
+               FSAjaxLoader.backgroundTask('index.php?page={{ ext.from }}{{ ext.params|raw }}&ajax=1');
+            });
+         </script>
          {% endif %}
          {% endfor %}
          {% else %}
-         <div class="hidden">
-            {% for ext in fsc.extensions %}
-            {% if ext.type == 'hidden_iframe' %}
-            <iframe src="index.php?page={{ ext.from }}{{ ext.params|raw }}"></iframe>
-            {% endif %}
-            {% endfor %}
-         </div>
+         {# Hidden extensions executed via AJAX instead of iframes #}
+         {% for ext in fsc.extensions %}
+         {% if ext.type == 'hidden_iframe' %}
+         <script>
+            $(function() {
+               FSAjaxLoader.backgroundTask('index.php?page={{ ext.from }}{{ ext.params|raw }}&ajax=1');
+            });
+         </script>
+         {% endif %}
+         {% endfor %}
          {% endif %}
       </div>
    </div>

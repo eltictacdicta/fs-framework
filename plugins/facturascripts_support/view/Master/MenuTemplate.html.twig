@@ -143,7 +143,7 @@
                 <div class="input-group">
                     <input type="text" name="query" class="form-control" placeholder="{{ trans('search') }}..." autocomplete="off" />
                     <span class="input-group-btn">
-                        <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                        <button type="submit" name="search" id="search-btn-community" class="btn btn-flat"><i class="fa fa-search"></i></button>
                     </span>
                 </div>
             </form>
@@ -152,7 +152,7 @@
                 <div class="input-group">
                     <input type="text" name="query" class="form-control" placeholder="{{ trans('article') }}..." autocomplete="off" />
                     <span class="input-group-btn">
-                        <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i></button>
+                        <button type="submit" name="search" id="search-btn-articles" class="btn btn-flat"><i class="fa fa-search"></i></button>
                     </span>
                 </div>
             </form>
@@ -270,19 +270,22 @@
     {% endblock %}
 </div>
 
-{# Modal iframe for extensions #}
-<div class="modal fade" id="modal_iframe" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
+{# Modal for AJAX content (replaces iframe modal) #}
+<div class="modal fade" id="modal_ajax" tabindex="-1" role="dialog" aria-labelledby="modal_ajax_title">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
                     <span aria-hidden="true">&times;</span>
                 </button>
-                <h4 class="modal-title">Modal title</h4>
+                <h4 class="modal-title" id="modal_ajax_title">{{ trans('content') }}</h4>
             </div>
-            <iframe src="" width="100%" height="600" frameBorder="0">
-                {{ trans('browser-no-frames') }}
-            </iframe>
+            <div class="modal-body" id="modal_ajax_body">
+                {# Content loaded via AJAX #}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">{{ trans('close') }}</button>
+            </div>
         </div>
     </div>
 </div>
@@ -303,22 +306,30 @@
                     </ol>
                 </div>
             </div>
+            {# Hidden extensions executed via AJAX instead of iframes #}
             {% for ext in fsc.extensions %}
             {% if ext.type == 'hidden_iframe' %}
-            <iframe src="index.php?page={{ ext.from }}{{ ext.params }}" width="100%"></iframe>
+            <script>
+                $(function() {
+                    FSAjaxLoader.backgroundTask('index.php?page={{ ext.from }}{{ ext.params }}&ajax=1');
+                });
+            </script>
             {% endif %}
             {% endfor %}
         </div>
     </div>
 </div>
 {% else %}
-<div class="hidden">
-    {% for ext in fsc.extensions %}
-    {% if ext.type == 'hidden_iframe' %}
-    <iframe src="index.php?page={{ ext.from }}{{ ext.params }}"></iframe>
-    {% endif %}
-    {% endfor %}
-</div>
+{# Hidden extensions executed via AJAX instead of iframes #}
+{% for ext in fsc.extensions %}
+{% if ext.type == 'hidden_iframe' %}
+<script>
+    $(function() {
+        FSAjaxLoader.backgroundTask('index.php?page={{ ext.from }}{{ ext.params }}&ajax=1');
+    });
+</script>
+{% endif %}
+{% endfor %}
 {% endif %}
 {% endif %}
 {% endblock %}

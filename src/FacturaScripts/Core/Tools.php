@@ -70,7 +70,10 @@ class Tools
                 }
                 $replacements = [];
                 foreach ($params as $key => $val) {
-                    $replacements[$key] = $val;
+                    // Ensure value is a string for strtr
+                    $replacements[$key] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString')) 
+                        ? (string) $val 
+                        : '';
                 }
                 return strtr($msg, $replacements);
             }

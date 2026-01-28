@@ -145,8 +145,8 @@ class Router
             $className = $namespace . basename($file, '.php');
             
             if (!class_exists($className)) {
-                // Intentar incluir el archivo si la clase no está cargada
-                require_once $file;
+                // Intentar incluir el archivo si la clase no está cargada (include_once para evitar errores fatales)
+                include_once $file;
                 if (!class_exists($className)) {
                     continue;
                 }

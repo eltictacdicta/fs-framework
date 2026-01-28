@@ -236,10 +236,19 @@ if ($fsc_error) {
 
 
 if ($fsc->template) {
-    echo \FacturaScripts\Core\Html::render($fsc->template, [
+    $renderParams = [
         'fsc' => $fsc,
         'nlogin' => filter_input(INPUT_POST, 'user') ?? filter_input(INPUT_COOKIE, 'user') ?? ''
-    ]);
+    ];
+    
+    // Use AJAX render mode for AJAX requests (returns content only, no header/footer)
+    if ($fsc->isAjax()) {
+        header('Content-Type: text/html; charset=UTF-8');
+        header('X-Content-Type-Options: nosniff');
+        echo \FacturaScripts\Core\Html::renderAjax($fsc->template, $renderParams);
+    } else {
+        echo \FacturaScripts\Core\Html::render($fsc->template, $renderParams);
+    }
 }
 
 /// guardamos los errores en el log (los producidos durante la carga del template)
