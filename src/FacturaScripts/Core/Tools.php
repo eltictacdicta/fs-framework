@@ -42,7 +42,7 @@ class Tools
                     $log->new_error($message);
                 }
             }
-            
+
             public function warning($msg, $params = [])
             {
                 $message = self::interpolate($msg, $params);
@@ -52,7 +52,7 @@ class Tools
                     $log->new_advice($message);
                 }
             }
-            
+
             public function notice($msg, $params = [])
             {
                 $message = self::interpolate($msg, $params);
@@ -62,17 +62,17 @@ class Tools
                     $log->new_message($message);
                 }
             }
-            
+
             private static function interpolate($msg, $params)
             {
-                if (empty($params)) {
+                if (empty($params) || !is_iterable($params)) {
                     return $msg;
                 }
                 $replacements = [];
                 foreach ($params as $key => $val) {
                     // Ensure value is a string for strtr
-                    $replacements[$key] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString')) 
-                        ? (string) $val 
+                    $replacements[$key] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
+                        ? (string) $val
                         : '';
                 }
                 return strtr($msg, $replacements);
@@ -117,14 +117,14 @@ class Tools
                 // Return provided default or smart default
                 return $default ?? ($defaults[$key] ?? null);
             }
-            
+
             $value = constant($constant);
-            
+
             // db_type must be lowercase for FS2025 compatibility
             if ($key === 'db_type') {
                 return strtolower($value);
             }
-            
+
             return $value;
         }
 
@@ -174,22 +174,22 @@ class Tools
 
         $files = [];
         $items = scandir($path);
-        
+
         foreach ($items as $item) {
             if ($item === '.' || $item === '..') {
                 continue;
             }
-            
+
             if ($recursive && is_dir($path . '/' . $item)) {
                 $subFiles = self::folderScan($path . '/' . $item, true);
                 foreach ($subFiles as $subFile) {
                     $files[] = $item . '/' . $subFile;
                 }
             }
-            
+
             $files[] = $item;
         }
-        
+
         return $files;
     }
 
@@ -296,7 +296,7 @@ class Tools
         $nf0 = defined('FS_NF0') ? FS_NF0 : 2;
         $nf1 = defined('FS_NF1') ? FS_NF1 : ',';
         $nf2 = defined('FS_NF2') ? FS_NF2 : '.';
-        
+
         return number_format($amount, $decimals ?: $nf0, $nf1, $nf2);
     }
 
@@ -311,7 +311,7 @@ class Tools
         $nf0 = defined('FS_NF0') ? FS_NF0 : 2;
         $nf1 = defined('FS_NF1') ? FS_NF1 : ',';
         $nf2 = defined('FS_NF2') ? FS_NF2 : '.';
-        
+
         return number_format($number, $decimals ?? $nf0, $nf1, $nf2);
     }
 }

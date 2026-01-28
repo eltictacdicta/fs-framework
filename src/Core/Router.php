@@ -35,7 +35,7 @@ class Router
         // Intentar cargar desde caché en producción
         if ($this->shouldUseCache() && file_exists(self::$cacheFile)) {
             try {
-                $cached = include self::$cacheFile;
+                $cached = include_once self::$cacheFile;
                 if ($cached instanceof RouteCollection) {
                     return $cached;
                 }
@@ -140,10 +140,10 @@ class Router
     private function loadAttributeRoutesFromDirectory(RouteCollection $collection, string $directory, string $namespace): void
     {
         $files = glob($directory . '/*.php');
-        
+
         foreach ($files as $file) {
             $className = $namespace . basename($file, '.php');
-            
+
             if (!class_exists($className)) {
                 // Intentar incluir el archivo si la clase no está cargada (include_once para evitar errores fatales)
                 include_once $file;
@@ -166,7 +166,7 @@ class Router
     private function loadAttributeRoutesFromClass(RouteCollection $collection, string $className): void
     {
         $reflectionClass = new \ReflectionClass($className);
-        
+
         // Obtener prefijo de ruta a nivel de clase (si existe)
         $classPrefix = '';
         $classNamePrefix = '';
@@ -175,13 +175,13 @@ class Router
         $classRequirements = [];
         $classHost = '';
         $classSchemes = [];
-        
+
         // Buscar atributos Route y FSRoute a nivel de clase
         $classAttributes = array_merge(
             $reflectionClass->getAttributes(RouteAttribute::class, \ReflectionAttribute::IS_INSTANCEOF),
             $reflectionClass->getAttributes(\FSFramework\Attribute\FSRoute::class, \ReflectionAttribute::IS_INSTANCEOF)
         );
-        
+
         foreach ($classAttributes as $attribute) {
             $routeAttr = $attribute->newInstance();
             $classPrefix = $routeAttr->getPath() ?? $classPrefix;
@@ -199,7 +199,7 @@ class Router
             if ($method->class !== $className || str_starts_with($method->getName(), '__')) {
                 continue;
             }
-            
+
             // Buscar atributos Route y FSRoute en los métodos
             $methodAttributes = array_merge(
                 $method->getAttributes(RouteAttribute::class, \ReflectionAttribute::IS_INSTANCEOF),
@@ -208,11 +208,11 @@ class Router
 
             foreach ($methodAttributes as $attribute) {
                 $routeAttr = $attribute->newInstance();
-                
+
                 // Construir path completo (prefijo de clase + path del método)
                 $methodPath = $routeAttr->getPath() ?? '';
                 $path = $classPrefix . $methodPath;
-                
+
                 // Construir nombre de ruta (prefijo de clase + nombre del método)
                 $methodName = $routeAttr->getName();
                 if ($classNamePrefix && $methodName) {
@@ -222,11 +222,11 @@ class Router
                 } else {
                     $routeName = $this->generateRouteName($className, $method->getName());
                 }
-                
+
                 $defaults = array_merge($classDefaults, $routeAttr->getDefaults(), [
                     '_controller' => $className . '::' . $method->getName()
                 ]);
-                
+
                 $requirements = array_merge($classRequirements, $routeAttr->getRequirements());
                 $options = $routeAttr->getOptions();
                 $host = $routeAttr->getHost() ?? $classHost;
@@ -263,10 +263,10 @@ class Router
     {
         $collection = new RouteCollection();
         $files = glob($directory . '/*.php');
-        
+
         foreach ($files as $file) {
             $className = basename($file, '.php');
-            
+
             // Crear ruta legacy para compatibilidad
             $route = new \Symfony\Component\Routing\Route(
                 '/index.php?page=' . $className,
@@ -280,10 +280,10 @@ class Router
                 [],
                 ['GET', 'POST']
             );
-            
+
             $collection->add('legacy_' . strtolower($className), $route);
         }
-        
+
         return $collection;
     }
 

@@ -56,14 +56,14 @@ class Tools
 
             private static function interpolate($msg, $params)
             {
-                if (empty($params)) {
+                if (empty($params) || !is_iterable($params)) {
                     return $msg;
                 }
                 $replacements = [];
                 foreach ($params as $key => $val) {
                     // Ensure value is a string for strtr
-                    $replacements[$key] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString')) 
-                        ? (string) $val 
+                    $replacements[$key] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
+                        ? (string) $val
                         : '';
                 }
                 return strtr($msg, $replacements);

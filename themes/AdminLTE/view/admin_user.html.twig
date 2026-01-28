@@ -315,11 +315,7 @@
                            {% endif %}
                         </td>
                         <td class="text-center">
-                           {% if value.enabled %}
-                           <input type="checkbox" id="enabled_{{ key }}" name="enabled[]" value="{{ value.name }}" onclick="check_allow_delete('{{ key }}')" checked=""/>
-                           {% else %}
-                           <input type="checkbox" id="enabled_{{ key }}" name="enabled[]" value="{{ value.name }}" onclick="check_allow_delete('{{ key }}')"/>
-                           {% endif %}
+                           <input type="checkbox" id="enabled_{{ key }}" name="enabled[]" value="{{ value.name }}" onclick="check_allow_delete('{{ key }}')"{% if value.enabled %} checked=""{% endif %}/>
                         </td>
                         <td class="text-center" title="el usuario tiene permisos para eliminar en esta página">
                            {% if value.allow_delete %}

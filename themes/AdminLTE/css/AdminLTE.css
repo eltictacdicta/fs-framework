@@ -5246,7 +5246,7 @@ fieldset[disabled] .btn-yahoo.focus {
   background: #39CCCC !important;
   background: -webkit-gradient(linear, left bottom, left top, color-stop(0, #39CCCC), color-stop(1, #7adddd)) !important;
   background: -ms-linear-gradient(bottom, #39CCCC, #7adddd) !important;
-  background: -moz-linear-gradient(center bottom, #39CCCC 0%, #7adddd 100%) !important;
+  background: -moz-linear-gradient(bottom, #39CCCC 0%, #7adddd 100%) !important;
   background: -o-linear-gradient(#7adddd, #39CCCC) !important;
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#7adddd', endColorstr='#39CCCC', GradientType=0) !important;
   color: #fff;
@@ -5255,7 +5255,7 @@ fieldset[disabled] .btn-yahoo.focus {
   background: #3c8dbc !important;
   background: -webkit-gradient(linear, left bottom, left top, color-stop(0, #3c8dbc), color-stop(1, #67a8ce)) !important;
   background: -ms-linear-gradient(bottom, #3c8dbc, #67a8ce) !important;
-  background: -moz-linear-gradient(center bottom, #3c8dbc 0%, #67a8ce 100%) !important;
+  background: -moz-linear-gradient(bottom, #3c8dbc 0%, #67a8ce 100%) !important;
   background: -o-linear-gradient(#67a8ce, #3c8dbc) !important;
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#67a8ce', endColorstr='#3c8dbc', GradientType=0) !important;
   color: #fff;
@@ -5264,7 +5264,7 @@ fieldset[disabled] .btn-yahoo.focus {
   background: #0073b7 !important;
   background: -webkit-gradient(linear, left bottom, left top, color-stop(0, #0073b7), color-stop(1, #0089db)) !important;
   background: -ms-linear-gradient(bottom, #0073b7, #0089db) !important;
-  background: -moz-linear-gradient(center bottom, #0073b7 0%, #0089db 100%) !important;
+  background: -moz-linear-gradient(bottom, #0073b7 0%, #0089db 100%) !important;
   background: -o-linear-gradient(#0089db, #0073b7) !important;
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#0089db', endColorstr='#0073b7', GradientType=0) !important;
   color: #fff;
@@ -5273,7 +5273,7 @@ fieldset[disabled] .btn-yahoo.focus {
   background: #00c0ef !important;
   background: -webkit-gradient(linear, left bottom, left top, color-stop(0, #00c0ef), color-stop(1, #14d1ff)) !important;
   background: -ms-linear-gradient(bottom, #00c0ef, #14d1ff) !important;
-  background: -moz-linear-gradient(center bottom, #00c0ef 0%, #14d1ff 100%) !important;
+  background: -moz-linear-gradient(bottom, #00c0ef 0%, #14d1ff 100%) !important;
   background: -o-linear-gradient(#14d1ff, #00c0ef) !important;
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#14d1ff', endColorstr='#00c0ef', GradientType=0) !important;
   color: #fff;
