@@ -68,10 +68,10 @@ class Html
         // Mark as AJAX mode to templates
         $params['is_ajax'] = true;
         $params['ajax_mode'] = true;
-        
+
         // Render the template normally
         $html = self::render($template, $params);
-        
+
         // Try to extract just the main content
         // Look for content-wrapper or similar containers
         $patterns = [
@@ -80,19 +80,19 @@ class Html
             '/<main[^>]*>(.*)<\/main>/si',
             '/<div[^>]*class="[^"]*container-fluid[^"]*"[^>]*>(.*)<\/div>\s*<\/div>\s*<footer/si',
         ];
-        
+
         foreach ($patterns as $pattern) {
             if (preg_match($pattern, $html, $matches)) {
                 return trim($matches[1]);
             }
         }
-        
+
         // If no pattern matched, try to strip header and footer completely
         // Remove everything before <body> tag content and after </footer>
         $html = preg_replace('/^.*<body[^>]*>/si', '', $html);
         $html = preg_replace('/<footer.*$/si', '', $html);
         $html = preg_replace('/<\/body>.*$/si', '', $html);
-        
+
         return trim($html);
     }
 
@@ -167,7 +167,7 @@ class Html
             self::$twig = new Environment($loader, [
                 'cache' => FS_FOLDER . '/tmp/twig_cache',
                 'debug' => $isDebug,
-                'auto_reload' => $isDebug, // Only reload templates in debug mode
+                'auto_reload' => true, // Ensure templates are reloaded when they change
             ]);
 
             // Initialize the translation system and register Twig extension
