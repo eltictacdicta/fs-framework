@@ -216,6 +216,11 @@ class Html
                 fn() => \FSFramework\Core\ThemeManager::getInstance()
             ));
 
+            // Add theme_path global variable for templates
+            // This allows templates to dynamically use the active theme's assets path
+            $themeAssetsPath = $themeManager->getThemeAssetsPath();
+            self::$twig->addGlobal('theme_path', $themeAssetsPath);
+
             // AdminLTE helper functions - load from theme if available
             $themeManager = \FSFramework\Core\ThemeManager::getInstance();
             $themeFunctionsPath = FS_FOLDER . '/themes/' . $themeManager->getActiveTheme() . '/functions.php';

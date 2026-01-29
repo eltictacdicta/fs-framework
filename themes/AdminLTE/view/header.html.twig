@@ -7,7 +7,9 @@
  * Native Twig version (migrated from RainTPL)
  */
 #}
-{% set theme_path = 'themes/AdminLTE' %}
+{# theme_path is now a global variable set by Html.php from ThemeManager #}
+{# Use the dynamic theme_path if available, fallback to AdminLTE for backwards compatibility #}
+{% set theme_path = theme_path is defined ? theme_path : 'themes/AdminLTE' %}
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
 

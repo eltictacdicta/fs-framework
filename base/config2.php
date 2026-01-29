@@ -17,10 +17,25 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-foreach (['FS_TMP_NAME', 'FS_PATH', 'FS_MYDOCS'] as $name) {
+foreach (['FS_TMP_NAME', 'FS_MYDOCS'] as $name) {
     if (!defined($name)) {
         define($name, '');
     }
+}
+
+// FS_PATH debe ser calculado automáticamente si no está definido
+// Esto permite que la aplicación funcione correctamente en subdirectorios
+// y con proxies como ngrok
+if (!defined('FS_PATH')) {
+    $fs_path_calculated = '';
+    if (!empty($_SERVER['SCRIPT_NAME'])) {
+        $script_dir = dirname($_SERVER['SCRIPT_NAME']);
+        // Asegurar que termine con / si no está en la raíz
+        if ($script_dir !== '/' && $script_dir !== '\\' && $script_dir !== '.') {
+            $fs_path_calculated = rtrim($script_dir, '/') . '/';
+        }
+    }
+    define('FS_PATH', $fs_path_calculated);
 }
 
 if (FS_TMP_NAME != '' && !file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME)) {
