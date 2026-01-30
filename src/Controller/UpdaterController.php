@@ -59,72 +59,92 @@ class UpdaterController
             <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
             <title>Actualizador de FSFramework</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <link rel="stylesheet" href="view/css/bootstrap-yeti.min.css" />
+            <!-- Bootstrap CSS -->
+            <link rel="stylesheet" href="view/css/bootstrap.min.css" />
+            <!-- Font Awesome -->
             <link rel="stylesheet" href="view/css/font-awesome.min.css" />
-            <script type="text/javascript" src="view/js/jquery.min.js"></script>
+            <!-- AdminLTE Theme -->
+            <link rel="stylesheet" href="themes/AdminLTE/css/AdminLTE.min.css" />
+            <link rel="stylesheet" href="themes/AdminLTE/css/skins/skin-blue.min.css" />
+            <!-- jQuery y Bootstrap JS -->
+            <script type="text/javascript" src="themes/AdminLTE/js/jQuery-2.1.4.min.js"></script>
             <script type="text/javascript" src="view/js/bootstrap.min.js"></script>
+            <!-- AdminLTE JS -->
+            <script type="text/javascript" src="themes/AdminLTE/js/adminlte.min.js"></script>
         </head>
-        <body>
-            <br />
-            <div class="container-fluid">
-                <div class="row">
-                    <div class="col-sm-12">
-                        <a href="index.php?page=admin_home&updated=TRUE" class="btn btn-sm btn-default">
-                            <span class="glyphicon glyphicon-arrow-left" aria-hidden="true"></span>
-                            <span class="hidden-xs">&nbsp;Panel de control</span>
-                        </a>
-                        <div class="page-header">
-                            <h1><span class="glyphicon glyphicon-upload" aria-hidden="true"></span> Actualizador Moderno</h1>
-                        </div>
-                        <?php
-                        if (count($updater->get_errors()) > 0) {
-                            echo '<div class="alert alert-danger"><ul>';
-                            foreach ($updater->get_errors() as $error) {
-                                echo '<li>' . $error . '</li>';
-                            }
-                            echo '</ul></div>';
-                        }
-                        if (count($updater->get_messages()) > 0) {
-                            echo '<div class="alert alert-info"><ul>';
-                            foreach ($updater->get_messages() as $msg) {
-                                echo '<li>' . $msg . '</li>';
-                            }
-                            echo '</ul></div>';
-                        }
-                        ?>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-sm-12">
-                        <ul class="nav nav-tabs" role="tablist">
-                            <li role="presentation" class="active"><a href="#actualizaciones" role="tab" data-toggle="tab">Actualizaciones</a></li>
-                            <li role="presentation"><a href="#opciones" role="tab" data-toggle="tab">Opciones</a></li>
-                        </ul>
-                        <div class="tab-content">
-                            <div role="tabpanel" class="tab-pane active" id="actualizaciones">
-                                <table class="table table-hover">
-                                    <thead><tr><th>Nombre</th><th>Descripción</th><th class="text-right">Versión</th><th class="text-right">Nueva</th><th></th></tr></thead>
-                                    <?php echo $updater->tr_updates; ?>
-                                </table>
-                            </div>
-                            <div role="tabpanel" class="tab-pane" id="opciones">
-                                <table class="table table-hover">
-                                    <thead><tr><th>Opción</th><th></th></tr></thead>
-                                    <?php echo $updater->tr_options; ?>
-                                </table>
+        <body class="hold-transition skin-blue layout-top-nav">
+            <div class="wrapper">
+                <div class="content-wrapper" style="margin-left: 0;">
+                    <section class="content-header">
+                        <h1>
+                            <i class="fa fa-upload"></i> Actualizador de FSFramework
+                        </h1>
+                    </section>
+                    <section class="content">
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <a href="index.php?page=admin_home&updated=TRUE" class="btn btn-sm btn-default">
+                                    <i class="fa fa-arrow-left"></i>
+                                    <span class="hidden-xs">&nbsp;Panel de control</span>
+                                </a>
+                                <br /><br />
+                                <?php
+                                if (count($updater->get_errors()) > 0) {
+                                    echo '<div class="alert alert-danger"><ul>';
+                                    foreach ($updater->get_errors() as $error) {
+                                        echo '<li>' . $error . '</li>';
+                                    }
+                                    echo '</ul></div>';
+                                }
+                                if (count($updater->get_messages()) > 0) {
+                                    echo '<div class="alert alert-info"><ul>';
+                                    foreach ($updater->get_messages() as $msg) {
+                                        echo '<li>' . $msg . '</li>';
+                                    }
+                                    echo '</ul></div>';
+                                }
+                                ?>
                             </div>
                         </div>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <div class="box box-primary">
+                                    <div class="box-header with-border">
+                                        <h3 class="box-title">Actualizaciones y Opciones</h3>
+                                    </div>
+                                    <div class="box-body">
+                                        <ul class="nav nav-tabs" role="tablist">
+                                            <li role="presentation" class="active"><a href="#actualizaciones" role="tab" data-toggle="tab"><i class="fa fa-download"></i> Actualizaciones</a></li>
+                                            <li role="presentation"><a href="#opciones" role="tab" data-toggle="tab"><i class="fa fa-cog"></i> Opciones</a></li>
+                                        </ul>
+                                        <div class="tab-content" style="padding-top: 15px;">
+                                            <div role="tabpanel" class="tab-pane active" id="actualizaciones">
+                                                <table class="table table-hover table-striped">
+                                                    <thead><tr><th>Nombre</th><th>Descripción</th><th class="text-right">Versión</th><th class="text-right">Nueva</th><th></th></tr></thead>
+                                                    <?php echo $updater->tr_updates; ?>
+                                                </table>
+                                            </div>
+                                            <div role="tabpanel" class="tab-pane" id="opciones">
+                                                <table class="table table-hover table-striped">
+                                                    <thead><tr><th>Opción</th><th></th></tr></thead>
+                                                    <?php echo $updater->tr_options; ?>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section><!-- /.content -->
+                </div><!-- /.content-wrapper -->
+                
+                <footer class="main-footer" style="margin-left: 0;">
+                    <div class="pull-right hidden-xs">
+                        <span class="label label-default"><?php echo $updater->duration(); ?></span>
                     </div>
-                </div>
-            </div>
-            <br /><br />
-            <div class="container-fluid">
-                <div class="row"><div class="col-sm-12"><hr /></div></div>
-                <div class="row">
-                    <div class="col-xs-6"><small>FSFramework Symfony-Powered Updater</small></div>
-                    <div class="col-xs-6 text-right"><span class="label label-default"><?php echo $updater->duration(); ?></span></div>
-                </div>
-            </div>
+                    <strong>FSFramework</strong> Symfony-Powered Updater
+                </footer>
+            </div><!-- /.wrapper -->
         </body>
         </html>
         <?php
