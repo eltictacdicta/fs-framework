@@ -26,6 +26,14 @@ class RainToTwig
      */
     public static function translate(string $content): string
     {
+        // 0. Normalize HTML entities inside RainTPL tags
+        // Some templates use &quot; instead of " inside RainTPL syntax
+        $content = preg_replace_callback('/\{([a-z]+)=&quot;(.+?)&quot;\}/', function ($matches) {
+            $tag = $matches[1];
+            $value = html_entity_decode($matches[2], ENT_QUOTES, 'UTF-8');
+            return '{' . $tag . '="' . $value . '"}';
+        }, $content);
+        
         // 1. Comments
         $content = preg_replace('/{\*(.*?)\*}/s', '{# $1 #}', $content);
         $content = preg_replace('/{ignore}(.*? ){\/ignore}/s', '{# $1 #}', $content);
@@ -63,7 +71,27 @@ class RainToTwig
 
                 // It's a loop start
                 $loopLevel++;
-                $var = self::translateExpression($matches['variable']);
+                $var = $matches['variable'];
+                
+                // Check for C-style for loop: {loop="$i=1;$i<=N;$i++"}
+                // Pattern: $var=start;$var<=end;$var++ or $var<end
+                // Example: $page_num=1;$page_num<=$fsc->total_pages;$page_num++
+                if (preg_match('/^\$(\w+)\s*=\s*(\d+)\s*;\s*\$\1\s*(<=?)\s*([^;]+)\s*;\s*\$\1\+\+$/', $var, $forMatch)) {
+                    $loopVar = $forMatch[1];
+                    $start = $forMatch[2];
+                    $operator = $forMatch[3];
+                    $endExpr = self::translateExpression(trim($forMatch[4]));
+                    
+                    // For <= we use the value directly, for < we subtract 1
+                    if ($operator === '<=') {
+                        return "{% for $loopVar in range($start, $endExpr) %}";
+                    } else {
+                        // < means we need end - 1
+                        return "{% for $loopVar in range($start, $endExpr - 1) %}";
+                    }
+                }
+                
+                $var = self::translateExpression($var);
 
                 // Explicit syntax: {loop="$list" as $key => $val}
                 if (!empty($matches['key']) && !empty($matches['value'])) {
@@ -154,13 +182,64 @@ class RainToTwig
             return "{{ $expr|raw }}";
         }, $content);
 
-        $content = preg_replace_callback('/{function="([a-zA-Z_][a-zA-Z_0-9\:]*)(\(.*\)){0,1}"}/', function ($matches) {
-            $func = $matches[1];
-            $args = $matches[2] ?? '()';
-            $translatedArgs = self::translateExpression($args);
-            // Use |raw filter since functions often return HTML
-            // Wrap in parentheses to ensure raw applies to the entire expression
-            return "{{ ($func$translatedArgs)|raw }}";
+        // Handle {function="..."} - supports both plain functions and method calls
+        // Pattern 1: {function="funcName(args)"} - plain function
+        // Pattern 2: {function="$obj->method(args)"} - method call on object
+        $content = preg_replace_callback('/{function="([^"]+)"}/', function ($matches) {
+            $expr = $matches[1];
+            
+            // Check if it's a method call: $obj->method(args)
+            if (preg_match('/^\$([a-zA-Z_][a-zA-Z_0-9]*)((?:->[a-zA-Z_][a-zA-Z_0-9]*)+)\s*\(([^)]*)\)$/', $expr, $methodMatch)) {
+                $obj = $methodMatch[1];
+                $methodChain = str_replace('->', '.', $methodMatch[2]);
+                $args = self::translateExpression($methodMatch[3]);
+                return "{{ {$obj}{$methodChain}({$args})|raw }}";
+            }
+            
+            // Plain function call: funcName(args)
+            if (preg_match('/^([a-zA-Z_][a-zA-Z_0-9]*)\s*\(([^)]*)\)$/', $expr, $funcMatch)) {
+                $func = $funcMatch[1];
+                $args = $funcMatch[2];
+                $translatedArgs = self::translateExpression($args);
+                
+                // Special handling for PHP functions that have Twig equivalents
+                // addslashes() -> escape('js') filter (escapes for JavaScript strings)
+                if ($func === 'addslashes') {
+                    return "{{ {$translatedArgs}|escape('js') }}";
+                }
+                
+                // htmlspecialchars() -> escape filter
+                if ($func === 'htmlspecialchars') {
+                    return "{{ {$translatedArgs}|escape }}";
+                }
+                
+                // strip_tags() -> striptags filter
+                if ($func === 'strip_tags') {
+                    return "{{ {$translatedArgs}|striptags }}";
+                }
+                
+                // nl2br() -> nl2br filter
+                if ($func === 'nl2br') {
+                    return "{{ {$translatedArgs}|nl2br }}";
+                }
+                
+                // json_encode() -> json_encode filter
+                if ($func === 'json_encode') {
+                    return "{{ {$translatedArgs}|json_encode|raw }}";
+                }
+                
+                // urlencode() -> url_encode filter
+                if ($func === 'urlencode') {
+                    return "{{ {$translatedArgs}|url_encode }}";
+                }
+                
+                // Default: call function as-is
+                return "{{ {$func}({$translatedArgs})|raw }}";
+            }
+            
+            // Fallback: translate the entire expression as-is
+            $translatedExpr = self::translateExpression($expr);
+            return "{{ ({$translatedExpr})|raw }}";
         }, $content);
 
         // 7. Constants

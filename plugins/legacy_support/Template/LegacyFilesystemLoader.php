@@ -18,10 +18,21 @@ use Twig\Source;
  * Custom FilesystemLoader that:
  * 1. Translates legacy RainTPL templates (.html) to Twig syntax
  * 2. Falls back from .html to .html.twig when the .html file doesn't exist
+ * 3. Maps legacy template aliases to current templates (e.g., footer2 -> footer)
  */
 class LegacyFilesystemLoader extends FilesystemLoader
 {
     private FilesystemLoader $innerLoader;
+
+    /**
+     * Map of legacy template names to their current equivalents.
+     * This provides backward compatibility when templates are renamed or consolidated.
+     * Format: 'legacy_name' => 'current_name' (without extension)
+     */
+    private const TEMPLATE_ALIASES = [
+        'footer2' => 'footer',
+        'footer2.html' => 'footer.html.twig',
+    ];
 
     public function __construct(FilesystemLoader $innerLoader)
     {
@@ -40,12 +51,40 @@ class LegacyFilesystemLoader extends FilesystemLoader
     }
 
     /**
+     * Check if the template name has a legacy alias and return the mapped name.
+     * 
+     * @param string $name Original template name
+     * @return string Mapped template name or original if no alias exists
+     */
+    private function resolveTemplateAlias(string $name): string
+    {
+        // Direct match in aliases
+        if (isset(self::TEMPLATE_ALIASES[$name])) {
+            return self::TEMPLATE_ALIASES[$name];
+        }
+
+        // Check without extension for .html files
+        if (str_ends_with($name, '.html') && !str_ends_with($name, '.html.twig')) {
+            $baseName = substr($name, 0, -5); // Remove .html
+            if (isset(self::TEMPLATE_ALIASES[$baseName])) {
+                return self::TEMPLATE_ALIASES[$baseName] . '.html.twig';
+            }
+        }
+
+        return $name;
+    }
+
+    /**
      * Resolve template name:
+     * 0. Apply legacy template aliases first
      * 1. If .html requested and missing -> try .html.twig
      * 2. If .html.twig requested and missing -> try .html (Reverse Fallback)
      */
     private function resolveTemplateName(string $name): string
     {
+        // 0. Apply legacy template aliases
+        $name = $this->resolveTemplateAlias($name);
+
         // 1. HTML -> Twig Fallback
         if (str_ends_with($name, '.html') && !str_ends_with($name, '.html.twig')) {
             if (!$this->innerLoader->exists($name)) {
@@ -144,19 +183,22 @@ class LegacyFilesystemLoader extends FilesystemLoader
 
     public function exists(string $name): bool
     {
+        // Apply legacy template aliases first
+        $resolvedName = $this->resolveTemplateAlias($name);
+
         // First check if the exact file exists
-        if ($this->innerLoader->exists($name)) {
+        if ($this->innerLoader->exists($resolvedName)) {
             return true;
         }
 
         // If it's a .html file, try .html.twig fallback
-        if (str_ends_with($name, '.html') && !str_ends_with($name, '.html.twig')) {
-            return $this->innerLoader->exists($name . '.twig');
+        if (str_ends_with($resolvedName, '.html') && !str_ends_with($resolvedName, '.html.twig')) {
+            return $this->innerLoader->exists($resolvedName . '.twig');
         }
 
         // If it's a .html.twig file, try .html fallback (Core request)
-        if (str_ends_with($name, '.html.twig')) {
-            $htmlName = substr($name, 0, -5);
+        if (str_ends_with($resolvedName, '.html.twig')) {
+            $htmlName = substr($resolvedName, 0, -5);
             if ($this->innerLoader->exists($htmlName)) {
                 return true;
             }
