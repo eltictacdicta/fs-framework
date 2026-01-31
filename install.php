@@ -30,7 +30,7 @@ $db_user = '';
 
 // Verificar que el tema por defecto existe
 $default_theme = 'AdminLTE';
-$theme_available = file_exists(__DIR__ . '/plugins/' . $default_theme);
+$theme_available = file_exists(__DIR__ . '/themes/' . $default_theme);
 
 function guarda_config(&$errors, $nombre_archivo = 'config.php')
 {
@@ -288,23 +288,23 @@ $system_info = str_replace('"', "'", $system_info);
     <meta name="robots" content="noindex" />
     <link rel="shortcut icon" href="view/img/favicon.ico" />
     <!-- Bootstrap y estilos core -->
-    <link rel="stylesheet" href="view/css/bootstrap-yeti.min.css" />
+    <link rel="stylesheet" href="view/css/bootstrap.min.css" />
     <link rel="stylesheet" href="view/css/font-awesome.min.css" />
     <?php
     // Cargar estilos de AdminLTE si está disponible (tema por defecto)
-    if (file_exists('plugins/AdminLTE/view/css/AdminLTE.min.css')) {
-        echo '<link rel="stylesheet" href="plugins/AdminLTE/view/css/AdminLTE.min.css" />' . "\n        ";
+    if (file_exists('themes/AdminLTE/css/AdminLTE.min.css')) {
+        echo '<link rel="stylesheet" href="themes/AdminLTE/css/AdminLTE.min.css" />' . "\n        ";
     }
-    if (file_exists('plugins/AdminLTE/view/css/skins/_all-skins.min.css')) {
-        echo '<link rel="stylesheet" href="plugins/AdminLTE/view/css/skins/_all-skins.min.css" />' . "\n        ";
+    if (file_exists('themes/AdminLTE/css/skins/skin-blue.min.css')) {
+        echo '<link rel="stylesheet" href="themes/AdminLTE/css/skins/skin-blue.min.css" />' . "\n        ";
     }
     ?>
     <link rel="stylesheet" href="view/css/datepicker.css" />
     <link rel="stylesheet" href="view/css/custom.css" />
     <?php
     // Estilos adicionales de AdminLTE
-    if (file_exists('plugins/AdminLTE/view/css/estilo.css')) {
-        echo '<link rel="stylesheet" href="plugins/AdminLTE/view/css/estilo.css" />' . "\n        ";
+    if (file_exists('themes/AdminLTE/css/estilo.css')) {
+        echo '<link rel="stylesheet" href="themes/AdminLTE/css/estilo.css" />' . "\n        ";
     }
     ?>
     <!-- Scripts JavaScript -->
@@ -314,15 +314,14 @@ $system_info = str_replace('"', "'", $system_info);
     <script type="text/javascript" src="view/js/jquery.autocomplete.min.js"></script>
     <?php
     // Scripts de AdminLTE si están disponibles
-    if (file_exists('plugins/AdminLTE/view/js/jquery.slimscroll.min.js')) {
-        echo '<script type="text/javascript" src="plugins/AdminLTE/view/js/jquery.slimscroll.min.js"></script>' . "\n        ";
+    if (file_exists('themes/AdminLTE/js/jquery.slimscroll.min.js')) {
+        echo '<script type="text/javascript" src="themes/AdminLTE/js/jquery.slimscroll.min.js"></script>' . "\n        ";
     }
-    if (file_exists('plugins/AdminLTE/view/js/app.min.js')) {
-        echo '<script type="text/javascript" src="plugins/AdminLTE/view/js/app.min.js"></script>' . "\n        ";
+    if (file_exists('themes/AdminLTE/js/adminlte.min.js')) {
+        echo '<script type="text/javascript" src="themes/AdminLTE/js/adminlte.min.js"></script>' . "\n        ";
     }
     ?>
     <script type="text/javascript" src="view/js/base.js"></script>
-    <script type="text/javascript" src="view/js/jquery.validate.min.js"></script>
 </head>
 <?php if ($theme_available) { ?>
     <!-- Estructura AdminLTE para instalador -->
