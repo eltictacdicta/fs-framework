@@ -73,13 +73,17 @@ if ($db->connect()) {
 
         /// establecemos los elementos por defecto
         $fs_default_items = new fs_default_items();
-        $empresa = new empresa();
-        $fs_default_items->set_codalmacen($empresa->codalmacen);
-        $fs_default_items->set_coddivisa($empresa->coddivisa);
-        $fs_default_items->set_codejercicio($empresa->codejercicio);
-        $fs_default_items->set_codpago($empresa->codpago);
-        $fs_default_items->set_codpais($empresa->codpais);
-        $fs_default_items->set_codserie($empresa->codserie);
+
+        /// inicializamos los valores desde la empresa si está disponible
+        if (class_exists('empresa')) {
+            $empresa = new empresa();
+            $fs_default_items->set_codalmacen($empresa->codalmacen);
+            $fs_default_items->set_coddivisa($empresa->coddivisa);
+            $fs_default_items->set_codejercicio($empresa->codejercicio);
+            $fs_default_items->set_codpago($empresa->codpago);
+            $fs_default_items->set_codpais($empresa->codpais);
+            $fs_default_items->set_codserie($empresa->codserie);
+        }
 
         /*
          * Ahora ejecutamos el cron de cada plugin que tenga cron y esté activado

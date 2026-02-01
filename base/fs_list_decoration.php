@@ -62,7 +62,9 @@ class fs_list_decoration
      */
     public function __construct($old_decoration = null)
     {
-        $this->divisa_tools = new fs_divisa_tools();
+        if (class_exists('fs_divisa_tools')) {
+            $this->divisa_tools = new fs_divisa_tools();
+        }
         if (!is_null($old_decoration)) {
             $this->columns = $old_decoration->columns;
             $this->options = $old_decoration->options;

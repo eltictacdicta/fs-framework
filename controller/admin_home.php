@@ -160,9 +160,11 @@ class admin_home extends fs_controller
         $this->settings = new fs_settings();
         $this->step = (string) $this->fs_var->simple_get('install_step');
 
-        // Inicializar herramientas de divisas
-        $coddivisa = $this->default_items->coddivisa();
-        $this->divisa_tools = new fs_divisa_tools($coddivisa);
+        // Inicializar herramientas de divisas (solo si el plugin business_data está disponible)
+        if (class_exists('fs_divisa_tools')) {
+            $coddivisa = $this->default_items->coddivisa();
+            $this->divisa_tools = new fs_divisa_tools($coddivisa);
+        }
 
         // Inicializar variables para plugins pendientes
         $this->pending_plugin = isset($_SESSION['pending_plugin']) ? $_SESSION['pending_plugin'] : null;

@@ -89,7 +89,11 @@ class admin_info extends fs_list_controller
      */
     public function show_numero($num = 0, $decimales = FS_NF0, $js = FALSE)
     {
-        return $this->divisa_tools->show_numero($num, $decimales, $js);
+        if (isset($this->divisa_tools) && $this->divisa_tools !== null) {
+            return $this->divisa_tools->show_numero($num, $decimales, $js);
+        }
+        // Fallback si divisa_tools no está disponible
+        return number_format($num, $decimales, FS_NF1, FS_NF2);
     }
 
     protected function create_tabs()
