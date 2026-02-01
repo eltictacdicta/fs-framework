@@ -25,6 +25,7 @@ use Symfony\Component\DependencyInjection\Reference;
 use FSFramework\Event\FSEventDispatcher;
 use FSFramework\Security\CsrfManager;
 use FSFramework\Security\PasswordHasherService;
+use FSFramework\Security\SessionManager;
 use FSFramework\Cache\CacheManager;
 
 /**
@@ -88,6 +89,16 @@ class Container
         $container->register('cache', CacheManager::class)
             ->setFactory([CacheManager::class, 'getInstance'])
             ->setPublic(true);
+
+        // Session Manager
+        $container->register('session', SessionManager::class)
+            ->setFactory([SessionManager::class, 'getInstance'])
+            ->setPublic(true);
+
+        // Prepared DB (con statement caching)
+        $container->register('prepared_db', \fs_prepared_db::class)
+            ->setPublic(true)
+            ->setShared(true);
 
         // Request (desde Kernel)
         $container->register('request', \Symfony\Component\HttpFoundation\Request::class)
@@ -277,6 +288,16 @@ class Container
     public static function cache(): CacheManager
     {
         return self::get('cache');
+    }
+
+    public static function session(): SessionManager
+    {
+        return self::get('session');
+    }
+
+    public static function preparedDb(): \fs_prepared_db
+    {
+        return self::get('prepared_db');
     }
 
     /**

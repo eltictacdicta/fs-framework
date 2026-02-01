@@ -11,77 +11,116 @@
 
 namespace FSFramework\Core;
 
+use FSFramework\Cache\CacheManager;
+
 /**
- * Cache Manager for FSFramework
- * Wrapper around fs_cache model.
+ * Cache estático para FSFramework
+ * 
+ * Facade estática sobre CacheManager (Symfony Cache).
+ * Proporciona una API simple y estática para operaciones de caché comunes.
+ * 
+ * Uso:
+ *   Cache::set('key', $value, 300);
+ *   $value = Cache::get('key', 'default');
+ *   Cache::delete('key');
+ *   Cache::clear();
+ * 
+ * Para operaciones avanzadas, usar CacheManager directamente:
+ *   $cache = CacheManager::getInstance();
+ *   $value = $cache->get('key', fn() => expensiveOperation());
+ * 
+ * @see \FSFramework\Cache\CacheManager
  */
 class Cache
 {
-    /** @var \fs_cache|null */
-    private static ?\fs_cache $instance = null;
-
     /**
-     * Get the cache instance.
-     * @return \fs_cache
-     */
-    protected static function getInstance(): \fs_cache
-    {
-        if (self::$instance === null) {
-            self::$instance = new \fs_cache();
-        }
-        return self::$instance;
-    }
-
-    /**
-     * Clear all cached data.
-     * @return void
-     */
-    public static function clear(): void
-    {
-        self::getInstance()->clean();
-    }
-
-    /**
-     * Get a cached value.
-     * @param string $key
-     * @param mixed $default
+     * Obtiene un valor de caché.
+     * 
+     * @param string $key Clave
+     * @param mixed $default Valor por defecto
      * @return mixed
      */
-    public static function get(string $key, $default = null)
+    public static function get(string $key, mixed $default = null): mixed
     {
-        $value = self::getInstance()->get($key);
-        return $value !== null ? $value : $default;
+        return CacheManager::getInstance()->getItem($key, $default);
     }
 
     /**
-     * Set a cached value.
-     * @param string $key
-     * @param mixed $value
-     * @param int $ttl Time to live in seconds (fs_cache doesn't support TTL yet, but interface does)
-     * @return void
+     * Guarda un valor en caché.
+     * 
+     * @param string $key Clave
+     * @param mixed $value Valor
+     * @param int $ttl TTL en segundos (0 = default)
+     * @return bool
      */
-    public static function set(string $key, $value, int $ttl = 0): void
+    public static function set(string $key, mixed $value, int $ttl = 0): bool
     {
-        self::getInstance()->set($key, $value);
+        $ttl = $ttl > 0 ? $ttl : null;
+        return CacheManager::getInstance()->set($key, $value, $ttl);
     }
 
     /**
-     * Delete a cached value.
-     * @param string $key
-     * @return void
+     * Elimina un valor de caché.
+     * 
+     * @param string $key Clave
+     * @return bool
      */
-    public static function delete(string $key): void
+    public static function delete(string $key): bool
     {
-        self::getInstance()->delete($key);
+        return CacheManager::getInstance()->delete($key);
     }
 
     /**
-     * Check if a key exists in cache.
-     * @param string $key
+     * Verifica si existe una clave en caché.
+     * 
+     * @param string $key Clave
      * @return bool
      */
     public static function has(string $key): bool
     {
-        return self::getInstance()->get($key) !== null;
+        return CacheManager::getInstance()->has($key);
+    }
+
+    /**
+     * Limpia toda la caché.
+     * 
+     * @return bool
+     */
+    public static function clear(): bool
+    {
+        return CacheManager::getInstance()->clear();
+    }
+
+    /**
+     * Limpia todas las cachés del sistema.
+     * 
+     * @return array Resultados por tipo de caché
+     */
+    public static function clearAll(): array
+    {
+        return CacheManager::getInstance()->clearAll();
+    }
+
+    /**
+     * Obtiene un valor con callback para regenerar si no existe.
+     * 
+     * @param string $key Clave
+     * @param callable $callback Función que genera el valor
+     * @param int|null $ttl TTL en segundos
+     * @return mixed
+     */
+    public static function remember(string $key, callable $callback, ?int $ttl = null): mixed
+    {
+        return CacheManager::getInstance()->get($key, $callback, $ttl);
+    }
+
+    /**
+     * Obtiene información del sistema de caché.
+     * 
+     * @return array
+     */
+    public static function info(): array
+    {
+        return CacheManager::getInstance()->getInfo();
     }
 }

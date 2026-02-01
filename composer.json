@@ -28,6 +28,9 @@
         "symfony/dependency-injection": "^7.4",
         "symfony/form": "^7.4"
     },
+    "suggest": {
+        "monolog/monolog": "^3.0 - Para logging avanzado con múltiples handlers"
+    },
     "autoload": {
         "psr-4": {
             "FSFramework\\": "src/",

@@ -34,7 +34,10 @@ class InMemoryUserChecker implements UserCheckerInterface
         }
     }
 
-    public function checkPostAuth(UserInterface $user, ?TokenInterface $token = null): void
+    /**
+     * @param ?TokenInterface $token
+     */
+    public function checkPostAuth(UserInterface $user /* , ?TokenInterface $token = null */): void
     {
     }
 }

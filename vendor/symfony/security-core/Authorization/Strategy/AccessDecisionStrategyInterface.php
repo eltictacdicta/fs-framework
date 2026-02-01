@@ -22,6 +22,7 @@ interface AccessDecisionStrategyInterface
 {
     /**
      * @param \Traversable<int> $results
+     * @param ?AccessDecision   $accessDecision
      */
-    public function decide(\Traversable $results, ?AccessDecision $accessDecision = null): bool;
+    public function decide(\Traversable $results/* , ?AccessDecision $accessDecision = null */): bool;
 }

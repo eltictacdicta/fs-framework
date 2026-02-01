@@ -63,4 +63,8 @@ class OAuth2User implements UserInterface
     {
         return (string) ($this->sub ?? $this->username);
     }
+
+    public function eraseCredentials(): void
+    {
+    }
 }

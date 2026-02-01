@@ -63,7 +63,6 @@ class ComposerStaticInit751b4d4f7b2c4c680951860734c7f0f4
             'Symfony\\Component\\EventDispatcher\\' => 34,
             'Symfony\\Component\\Dotenv\\' => 25,
             'Symfony\\Component\\DependencyInjection\\' => 38,
-            'Symfony\\Component\\Console\\' => 26,
             'Symfony\\Component\\Config\\' => 25,
             'Symfony\\Component\\Cache\\' => 24,
         ),
@@ -232,10 +231,6 @@ class ComposerStaticInit751b4d4f7b2c4c680951860734c7f0f4
         'Symfony\\Component\\DependencyInjection\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/dependency-injection',
-        ),
-        'Symfony\\Component\\Console\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/symfony/console',
         ),
         'Symfony\\Component\\Config\\' =>
         array (

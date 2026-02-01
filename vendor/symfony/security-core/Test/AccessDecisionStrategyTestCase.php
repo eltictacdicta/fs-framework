@@ -28,8 +28,6 @@ use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 abstract class AccessDecisionStrategyTestCase extends TestCase
 {
     /**
-     * @dataProvider provideStrategyTests
-     *
      * @param VoterInterface[] $voters
      */
     #[DataProvider('provideStrategyTests')]

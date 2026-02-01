@@ -38,10 +38,12 @@ final class InMemoryTokenProvider implements TokenProviderInterface
         }
 
         $token = new PersistentToken(
+            $this->tokens[$series]->getClass(false),
             $this->tokens[$series]->getUserIdentifier(),
             $series,
             $tokenValue,
             $lastUsed,
+            false
         );
         $this->tokens[$series] = $token;
     }
