@@ -19,7 +19,9 @@
  */
 
 /**
- * Description of fs_divisa_tools
+ * Currency tools for formatting prices and converting between currencies.
+ * This class is part of the business_data plugin and provides currency-related
+ * functionality for business applications.
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
@@ -27,13 +29,13 @@ class fs_divisa_tools
 {
 
     /**
-     *
+     * Default currency code
      * @var string
      */
     private static $coddivisa;
 
     /**
-     *
+     * Cached list of all currencies
      * @var array
      */
     private static $divisas;
@@ -54,8 +56,8 @@ class fs_divisa_tools
     }
 
     /**
-     * Devuelve el símbolo de divisa predeterminado
-     * o bien el símbolo de la divisa seleccionada.
+     * Returns the currency symbol for the default currency
+     * or for the specified currency code.
      * 
      * @param string $coddivisa
      * 
@@ -73,17 +75,25 @@ class fs_divisa_tools
             }
         }
 
-        return '?';
+        // Default symbols for common currencies
+        $defaultSymbols = [
+            'EUR' => '€',
+            'USD' => '$',
+            'GBP' => '£',
+            'MXN' => 'MX$',
+        ];
+
+        return $defaultSymbols[$coddivisa] ?? '€';
     }
 
     /**
-     * Devuelve un string con el precio en el formato predefinido y con la
-     * divisa seleccionada (o la predeterminada).
+     * Returns a formatted price string with the currency symbol
+     * (or the default currency).
      * 
      * @param float  $precio
      * @param string $coddivisa
      * @param string $simbolo
-     * @param int    $dec nº de decimales
+     * @param int    $dec number of decimals
      * 
      * @return string
      */
@@ -93,7 +103,7 @@ class fs_divisa_tools
             $coddivisa = self::$coddivisa;
         }
 
-        // Asegurar que los valores nunca sean null para evitar deprecation en PHP 8+
+        // Ensure values are never null to avoid deprecation in PHP 8+
         $precio = $precio ?? 0;
         $dec = $dec ?? 0;
 
@@ -113,7 +123,7 @@ class fs_divisa_tools
     }
 
     /**
-     * Devuelve un string con el número en el formato de número predeterminado.
+     * Returns a formatted number string using the default number format.
      * 
      * @param float   $num
      * @param int     $decimales
@@ -123,7 +133,7 @@ class fs_divisa_tools
      */
     public function show_numero($num = 0, $decimales = FS_NF0, $js = FALSE)
     {
-        // Asegurar que los valores nunca sean null para evitar deprecation en PHP 8+
+        // Ensure values are never null to avoid deprecation in PHP 8+
         $num = $num ?? 0;
         $decimales = $decimales ?? 0;
 
@@ -135,9 +145,9 @@ class fs_divisa_tools
     }
 
     /**
-     * Convierte el precio en euros a la divisa preterminada de la empresa.
-     * Por defecto usa las tasas de conversión actuales, pero si se especifica
-     * coddivisa y tasaconv las usará.
+     * Converts a price from euros to the company's default currency.
+     * By default uses current conversion rates, but if coddivisa and tasaconv
+     * are specified, those will be used instead.
      * 
      * @param float  $precio
      * @param string $coddivisa
@@ -164,7 +174,7 @@ class fs_divisa_tools
     }
 
     /**
-     * Convierte un precio de la divisa_desde a la divisa especificada
+     * Converts a price from one currency to another
      * 
      * @param float  $precio
      * @param string $coddivisa_desde
@@ -177,7 +187,7 @@ class fs_divisa_tools
         if ($coddivisa_desde != $coddivisa) {
             $divisa = $divisa_desde = FALSE;
 
-            /// buscamos las divisas en la lista
+            // Search for currencies in the list
             foreach (self::$divisas as $div) {
                 if ($div->coddivisa == $coddivisa) {
                     $divisa = $div;
@@ -192,5 +202,25 @@ class fs_divisa_tools
         }
 
         return $precio;
+    }
+
+    /**
+     * Get the default currency code
+     * 
+     * @return string
+     */
+    public function get_coddivisa()
+    {
+        return self::$coddivisa;
+    }
+
+    /**
+     * Get all loaded currencies
+     * 
+     * @return array
+     */
+    public function get_divisas()
+    {
+        return self::$divisas;
     }
 }

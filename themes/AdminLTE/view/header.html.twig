@@ -57,37 +57,42 @@
    <script type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/backup-scripts.js"></script>
    {% endif %}
    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/base.js?updated={{ fsc.today() }}"></script>
+   {# business_base.js - injected by business_data plugin for fs_round, Base64, number_format #}
+   {% if business_data_js is defined %}
+   <script type="text/javascript" src="{{ constant('FS_PATH') }}{{ business_data_js }}?v={{ fsc.today() }}"></script>
+   {% endif %}
    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/ajax-loader.js?v={{ fsc.today() }}"></script>
    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
    <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
    <script type="text/javascript">
-      {% set has_business_data = fsc.empresa is defined and fsc.empresa.coddivisa is defined %}
-      {% if has_business_data %}
-      var empresa_coddivisa = '{{ fsc.empresa.coddivisa }}';
-      var empresa_simbolo = '{{ fsc.simbolo_divisa() }}';
-      {% else %}
-      var empresa_coddivisa = 'EUR';
-      var empresa_simbolo = '€';
-      {% endif %}
+      {# Currency variables - injected by business_data plugin via TwigInitEvent #}
+      var empresa_coddivisa = '{{ empresa_coddivisa|default('EUR') }}';
+      var empresa_simbolo = '{{ empresa_simbolo|default('€') }}';
+
+      {# Number format variables - injected by business_data plugin or use defaults #}
+      var FS_NF0 = {{ fs_nf0|default(constant('FS_NF0')|default(2)) }};
+      var FS_NF1 = '{{ fs_nf1|default(constant('FS_NF1')|default(',')) }}';
+      var FS_NF2 = '{{ fs_nf2|default(constant('FS_NF2')|default('.')) }}';
+      var FS_POS_DIVISA = '{{ fs_pos_divisa|default(constant('FS_POS_DIVISA')|default('right')) }}';
 
       function show_precio(precio, coddivisa) {
          coddivisa || (coddivisa = empresa_coddivisa);
 
          if (coddivisa == empresa_coddivisa) {
-            if ('{{ constant('FS_POS_DIVISA') }}' == 'right') {
-               return number_format(precio, {{ constant('FS_NF0') }}, '{{ constant('FS_NF1') }}', '{{ constant('FS_NF2') }}') + empresa_simbolo;
+            if (FS_POS_DIVISA == 'right') {
+               return number_format(precio, FS_NF0, FS_NF1, FS_NF2) + ' ' + empresa_simbolo;
             }
             else {
-               return empresa_simbolo + number_format(precio, {{ constant('FS_NF0') }}, '{{ constant('FS_NF1') }}', '{{ constant('FS_NF2') }}');
+               return empresa_simbolo + number_format(precio, FS_NF0, FS_NF1, FS_NF2);
             }
          }
          else {
-            return number_format(precio, {{ constant('FS_NF0') }}, '{{ constant('FS_NF1') }}', '{{ constant('FS_NF2') }}');
+            return number_format(precio, FS_NF0, FS_NF1, FS_NF2);
          }
       }
       function show_numero(numero) {
-         return number_format(numero, {{ constant('FS_NF0') }}, '{{ constant('FS_NF1') }}', '{{ constant('FS_NF2') }}');
+         return number_format(numero, FS_NF0, FS_NF1, FS_NF2);
       }
    </script>
    <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/i18n/defaults-*.min.js"></script>

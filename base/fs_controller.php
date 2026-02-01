@@ -22,7 +22,12 @@ require_once 'base/fs_db2.php';
 require_once 'base/fs_default_items.php';
 require_once 'base/fs_extended_model.php';
 require_once 'base/fs_login.php';
-require_once 'base/fs_divisa_tools.php';
+
+// fs_divisa_tools has been moved to plugins/business_data/extras/
+// Load it only if business_data plugin is available
+if (file_exists(FS_FOLDER . '/plugins/business_data/extras/fs_divisa_tools.php')) {
+    require_once FS_FOLDER . '/plugins/business_data/extras/fs_divisa_tools.php';
+}
 
 require_all_models();
 
@@ -70,10 +75,10 @@ class fs_controller extends fs_app
     protected $db;
 
     /**
-     *
-     * @var fs_divisa_tools
+     * Currency tools instance (provided by business_data plugin)
+     * @var fs_divisa_tools|null
      */
-    protected $divisa_tools;
+    protected $divisa_tools = null;
 
     /**
      * Permite consultar los parámetros predeterminados para series, divisas, forma de pago, etc...
@@ -181,10 +186,13 @@ class fs_controller extends fs_app
             }
 
             /// Inicializamos las herramientas de divisa con la divisa de la empresa
-            $coddivisa = ($this->empresa && isset($this->empresa->coddivisa) && $this->empresa->coddivisa)
-                ? $this->empresa->coddivisa
-                : 'EUR';
-            $this->divisa_tools = new fs_divisa_tools($coddivisa);
+            /// (solo si business_data plugin está disponible)
+            if (class_exists('fs_divisa_tools')) {
+                $coddivisa = ($this->empresa && isset($this->empresa->coddivisa) && $this->empresa->coddivisa)
+                    ? $this->empresa->coddivisa
+                    : 'EUR';
+                $this->divisa_tools = new fs_divisa_tools($coddivisa);
+            }
 
             if ($this->request->query->has('logout')) {
                 $this->template = 'login/default';
@@ -785,7 +793,9 @@ class fs_controller extends fs_app
     }
 
     /**
-     * Convierte un precio de la divisa_desde a la divisa especificada
+     * Convierte un precio de la divisa_desde a la divisa especificada.
+     * Requires business_data plugin for full functionality.
+     * 
      * @param float $precio
      * @param string $coddivisa_desde
      * @param string $coddivisa
@@ -793,13 +803,19 @@ class fs_controller extends fs_app
      */
     public function divisa_convert($precio, $coddivisa_desde, $coddivisa)
     {
-        return $this->divisa_tools->divisa_convert($precio, $coddivisa_desde, $coddivisa);
+        if ($this->divisa_tools !== null) {
+            return $this->divisa_tools->divisa_convert($precio, $coddivisa_desde, $coddivisa);
+        }
+        // Fallback: return price unchanged if business_data plugin not available
+        return $precio;
     }
 
     /**
      * Convierte el precio en euros a la divisa preterminada de la empresa.
      * Por defecto usa las tasas de conversión actuales, pero si se especifica
      * coddivisa y tasaconv las usará.
+     * Requires business_data plugin for full functionality.
+     * 
      * @param float $precio
      * @param string $coddivisa
      * @param float $tasaconv
@@ -807,11 +823,17 @@ class fs_controller extends fs_app
      */
     public function euro_convert($precio, $coddivisa = NULL, $tasaconv = NULL)
     {
-        return $this->divisa_tools->euro_convert($precio, $coddivisa, $tasaconv);
+        if ($this->divisa_tools !== null) {
+            return $this->divisa_tools->euro_convert($precio, $coddivisa, $tasaconv);
+        }
+        // Fallback: return price unchanged if business_data plugin not available
+        return $precio;
     }
 
     /**
      * Devuelve un string con el número en el formato de número predeterminado.
+     * Requires business_data plugin for full functionality.
+     * 
      * @param float $num
      * @param integer $decimales
      * @param boolean $js
@@ -819,12 +841,23 @@ class fs_controller extends fs_app
      */
     public function show_numero($num = 0, $decimales = FS_NF0, $js = FALSE)
     {
-        return $this->divisa_tools->show_numero($num, $decimales, $js);
+        if ($this->divisa_tools !== null) {
+            return $this->divisa_tools->show_numero($num, $decimales, $js);
+        }
+        // Fallback: basic number formatting
+        $num = $num ?? 0;
+        $decimales = $decimales ?? 2;
+        if ($js) {
+            return number_format($num, $decimales, '.', '');
+        }
+        return number_format($num, $decimales, ',', '.');
     }
 
     /**
      * Devuelve un string con el precio en el formato predefinido y con la
      * divisa seleccionada (o la predeterminada).
+     * Requires business_data plugin for full functionality.
+     * 
      * @param float $precio
      * @param string $coddivisa
      * @param string $simbolo
@@ -833,17 +866,30 @@ class fs_controller extends fs_app
      */
     public function show_precio($precio = 0, $coddivisa = FALSE, $simbolo = TRUE, $dec = FS_NF0)
     {
-        return $this->divisa_tools->show_precio($precio, $coddivisa, $simbolo, $dec);
+        if ($this->divisa_tools !== null) {
+            return $this->divisa_tools->show_precio($precio, $coddivisa, $simbolo, $dec);
+        }
+        // Fallback: basic price formatting with EUR symbol
+        $precio = $precio ?? 0;
+        $dec = $dec ?? 2;
+        $formatted = number_format($precio, $dec, ',', '.');
+        return $simbolo ? $formatted . ' €' : $formatted;
     }
 
     /**
      * Devuelve el símbolo de divisa predeterminado
      * o bien el símbolo de la divisa seleccionada.
+     * Requires business_data plugin for full functionality.
+     * 
      * @param string $coddivisa
      * @return string
      */
     public function simbolo_divisa($coddivisa = FALSE)
     {
-        return $this->divisa_tools->simbolo_divisa($coddivisa);
+        if ($this->divisa_tools !== null) {
+            return $this->divisa_tools->simbolo_divisa($coddivisa);
+        }
+        // Fallback: return EUR symbol if business_data plugin not available
+        return '€';
     }
 }

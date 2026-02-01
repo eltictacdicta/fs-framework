@@ -92,11 +92,11 @@
                     Símbolo Divisa:
                     <select name="pos_divisa" class="form-control">
                         {% if config2.pos_divisa == 'right' %}
-                        <option value="right" selected="">123 {{ fsc.simbolo_divisa() }}</option>
-                        <option value="left">{{ fsc.simbolo_divisa() }}123</option>
+                        <option value="right" selected="">123 {{ empresa_simbolo|default('€') }}</option>
+                        <option value="left">{{ empresa_simbolo|default('€') }}123</option>
                         {% else %}
-                        <option value="right">123 {{ fsc.simbolo_divisa() }}</option>
-                        <option value="left" selected="">{{ fsc.simbolo_divisa() }}123</option>
+                        <option value="right">123 {{ empresa_simbolo|default('€') }}</option>
+                        <option value="left" selected="">{{ empresa_simbolo|default('€') }}123</option>
                         {% endif %}
                     </select>
                 </div>
@@ -110,6 +110,10 @@
                 </p>
             </div>
         </div>
+        {# Traducciones: solo mostrar si business_data plugin NO está activo #}
+        {# Si business_data está activo, las traducciones se gestionan desde admin_empresa #}
+        {% set business_data_active = fsc.empresa is defined and fsc.empresa.coddivisa is defined %}
+        {% if not business_data_active %}
         <div class="row bg-success">
             <div class="col-md-12 col-sm-12">
                 <h2>
@@ -131,6 +135,7 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
         <div class="row bg-warning">
             <div class="col-md-12 col-sm-12">
                 <h2>
