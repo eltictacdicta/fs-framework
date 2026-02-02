@@ -1,10 +1,9 @@
 <?php
 /**
- * This file is part of FSFramework originally based on Facturascript 2017
- * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
- * Copyright (C) 2013-2020 Carlos Garcia Gomez <neorazorx@gmail.com> (lead developer of Facturascript)
- *
- * This program is free software: you can redistribute it and/or modify
+ * This file is part of FacturaScripts
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com> *
+ * This program is free software: you can redistribute it and/
+ * or modify
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
@@ -13,88 +12,86 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+
+/**
+ * Punto de entrada para la API REST de FSFramework
+ *
+ * URLs soportadas:
+ * - /api.php/v1/{plugin}/{resource}
+ * - /api.php/v1/{plugin}/{resource}/{id}
+ * - /api.php/v1/{plugin}/{resource}/{id}/{action}
+ * - /api.php?api_path=/v1/{plugin}/{resource} (fallback)
+ *
+ * @author FacturaScripts Team
+ */
+
+// Establecer directorio de trabajo
 define('FS_FOLDER', __DIR__);
+chdir(FS_FOLDER);
 
-/// cargamos las constantes de configuración
-require_once 'config.php';
-require_once 'base/config2.php';
-
-/// Definir URL base del sistema si no está definida
-if (!defined('FS_BASE_URL')) {
-    $protocol = 'http';
-    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
-        $protocol = 'https';
-    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-        $protocol = 'https';
-    } elseif (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) {
-        $protocol = 'https';
-    }
-    
-    $host = 'localhost';
-    if (!empty($_SERVER['HTTP_HOST'])) {
-        $host = $_SERVER['HTTP_HOST'];
-    } elseif (!empty($_SERVER['SERVER_NAME'])) {
-        $host = $_SERVER['SERVER_NAME'];
-    }
-    
-    $base_path = (defined('FS_PATH') && FS_PATH !== '') ? FS_PATH : '';
-    if (empty($base_path) && !empty($_SERVER['SCRIPT_NAME'])) {
-        $script_dir = dirname($_SERVER['SCRIPT_NAME']);
-        if ($script_dir !== '/' && $script_dir !== '\\') {
-            $base_path = $script_dir;
-        }
-    }
-    
-    define('FS_BASE_URL', $protocol . '://' . $host . $base_path);
+// Cargar configuración
+if (file_exists('config.php')) {
+    require_once 'config.php';
+} else {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Sistema no configurado. Ejecute el instalador primero.'
+    ]);
+    exit;
 }
+
+// Cargar autoloader de Composer
+if (file_exists('vendor/autoload.php')) {
+    require_once 'vendor/autoload.php';
+}
+
+// Cargar clases base del framework
 require_once 'base/fs_core_log.php';
+require_once 'base/fs_cache.php';
 require_once 'base/fs_db2.php';
+require_once 'base/fs_model.php';
+
+// Inicializar conexión a base de datos
 $db = new fs_db2();
-
-require_once 'base/fs_extended_model.php';
-require_once 'base/fs_log_manager.php';
-require_once 'base/fs_api.php';
-require_all_models();
-
-// Cargar la clase base fs_controller antes de cargar cualquier controlador que la extienda
-require_once 'base/fs_controller.php';
-
-// Inicializar plugin API Auth si existe - DESPUÉS de cargar modelos
-if (file_exists('plugins/api_auth/init.php')) {
-    require_once 'plugins/api_auth/init.php';
+if (!$db->connect()) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(503);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Error de conexión a la base de datos'
+    ]);
+    exit;
 }
 
-// Cargar las funciones API del controlador para asegurar disponibilidad
-if (file_exists('plugins/api_auth/controller/api_controller.php')) {
-    require_once 'plugins/api_auth/controller/api_controller.php';
-}
+// Cargar plugins activos
+require_once 'base/fs_plugin_manager.php';
+$plugin_manager = new fs_plugin_manager();
+$GLOBALS['plugins'] = $plugin_manager->enabled();
 
-// También cargar las funciones de modelo API para registro
-if (file_exists('plugins/api_auth/model/api_functions.php')) {
-    require_once 'plugins/api_auth/model/api_functions.php';
+// Ejecutar API Kernel
+use FSFramework\Api\ApiKernel;
 
-    // Registrar las funciones API inmediatamente después de cargarlas
-    if (function_exists('register_api_auth_functions')) {
-        register_api_auth_functions();
+try {
+    ApiKernel::handle();
+} catch (\Throwable $e) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(500);
+    
+    $response = [
+        'success' => false,
+        'error' => 'Error interno del servidor'
+    ];
+    
+    if (defined('FS_DEBUG') && FS_DEBUG) {
+        $response['error'] = $e->getMessage();
+        $response['trace'] = explode("\n", $e->getTraceAsString());
     }
+    
+    echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 }
-
-// ACCESO DESHABILITADO POR SEGURIDAD
-// Este archivo ha sido deprecado. Use los puntos de entrada específicos de cada plugin.
-// Para autenticación API, use: /plugins/api_auth/api.php
-
-header('HTTP/1.1 403 Forbidden');
-header('Content-Type: application/json');
-
-echo json_encode([
-    'success' => false,
-    'error' => 'Acceso directo a la API general está deshabilitado por seguridad',
-    'message' => 'Por favor, utilice los endpoints específicos de cada plugin',
-    'api_auth_endpoint' => '/plugins/api_auth/api.php'
-]);
-
-exit;

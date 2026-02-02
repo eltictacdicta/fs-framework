@@ -27,6 +27,17 @@ use FSFramework\Security\CsrfManager;
 use FSFramework\Security\PasswordHasherService;
 use FSFramework\Security\SessionManager;
 use FSFramework\Cache\CacheManager;
+use FSFramework\Api\ApiKernel;
+use FSFramework\Api\Router\ApiRouter;
+use FSFramework\Api\Router\EndpointRegistry;
+use FSFramework\Api\Resource\ModelResourceRegistry;
+use FSFramework\Api\Resource\ResourceTransformer;
+use FSFramework\Api\Auth\Contract\ApiAuthInterface;
+use FSFramework\Api\Auth\Contract\AllowedUserInterface;
+use FSFramework\Api\Auth\Contract\ApiLogInterface;
+use FSFramework\Api\Middleware\AuthMiddleware;
+use FSFramework\Api\Middleware\CorsMiddleware;
+use FSFramework\Api\Middleware\RateLimitMiddleware;
 
 /**
  * Contenedor de servicios para FSFramework.
@@ -115,11 +126,112 @@ class Container
             ->setPublic(true)
             ->setLazy(true);
 
+        // API Services
+        self::registerApiServices();
+
         // Registrar modelos legacy como servicios
         self::registerLegacyModels();
 
         // Cargar servicios de plugins
         self::loadPluginServices();
+    }
+
+    /**
+     * Registra los servicios de la API REST.
+     * 
+     * NOTA: Los servicios de autenticación (api.auth_model, api.allowed_user_model, api.log_model)
+     * son interfaces que deben ser implementadas por un plugin (ej: api_base).
+     * El núcleo solo proporciona la infraestructura base.
+     */
+    private static function registerApiServices(): void
+    {
+        $container = self::$container;
+
+        // Endpoint Registry (singleton)
+        $container->register('api.endpoint_registry', EndpointRegistry::class)
+            ->setFactory([EndpointRegistry::class, 'getInstance'])
+            ->setPublic(true);
+
+        // Model Resource Registry (singleton)
+        $container->register('api.model_registry', ModelResourceRegistry::class)
+            ->setFactory([ModelResourceRegistry::class, 'getInstance'])
+            ->setPublic(true);
+
+        // Resource Transformer
+        $container->register('api.transformer', ResourceTransformer::class)
+            ->setPublic(true);
+
+        // Auth Middleware (sin modelos por defecto - deben ser inyectados por plugins)
+        $container->register('api.auth_middleware', AuthMiddleware::class)
+            ->setPublic(true);
+
+        // CORS Middleware
+        $container->register('api.cors_middleware', CorsMiddleware::class)
+            ->setPublic(true);
+
+        // Rate Limit Middleware
+        $container->register('api.rate_limit_middleware', RateLimitMiddleware::class)
+            ->setPublic(true);
+
+        // API Router
+        $container->register('api.router', ApiRouter::class)
+            ->addArgument(new Reference('api.endpoint_registry'))
+            ->addArgument(new Reference('api.auth_middleware'))
+            ->addArgument(new Reference('api.cors_middleware'))
+            ->setPublic(true);
+
+        // API Kernel (singleton)
+        $container->register('api.kernel', ApiKernel::class)
+            ->setFactory([ApiKernel::class, 'getInstance'])
+            ->setPublic(true);
+
+        // Alias de interfaces para que plugins puedan registrar implementaciones
+        // Uso: Container::set(ApiAuthInterface::class, MiImplementacion::class)
+        $container->setAlias(ApiAuthInterface::class, 'api.auth_model')->setPublic(true);
+        $container->setAlias(AllowedUserInterface::class, 'api.allowed_user_model')->setPublic(true);
+        $container->setAlias(ApiLogInterface::class, 'api.log_model')->setPublic(true);
+    }
+
+    /**
+     * Registra una implementación de autenticación API.
+     * Debe ser llamado por el plugin que implementa la autenticación.
+     * 
+     * @param string $authClass Clase que implementa ApiAuthInterface
+     * @param string $allowedUserClass Clase que implementa AllowedUserInterface
+     * @param string|null $logClass Clase que implementa ApiLogInterface (opcional)
+     */
+    public static function registerApiAuth(string $authClass, string $allowedUserClass, ?string $logClass = null): void
+    {
+        $container = self::getContainer();
+
+        // Registrar implementación de ApiAuth
+        $container->register('api.auth_model', $authClass)
+            ->setPublic(true);
+
+        // Registrar implementación de AllowedUser
+        $container->register('api.allowed_user_model', $allowedUserClass)
+            ->setPublic(true);
+
+        // Registrar implementación de ApiLog si se proporciona
+        if ($logClass !== null) {
+            $container->register('api.log_model', $logClass)
+                ->setPublic(true);
+        }
+
+        // Inyectar los modelos en el AuthMiddleware
+        if ($container->has('api.auth_middleware')) {
+            /** @var AuthMiddleware $authMiddleware */
+            $authMiddleware = $container->get('api.auth_middleware');
+            $authMiddleware->setAuthModel($container->get('api.auth_model'));
+            $authMiddleware->setAllowedUserModel($container->get('api.allowed_user_model'));
+        }
+
+        // Inyectar el logger en el ApiKernel si está disponible
+        if ($logClass !== null && $container->has('api.kernel')) {
+            /** @var ApiKernel $kernel */
+            $kernel = $container->get('api.kernel');
+            $kernel->setApiLogger($container->get('api.log_model'));
+        }
     }
 
     /**
@@ -298,6 +410,33 @@ class Container
     public static function preparedDb(): \fs_prepared_db
     {
         return self::get('prepared_db');
+    }
+
+    // API Services shortcuts
+
+    public static function apiKernel(): ApiKernel
+    {
+        return self::get('api.kernel');
+    }
+
+    public static function apiRouter(): ApiRouter
+    {
+        return self::get('api.router');
+    }
+
+    public static function endpointRegistry(): EndpointRegistry
+    {
+        return self::get('api.endpoint_registry');
+    }
+
+    public static function modelRegistry(): ModelResourceRegistry
+    {
+        return self::get('api.model_registry');
+    }
+
+    public static function apiAuthMiddleware(): AuthMiddleware
+    {
+        return self::get('api.auth_middleware');
     }
 
     /**
