@@ -239,9 +239,17 @@ class fs_updater extends fs_app
 
             /// eliminamos archivos antiguos y hacemos backup de los actuales
             /// Incluimos src, themes, translations y vendor para reinstalación limpia
-            foreach (['base', 'controller', 'extras', 'model', 'raintpl', 'view', 'src', 'themes', 'translations', 'vendor'] as $folder) {
-                fs_file_manager::del_tree(FS_FOLDER . '/' . $folder . '_old/');
-                rename(FS_FOLDER . '/' . $folder . '/', FS_FOLDER . '/' . $folder . '_old/');
+            foreach (['base', 'controller', 'extras', 'model', 'view', 'src', 'themes', 'translations', 'vendor'] as $folder) {
+                $folderPath = FS_FOLDER . '/' . $folder . '/';
+                $oldPath = FS_FOLDER . '/' . $folder . '_old/';
+
+                // Eliminar backup anterior si existe
+                fs_file_manager::del_tree($oldPath);
+
+                // Solo renombrar si la carpeta existe
+                if (is_dir($folderPath)) {
+                    rename($folderPath, $oldPath);
+                }
             }
 
             /// ahora hay que copiar todos los archivos de fs-framework-master a la raíz y borrar
