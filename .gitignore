@@ -31,3 +31,8 @@ logs/api_security.log
 .ddev/config.yaml
 .ddev/
 AdminLTE-2.4.18
+
+# Update and Backup data
+/update-and-backup/data/*
+!/update-and-backup/data/.htaccess
+!/update-and-backup/data/index.php

@@ -19,6 +19,7 @@
 require_once 'base/fs_app.php';
 require_once 'base/fs_plugin_manager.php';
 require_once 'base/fs_db2.php';
+require_once 'update-and-backup/fs_backup_manager.php';
 
 /**
  * Controlador del actualizador de FSFramework.
@@ -221,6 +222,18 @@ class fs_updater extends fs_app
 
     private function actualizar_nucleo()
     {
+        // Crear copia de seguridad antes de actualizar (usando clase standalone para retrocompatibilidad)
+        $backupManager = new fs_backup_manager();
+        $backupResult = $backupManager->create_pre_update_backup('core');
+
+        if (!$backupResult['complete']['success']) {
+            $this->core_log->new_error('Error al crear copia de seguridad pre-actualización: ' . implode(', ', $backupManager->get_errors()));
+            // Continuar de todas formas pero avisar
+            $this->core_log->new_message('Continuando con la actualización sin copia de seguridad...');
+        } else {
+            $this->core_log->new_message('Copia de seguridad creada: ' . $backupResult['complete']['backup_name']);
+        }
+
         $urls = array(
             'https://github.com/eltictacdicta/fs-framework/archive/refs/heads/master.zip',
             'https://codeload.github.com/eltictacdicta/fs-framework/zip/refs/heads/master'
@@ -237,18 +250,11 @@ class fs_updater extends fs_app
                 return false;
             }
 
-            /// eliminamos archivos antiguos y hacemos backup de los actuales
-            /// Incluimos src, themes, translations y vendor para reinstalación limpia
+            // Eliminar carpetas antiguas directamente (ya tenemos backup en /backups/)
             foreach (['base', 'controller', 'extras', 'model', 'view', 'src', 'themes', 'translations', 'vendor'] as $folder) {
                 $folderPath = FS_FOLDER . '/' . $folder . '/';
-                $oldPath = FS_FOLDER . '/' . $folder . '_old/';
-
-                // Eliminar backup anterior si existe
-                fs_file_manager::del_tree($oldPath);
-
-                // Solo renombrar si la carpeta existe
                 if (is_dir($folderPath)) {
-                    rename($folderPath, $oldPath);
+                    fs_file_manager::del_tree($folderPath);
                 }
             }
 
@@ -492,13 +498,27 @@ class fs_updater extends fs_app
 
         $version_actual = $this->plugin_manager->version;
         $this->updates['version'] = $version_actual;
-        $nueva_version = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-framework/refs/heads/master/VERSION');
-        if (floatval($version_actual) < floatval($nueva_version)) {
+
+        // Intentar obtener la versión con un timeout corto (5 segundos)
+        // Si falla, simplemente continuamos sin verificar actualizaciones del core
+        $nueva_version = false;
+        try {
+            $nueva_version = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-framework/refs/heads/master/VERSION', 5);
+        } catch (Exception $e) {
+            $this->core_log->new_message('No se pudo conectar a GitHub para verificar actualizaciones. ' . $e->getMessage());
+        }
+
+        if ($nueva_version && $nueva_version !== 'ERROR' && floatval($version_actual) < floatval($nueva_version)) {
             $this->updates['core'] = $nueva_version;
         } else {
-            /// comprobamos los plugins
-            foreach ($this->check_for_plugin_updates() as $plugin) {
-                $this->updates['plugins'][] = $plugin;
+            /// comprobamos los plugins (solo si la conexión funciona)
+            if ($nueva_version && $nueva_version !== 'ERROR') {
+                foreach ($this->check_for_plugin_updates() as $plugin) {
+                    $this->updates['plugins'][] = $plugin;
+                }
+            } elseif ($nueva_version === 'ERROR' || $nueva_version === false) {
+                // No pudimos conectar, mostrar mensaje informativo
+                $this->core_log->new_message('No se pudo verificar actualizaciones remotas. Es posible que haya un problema de conectividad.');
             }
         }
 
@@ -528,10 +548,8 @@ class fs_updater extends fs_app
                 $this->core_log->new_error('No se puede escribir sobre el directorio ' . $dir);
             }
 
-            /// ¿Sigue estando disponible ziparchive?
-            if (!extension_loaded('zip')) {
-                $this->core_log->new_error('No se encuentra la clase ZipArchive, debes instalar php-zip.');
-            }
+            /// Verificar dependencias necesarias
+            $this->check_dependencies();
         }
 
         if (count($this->core_log->get_errors()) > 0) {
@@ -566,5 +584,67 @@ class fs_updater extends fs_app
         } else if (filter_input(INPUT_COOKIE, 'uxid')) {
             $this->xid = filter_input(INPUT_COOKIE, 'uxid');
         }
+    }
+
+    /**
+     * Verifica las dependencias necesarias para el updater y backups.
+     * Comprueba extensiones PHP y componentes Symfony necesarios.
+     */
+    private function check_dependencies()
+    {
+        $errors = array();
+
+        // Extensiones PHP requeridas
+        $requiredExtensions = array(
+            'zip' => 'ZipArchive (php-zip) - necesario para backups y actualizaciones',
+            'gd' => 'GD (php-gd) - necesario para manipulación de imágenes',
+            'curl' => 'cURL (php-curl) - necesario para descargar actualizaciones',
+            'mbstring' => 'Multibyte String (php-mbstring) - necesario para procesamiento de texto',
+        );
+
+        foreach ($requiredExtensions as $ext => $description) {
+            if (!extension_loaded($ext)) {
+                $errors[] = "Extensión PHP no encontrada: " . $description;
+            }
+        }
+
+        // Verificar componentes Symfony necesarios para autenticación
+        $symfonyComponents = array(
+            'Symfony\\Component\\HttpFoundation\\Request' => 'symfony/http-foundation',
+            'Symfony\\Component\\HttpFoundation\\Session\\Session' => 'symfony/http-foundation',
+        );
+
+        foreach ($symfonyComponents as $class => $package) {
+            if (!class_exists($class)) {
+                $errors[] = "Componente Symfony no encontrado: " . $package . " (clase: " . $class . ")";
+            }
+        }
+
+        // Verificar que el directorio de backups es escribible
+        $backupDir = FS_FOLDER . '/update-and-backup/data';
+        if (!is_dir($backupDir)) {
+            if (!@mkdir($backupDir, 0755, true)) {
+                $errors[] = "No se puede crear el directorio de backups: " . $backupDir;
+            }
+        } elseif (!is_writable($backupDir)) {
+            $errors[] = "El directorio de backups no tiene permisos de escritura: " . $backupDir;
+        }
+
+        // Verificar versión mínima de PHP
+        if (version_compare(PHP_VERSION, '7.4.0', '<')) {
+            $errors[] = "Se requiere PHP 7.4.0 o superior. Versión actual: " . PHP_VERSION;
+        }
+
+        // Registrar errores
+        foreach ($errors as $error) {
+            $this->core_log->new_error($error);
+        }
+
+        // Si no hay errores, mostrar mensaje de OK
+        if (empty($errors)) {
+            $this->core_log->new_message('Todas las dependencias verificadas correctamente.');
+        }
+
+        return empty($errors);
     }
 }
