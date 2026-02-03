@@ -133,34 +133,40 @@ function test_mysql(&$errors, &$errors2)
     }
 
     // Consulta para verificar si la base de datos existe
-    $query = "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?";
-    $stmt = mysqli_prepare($connection, $query);
-    mysqli_stmt_bind_param($stmt, "s", $db_name);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_store_result($stmt);
+    try {
+        $query = "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?";
+        $stmt = mysqli_prepare($connection, $query);
+        mysqli_stmt_bind_param($stmt, "s", $db_name);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_store_result($stmt);
 
-    if (mysqli_stmt_num_rows($stmt) == 0) {
-        // La base de datos no existe, intentamos crearla
-        mysqli_stmt_close($stmt);
+        if (mysqli_stmt_num_rows($stmt) == 0) {
+            // La base de datos no existe, intentamos crearla
+            mysqli_stmt_close($stmt);
 
-        // Creamos la base de datos usando consulta preparada
-        $query = "CREATE DATABASE `" . str_replace('`', '', $db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-        if (!mysqli_query($connection, $query)) {
+            // Creamos la base de datos usando consulta preparada
+            $query = "CREATE DATABASE `" . str_replace('`', '', $db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+            if (!mysqli_query($connection, $query)) {
+                $errors[] = "db_mysql";
+                $errors2[] = "Error al crear la base de datos: " . mysqli_error($connection);
+                $errors2[] = "Por favor, crea manualmente la base de datos '" . htmlspecialchars($db_name) . "' o proporciona un usuario con privilegios para crear bases de datos.";
+                $errors2[] = "Comando SQL: CREATE DATABASE `" . htmlspecialchars($db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+                return;
+            }
+        } else {
+            mysqli_stmt_close($stmt);
+        }
+
+        // Seleccionamos la base de datos
+        if (!mysqli_select_db($connection, $db_name)) {
             $errors[] = "db_mysql";
-            $errors2[] = "Error al crear la base de datos: " . mysqli_error($connection);
-            $errors2[] = "Por favor, crea manualmente la base de datos '" . htmlspecialchars($db_name) . "' o proporciona un usuario con privilegios para crear bases de datos.";
-            $errors2[] = "Comando SQL: CREATE DATABASE `" . htmlspecialchars($db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+            $errors2[] = "Error al seleccionar la base de datos: " . mysqli_error($connection);
+            $errors2[] = "Verifica que el usuario tenga permisos sobre la base de datos '" . htmlspecialchars($db_name) . "'.";
             return;
         }
-    } else {
-        mysqli_stmt_close($stmt);
-    }
-
-    // Seleccionamos la base de datos
-    if (!mysqli_select_db($connection, $db_name)) {
+    } catch (Exception $e) {
         $errors[] = "db_mysql";
-        $errors2[] = "Error al seleccionar la base de datos: " . mysqli_error($connection);
-        $errors2[] = "Verifica que el usuario tenga permisos sobre la base de datos '" . htmlspecialchars($db_name) . "'.";
+        $errors2[] = "Error: " . $e->getMessage();
         return;
     }
 
@@ -962,14 +968,16 @@ $system_info = str_replace('"', "'", $system_info);
                                             <div class="form-group">
                                                 Servidor:
                                                 <input class="form-control" type="text" name="db_host"
-                                                    value="<?php echo htmlspecialchars($db_host, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" />
+                                                    value="<?php echo htmlspecialchars($db_host, ENT_QUOTES, 'UTF-8'); ?>"
+                                                    autocomplete="off" />
                                             </div>
                                         </div>
                                         <div class="col-sm-4">
                                             <div class="form-group">
                                                 Puerto:
                                                 <input class="form-control" type="number" name="db_port"
-                                                    value="<?php echo htmlspecialchars($db_port, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" />
+                                                    value="<?php echo htmlspecialchars($db_port, ENT_QUOTES, 'UTF-8'); ?>"
+                                                    autocomplete="off" />
                                             </div>
                                         </div>
                                     </div>
@@ -982,7 +990,8 @@ $system_info = str_replace('"', "'", $system_info);
                                                         <i class="fa fa-database fa-fw"></i>
                                                     </span>
                                                     <input class="form-control" type="text" name="db_name"
-                                                        value="<?php echo htmlspecialchars($db_name, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" />
+                                                        value="<?php echo htmlspecialchars($db_name, ENT_QUOTES, 'UTF-8'); ?>"
+                                                        autocomplete="off" />
                                                 </div>
                                             </div>
                                         </div>
@@ -994,7 +1003,8 @@ $system_info = str_replace('"', "'", $system_info);
                                                         <i class="fa fa-user fa-fw"></i>
                                                     </span>
                                                     <input class="form-control" type="text" name="db_user"
-                                                        value="<?php echo htmlspecialchars($db_user, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="off" />
+                                                        value="<?php echo htmlspecialchars($db_user, ENT_QUOTES, 'UTF-8'); ?>"
+                                                        autocomplete="off" />
                                                 </div>
                                             </div>
                                         </div>

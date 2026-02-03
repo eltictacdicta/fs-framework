@@ -238,7 +238,8 @@ class fs_updater extends fs_app
             }
 
             /// eliminamos archivos antiguos y hacemos backup de los actuales
-            foreach (['base', 'controller', 'extras', 'model', 'raintpl', 'view'] as $folder) {
+            /// Incluimos src, themes, translations y vendor para reinstalación limpia
+            foreach (['base', 'controller', 'extras', 'model', 'raintpl', 'view', 'src', 'themes', 'translations', 'vendor'] as $folder) {
                 fs_file_manager::del_tree(FS_FOLDER . '/' . $folder . '_old/');
                 rename(FS_FOLDER . '/' . $folder . '/', FS_FOLDER . '/' . $folder . '_old/');
             }

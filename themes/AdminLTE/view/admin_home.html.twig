@@ -196,17 +196,14 @@
 <div class="well">
     <div class="page-header" style="margin-top: 0px;">
         <h1>
-            Bienvenido a FacturaScripts
-            <small>{{ fsc.version()|raw }}</small>
+            Bienvenido a FSFramework
+            <small>{{ fsc.fs_version() }}</small>
         </h1>
     </div>
     <p class="help-block">
-        Ya tienes instalado el núcleo. Como ves, el núcleo permite gestionar páginas,
-        plugins y usuarios. Pulsa continuar para seguir con la instalación.
+        Ya tienes instalado el núcleo.
     </p>
-    <a href="#" class="btn btn-sm btn-primary" onclick="fs_marcar_todo();f_enable_pages.submit();">
-        <span class="glyphicon glyphicon-ok"></span>&nbsp; Continuar
-    </a>
+    
 </div>
 {% elseif fsc.step == '1' %}
 <div class="well">
