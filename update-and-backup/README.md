@@ -1,81 +1,142 @@
-# FSFramework Update and Backup System
+# FSFramework Update & Backup Module
 
-Este directorio contiene el sistema de actualización y copias de seguridad independiente de FSFramework.
+## Versión 2.0.0
 
-## Estructura
-
-```
-update-and-backup/
-├── index.php              # Punto de entrada del módulo
-├── UpdaterController.php  # Controlador principal (standalone)
-├── updater_manager.php    # Gestor de versiones del actualizador
-├── fs_backup_manager.php  # Librería de copias de seguridad (retrocompatible)
-├── fsframework.ini        # Versión y configuración del actualizador
-├── data/                  # Directorio donde se almacenan los backups
-│   ├── .htaccess         # Protección de acceso
-│   ├── index.php         # Previene listado de directorio
-│   └── *.sql.gz / *.zip  # Archivos de backup
-└── README.md             # Este archivo
-```
+Módulo autónomo para gestionar actualizaciones y copias de seguridad del sistema FSFramework.
 
 ## Características
 
-- **Independiente del framework**: Funciona sin necesidad del Kernel o autoloader de Symfony
-- **Retrocompatible**: Compatible con PHP 7.x y versiones anteriores del framework
-- **Auto-actualizable**: El módulo puede actualizarse a sí mismo
-- **Copias automáticas**: Se crea backup antes de cada actualización
-- **Rotación automática**: Mantiene solo los últimos 5 backups
-- **Verificación de sesión**: Requiere sesión de administrador
+### Copias de Seguridad
 
-## Acceso
+- **Backup completo unificado**: Crea un paquete ZIP que incluye:
+  - Copia de la base de datos (SQL comprimido)
+  - Copia de todos los archivos (incluyendo plugins)
+  - Metadatos con información de versiones
 
-El módulo se accede a través de `updater.php` en la raíz del proyecto, que verifica
-la sesión de administrador antes de cargar este módulo.
+- **Tracking de versiones**: Cada backup incluye:
+  - Versión del framework
+  - Versión de PHP
+  - Lista de plugins con sus versiones
+  - Timestamp de creación
 
-## Uso del Backup Manager
+- **Restauración flexible**:
+  - `restore_complete()` - Restaura todo (archivos + BD)
+  - `restore_files()` - Restaura solo archivos
+  - `restore_database()` - Restaura solo base de datos
+
+### Actualizaciones
+
+- Verificación de dependencias antes de actualizar
+- Backup automático antes de cada actualización
+- Auto-actualización del propio módulo actualizador
+
+## Estructura de Directorios
+
+```
+update-and-backup/
+├── data/                    # Directorio de backups (protegido)
+│   ├── .htaccess           # Protección Apache
+│   ├── index.php           # Bloqueo de listado
+│   ├── metadata.json       # Metadatos de backups
+│   └── *.zip / *.sql.gz    # Archivos de backup
+├── fs_backup_manager.php   # Gestor de backups
+├── updater_manager.php     # Gestor de auto-actualización
+├── UpdaterController.php   # Controlador principal
+├── fsframework.ini         # Configuración y versión
+├── index.php               # Punto de entrada
+├── .htaccess               # Protección de seguridad
+└── README.md               # Este archivo
+```
+
+## Uso desde código
+
+### Crear una copia de seguridad completa
 
 ```php
 require_once 'update-and-backup/fs_backup_manager.php';
 
-$backup = new fs_backup_manager();
+$backupManager = new fs_backup_manager();
+$result = $backupManager->create_backup('mi_backup');
 
-// Crear backup completo
-$result = $backup->create_backup('mi_backup');
-
-// Listar backups
-$backups = $backup->list_backups();
-
-// Eliminar backup
-$backup->delete_backup('nombre_archivo.zip');
-```
-
-## Uso del Updater Manager
-
-```php
-require_once 'update-and-backup/updater_manager.php';
-
-$updater = new updater_manager();
-
-// Obtener información del actualizador
-$info = $updater->get_info();
-
-// Comprobar actualizaciones
-$update = $updater->check_for_updates();
-if ($update) {
-    // Hay actualización disponible
-    $updater->update_updater();
+if ($result['complete']['success']) {
+    echo "Backup creado: " . $result['complete']['unified_file'];
 }
 ```
 
-## Archivo fsframework.ini
+### Restaurar backup completo
 
-El archivo `fsframework.ini` contiene:
-- **version**: Versión actual del actualizador
-- **remote_version_url**: URL para comprobar actualizaciones
-- **update_url**: URL base para descargar actualizaciones
+```php
+$backupManager = new fs_backup_manager();
+$result = $backupManager->restore_complete('mi_backup_complete.zip');
 
-## Actualización independiente
+if ($result['success']) {
+    echo "Restauración completa realizada correctamente";
+}
+```
 
-Este directorio puede actualizarse de forma independiente desde el panel de
-administración (pestaña "Actualizador") o manualmente copiando los archivos
-desde una versión más reciente del framework.
+### Restaurar solo archivos
+
+```php
+$backupManager = new fs_backup_manager();
+$result = $backupManager->restore_files('mi_backup_files.zip');
+```
+
+### Restaurar solo base de datos
+
+```php
+$backupManager = new fs_backup_manager();
+$result = $backupManager->restore_database('mi_backup_db.sql.gz');
+```
+
+### Listar backups disponibles
+
+```php
+$backupManager = new fs_backup_manager();
+$backups = $backupManager->list_backups();
+
+foreach ($backups as $backup) {
+    echo $backup['name'] . ' - ' . $backup['type'] . ' - ' . $backup['size_formatted'];
+    echo ' (Restaurar: ';
+    if ($backup['can_restore_complete']) echo 'completo, ';
+    if ($backup['can_restore_files']) echo 'archivos, ';
+    if ($backup['can_restore_database']) echo 'BD';
+    echo ')' . PHP_EOL;
+}
+```
+
+## Tipos de Backup
+
+| Tipo | Sufijo | Descripción |
+|------|--------|-------------|
+| `complete` | `_complete.zip` | Paquete unificado con archivos + BD + metadatos |
+| `files` | `_files.zip` | Solo archivos del sistema |
+| `database` | `_db.sql.gz` | Solo base de datos comprimida |
+
+## Seguridad
+
+- El directorio `data/` está protegido contra acceso web
+- Acceso directo al módulo bloqueado (solo vía `updater.php`)
+- Archivos PHP internos protegidos por `.htaccess`
+
+## Requisitos
+
+- PHP 7.4 o superior
+- Extensión PHP `zip`
+- Extensión PHP `gd`
+- Extensión PHP `curl`
+- `mysqldump` o `pg_dump` para backups de BD
+- Permisos de escritura en el directorio
+
+## Notas
+
+- Los archivos `config.php` y `config2.php` no se sobrescriben al restaurar
+- Se mantienen los últimos 5 backups de cada tipo automáticamente
+- Las copias se crean en formato comprimido para ahorrar espacio
+
+## Autor
+
+Javier Trujillo
+
+## Licencia
+
+LGPL-3.0-or-later

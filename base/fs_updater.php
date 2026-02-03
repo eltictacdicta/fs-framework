@@ -247,8 +247,13 @@ class fs_updater extends fs_app
 
             if (!fs_file_manager::extract_zip_safe(FS_FOLDER . '/update-core.zip', FS_FOLDER)) {
                 $this->core_log->new_error('Ha habido un error de seguridad o integridad con el archivo update-core.zip.');
+                // Eliminar el archivo zip aunque falle la extracción
+                @unlink(FS_FOLDER . '/update-core.zip');
                 return false;
             }
+
+            // Eliminar el zip temporal
+            @unlink(FS_FOLDER . '/update-core.zip');
 
             // Eliminar carpetas antiguas directamente (ya tenemos backup en /backups/)
             foreach (['base', 'controller', 'extras', 'model', 'view', 'src', 'themes', 'translations', 'vendor'] as $folder) {
