@@ -10,7 +10,7 @@
 config.php
 package-lock.json
 
-# Excluir plugins excepto adminlte
+# Excluir plugins excepto los del core
 /plugins/*
 !/plugins/adminlte/
 !/plugins/AdminLTE/
@@ -31,3 +31,14 @@ logs/api_security.log
 .ddev/config.yaml
 .ddev/
 AdminLTE-2.4.18
+
+# Backups directory (excluir contenido, mantener protección)
+/backups/*
+!/backups/.htaccess
+!/backups/index.php
+
+# Update and Backup data (legacy)
+/update-and-backup/data/*
+!/update-and-backup/data/.htaccess
+!/update-and-backup/data/index.php
+

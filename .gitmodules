@@ -1,0 +1,3 @@
+[submodule "plugins/system_updater"]
+	path = plugins/system_updater
+	url = ./plugins/system_updater

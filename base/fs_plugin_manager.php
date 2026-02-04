@@ -811,6 +811,17 @@ class fs_plugin_manager
         return $GLOBALS['plugins'];
     }
 
+    /**
+     * Check if a specific plugin is enabled.
+     * 
+     * @param string $pluginName The plugin name to check.
+     * @return bool True if the plugin is enabled, false otherwise.
+     */
+    public function is_plugin_enabled($pluginName)
+    {
+        return in_array($pluginName, $this->enabled());
+    }
+
     public function install($path, $name, $create_backup = false)
     {
         if ($this->disable_add_plugins) {

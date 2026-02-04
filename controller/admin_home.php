@@ -86,6 +86,24 @@ class admin_home extends fs_controller
      */
     public $private_test_result;
 
+    /**
+     * Información del actualizador
+     * @var array|null
+     */
+    public $updater_info;
+
+    /**
+     * Información de actualización disponible para el actualizador
+     * @var array|false
+     */
+    public $updater_update;
+
+    /**
+     * Copias de seguridad recientes
+     * @var array
+     */
+    public $recent_backups;
+
     public function __construct()
     {
         parent::__construct(__CLASS__, 'Panel de control', 'admin');
@@ -172,10 +190,39 @@ class admin_home extends fs_controller
         $this->pending_private_download = isset($_SESSION['pending_private_download']) ? $_SESSION['pending_private_download'] : null;
         $this->private_test_result = null;
 
+        // Inicializar información del actualizador
+        $this->init_updater_info();
+
         $this->exec_actions();
 
         $this->paginas = $this->all_pages();
         $this->load_menu(TRUE);
+    }
+
+    /**
+     * Inicializa la información del módulo actualizador
+     */
+    private function init_updater_info()
+    {
+        $this->updater_info = null;
+        $this->updater_update = false;
+        $this->recent_backups = [];
+
+        $updaterManagerPath = FS_FOLDER . '/update-and-backup/updater_manager.php';
+        $backupManagerPath = FS_FOLDER . '/update-and-backup/fs_backup_manager.php';
+
+        if (file_exists($updaterManagerPath)) {
+            require_once $updaterManagerPath;
+            $updaterManager = new \updater_manager();
+            $this->updater_info = $updaterManager->get_info();
+            $this->updater_update = $updaterManager->check_for_updates();
+        }
+
+        if (file_exists($backupManagerPath)) {
+            require_once $backupManagerPath;
+            $backupManager = new \fs_backup_manager();
+            $this->recent_backups = $backupManager->list_backups();
+        }
     }
 
     private function exec_actions()

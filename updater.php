@@ -1,25 +1,20 @@
 <?php
 /**
- * Actualizador de FSFramework (Delegado a Symfony)
+ * Actualizador de FSFramework - Redirect
+ * 
+ * Este archivo redirige al plugin system_updater que contiene
+ * toda la funcionalidad de actualizaciones y backups.
+ * 
+ * @author Javier Trujillo
+ * @license LGPL-3.0-or-later
+ * @deprecated Usar index.php?page=admin_updater
  */
 
-use FSFramework\Controller\UpdaterController;
-
-if (!file_exists('config.php')) {
+// Verificar que existe config.php (sistema instalado)
+if (!file_exists(__DIR__ . '/config.php')) {
     die('Archivo config.php no encontrado. No puedes actualizar sin instalar.');
 }
 
-define('FS_FOLDER', __DIR__);
-
-/// Carga de dependencias y Kernel moderno
-require_once __DIR__ . '/vendor/autoload.php';
-$kernel = \FSFramework\Core\Kernel::boot();
-
-/// ampliamos el límite de ejecución de PHP a 5 minutos
-@set_time_limit(300);
-ignore_user_abort(true);
-
-// Instanciamos y ejecutamos el controlador
-$controller = new UpdaterController();
-$response = $controller->handle($kernel->getRequest());
-$response->send();
+// Redirigir al nuevo controlador del plugin system_updater
+header('Location: index.php?page=admin_updater');
+exit;

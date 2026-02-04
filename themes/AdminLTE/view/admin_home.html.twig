@@ -196,17 +196,14 @@
 <div class="well">
     <div class="page-header" style="margin-top: 0px;">
         <h1>
-            Bienvenido a FacturaScripts
-            <small>{{ fsc.version()|raw }}</small>
+            Bienvenido a FSFramework
+            <small>{{ fsc.fs_version() }}</small>
         </h1>
     </div>
     <p class="help-block">
-        Ya tienes instalado el núcleo. Como ves, el núcleo permite gestionar páginas,
-        plugins y usuarios. Pulsa continuar para seguir con la instalación.
+        Ya tienes instalado el núcleo.
     </p>
-    <a href="#" class="btn btn-sm btn-primary" onclick="fs_marcar_todo();f_enable_pages.submit();">
-        <span class="glyphicon glyphicon-ok"></span>&nbsp; Continuar
-    </a>
+    
 </div>
 {% elseif fsc.step == '1' %}
 <div class="well">
@@ -301,7 +298,7 @@
                 <span class="hidden-xs">&nbsp;{{ 'plugins'|trans }}</span>
             </a>
         </li>
-        {% if not fsc.plugin_manager.disable_mod_plugins %}
+        {% if not fsc.plugin_manager.disable_mod_plugins and fsc.plugin_manager.is_plugin_enabled('system_updater') %}
         <li role="presentation">
             <a href="#t_descargas" aria-controls="t_descargas" role="tab" data-toggle="tab">
                 <span class="glyphicon glyphicon-download-alt"></span>
@@ -330,6 +327,17 @@
                 <span class="hidden-xs">&nbsp;{{ 'advanced'|trans }}</span>
             </a>
         </li>
+        {% if fsc.plugin_manager.is_plugin_enabled('system_updater') %}
+        <li role="presentation">
+            <a href="#t_actualizador" aria-controls="t_actualizador" role="tab" data-toggle="tab">
+                <i class="fa fa-upload"></i>
+                <span class="hidden-xs">&nbsp;Actualizador</span>
+                {% if fsc.updater_update %}
+                <span class="badge bg-yellow">1</span>
+                {% endif %}
+            </a>
+        </li>
+        {% endif %}
     </ul>
     <div class="tab-content">
         <div role="tabpanel" class="tab-pane active" id="t_paginas">
@@ -338,22 +346,25 @@
         <div role="tabpanel" class="tab-pane" id="t_plugins">
             {{ include('tab/admin_home_plugins.html.twig') }}
         </div>
+        {% if not fsc.plugin_manager.disable_mod_plugins and fsc.plugin_manager.is_plugin_enabled('system_updater') %}
         <div role="tabpanel" class="tab-pane" id="t_descargas">
-            {% if not fsc.plugin_manager.disable_mod_plugins %}
-                {{ include('tab/admin_home_downloads.html.twig') }}
-            {% endif %}
+            {{ include('tab/admin_home_downloads.html.twig') }}
         </div>
         <div role="tabpanel" class="tab-pane" id="t_privados">
-            {% if not fsc.plugin_manager.disable_mod_plugins %}
-                {{ include('tab/admin_home_private_downloads.html.twig') }}
-            {% endif %}
+            {{ include('tab/admin_home_private_downloads.html.twig') }}
         </div>
+        {% endif %}
         <div role="tabpanel" class="tab-pane" id="t_temas">
             {{ include('tab/admin_home_themes.html.twig') }}
         </div>
         <div role="tabpanel" class="tab-pane" id="t_avanzado">
             {{ include('tab/admin_home_advanced.html.twig') }}
         </div>
+        {% if fsc.plugin_manager.is_plugin_enabled('system_updater') %}
+        <div role="tabpanel" class="tab-pane" id="t_actualizador">
+            {{ include('tab/admin_home_updater.html.twig') }}
+        </div>
+        {% endif %}
     </div>
 </div>
 
