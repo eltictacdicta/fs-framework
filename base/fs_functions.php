@@ -80,23 +80,24 @@ function find_controller($name)
         if (file_exists(FS_FOLDER . '/plugins/' . $plugin . '/controller/' . $name . '.php')) {
             return 'plugins/' . $plugin . '/controller/' . $name . '.php';
         }
-        
+
         // FS2025 plugins: Controller/ folder (PascalCase)
         // Check if controller class name matches the page name
         $modernPath = FS_FOLDER . '/plugins/' . $plugin . '/Controller/' . $name . '.php';
         if (file_exists($modernPath)) {
             return 'plugins/' . $plugin . '/Controller/' . $name . '.php';
         }
-        
+
         // FS2025: Also check all controllers for matching page name in getPageData()
         $modernDir = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
         if (is_dir($modernDir)) {
             foreach (scandir($modernDir) as $file) {
-                if (substr($file, -4) !== '.php') continue;
-                
+                if (substr($file, -4) !== '.php')
+                    continue;
+
                 $className = substr($file, 0, -4);
                 $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
-                
+
                 if (class_exists($fullClass)) {
                     try {
                         $reflection = new \ReflectionClass($fullClass);
@@ -131,20 +132,23 @@ function find_modern_controller($pageName)
 {
     foreach ($GLOBALS['plugins'] as $plugin) {
         $modernDir = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
-        if (!is_dir($modernDir)) continue;
-        
+        if (!is_dir($modernDir))
+            continue;
+
         foreach (scandir($modernDir) as $file) {
-            if (substr($file, -4) !== '.php') continue;
-            
+            if (substr($file, -4) !== '.php')
+                continue;
+
             $className = substr($file, 0, -4);
             $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
-            
-            if (!class_exists($fullClass)) continue;
-            
+
+            if (!class_exists($fullClass))
+                continue;
+
             try {
                 $reflection = new \ReflectionClass($fullClass);
                 $tempInstance = $reflection->newInstanceWithoutConstructor();
-                
+
                 // Get page name from getPageData or use class name
                 $detectedName = $className;
                 if (method_exists($tempInstance, 'getPageData')) {
@@ -153,7 +157,7 @@ function find_modern_controller($pageName)
                         $detectedName = $pd['name'];
                     }
                 }
-                
+
                 if ($detectedName === $pageName) {
                     return [
                         'plugin' => $plugin,
@@ -167,7 +171,7 @@ function find_modern_controller($pageName)
             }
         }
     }
-    
+
     return false;
 }
 
@@ -255,7 +259,13 @@ function fs_file_get_contents($url, $timeout = 10)
          */
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-        curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt'); // Ruta típica de certificados
+        if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
+            curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
+        } elseif (file_exists('/etc/pki/tls/certs/ca-bundle.crt')) {
+            curl_setopt($ch, CURLOPT_CAINFO, '/etc/pki/tls/certs/ca-bundle.crt');
+        } elseif (file_exists(FS_FOLDER . '/base/cacert.pem')) {
+            curl_setopt($ch, CURLOPT_CAINFO, FS_FOLDER . '/base/cacert.pem');
+        }
 
         if (defined('FS_PROXY_TYPE')) {
             curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
@@ -482,9 +492,13 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 
-    // Ruta de certificados según el sistema operativo
+    // Ruta de certificados según el sistema operativo (solo si existe)
     if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
         curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
+    } elseif (file_exists('/etc/pki/tls/certs/ca-bundle.crt')) {
+        curl_setopt($ch, CURLOPT_CAINFO, '/etc/pki/tls/certs/ca-bundle.crt');
+    } elseif (file_exists(FS_FOLDER . '/base/cacert.pem')) {
+        curl_setopt($ch, CURLOPT_CAINFO, FS_FOLDER . '/base/cacert.pem');
     }
 
     if (defined('FS_PROXY_TYPE')) {
@@ -637,6 +651,10 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
 
     if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
         curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
+    } elseif (file_exists('/etc/pki/tls/certs/ca-bundle.crt')) {
+        curl_setopt($ch, CURLOPT_CAINFO, '/etc/pki/tls/certs/ca-bundle.crt');
+    } elseif (file_exists(FS_FOLDER . '/base/cacert.pem')) {
+        curl_setopt($ch, CURLOPT_CAINFO, FS_FOLDER . '/base/cacert.pem');
     }
 
     if (defined('FS_PROXY_TYPE')) {
