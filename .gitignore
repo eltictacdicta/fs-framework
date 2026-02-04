@@ -17,7 +17,6 @@ package-lock.json
 !/plugins/business_data/
 !/plugins/legacy_support/
 !/plugins/facturascripts_support/
-!/plugins/system_updater/
 logs/api_security.log
 
 # Excluir imágenes subidas por la API

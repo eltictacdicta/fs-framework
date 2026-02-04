@@ -68,7 +68,7 @@ class ApiKernel
 
     /**
      * Establece una función de logging personalizada
-     * 
+     *
      * @param callable $callback function(?string $userId, string $path, string $method, int $statusCode, float $duration, ?string $errorMessage): bool
      */
     public function setLogCallback(callable $callback): void
@@ -110,7 +110,7 @@ class ApiKernel
             $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
             // Manejar rutas especiales
-            if ($this->handleSpecialRoutes($path, $method)) {
+            if ($this->handleSpecialRoutes($path)) {
                 exit;
             }
 
@@ -181,7 +181,7 @@ class ApiKernel
         // Intentar desde REQUEST_URI
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
         $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-        
+
         // Remover script name del path
         if (str_starts_with($uri, $scriptName)) {
             $uri = substr($uri, strlen($scriptName));
@@ -204,7 +204,7 @@ class ApiKernel
     /**
      * Maneja rutas especiales (docs, health, etc.)
      */
-    private function handleSpecialRoutes(string $path, string $method): bool
+    private function handleSpecialRoutes(string $path): bool
     {
         $path = trim($path, '/');
 
@@ -276,7 +276,7 @@ class ApiKernel
         foreach ($this->registry->getEndpoints() as $key => $info) {
             [$plugin, $resource] = explode('/', $key);
             $basePath = "/v1/{$plugin}/{$resource}";
-            
+
             $spec['paths'][$basePath] = [
                 'get' => ['summary' => "List {$resource}", 'tags' => [$plugin]],
                 'post' => ['summary' => "Create {$resource}", 'tags' => [$plugin]]
@@ -318,9 +318,16 @@ class ApiKernel
 
             // Si no hay logger configurado, solo registrar en error_log si debug está activo
             if ($this->debug) {
+                $safePath = str_replace(["\r", "\n"], '', $path);
+                $safeMethod = str_replace(["\r", "\n"], '', $method);
+                $safeUser = str_replace(["\r", "\n"], '', $userId ?? 'anonymous');
                 error_log(sprintf(
                     "API Request: %s %s - Status: %d - Duration: %.2fms - User: %s",
-                    $method, $path, $statusCode, $duration, $userId ?? 'anonymous'
+                    $safeMethod,
+                    $safePath,
+                    $statusCode,
+                    $duration,
+                    $safeUser
                 ));
             }
         } catch (\Exception $e) {
