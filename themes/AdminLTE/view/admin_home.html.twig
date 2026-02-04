@@ -298,23 +298,7 @@
                 <span class="hidden-xs">&nbsp;{{ 'plugins'|trans }}</span>
             </a>
         </li>
-        {% if not fsc.plugin_manager.disable_mod_plugins and fsc.plugin_manager.is_plugin_enabled('system_updater') %}
-        <li role="presentation">
-            <a href="#t_descargas" aria-controls="t_descargas" role="tab" data-toggle="tab">
-                <span class="glyphicon glyphicon-download-alt"></span>
-                <span class="hidden-xs">&nbsp;{{ 'downloads'|trans }}</span>
-            </a>
-        </li>
-        <li role="presentation">
-            <a href="#t_privados" aria-controls="t_privados" role="tab" data-toggle="tab">
-                <i class="fa fa-lock"></i>
-                <span class="hidden-xs">&nbsp;{{ 'private'|trans }}</span>
-                {% if fsc.plugin_manager.is_private_plugins_enabled() and fsc.plugin_manager.private_downloads()|length > 0 %}
-                <span class="badge">{{ fsc.plugin_manager.private_downloads()|length }}</span>
-                {% endif %}
-            </a>
-        </li>
-        {% endif %}
+
         <li role="presentation">
             <a href="#t_temas" aria-controls="t_temas" role="tab" data-toggle="tab">
                 <i class="fa fa-paint-brush"></i>
@@ -327,17 +311,7 @@
                 <span class="hidden-xs">&nbsp;{{ 'advanced'|trans }}</span>
             </a>
         </li>
-        {% if fsc.plugin_manager.is_plugin_enabled('system_updater') %}
-        <li role="presentation">
-            <a href="#t_actualizador" aria-controls="t_actualizador" role="tab" data-toggle="tab">
-                <i class="fa fa-upload"></i>
-                <span class="hidden-xs">&nbsp;Actualizador</span>
-                {% if fsc.updater_update %}
-                <span class="badge bg-yellow">1</span>
-                {% endif %}
-            </a>
-        </li>
-        {% endif %}
+
     </ul>
     <div class="tab-content">
         <div role="tabpanel" class="tab-pane active" id="t_paginas">
@@ -346,25 +320,14 @@
         <div role="tabpanel" class="tab-pane" id="t_plugins">
             {{ include('tab/admin_home_plugins.html.twig') }}
         </div>
-        {% if not fsc.plugin_manager.disable_mod_plugins and fsc.plugin_manager.is_plugin_enabled('system_updater') %}
-        <div role="tabpanel" class="tab-pane" id="t_descargas">
-            {{ include('tab/admin_home_downloads.html.twig') }}
-        </div>
-        <div role="tabpanel" class="tab-pane" id="t_privados">
-            {{ include('tab/admin_home_private_downloads.html.twig') }}
-        </div>
-        {% endif %}
+
         <div role="tabpanel" class="tab-pane" id="t_temas">
             {{ include('tab/admin_home_themes.html.twig') }}
         </div>
         <div role="tabpanel" class="tab-pane" id="t_avanzado">
             {{ include('tab/admin_home_advanced.html.twig') }}
         </div>
-        {% if fsc.plugin_manager.is_plugin_enabled('system_updater') %}
-        <div role="tabpanel" class="tab-pane" id="t_actualizador">
-            {{ include('tab/admin_home_updater.html.twig') }}
-        </div>
-        {% endif %}
+
     </div>
 </div>
 
