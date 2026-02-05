@@ -17,7 +17,15 @@
             <td>{{ value.name }}</td>
             <td>
                 <p>{{ value.description }}</p>
-                {% if value.legacy_warning %}
+                {% if value.requires_support is defined and value.requires_support %}
+                <div class="alert alert-danger" style="margin-top: 10px; margin-bottom: 10px;">
+                    <i class="fa fa-ban" aria-hidden="true"></i>&nbsp;
+                    <strong>Incompatible:</strong> {{ value.error_msg|raw }}
+                    <a href="{{ fsc.url() }}&enable={{ value.requires_support }}#plugins" class="btn btn-xs btn-primary" style="margin-left: 10px;">
+                        <span class="glyphicon glyphicon-ok"></span>&nbsp; Activar {{ value.requires_support }}
+                    </a>
+                </div>
+                {% elseif value.legacy_warning %}
                 <div class="alert alert-warning" style="margin-top: 10px; margin-bottom: 10px;">
                     <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>&nbsp;
                     <strong>Advertencia:</strong> {{ value.error_msg }}

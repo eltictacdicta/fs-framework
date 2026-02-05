@@ -80,18 +80,6 @@ class fs_plugin_manager
      */
     public $version = 2025.101;
 
-    /**
-     * Versión mínima compatible con FacturaScripts 2017 (archivo VERSION-FS2017)
-     * @var float
-     */
-    public $version_fs2017 = 2017.000;
-
-    /**
-     * Versión mínima compatible con FacturaScripts 2025 (archivo VERSION-FS2025)
-     * @var float
-     */
-    public $version_fs2025 = 2025.000;
-
     public function __construct()
     {
         $this->cache = new fs_cache();
@@ -118,16 +106,6 @@ class fs_plugin_manager
             $this->version = (float) trim(file_get_contents(FS_FOLDER . '/VERSION'));
         } elseif (class_exists('FSFramework\\Core\\Kernel')) {
             $this->version = \FSFramework\Core\Kernel::version();
-        }
-
-        // Cargar versión de compatibilidad FS2017
-        if (file_exists(FS_FOLDER . '/VERSION-FS2017')) {
-            $this->version_fs2017 = (float) trim(file_get_contents(FS_FOLDER . '/VERSION-FS2017'));
-        }
-
-        // Cargar versión de compatibilidad FS2025
-        if (file_exists(FS_FOLDER . '/VERSION-FS2025')) {
-            $this->version_fs2025 = (float) trim(file_get_contents(FS_FOLDER . '/VERSION-FS2025'));
         }
     }
 
@@ -1103,33 +1081,45 @@ class fs_plugin_manager
 
         // Check compatibility based on configuration file type and version
         if (file_exists($fsframework_ini)) {
-            // Para fsframework.ini, comparar con VERSION principal
+            // Plugin nativo FSFramework - validar con VERSION principal
             if ($this->version >= $plugin['min_version']) {
                 $plugin['compatible'] = true;
             } else {
                 $plugin['error_msg'] = 'Requiere FSFramework ' . $plugin['min_version'];
             }
         } else {
-            // Para facturascripts.ini, determinar si es arquitectura nueva (FS2025) o antigua (FS2017)
+            // Plugin de FacturaScripts - detectar arquitectura y requerir plugin de soporte
             if ($plugin['min_version'] >= 2025) {
-                // Arquitectura nueva FS2025 - comparar con VERSION-FS2025
-                if ($this->version_fs2025 >= $plugin['min_version']) {
-                    $plugin['compatible'] = true;
-                    $plugin['legacy_warning'] = true;
-                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
-                } else {
+                // FS2025 - requiere facturascripts_support activo
+                if (!in_array('facturascripts_support', $GLOBALS['plugins'])) {
                     $plugin['compatible'] = false;
-                    $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. La versión de compatibilidad FS2025 actual es ' . $this->version_fs2025;
+                    $plugin['requires_support'] = 'facturascripts_support';
+                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Requiere activar el plugin <b>facturascripts_support</b> primero.';
+                } else {
+                    // Delegar validación de versión al plugin facturascripts_support
+                    $plugin['compatible'] = $this->validate_fs2025_compatibility($plugin['min_version']);
+                    $plugin['legacy_warning'] = true;
+                    if ($plugin['compatible']) {
+                        $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
+                    } else {
+                        $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. Versión soportada insuficiente.';
+                    }
                 }
             } else {
-                // Arquitectura antigua FS2017 - comparar con VERSION-FS2017
-                if ($this->version_fs2017 >= $plugin['min_version']) {
-                    $plugin['compatible'] = true;
-                    $plugin['legacy_warning'] = true;
-                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2017 (arquitectura antigua). Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
-                } else {
+                // FS2017 - requiere legacy_support activo
+                if (!in_array('legacy_support', $GLOBALS['plugins'])) {
                     $plugin['compatible'] = false;
-                    $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. La versión de compatibilidad FS2017 actual es ' . $this->version_fs2017;
+                    $plugin['requires_support'] = 'legacy_support';
+                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2017. Requiere activar el plugin <b>legacy_support</b> primero.';
+                } else {
+                    // Delegar validación de versión al plugin legacy_support
+                    $plugin['compatible'] = $this->validate_fs2017_compatibility($plugin['min_version']);
+                    $plugin['legacy_warning'] = true;
+                    if ($plugin['compatible']) {
+                        $plugin['error_msg'] = 'Plugin de FacturaScripts 2017 (arquitectura antigua). Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
+                    } else {
+                        $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. Versión soportada insuficiente.';
+                    }
                 }
             }
         }
@@ -1368,5 +1358,73 @@ class fs_plugin_manager
             'name' => $plugin_name,
             'version' => $version
         ];
+    }
+
+    /**
+     * Valida la compatibilidad de un plugin FS2017 delegando al plugin legacy_support.
+     * 
+     * @param float $min_version Versión mínima requerida por el plugin
+     * @return bool True si es compatible, false en caso contrario
+     */
+    private function validate_fs2017_compatibility($min_version)
+    {
+        // Intentar usar el validador del plugin legacy_support
+        $validator_class = 'FacturaScripts\\Plugins\\legacy_support\\VersionValidator';
+        if (class_exists($validator_class)) {
+            return $validator_class::isCompatible($min_version);
+        }
+
+        // Fallback: cargar el archivo directamente si el autoloader no lo ha cargado
+        $validator_file = FS_FOLDER . '/plugins/legacy_support/VersionValidator.php';
+        if (file_exists($validator_file)) {
+            require_once $validator_file;
+            if (class_exists($validator_class)) {
+                return $validator_class::isCompatible($min_version);
+            }
+        }
+
+        // Si no existe el validador, intentar leer VERSION-FS2017 del plugin
+        $version_file = FS_FOLDER . '/plugins/legacy_support/VERSION-FS2017';
+        if (file_exists($version_file)) {
+            $version = (float) trim(file_get_contents($version_file));
+            return $version >= $min_version;
+        }
+
+        // Fallback final: asumir compatible si el plugin de soporte está activo
+        return true;
+    }
+
+    /**
+     * Valida la compatibilidad de un plugin FS2025 delegando al plugin facturascripts_support.
+     * 
+     * @param float $min_version Versión mínima requerida por el plugin
+     * @return bool True si es compatible, false en caso contrario
+     */
+    private function validate_fs2025_compatibility($min_version)
+    {
+        // Intentar usar el validador del plugin facturascripts_support
+        $validator_class = 'FacturaScripts\\Plugins\\facturascripts_support\\VersionValidator';
+        if (class_exists($validator_class)) {
+            return $validator_class::isCompatible($min_version);
+        }
+
+        // Fallback: cargar el archivo directamente si el autoloader no lo ha cargado
+        $validator_file = FS_FOLDER . '/plugins/facturascripts_support/VersionValidator.php';
+        if (file_exists($validator_file)) {
+            require_once $validator_file;
+            if (class_exists($validator_class)) {
+                return $validator_class::isCompatible($min_version);
+            }
+        }
+
+        // Si no existe el validador, intentar leer VERSION-FS2025 del plugin
+        $version_file = FS_FOLDER . '/plugins/facturascripts_support/VERSION-FS2025';
+        if (file_exists($version_file)) {
+            $version = (float) trim(file_get_contents($version_file));
+            return $version >= $min_version;
+        }
+
+        // Fallback final: asumir compatible si el plugin de soporte está activo
+        return true;
     }
 }
