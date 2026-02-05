@@ -72,4 +72,52 @@ class VersionValidator
     {
         self::$version = null;
     }
+
+    /**
+     * Get list of dependent plugins that require facturascripts_support.
+     * These are plugins with facturascripts.ini and min_version >= 2025.
+     * 
+     * @return array List of plugin names that depend on facturascripts_support
+     */
+    public static function getDependentPlugins(): array
+    {
+        $dependents = [];
+        $pluginsDir = FS_FOLDER . '/plugins';
+
+        if (!is_dir($pluginsDir)) {
+            return $dependents;
+        }
+
+        foreach (scandir($pluginsDir) as $pluginName) {
+            if ($pluginName === '.' || $pluginName === '..' || $pluginName === 'facturascripts_support') {
+                continue;
+            }
+
+            $pluginPath = $pluginsDir . '/' . $pluginName;
+            if (!is_dir($pluginPath)) {
+                continue;
+            }
+
+            // Check if it's a FS2025 plugin (has facturascripts.ini with min_version >= 2025)
+            $fsIni = $pluginPath . '/facturascripts.ini';
+            $fsfIni = $pluginPath . '/fsframework.ini';
+
+            // Skip if it has fsframework.ini (native FSFramework plugin)
+            if (file_exists($fsfIni)) {
+                continue;
+            }
+
+            if (file_exists($fsIni)) {
+                $iniData = parse_ini_file($fsIni);
+                $minVersion = isset($iniData['min_version']) ? (float) $iniData['min_version'] : 0;
+
+                // FS2025 plugins have min_version >= 2025
+                if ($minVersion >= 2025) {
+                    $dependents[] = $pluginName;
+                }
+            }
+        }
+
+        return $dependents;
+    }
 }

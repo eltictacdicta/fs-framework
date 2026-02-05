@@ -146,8 +146,51 @@ class fs_plugin_manager
             }
         }
 
+        // Si es un plugin de soporte, desactivar los plugins que dependen de él
+        $this->disable_support_dependents($plugin_name);
+
         $this->clean_cache();
         return true;
+    }
+
+    /**
+     * Desactiva los plugins que dependen de un plugin de soporte (legacy_support o facturascripts_support).
+     * La lógica de detección de dependientes está delegada a los propios plugins de soporte.
+     * 
+     * @param string $plugin_name Nombre del plugin de soporte que se está desactivando
+     */
+    private function disable_support_dependents($plugin_name)
+    {
+        $validator_class = null;
+
+        if ($plugin_name === 'legacy_support') {
+            $validator_class = 'FacturaScripts\\Plugins\\legacy_support\\VersionValidator';
+            $validator_file = FS_FOLDER . '/plugins/legacy_support/VersionValidator.php';
+        } elseif ($plugin_name === 'facturascripts_support') {
+            $validator_class = 'FacturaScripts\\Plugins\\facturascripts_support\\VersionValidator';
+            $validator_file = FS_FOLDER . '/plugins/facturascripts_support/VersionValidator.php';
+        } else {
+            return; // No es un plugin de soporte
+        }
+
+        // Cargar la clase si no está cargada
+        if (!class_exists($validator_class) && file_exists($validator_file)) {
+            require_once $validator_file;
+        }
+
+        if (!class_exists($validator_class) || !method_exists($validator_class, 'getDependentPlugins')) {
+            return;
+        }
+
+        // Obtener los plugins dependientes desde el propio plugin de soporte
+        $dependents = $validator_class::getDependentPlugins();
+
+        foreach ($dependents as $dependent_plugin) {
+            if (in_array($dependent_plugin, $GLOBALS['plugins'])) {
+                $this->core_log->new_message('Desactivando <b>' . $dependent_plugin . '</b> porque depende de <b>' . $plugin_name . '</b>.');
+                $this->disable($dependent_plugin);
+            }
+        }
     }
 
     public function disabled()
