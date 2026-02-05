@@ -21,9 +21,18 @@
                 <div class="alert alert-danger" style="margin-top: 10px; margin-bottom: 10px;">
                     <i class="fa fa-ban" aria-hidden="true"></i>&nbsp;
                     <strong>Incompatible:</strong> {{ value.error_msg|raw }}
-                    <a href="{{ fsc.url() }}&enable={{ value.requires_support }}#plugins" class="btn btn-xs btn-primary" style="margin-left: 10px;">
-                        <span class="glyphicon glyphicon-ok"></span>&nbsp; Activar {{ value.requires_support }}
-                    </a>
+                    <div style="margin-top: 8px;">
+                        <span style="margin-right: 5px;">Activar en orden:</span>
+                        {% for idx, support_plugin in value.requires_support %}
+                            <a href="{{ fsc.url() }}&enable={{ support_plugin }}#plugins" class="btn btn-xs btn-primary" style="margin-left: 5px;">
+                                <span class="badge" style="background-color: #fff; color: #337ab7; margin-right: 3px;">{{ idx + 1 }}</span>
+                                <span class="glyphicon glyphicon-ok"></span>&nbsp; {{ support_plugin }}
+                            </a>
+                            {% if not loop.last %}
+                                <span class="glyphicon glyphicon-arrow-right" style="margin: 0 5px; color: #666;"></span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
                 </div>
                 {% elseif value.legacy_warning %}
                 <div class="alert alert-warning" style="margin-top: 10px; margin-bottom: 10px;">

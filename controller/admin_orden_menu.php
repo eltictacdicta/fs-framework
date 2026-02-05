@@ -39,17 +39,25 @@ class admin_orden_menu extends fs_controller
 
     private function guardar_orden()
     {
-        foreach ($this->folders() as $folder) {
+        $ordenData = filter_input(INPUT_POST, 'orden', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
+        
+        if (empty($ordenData)) {
+            $this->new_error_msg('No se recibieron datos de orden.');
+            return;
+        }
+
+        foreach ($ordenData as $folder => $pages) {
+            if (!is_array($pages)) {
+                continue;
+            }
+            
             $orden = 0;
-            foreach (filter_input_array(INPUT_POST) as $key => $value) {
-                if (strlen($key) > $folder) {
-                    if (substr($key, 0, strlen($folder)) == $folder) {
-                        $page = $this->page->get($value);
-                        $page->orden = $orden;
-                        if ($page->save()) {
-                            $orden++;
-                        }
-                    }
+            foreach ($pages as $pageName) {
+                $page = $this->page->get($pageName);
+                if ($page) {
+                    $page->orden = $orden;
+                    $page->save();
+                    $orden++;
                 }
             }
         }

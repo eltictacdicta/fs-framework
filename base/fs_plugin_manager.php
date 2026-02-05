@@ -1136,7 +1136,7 @@ class fs_plugin_manager
                 // FS2025 - requiere facturascripts_support activo
                 if (!in_array('facturascripts_support', $GLOBALS['plugins'])) {
                     $plugin['compatible'] = false;
-                    $plugin['requires_support'] = 'facturascripts_support';
+                    $plugin['requires_support'] = ['facturascripts_support'];
                     $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Requiere activar el plugin <b>facturascripts_support</b> primero.';
                 } else {
                     // Delegar validación de versión al plugin facturascripts_support
@@ -1149,15 +1149,27 @@ class fs_plugin_manager
                     }
                 }
             } else {
-                // FS2017 - requiere legacy_support activo
-                if (!in_array('legacy_support', $GLOBALS['plugins'])) {
+                // FS2017 - requiere legacy_support y business_data activos (en ese orden)
+                $has_legacy_support = in_array('legacy_support', $GLOBALS['plugins']);
+                $has_business_data = in_array('business_data', $GLOBALS['plugins']);
+                
+                if (!$has_legacy_support || !$has_business_data) {
                     $plugin['compatible'] = false;
-                    $plugin['requires_support'] = 'legacy_support';
-                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2017. Requiere activar el plugin <b>legacy_support</b> primero.';
+                    // Array con los plugins faltantes en el orden correcto de activación
+                    $missing_plugins = [];
+                    if (!$has_legacy_support) {
+                        $missing_plugins[] = 'legacy_support';
+                    }
+                    if (!$has_business_data) {
+                        $missing_plugins[] = 'business_data';
+                    }
+                    $plugin['requires_support'] = $missing_plugins;
+                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2017. Requiere activar los plugins <b>legacy_support</b> y <b>business_data</b> (en ese orden) primero.';
                 } else {
                     // Delegar validación de versión al plugin legacy_support
                     $plugin['compatible'] = $this->validate_fs2017_compatibility($plugin['min_version']);
                     $plugin['legacy_warning'] = true;
+                    
                     if ($plugin['compatible']) {
                         $plugin['error_msg'] = 'Plugin de FacturaScripts 2017 (arquitectura antigua). Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
                     } else {

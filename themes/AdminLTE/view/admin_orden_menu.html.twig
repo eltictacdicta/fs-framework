@@ -40,7 +40,7 @@
                {% for key2, value2 in fsc.pages(value1) %}
                <li class="list-group-item clickable">
                   <i class="fa fa-arrows-v" aria-hidden="true"></i> &nbsp; {{ value2.title }}
-                  <input type="hidden" name="{{ value1 }}_{{ key2 }}" value="{{ value2.name }}"/>
+                  <input type="hidden" name="orden[{{ value1 }}][]" value="{{ value2.name }}"/>
                </li>
                {% endfor %}
             </ul>
