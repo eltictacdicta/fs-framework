@@ -3,27 +3,22 @@
  * Librería segura para subida de archivos por chunks
  * 
  * Esta librería proporciona funcionalidad de subida de archivos grandes
- * por fragmentos con múltiples capas de seguridad.
+ * por fragmentos con validaciones de seguridad a nivel de archivo.
  * 
- * IMPORTANTE: Esta librería SOLO puede ser instanciada desde plugins.
- * Cualquier intento de usarla desde fuera de un plugin será rechazado.
- * 
- * Características de seguridad:
- * - Verificación de origen (solo desde plugins)
- * - Autenticación obligatoria (usuario admin)
- * - Validación CSRF token
- * - Rate limiting por IP/usuario
+ * IMPORTANTE: La autenticación y autorización deben ser manejadas por
+ * el controlador que instancie esta clase (ej: dentro de private_core()).
+ * Esta clase se encarga de la seguridad a nivel de archivo:
  * - Validación de extensiones de archivo
  * - Validación de tamaño máximo
  * - Validación de firma mágica de archivos
  * - Sanitización de nombres de archivo
  * - Prevención de Path Traversal
- * - Directorio de trabajo aislado por plugin
+ * - Directorio de trabajo aislado
  * - Limpieza automática de chunks huérfanos
  * 
- * Uso desde un plugin:
+ * Uso desde un controlador (dentro de private_core):
  * ```php
- * $uploader = new fs_secure_chunked_upload('mi_plugin', '/ruta/destino/', ['zip', 'gz']);
+ * $uploader = new fs_secure_chunked_upload('/ruta/destino/', ['zip', 'gz']);
  * $result = $uploader->handle_chunk();
  * if ($result['complete']) {
  *     // Archivo completo en $result['file_path']
@@ -32,16 +27,10 @@
  * 
  * @author FSFramework Team
  * @license LGPL-3.0-or-later
- * @version 1.0.0
+ * @version 2.0.0
  */
 class fs_secure_chunked_upload
 {
-    /**
-     * Nombre del plugin que está usando el uploader
-     * @var string
-     */
-    private $plugin_name;
-
     /**
      * Directorio destino para los archivos
      * @var string
@@ -73,10 +62,10 @@ class fs_secure_chunked_upload
     protected $last_error;
 
     /**
-     * Usuario autenticado actual
-     * @var object|null
+     * Nick del usuario autenticado (informativo, para logs)
+     * @var string
      */
-    protected $current_user;
+    protected $user_nick;
 
     /**
      * Callback a ejecutar cuando se complete la subida
@@ -85,68 +74,49 @@ class fs_secure_chunked_upload
     protected $on_complete_callback;
 
     /**
-     * Rate limit: máximo de peticiones por período
-     * @var int
-     */
-    private $rate_limit_max = 100;
-
-    /**
-     * Rate limit: período en segundos
-     * @var int
-     */
-    private $rate_limit_period = 60;
-
-    /**
-     * Requiere rol de administrador
-     * @var bool
-     */
-    private $require_admin = true;
-
-    /**
-     * Requiere validación CSRF
-     * @var bool
-     */
-    private $require_csrf = true;
-
-    /**
      * @var \Symfony\Component\HttpFoundation\Request
      */
     private $request;
 
     /**
+     * Identificador del contexto (para aislar directorios temporales)
+     * @var string
+     */
+    private $context_id;
+
+    /**
      * Constructor
      * 
-     * Inicializa el uploader verificando origen desde plugin,
-     * autenticación y permisos.
+     * NOTA: Esta clase NO realiza autenticación. Debe ser instanciada
+     * únicamente desde código ya autenticado (ej: private_core() de un controlador).
      *
-     * @param string $plugin_name Nombre del plugin que utiliza el uploader
      * @param string $upload_dir Directorio destino para archivos
      * @param array $allowed_extensions Extensiones permitidas (sin punto)
      * @param int $max_file_size_mb Tamaño máximo en MB (default: 500)
-     * @throws Exception Si no se cumplen las condiciones de seguridad
+     * @param string $context_id Identificador para aislar temp dir (default: 'default')
+     * @param string $user_nick Nick del usuario (para logging, default: 'system')
+     * @throws Exception Si no se pueden crear los directorios necesarios
      */
-    public function __construct($plugin_name, $upload_dir, $allowed_extensions = [], $max_file_size_mb = 500)
-    {
-        // 1. Verificar que se llama desde un plugin
-        $this->verify_plugin_origin($plugin_name);
-
-        // 2. Obtener request de Symfony
+    public function __construct(
+        $upload_dir,
+        $allowed_extensions = [],
+        $max_file_size_mb = 500,
+        $context_id = 'default',
+        $user_nick = 'system'
+    ) {
+        // Obtener request de Symfony
         $this->request = \FSFramework\Core\Kernel::request();
 
-        // 3. Verificar autenticación y permisos
-        $this->verify_authentication();
-
-        // 4. Verificar rate limiting
-        $this->check_rate_limit();
-
         // Guardar configuración
-        $this->plugin_name = $this->sanitize_plugin_name($plugin_name);
+        $this->context_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $context_id);
+        $this->user_nick = preg_replace('/[^a-zA-Z0-9_-]/', '', $user_nick);
         $this->upload_dir = $this->sanitize_path($upload_dir);
         $this->allowed_extensions = array_map('strtolower', $allowed_extensions);
         $this->max_file_size = $max_file_size_mb * 1024 * 1024;
         $this->last_error = '';
+        $this->on_complete_callback = null;
 
-        // Directorio temporal aislado por plugin
+        // Directorio temporal aislado por contexto
         $this->temp_dir = $this->get_temp_dir();
 
         // Crear directorios si no existen
@@ -160,131 +130,6 @@ class fs_secure_chunked_upload
     }
 
     /**
-     * Verifica que la llamada proviene de un plugin válido
-     * 
-     * @param string $plugin_name
-     * @throws Exception
-     */
-    private function verify_plugin_origin($plugin_name)
-    {
-        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10);
-        $valid_origin = false;
-
-        foreach ($backtrace as $trace) {
-            if (isset($trace['file'])) {
-                $file = str_replace('\\', '/', $trace['file']);
-
-                // Verificar que el archivo está dentro del directorio de plugins
-                if (preg_match('#/plugins/([a-zA-Z0-9_-]+)/#', $file, $matches)) {
-                    if ($matches[1] === $plugin_name) {
-                        $valid_origin = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!$valid_origin) {
-            $this->log_security_event('INVALID_ORIGIN', [
-                'claimed_plugin' => $plugin_name,
-                'backtrace' => $this->get_sanitized_backtrace($backtrace)
-            ]);
-            throw new Exception('Acceso denegado: Esta librería solo puede ser usada desde plugins.');
-        }
-
-        // Verificar que el plugin existe y está activo
-        if (class_exists('fs_plugin_manager')) {
-            $pm = new fs_plugin_manager();
-            $plugins = $pm->installed();
-            $plugin_exists = false;
-
-            foreach ($plugins as $plugin) {
-                if ($plugin['name'] === $plugin_name) {
-                    $plugin_exists = true;
-                    break;
-                }
-            }
-
-            if (!$plugin_exists) {
-                $this->log_security_event('UNKNOWN_PLUGIN', ['plugin' => $plugin_name]);
-                throw new Exception('Acceso denegado: Plugin no reconocido.');
-            }
-        }
-    }
-
-    /**
-     * Verifica autenticación y permisos del usuario usando SessionManager
-     * 
-     * @throws Exception
-     */
-    private function verify_authentication()
-    {
-        // Usar el SessionManager de Symfony
-        $sessionManager = \FSFramework\Security\SessionManager::getInstance();
-
-        if (!$sessionManager->isLoggedIn()) {
-            $this->log_security_event('UNAUTHENTICATED_ACCESS', [
-                'ip' => $this->request->getClientIp()
-            ]);
-            throw new Exception('Acceso denegado: Usuario no autenticado.');
-        }
-
-        // Obtener datos del usuario
-        $nick = $sessionManager->getCurrentUserNick();
-        $is_admin = $sessionManager->isAdmin();
-
-        $this->current_user = (object) [
-            'nick' => $nick,
-            'admin' => $is_admin
-        ];
-
-        // Verificar rol de administrador si es requerido
-        if ($this->require_admin && !$is_admin) {
-            $this->log_security_event('INSUFFICIENT_PERMISSIONS', [
-                'user' => $nick ?? 'unknown',
-                'ip' => $this->request->getClientIp()
-            ]);
-            throw new Exception('Acceso denegado: Se requieren permisos de administrador.');
-        }
-    }
-
-    /**
-     * Verifica rate limiting por IP
-     * 
-     * @throws Exception
-     */
-    private function check_rate_limit()
-    {
-        $ip = $this->request->getClientIp();
-        $cache_key = 'rate_limit_upload_' . md5($ip);
-
-        if (class_exists('fs_cache')) {
-            $cache = new fs_cache();
-            $data = $cache->get($cache_key);
-
-            if ($data === false) {
-                $data = ['count' => 1, 'start' => time()];
-            } else {
-                if (time() - $data['start'] > $this->rate_limit_period) {
-                    $data = ['count' => 1, 'start' => time()];
-                } else {
-                    $data['count']++;
-                }
-            }
-
-            if ($data['count'] > $this->rate_limit_max) {
-                $this->log_security_event('RATE_LIMIT_EXCEEDED', [
-                    'ip' => $ip,
-                    'count' => $data['count']
-                ]);
-                throw new Exception('Demasiadas peticiones. Intenta de nuevo más tarde.');
-            }
-
-            $cache->set($cache_key, $data, $this->rate_limit_period);
-        }
-    }
-
-    /**
      * Manejar un chunk subido
      *
      * @param string|null $custom_filename Nombre personalizado para el archivo final
@@ -292,11 +137,6 @@ class fs_secure_chunked_upload
      */
     public function handle_chunk($custom_filename = null)
     {
-        // Verificar CSRF si es requerido (solo en POST)
-        if ($this->require_csrf && $this->request->isMethod('POST')) {
-            $this->verify_csrf();
-        }
-
         // Obtener parámetros de Resumable.js
         $resumable_identifier = $this->get_param('resumableIdentifier');
         $resumable_filename = $this->get_param('resumableFilename');
@@ -331,30 +171,6 @@ class fs_secure_chunked_upload
     }
 
     /**
-     * Verificar token CSRF
-     * 
-     * @throws Exception
-     */
-    private function verify_csrf()
-    {
-        $token = $this->get_param('_token');
-        if (empty($token)) {
-            $token = $this->request->headers->get('X-CSRF-TOKEN', '');
-        }
-
-        $sessionManager = \FSFramework\Security\SessionManager::getInstance();
-
-        if (!$sessionManager->verifyCsrfToken($token)) {
-            $this->log_security_event('INVALID_CSRF', [
-                'user' => $this->current_user->nick ?? 'unknown',
-                'ip' => $this->request->getClientIp()
-            ]);
-            // Por ahora solo advertir, algunos clientes JS no envían CSRF en cada chunk
-            error_log('[fs_secure_chunked_upload] ADVERTENCIA: Token CSRF no válido o ausente');
-        }
-    }
-
-    /**
      * Verificar si un chunk ya existe (para reanudar subidas)
      */
     protected function check_chunk_exists($identifier, $chunk_number)
@@ -385,10 +201,9 @@ class fs_secure_chunked_upload
         // Validar extensión
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         if (!empty($this->allowed_extensions) && !in_array($ext, $this->allowed_extensions)) {
-            $this->log_security_event('INVALID_EXTENSION', [
+            $this->log_event('INVALID_EXTENSION', [
                 'extension' => $ext,
-                'filename' => $filename,
-                'user' => $this->current_user->nick ?? 'unknown'
+                'filename' => $filename
             ]);
             return $this->error_response('Tipo de archivo no permitido: ' . $ext);
         }
@@ -454,22 +269,21 @@ class fs_secure_chunked_upload
                             $final_filename,
                             $result['filesize'],
                             $this->get_custom_params(),
-                            $this->current_user->nick ?? 'unknown'
+                            $this->user_nick
                         );
                         if (is_array($callback_result)) {
                             $result = array_merge($result, $callback_result);
                         }
-                    } catch (Exception $e) {
+                    } catch (\Exception $e) {
                         @unlink($final_path);
                         return $this->error_response($e->getMessage());
                     }
                 }
 
-                $this->log_security_event('UPLOAD_COMPLETE', [
+                $this->log_event('UPLOAD_COMPLETE', [
                     'filename' => $final_filename,
                     'size' => $result['filesize'],
-                    'user' => $this->current_user->nick ?? 'unknown',
-                    'plugin' => $this->plugin_name
+                    'context' => $this->context_id
                 ], 'INFO');
 
                 return $result;
@@ -528,7 +342,7 @@ class fs_secure_chunked_upload
                 }
 
                 if (!$valid) {
-                    $this->log_security_event('INVALID_FILE_SIGNATURE', [
+                    $this->log_event('INVALID_FILE_SIGNATURE', [
                         'file' => basename($file_path),
                         'expected_ext' => $ext,
                         'actual_signature' => substr($hex, 0, 16)
@@ -644,12 +458,12 @@ class fs_secure_chunked_upload
     }
 
     /**
-     * Obtener directorio temporal por plugin
+     * Obtener directorio temporal por contexto
      */
     private function get_temp_dir()
     {
         $base = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__);
-        return $base . '/tmp/chunks/' . $this->plugin_name . '/';
+        return $base . '/tmp/chunks/' . $this->context_id . '/';
     }
 
     /**
@@ -683,14 +497,6 @@ class fs_secure_chunked_upload
         }
 
         return $filename;
-    }
-
-    /**
-     * Sanitizar nombre de plugin
-     */
-    private function sanitize_plugin_name($plugin_name)
-    {
-        return preg_replace('/[^a-zA-Z0-9_-]/', '', $plugin_name);
     }
 
     /**
@@ -731,12 +537,12 @@ class fs_secure_chunked_upload
     {
         if (!is_dir($path)) {
             if (!@mkdir($path, 0755, true)) {
-                throw new Exception("No se pudo crear el directorio: {$path}");
+                throw new \Exception("No se pudo crear el directorio: {$path}");
             }
         }
 
         if (!is_writable($path)) {
-            throw new Exception("El directorio no es escribible: {$path}");
+            throw new \Exception("El directorio no es escribible: {$path}");
         }
     }
 
@@ -755,26 +561,13 @@ class fs_secure_chunked_upload
     }
 
     /**
-     * Obtener backtrace sanitizado
+     * Registrar evento (informativo/seguridad)
      */
-    private function get_sanitized_backtrace($backtrace)
+    private function log_event($event_type, $data = [], $level = 'WARNING')
     {
-        $result = [];
-        foreach ($backtrace as $trace) {
-            $result[] = [
-                'file' => isset($trace['file']) ? basename($trace['file']) : 'unknown',
-                'line' => $trace['line'] ?? 0,
-                'function' => $trace['function'] ?? 'unknown'
-            ];
-        }
-        return $result;
-    }
+        $data['user'] = $this->user_nick;
+        $data['ip'] = $this->request->getClientIp();
 
-    /**
-     * Registrar evento de seguridad
-     */
-    private function log_security_event($event_type, $data = [], $level = 'WARNING')
-    {
         $message = sprintf(
             '[fs_secure_chunked_upload] %s: %s - %s',
             $level,
@@ -783,28 +576,6 @@ class fs_secure_chunked_upload
         );
 
         error_log($message);
-
-        if (class_exists('fs_core_log')) {
-            // Note: new_warn does not exist in fs_core_log, using new_error instead
-            if ($level === 'WARNING' || $level === 'ERROR') {
-                // We need an instance to call new_error if it's not static in all versions, 
-                // but fs_core_log seems to be designed with mixed static/instance usage in legacy.
-                // However, based on the file view, methods are instance methods but called often on instances.
-                // Let's safe-check instantiation if needed or use what's available.
-                // The error said "Call to undefined method fs_core_log::new_warn()", implying it tried to call it statically?
-                // Actually the error trace shows: fs_core_log::new_warn(). 
-                // In fs_core_log.php, new_error is an INSTANCE method. We cannot call it statically.
-
-                // Fix: Ignore legacy fs_core_log via static calls if methods are not static.
-                // The fs_core_log class shows methods are NOT static (e.g. public function new_error).
-                // So we shouldn't call them statically.
-
-                // Let's just log to PHP error log to be safe and avoid breaking the flow.
-                // If we really want to use fs_core_log, we need an instance.
-                // But creating an instance just for this might have side effects.
-                // Given this is a security event in a standalone upload script, error_log is sufficient.
-            }
-        }
     }
 
     // =========================================
@@ -820,42 +591,6 @@ class fs_secure_chunked_upload
     public function on_complete(callable $callback)
     {
         $this->on_complete_callback = $callback;
-        return $this;
-    }
-
-    /**
-     * Permitir usuarios no-admin (usar con precaución)
-     * 
-     * @return self
-     */
-    public function allow_non_admin()
-    {
-        $this->require_admin = false;
-        return $this;
-    }
-
-    /**
-     * Desactivar verificación CSRF
-     * 
-     * @return self
-     */
-    public function disable_csrf()
-    {
-        $this->require_csrf = false;
-        return $this;
-    }
-
-    /**
-     * Configurar rate limiting
-     * 
-     * @param int $max_requests Máximo de peticiones
-     * @param int $period_seconds Período en segundos
-     * @return self
-     */
-    public function set_rate_limit($max_requests, $period_seconds)
-    {
-        $this->rate_limit_max = $max_requests;
-        $this->rate_limit_period = $period_seconds;
         return $this;
     }
 
