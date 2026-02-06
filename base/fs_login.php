@@ -98,53 +98,14 @@ class fs_login
         }
     }
 
+    /**
+     * @deprecated Usar el controlador password_reset para recuperación de contraseña por email.
+     * Este método requería la contraseña de la base de datos y ha sido reemplazado
+     * por un flujo seguro basado en tokens temporales enviados por email.
+     */
     public function change_user_passwd()
     {
-        $ip = fs_get_ip();
-        $nick = filter_input(INPUT_POST, 'user');
-        if ($this->ip_filter->is_banned($ip)) {
-            $this->ip_filter->set_attempt($ip);
-            $this->core_log->new_error('Tu IP ha sido baneada, ' . $nick . '. ' . $this->ban_message);
-            $this->core_log->save('Tu IP ha sido baneada, ' . $nick . '. ' . $this->ban_message);
-            return FALSE;
-        }
-
-        if (!$this->ip_filter->in_white_list($ip)) {
-            $this->core_log->new_error('No puedes acceder desde esta IP, ' . $nick . '.');
-            $this->core_log->save('No puedes acceder desde esta IP, ' . $nick . '.', 'login', TRUE);
-            return FALSE;
-        }
-
-        $new_password = filter_input(INPUT_POST, 'new_password');
-        $new_password2 = filter_input(INPUT_POST, 'new_password2');
-        if ($new_password != $new_password2) {
-            $this->core_log->new_error('Las contraseñas no coinciden, ' . $nick);
-            return FALSE;
-        }
-
-        if ($new_password == '') {
-            $this->core_log->new_error('Tienes que escribir una contraseña nueva, ' . $nick);
-            return FALSE;
-        }
-
-        $db_password = filter_input(INPUT_POST, 'db_password');
-        if ($db_password != FS_DB_PASS) {
-            $this->ip_filter->set_attempt($ip);
-            $this->core_log->new_error('La contraseña de la base de datos es incorrecta, ' . $nick);
-            return FALSE;
-        }
-
-        $user = $this->user_model->get($nick);
-        if ($user) {
-            $user->set_password($new_password);
-            if ($user->save()) {
-                $this->core_log->new_message('Contraseña cambiada correctamente para ' . $nick);
-                return TRUE;
-            }
-
-            $this->core_log->new_error('Imposible cambiar la contraseña del usuario ' . $nick);
-        }
-
+        $this->core_log->new_error('Esta función ha sido deshabilitada. Usa la opción "Olvidé mi contraseña" en la pantalla de login.');
         return FALSE;
     }
 

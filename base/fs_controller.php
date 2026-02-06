@@ -207,9 +207,6 @@ class fs_controller extends fs_app
             if ($this->request->query->has('logout')) {
                 $this->template = 'login/default';
                 $this->login_tools->log_out();
-            } else if ($this->request->request->has('new_password') && $this->request->request->has('new_password2') && $this->request->request->has('user')) {
-                $this->login_tools->change_user_passwd();
-                $this->template = 'login/default';
             } else if (!$this->log_in()) {
                 $this->template = 'login/default';
                 $this->public_core();

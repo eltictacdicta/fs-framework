@@ -122,6 +122,18 @@ class fs_user extends \fs_model
     public $css;
 
     /**
+     * Token de recuperación de contraseña (hash SHA256).
+     * @var string|null
+     */
+    public $reset_token;
+
+    /**
+     * Fecha y hora de expiración del token de recuperación.
+     * @var string|null
+     */
+    public $reset_token_expires;
+
+    /**
      * Indica si el usuario está incluido en un rol (usado en admin_rol).
      * @var boolean
      */
@@ -145,6 +157,8 @@ class fs_user extends \fs_model
             $this->fs_page = $data['fs_page'];
             $this->css = isset($data['css']) ? $data['css'] : 'view/css/bootstrap-yeti.min.css';
             $this->enabled = isset($data['enabled']) ? $this->str2bool($data['enabled']) : TRUE;
+            $this->reset_token = isset($data['reset_token']) ? $data['reset_token'] : NULL;
+            $this->reset_token_expires = isset($data['reset_token_expires']) ? $data['reset_token_expires'] : NULL;
         } else {
             $this->nick = NULL;
             $this->password = NULL;
@@ -159,6 +173,8 @@ class fs_user extends \fs_model
             $this->last_browser = NULL;
             $this->fs_page = NULL;
             $this->css = 'view/css/bootstrap-yeti.min.css';
+            $this->reset_token = NULL;
+            $this->reset_token_expires = NULL;
         }
 
         $this->logged_on = FALSE;
@@ -330,13 +346,13 @@ class fs_user extends \fs_model
     public function set_password($pass = '')
     {
         $pass = trim($pass);
-        if (mb_strlen($pass) > 1 && mb_strlen($pass) <= 32) {
+        if (mb_strlen($pass) >= 8 && mb_strlen($pass) <= 32) {
             // Usar password_hash con Argon2 para mayor seguridad
             $this->password = password_hash($pass, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
             return TRUE;
         }
 
-        $this->new_error_msg('La contraseña debe contener entre 1 y 32 caracteres.');
+        $this->new_error_msg('La contraseña debe contener entre 8 y 32 caracteres.');
         return FALSE;
     }
     /*
@@ -403,6 +419,19 @@ class fs_user extends \fs_model
             return FALSE;
         }
 
+        // Validar unicidad de email si se ha proporcionado uno
+        if (!empty($this->email)) {
+            $this->email = trim(mb_strtolower($this->email, 'UTF8'));
+            $sql = "SELECT nick FROM " . $this->table_name
+                . " WHERE lower(email) = " . $this->var2str($this->email)
+                . " AND nick != " . $this->var2str($this->nick) . ";";
+            $data = $this->db->select($sql);
+            if ($data) {
+                $this->new_error_msg("El email ya está en uso por otro usuario.");
+                return FALSE;
+            }
+        }
+
         return TRUE;
     }
 
@@ -424,10 +453,12 @@ class fs_user extends \fs_model
                     . ", last_login_time = " . $this->var2str($this->last_login_time)
                     . ", fs_page = " . $this->var2str($this->fs_page)
                     . ", css = " . $this->var2str($this->css)
+                    . ", reset_token = " . $this->var2str($this->reset_token)
+                    . ", reset_token_expires = " . $this->var2str($this->reset_token_expires)
                     . "  WHERE nick = " . $this->var2str($this->nick) . ";";
             } else {
                 $sql = "INSERT INTO " . $this->table_name . " (nick,password,email,log_key,codagente,admin,enabled,
-               last_login,last_login_time,last_ip,last_browser,fs_page,css) VALUES
+               last_login,last_login_time,last_ip,last_browser,fs_page,css,reset_token,reset_token_expires) VALUES
                (" . $this->var2str($this->nick)
                     . "," . $this->var2str($this->password)
                     . "," . $this->var2str($this->email)
@@ -440,7 +471,9 @@ class fs_user extends \fs_model
                     . "," . $this->var2str($this->last_ip)
                     . "," . $this->var2str($this->last_browser)
                     . "," . $this->var2str($this->fs_page)
-                    . "," . $this->var2str($this->css) . ");";
+                    . "," . $this->var2str($this->css)
+                    . "," . $this->var2str($this->reset_token)
+                    . "," . $this->var2str($this->reset_token_expires) . ");";
             }
 
             return $this->db->exec($sql);
@@ -505,5 +538,72 @@ class fs_user extends \fs_model
         }
 
         return $userlist;
+    }
+
+    /**
+     * Busca un usuario por su email.
+     * @param string $email
+     * @return \fs_user|false
+     */
+    public function get_by_email($email = '')
+    {
+        $email = trim(mb_strtolower($email, 'UTF8'));
+        if (empty($email)) {
+            return FALSE;
+        }
+
+        $data = $this->db->select("SELECT * FROM " . $this->table_name
+            . " WHERE lower(email) = " . $this->var2str($email) . ";");
+        if ($data) {
+            return new \fs_user($data[0]);
+        }
+
+        return FALSE;
+    }
+
+    /**
+     * Genera un token seguro de recuperación de contraseña.
+     * Guarda el hash SHA256 del token en la base de datos y establece una expiración de 1 hora.
+     * 
+     * @return string el token en texto plano (para enviar por email)
+     */
+    public function set_reset_token()
+    {
+        $plain_token = bin2hex(random_bytes(32));
+        $this->reset_token = hash('sha256', $plain_token);
+        $this->reset_token_expires = date('Y-m-d H:i:s', time() + 3600); // 1 hora
+        return $plain_token;
+    }
+
+    /**
+     * Valida un token de recuperación de contraseña.
+     * Usa hash_equals() para comparación timing-safe.
+     * 
+     * @param string $plain_token el token en texto plano recibido por URL
+     * @return boolean TRUE si el token es válido y no ha expirado
+     */
+    public function validate_reset_token($plain_token)
+    {
+        if (empty($this->reset_token) || empty($this->reset_token_expires)) {
+            return FALSE;
+        }
+
+        // Verificar expiración
+        if (strtotime($this->reset_token_expires) < time()) {
+            return FALSE;
+        }
+
+        // Comparación timing-safe
+        $hashed_input = hash('sha256', $plain_token);
+        return hash_equals($this->reset_token, $hashed_input);
+    }
+
+    /**
+     * Limpia el token de recuperación después de usarlo o cuando expira.
+     */
+    public function clear_reset_token()
+    {
+        $this->reset_token = NULL;
+        $this->reset_token_expires = NULL;
     }
 }

@@ -73,9 +73,23 @@
         <tipo>character varying(100)</tipo>
         <nulo>YES</nulo>
     </columna>
+    <columna>
+        <nombre>reset_token</nombre>
+        <tipo>character varying(100)</tipo>
+        <nulo>YES</nulo>
+    </columna>
+    <columna>
+        <nombre>reset_token_expires</nombre>
+        <tipo>timestamp</tipo>
+        <nulo>YES</nulo>
+    </columna>
     <restriccion>
         <nombre>fs_users_pkey</nombre>
         <consulta>PRIMARY KEY (nick)</consulta>
+    </restriccion>
+    <restriccion>
+        <nombre>fs_users_email_unique</nombre>
+        <consulta>UNIQUE (email)</consulta>
     </restriccion>
     <restriccion>
         <nombre>ca_fs_users_pages</nombre>

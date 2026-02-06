@@ -29,11 +29,7 @@
          document.f_login.password.focus();
          {% endif %}
          
-         $("#b_new_password").click(function(event) {
-            event.preventDefault();
-            $("#modal_new_password").modal('show');
-            document.f_new_password.new_password.focus();
-         });
+         // Enlace a recuperación de contraseña por email
       });
    </script>
 </head>
@@ -107,7 +103,7 @@
 
          {% if not constant('FS_DEMO') %}
          <br/>
-         <a href="#" id="b_new_password" class="text-center">¿Has olvidado la contraseña?</a>
+         <a href="index.php?page=password_reset" class="text-center">{{ trans('i-forgot-password') }}</a>
          {% endif %}
       </div>
       
@@ -118,43 +114,7 @@
       </div>
    </div>
 
-   {% if not constant('FS_DEMO') %}
-   <div class="modal fade" id="modal_new_password" tabindex="-1" role="dialog">
-      <div class="modal-dialog">
-         <div class="modal-content">
-            <form name="f_new_password" action="index.php" method="post" class="form" role="form">
-               <div class="modal-header">
-                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                     <span aria-hidden="true">&times;</span>
-                  </button>
-                  <h4 class="modal-title">¿Has olvidado la contraseña?</h4>
-               </div>
-               <div class="modal-body">
-                  <div class="form-group">
-                     <label>Usuario</label>
-                     <input type="text" name="user" class="form-control" placeholder="Usuario" required="" autocomplete="off"/>
-                  </div>
-                  <div class="form-group">
-                     <label>Nueva contraseña</label>
-                     <input type="password" class="form-control" name="new_password" maxlength="32" placeholder="Nueva contraseña" required=""/>
-                     <input type="password" class="form-control" name="new_password2" maxlength="32" placeholder="Repite la nueva contraseña" required="" style="margin-top: 5px;"/>
-                  </div>
-                  <div class="form-group">
-                     <label>Contraseña de la base de datos</label>
-                     <input type="password" class="form-control" name="db_password" placeholder="Contraseña de la base de datos"/>
-                  </div>
-               </div>
-               <div class="modal-footer">
-                  <button type="button" class="btn btn-default pull-left" data-dismiss="modal">Cerrar</button>
-                  <button type="submit" class="btn btn-warning">
-                     <i class="fa fa-wrench" aria-hidden="true"></i>&nbsp; Cambiar
-                  </button>
-               </div>
-            </form>
-         </div>
-      </div>
-   </div>
-   {% endif %}
+   {# Modal de cambio de contraseña eliminado - ahora se usa el flujo de recuperación por email #}
    
    {% if constant('FS_DB_HISTORY') %}
    <div class="container-fluid" style="margin-top: 50px;">
