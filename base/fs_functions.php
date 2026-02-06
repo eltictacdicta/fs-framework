@@ -404,17 +404,29 @@ function fs_curl_update_ca_bundle($maxAgeDays = 90)
 /**
  * Aplica la configuración SSL y CA bundle a un handle cURL.
  *
+ * Si se define FS_CURL_SSL_VERIFY como false en config.php, se desactiva
+ * la verificación SSL (NO recomendado, usar solo como último recurso en
+ * hostings con SSL roto).
+ *
  * @param resource $ch Handle cURL
+ * @param bool|null $forceVerify Forzar verificación (ignora config). NULL = usar config.
  * @return void
  */
-function fs_curl_set_ssl($ch)
+function fs_curl_set_ssl($ch, $forceVerify = null)
 {
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+    $verify = $forceVerify ?? (defined('FS_CURL_SSL_VERIFY') ? (bool) FS_CURL_SSL_VERIFY : true);
 
-    $caInfo = fs_curl_ca_info();
-    if ($caInfo) {
-        curl_setopt($ch, CURLOPT_CAINFO, $caInfo);
+    if ($verify) {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+        $caInfo = fs_curl_ca_info();
+        if ($caInfo) {
+            curl_setopt($ch, CURLOPT_CAINFO, $caInfo);
+        }
+    } else {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
     }
 }
 

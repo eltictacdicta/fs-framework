@@ -259,9 +259,9 @@ class admin_home extends fs_controller
         $this->new_message('Descargando el plugin system_updater desde GitHub...');
 
         $downloaded = false;
-        $curl_error_msg = '';
-
-        // Intento 1: cURL con verificación SSL
+        $curl_errno = null;
+        $curl_error = null;
+        $http_code = null;
         if (function_exists('curl_init')) {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $github_url);
@@ -270,8 +270,6 @@ class admin_home extends fs_controller
             curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
             curl_setopt($ch, CURLOPT_TIMEOUT, 60);
             curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Updater');
-
-            // Verificación SSL con auto-detección de CA bundle
             fs_curl_set_ssl($ch);
 
             $data = curl_exec($ch);
@@ -280,55 +278,21 @@ class admin_home extends fs_controller
             $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            if ($curl_errno) {
-                $curl_error_msg = 'Error de cURL: (' . $curl_errno . ') ' . $curl_error;
-            } elseif ($http_code == 200 && $data && file_put_contents($download_path, $data) !== false) {
+            if (!$curl_errno && $http_code == 200 && $data && file_put_contents($download_path, $data) !== false) {
                 $downloaded = true;
-            }
-        }
-
-        // Intento 2: file_get_contents con contexto SSL como fallback
-        if (!$downloaded) {
-            $ctx = stream_context_create([
-                'http' => [
-                    'timeout' => 60,
-                    'follow_location' => true,
-                    'max_redirects' => 5,
-                    'user_agent' => 'FSFramework-Updater',
-                ],
-                'ssl' => [
-                    'verify_peer' => true,
-                    'verify_peer_name' => true,
-                ],
-            ]);
-
-            // Aplicar CA bundle si se encontró uno
-            $caInfo = fs_curl_ca_info();
-            if ($caInfo) {
-                stream_context_set_option($ctx, 'ssl', 'cafile', $caInfo);
-            }
-
-            $data = @file_get_contents($github_url, false, $ctx);
-            if ($data && file_put_contents($download_path, $data) !== false) {
-                $downloaded = true;
-                if ($curl_error_msg) {
-                    $this->new_advice('cURL falló (' . $curl_error_msg
-                        . ') pero se descargó correctamente con file_get_contents.');
-                }
             }
         }
 
         if (!$downloaded) {
             $msg = 'No se pudo descargar el plugin system_updater desde GitHub.';
-            if ($curl_error_msg) {
-                $msg .= ' ' . $curl_error_msg . '.';
+            if (!empty($curl_errno)) {
+                $msg .= ' Error de cURL: (' . $curl_errno . ') ' . $curl_error . '.';
+            } elseif (!empty($http_code) && $http_code != 200) {
+                $msg .= ' El servidor respondió HTTP ' . $http_code . '.';
             }
-            $msg .= ' Si el problema es de certificados SSL, puede: '
-                . '(1) definir <code>FS_CURL_CA_BUNDLE</code> en config.php apuntando al archivo CA bundle de su hosting, '
-                . 'o (2) colocar un archivo <code>cacert.pem</code> en la carpeta <code>base/</code> del proyecto '
-                . '(descargable desde <a href="https://curl.se/ca/cacert.pem" target="_blank">curl.se</a>). '
-                . 'También puede <a href="https://github.com/eltictacdicta/system_updater" target="_blank">descargar manualmente</a> '
-                . 'e instalar desde la pestaña Plugins pulsando el botón Añadir.';
+            $msg .= ' Descárgalo manualmente desde '
+                . '<a href="https://github.com/eltictacdicta/system_updater" target="_blank">GitHub</a> '
+                . 'e instálalo desde la pestaña Plugins pulsando el botón Añadir.';
             $this->new_error_msg($msg);
             return;
         }
