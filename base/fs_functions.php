@@ -236,6 +236,83 @@ function fs_file_download($url, $filename, $timeout = 30)
 }
 
 /**
+ * Detecta y devuelve la ruta al archivo CA bundle del sistema para cURL.
+ * Busca en múltiples ubicaciones comunes, acepta configuración manual
+ * vía FS_CURL_CA_BUNDLE en config.php, y como último recurso consulta
+ * la configuración de OpenSSL de PHP.
+ *
+ * @return string Ruta al CA bundle, o cadena vacía si no se encuentra
+ */
+function fs_curl_ca_info()
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    // 1. Configuración manual del usuario (prioridad máxima)
+    if (defined('FS_CURL_CA_BUNDLE') && FS_CURL_CA_BUNDLE && file_exists(FS_CURL_CA_BUNDLE)) {
+        $cached = FS_CURL_CA_BUNDLE;
+        return $cached;
+    }
+
+    // 2. Buscar en rutas comunes de distintos sistemas/hostings
+    $common_paths = [
+        '/etc/ssl/certs/ca-certificates.crt',       // Debian/Ubuntu
+        '/etc/pki/tls/certs/ca-bundle.crt',          // RedHat/CentOS/Fedora
+        '/etc/ssl/ca-bundle.pem',                     // OpenSUSE
+        '/etc/pki/tls/cacert.pem',                    // Algunos RedHat
+        '/etc/ssl/cert.pem',                          // macOS / Alpine / FreeBSD
+        '/usr/local/share/certs/ca-root-nss.crt',    // FreeBSD
+        '/usr/local/etc/openssl/cert.pem',            // macOS Homebrew OpenSSL
+        '/etc/ca-certificates/extracted/tls-ca-bundle.pem', // Arch
+    ];
+
+    foreach ($common_paths as $path) {
+        if (file_exists($path)) {
+            $cached = $path;
+            return $cached;
+        }
+    }
+
+    // 3. Consultar la configuración de OpenSSL de PHP
+    if (function_exists('openssl_get_cert_locations')) {
+        $locations = openssl_get_cert_locations();
+        if (!empty($locations['default_cert_file']) && file_exists($locations['default_cert_file'])) {
+            $cached = $locations['default_cert_file'];
+            return $cached;
+        }
+    }
+
+    // 4. CA bundle incluido en el proyecto como último recurso
+    $localCert = (defined('FS_FOLDER') ? FS_FOLDER : '.') . '/base/cacert.pem';
+    if (file_exists($localCert)) {
+        $cached = $localCert;
+        return $cached;
+    }
+
+    $cached = '';
+    return $cached;
+}
+
+/**
+ * Aplica la configuración SSL y CA bundle a un handle cURL.
+ *
+ * @param resource $ch Handle cURL
+ * @return void
+ */
+function fs_curl_set_ssl($ch)
+{
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+    $caInfo = fs_curl_ca_info();
+    if ($caInfo) {
+        curl_setopt($ch, CURLOPT_CAINFO, $caInfo);
+    }
+}
+
+/**
  * Descarga el contenido con curl o file_get_contents.
  * @param string $url
  * @param integer $timeout
@@ -253,19 +330,8 @@ function fs_file_get_contents($url, $timeout = 10)
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
         }
 
-        /**
-         * Verificación SSL estricta para mayor seguridad
-         * Nota: Si tienes problemas con certificados auto-firmados, puedes desactivar temporalmente
-         */
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-        if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
-            curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
-        } elseif (file_exists('/etc/pki/tls/certs/ca-bundle.crt')) {
-            curl_setopt($ch, CURLOPT_CAINFO, '/etc/pki/tls/certs/ca-bundle.crt');
-        } elseif (file_exists(FS_FOLDER . '/base/cacert.pem')) {
-            curl_setopt($ch, CURLOPT_CAINFO, FS_FOLDER . '/base/cacert.pem');
-        }
+        // Verificación SSL con auto-detección de CA bundle
+        fs_curl_set_ssl($ch);
 
         if (defined('FS_PROXY_TYPE')) {
             curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
@@ -488,18 +554,8 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
     }
 
-    // Verificación SSL
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-
-    // Ruta de certificados según el sistema operativo (solo si existe)
-    if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
-        curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
-    } elseif (file_exists('/etc/pki/tls/certs/ca-bundle.crt')) {
-        curl_setopt($ch, CURLOPT_CAINFO, '/etc/pki/tls/certs/ca-bundle.crt');
-    } elseif (file_exists(FS_FOLDER . '/base/cacert.pem')) {
-        curl_setopt($ch, CURLOPT_CAINFO, FS_FOLDER . '/base/cacert.pem');
-    }
+    // Verificación SSL con auto-detección de CA bundle
+    fs_curl_set_ssl($ch);
 
     if (defined('FS_PROXY_TYPE')) {
         curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
@@ -645,17 +701,8 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
     }
 
-    // Verificación SSL
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-
-    if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
-        curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
-    } elseif (file_exists('/etc/pki/tls/certs/ca-bundle.crt')) {
-        curl_setopt($ch, CURLOPT_CAINFO, '/etc/pki/tls/certs/ca-bundle.crt');
-    } elseif (file_exists(FS_FOLDER . '/base/cacert.pem')) {
-        curl_setopt($ch, CURLOPT_CAINFO, FS_FOLDER . '/base/cacert.pem');
-    }
+    // Verificación SSL con auto-detección de CA bundle
+    fs_curl_set_ssl($ch);
 
     if (defined('FS_PROXY_TYPE')) {
         curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);

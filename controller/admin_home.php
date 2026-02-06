@@ -225,6 +225,182 @@ class admin_home extends fs_controller
         }
     }
 
+    /**
+     * Descarga e instala automáticamente el plugin system_updater desde GitHub.
+     * Se invoca cuando el usuario pulsa "Actualizador" y el plugin no está instalado.
+     */
+    private function install_system_updater()
+    {
+        $plugin_name = 'system_updater';
+        $plugins_dir = FS_FOLDER . '/plugins/';
+        $download_path = FS_FOLDER . '/download_updater.zip';
+        $github_url = 'https://github.com/eltictacdicta/system_updater/archive/refs/heads/master.zip';
+
+        // Si el plugin ya existe, solo activar y redirigir
+        if (file_exists($plugins_dir . $plugin_name . '/controller/admin_updater.php')) {
+            if (!in_array($plugin_name, $this->plugin_manager->enabled())) {
+                $this->plugin_manager->enable($plugin_name);
+            }
+            header('Location: index.php?page=admin_updater');
+            exit;
+        }
+
+        // Verificar permisos de escritura
+        if (!is_writable($plugins_dir)) {
+            $this->new_error_msg('No hay permisos de escritura en el directorio de plugins. '
+                . 'No se puede instalar el actualizador automáticamente.');
+            return;
+        }
+
+        // Descargar el ZIP desde GitHub
+        $this->new_message('Descargando el plugin system_updater desde GitHub...');
+
+        $downloaded = false;
+        $curl_error_msg = '';
+
+        // Intento 1: cURL con verificación SSL
+        if (function_exists('curl_init')) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $github_url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Updater');
+
+            // Verificación SSL con auto-detección de CA bundle
+            fs_curl_set_ssl($ch);
+
+            $data = curl_exec($ch);
+            $curl_errno = curl_errno($ch);
+            $curl_error = curl_error($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($curl_errno) {
+                $curl_error_msg = 'Error de cURL: (' . $curl_errno . ') ' . $curl_error;
+            } elseif ($http_code == 200 && $data && file_put_contents($download_path, $data) !== false) {
+                $downloaded = true;
+            }
+        }
+
+        // Intento 2: file_get_contents con contexto SSL como fallback
+        if (!$downloaded) {
+            $ctx = stream_context_create([
+                'http' => [
+                    'timeout' => 60,
+                    'follow_location' => true,
+                    'max_redirects' => 5,
+                    'user_agent' => 'FSFramework-Updater',
+                ],
+                'ssl' => [
+                    'verify_peer' => true,
+                    'verify_peer_name' => true,
+                ],
+            ]);
+
+            // Aplicar CA bundle si se encontró uno
+            $caInfo = fs_curl_ca_info();
+            if ($caInfo) {
+                stream_context_set_option($ctx, 'ssl', 'cafile', $caInfo);
+            }
+
+            $data = @file_get_contents($github_url, false, $ctx);
+            if ($data && file_put_contents($download_path, $data) !== false) {
+                $downloaded = true;
+                if ($curl_error_msg) {
+                    $this->new_advice('cURL falló (' . $curl_error_msg
+                        . ') pero se descargó correctamente con file_get_contents.');
+                }
+            }
+        }
+
+        if (!$downloaded) {
+            $msg = 'No se pudo descargar el plugin system_updater desde GitHub.';
+            if ($curl_error_msg) {
+                $msg .= ' ' . $curl_error_msg . '.';
+            }
+            $msg .= ' Si el problema es de certificados SSL, puede: '
+                . '(1) definir <code>FS_CURL_CA_BUNDLE</code> en config.php apuntando al archivo CA bundle de su hosting, '
+                . 'o (2) colocar un archivo <code>cacert.pem</code> en la carpeta <code>base/</code> del proyecto '
+                . '(descargable desde <a href="https://curl.se/ca/cacert.pem" target="_blank">curl.se</a>). '
+                . 'También puede <a href="https://github.com/eltictacdicta/system_updater" target="_blank">descargar manualmente</a> '
+                . 'e instalar desde la pestaña Plugins pulsando el botón Añadir.';
+            $this->new_error_msg($msg);
+            return;
+        }
+
+        // Verificar que ZipArchive está disponible
+        if (!class_exists('ZipArchive')) {
+            @unlink($download_path);
+            $this->new_error_msg('La extensión ZipArchive de PHP no está disponible. '
+                . 'Instálala y vuelve a intentarlo.');
+            return;
+        }
+
+        // Extraer el ZIP de forma segura
+        if (!fs_file_manager::extract_zip_safe($download_path, $plugins_dir)) {
+            @unlink($download_path);
+            $this->new_error_msg('Error al extraer el archivo ZIP del plugin system_updater.');
+            return;
+        }
+        @unlink($download_path);
+
+        // Renombrar la carpeta extraída (GitHub la nombra system_updater-master o system_updater-main)
+        $extracted_name = null;
+        $pattern = '/^' . preg_quote($plugin_name, '/') . '(-master|-main)?$/';
+        foreach (fs_file_manager::scan_folder($plugins_dir) as $f) {
+            if ($f !== $plugin_name && is_dir($plugins_dir . $f) && preg_match($pattern, $f)) {
+                $extracted_name = $f;
+                break;
+            }
+        }
+
+        if ($extracted_name) {
+            // Eliminar carpeta destino si existe parcialmente
+            if (file_exists($plugins_dir . $plugin_name)) {
+                if (!fs_file_manager::del_tree($plugins_dir . $plugin_name)) {
+                    $this->new_error_msg('No se pudo eliminar la carpeta existente del plugin '
+                        . $plugin_name . ' antes de renombrar.');
+                    return;
+                }
+            }
+
+            if (!@rename($plugins_dir . $extracted_name, $plugins_dir . $plugin_name)) {
+                // Fallback: copiar recursivamente y luego eliminar origen
+                $this->new_advice('rename() falló, intentando copia recursiva como fallback...');
+                if ($this->recursive_copy($plugins_dir . $extracted_name, $plugins_dir . $plugin_name)) {
+                    fs_file_manager::del_tree($plugins_dir . $extracted_name);
+                } else {
+                    $this->new_error_msg('No se pudo mover ni copiar la carpeta extraída <b>'
+                        . $extracted_name . '</b> a <b>' . $plugin_name . '</b>. '
+                        . 'Renómbrala manualmente en el directorio de plugins.');
+                    return;
+                }
+            }
+        }
+
+        // Verificar que se instaló correctamente
+        if (!file_exists($plugins_dir . $plugin_name . '/controller/admin_updater.php')) {
+            $this->new_error_msg('La instalación del plugin system_updater falló. '
+                . 'Descárgalo manualmente desde '
+                . '<a href="https://github.com/eltictacdicta/system_updater" target="_blank">GitHub</a> '
+                . 'e instálalo desde la pestaña Plugins pulsando el botón Añadir.');
+            return;
+        }
+
+        // Activar el plugin
+        if ($this->plugin_manager->enable($plugin_name)) {
+            $this->new_message('Plugin system_updater instalado y activado correctamente.');
+            // Redirigir al actualizador
+            header('Location: index.php?page=admin_updater');
+            exit;
+        } else {
+            $this->new_error_msg('El plugin se descargó pero no se pudo activar. '
+                . 'Actívalo manualmente desde la pestaña Plugins.');
+        }
+    }
+
     private function exec_actions()
     {
         if (filter_input(INPUT_GET, 'check4updates')) {
@@ -256,6 +432,12 @@ class admin_home extends fs_controller
 
         if (!$this->user->admin) {
             $this->new_error_msg('Sólo un administrador puede hacer cambios en esta página.');
+            return;
+        }
+
+        if (filter_input(INPUT_GET, 'install_system_updater')) {
+            /// instalar automáticamente el plugin system_updater desde GitHub
+            $this->install_system_updater();
             return;
         }
 
@@ -982,6 +1164,52 @@ class admin_home extends fs_controller
         $this->cache->clean();
         $this->plugin_manager->refresh_private_downloads();
         $this->new_message('Lista de plugins privados actualizada.');
+    }
+
+    /**
+     * Copia un directorio de forma recursiva.
+     *
+     * @param string $src Ruta de origen
+     * @param string $dst Ruta de destino
+     * @return bool TRUE si la copia fue exitosa
+     */
+    private function recursive_copy($src, $dst)
+    {
+        if (!is_dir($src)) {
+            return false;
+        }
+
+        if (!@mkdir($dst, 0755, true) && !is_dir($dst)) {
+            return false;
+        }
+
+        $dir = opendir($src);
+        if ($dir === false) {
+            return false;
+        }
+
+        $success = true;
+        while (($file = readdir($dir)) !== false) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+
+            $srcPath = $src . '/' . $file;
+            $dstPath = $dst . '/' . $file;
+
+            if (is_dir($srcPath)) {
+                if (!$this->recursive_copy($srcPath, $dstPath)) {
+                    $success = false;
+                    break;
+                }
+            } elseif (!@copy($srcPath, $dstPath)) {
+                $success = false;
+                break;
+            }
+        }
+
+        closedir($dir);
+        return $success;
     }
 
     /**
