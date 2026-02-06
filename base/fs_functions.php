@@ -296,6 +296,112 @@ function fs_curl_ca_info()
 }
 
 /**
+ * Comprueba si el archivo cacert.pem local necesita actualizarse y, si es así,
+ * descarga una copia nueva desde curl.se/ca/cacert.pem.
+ *
+ * Se ejecuta como máximo una vez por sesión y solo intenta la descarga si el
+ * archivo tiene más de $maxAgeDays días (por defecto 90).
+ *
+ * @param int $maxAgeDays Días máximos antes de renovar (defecto: 90)
+ * @return bool TRUE si se actualizó correctamente, FALSE en caso contrario
+ */
+function fs_curl_update_ca_bundle($maxAgeDays = 90)
+{
+    // Evitar múltiples intentos en la misma sesión
+    if (!empty($_SESSION['cacert_checked'])) {
+        return false;
+    }
+    $_SESSION['cacert_checked'] = true;
+
+    $localCert = (defined('FS_FOLDER') ? FS_FOLDER : '.') . '/base/cacert.pem';
+    $sourceUrl = 'https://curl.se/ca/cacert.pem';
+
+    // Si el archivo existe y no es lo suficientemente viejo, no hacer nada
+    if (file_exists($localCert)) {
+        $fileAge = time() - filemtime($localCert);
+        if ($fileAge < ($maxAgeDays * 86400)) {
+            return false; // Aún vigente, no necesita actualización
+        }
+    }
+
+    // Verificar permisos de escritura
+    $baseDir = dirname($localCert);
+    if (!is_writable($baseDir)) {
+        return false;
+    }
+
+    $tmpFile = $localCert . '.tmp';
+    $downloaded = false;
+
+    // Intento 1: cURL (usa el cacert.pem existente para validar SSL)
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $sourceUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-CA-Updater');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+        // Usar el cacert.pem actual (aunque viejo, sigue siendo válido para esta descarga)
+        $currentCa = fs_curl_ca_info();
+        if ($currentCa) {
+            curl_setopt($ch, CURLOPT_CAINFO, $currentCa);
+        }
+
+        $data = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($http_code == 200 && $data && strlen($data) > 1000) {
+            $downloaded = @file_put_contents($tmpFile, $data) !== false;
+        }
+    }
+
+    // Intento 2: file_get_contents como fallback
+    if (!$downloaded) {
+        $ctx = stream_context_create([
+            'http' => ['timeout' => 30, 'user_agent' => 'FSFramework-CA-Updater'],
+            'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+        ]);
+        $currentCa = fs_curl_ca_info();
+        if ($currentCa) {
+            stream_context_set_option($ctx, 'ssl', 'cafile', $currentCa);
+        }
+        $data = @file_get_contents($sourceUrl, false, $ctx);
+        if ($data && strlen($data) > 1000) {
+            $downloaded = @file_put_contents($tmpFile, $data) !== false;
+        }
+    }
+
+    if (!$downloaded) {
+        @unlink($tmpFile);
+        return false;
+    }
+
+    // Validación básica: debe contener certificados PEM
+    $content = @file_get_contents($tmpFile, false, null, 0, 512);
+    if (!$content || strpos($content, '-----BEGIN CERTIFICATE-----') === false) {
+        @unlink($tmpFile);
+        return false;
+    }
+
+    // Reemplazar atómicamente: renombrar es atómico en la mayoría de filesystems
+    if (!@rename($tmpFile, $localCert)) {
+        // Fallback: copiar y eliminar temporal
+        if (@copy($tmpFile, $localCert)) {
+            @unlink($tmpFile);
+        } else {
+            @unlink($tmpFile);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Aplica la configuración SSL y CA bundle a un handle cURL.
  *
  * @param resource $ch Handle cURL

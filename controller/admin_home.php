@@ -193,6 +193,9 @@ class admin_home extends fs_controller
         // Inicializar información del actualizador
         $this->init_updater_info();
 
+        // Auto-actualizar cacert.pem si tiene más de 90 días
+        $this->check_ca_bundle_update();
+
         $this->exec_actions();
 
         $this->paginas = $this->all_pages();
@@ -686,6 +689,18 @@ class admin_home extends fs_controller
         });
 
         return $pages;
+    }
+
+    /**
+     * Comprueba si el CA bundle (cacert.pem) necesita actualizarse.
+     * Se ejecuta silenciosamente una vez por sesión. Si se actualiza
+     * correctamente, muestra un mensaje informativo al admin.
+     */
+    private function check_ca_bundle_update()
+    {
+        if (function_exists('fs_curl_update_ca_bundle') && fs_curl_update_ca_bundle()) {
+            $this->new_message('El archivo de certificados SSL (cacert.pem) se actualizó automáticamente.');
+        }
     }
 
     private function clean_cache()
