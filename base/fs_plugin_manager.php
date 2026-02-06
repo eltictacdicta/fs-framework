@@ -76,7 +76,7 @@ class fs_plugin_manager
 
     /**
      * Versión de FSFramework (archivo VERSION)
-     * @var float
+     * @var string
      */
     public $version = 2025.101;
 
@@ -103,7 +103,9 @@ class fs_plugin_manager
 
         // Cargar versión principal de FSFramework
         if (file_exists(FS_FOLDER . '/VERSION')) {
-            $this->version = (float) trim(file_get_contents(FS_FOLDER . '/VERSION'));
+            $raw_version = file_get_contents(FS_FOLDER . '/VERSION');
+            $this->version = trim($raw_version);
+            error_log("Debug fs_plugin_manager: Read VERSION file. Content: '$raw_version', Result: '{$this->version}'");
         } elseif (class_exists('FSFramework\\Core\\Kernel')) {
             $this->version = \FSFramework\Core\Kernel::version();
         }
@@ -1152,7 +1154,7 @@ class fs_plugin_manager
                 // FS2017 - requiere legacy_support y business_data activos (en ese orden)
                 $has_legacy_support = in_array('legacy_support', $GLOBALS['plugins']);
                 $has_business_data = in_array('business_data', $GLOBALS['plugins']);
-                
+
                 if (!$has_legacy_support || !$has_business_data) {
                     $plugin['compatible'] = false;
                     // Array con los plugins faltantes en el orden correcto de activación
@@ -1169,7 +1171,7 @@ class fs_plugin_manager
                     // Delegar validación de versión al plugin legacy_support
                     $plugin['compatible'] = $this->validate_fs2017_compatibility($plugin['min_version']);
                     $plugin['legacy_warning'] = true;
-                    
+
                     if ($plugin['compatible']) {
                         $plugin['error_msg'] = 'Plugin de FacturaScripts 2017 (arquitectura antigua). Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
                     } else {
