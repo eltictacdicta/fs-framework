@@ -298,6 +298,8 @@ abstract class fs_model
                 $this->new_error_msg('Error al convertir la tabla a InnoDB.');
             }
 
+            $this->pre_migrate_data($table_name, $xml_cons);
+
             /**
              * Si hay que hacer cambios en las restricciones, eliminamos todas las restricciones,
              * luego añadiremos las correctas. Lo hacemos así porque evita problemas en MySQL.
@@ -332,6 +334,31 @@ abstract class fs_model
         }
 
         return TRUE;
+    }
+
+    /**
+     * Ejecuta migraciones de datos necesarias antes de aplicar restricciones.
+     * Convierte cadenas vacías a NULL en columnas que tendrán restricción UNIQUE
+     * y la columna permite nulos, para evitar errores de duplicados.
+     */
+    protected function pre_migrate_data($table_name, $xml_cons)
+    {
+        foreach ($xml_cons as $con) {
+            if (preg_match('/^UNIQUE\s*\((\w+)\)/i', $con['consulta'], $matches)) {
+                $col_name = $matches[1];
+                $db_cols = $this->db->get_columns($table_name);
+                $is_nullable = false;
+                foreach ($db_cols as $col) {
+                    if ($col['name'] === $col_name && strtoupper($col['is_nullable']) === 'YES') {
+                        $is_nullable = true;
+                        break;
+                    }
+                }
+                if ($is_nullable) {
+                    $this->db->exec("UPDATE " . $table_name . " SET `" . $col_name . "` = NULL WHERE `" . $col_name . "` = '';");
+                }
+            }
+        }
     }
 
     /**

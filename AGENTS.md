@@ -1,7 +1,7 @@
 # AGENTS.md - FSFramework Development Guide
 
 ## Overview
-FSFramework is a PHP-based ERP/accounting software fork of FacturaScripts. This guide provides instructions for agentic coding agents working in this repository.
+FSFramework is a modernized PHP-based ERP/accounting software fork of FacturaScripts 2017, with Symfony 7.4 integration and PHP 8.2+ features. This guide provides comprehensive instructions for agentic coding agents working in this repository.
 
 ## Build Commands
 
@@ -25,7 +25,7 @@ cp node_modules/jquery/dist/jquery.min.js view/js/
 ```
 
 ### Running the Application
-- Requires a web server (Apache/Nginx/PHP built-in server)
+- Requires PHP 8.2 or higher
 - Requires MySQL or PostgreSQL database
 - Configure database connection in `config.php`
 - Access via `index.php` in browser
@@ -39,13 +39,13 @@ This codebase currently has **no automated tests**. Do not attempt to run test c
 - Minimum PHP 8.2 (required for Symfony 7.4)
 - Uses modern PHP 8 features including attributes and typed properties
 
-### File Header
-All PHP files must include the license header:
+### File Header Template
 ```php
 <?php
 /**
- * This file is part of FacturaScripts
- * Copyright (C) 2013-2018 Carlos Garcia Gomez <neorazorx@gmail.com>
+ * This file is part of FSFramework originally based on Facturascript 2017
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ * Copyright (C) 2013-2020 Carlos Garcia Gomez <neorazorx@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -63,12 +63,13 @@ All PHP files must include the license header:
 ```
 
 ### Naming Conventions
-- **Classes**: PascalCase (e.g., `fs_controller`, `fs_model`, `admin_users`)
+- **Classes**: PascalCase matching filename (e.g., `class admin_users extends fs_controller`)
 - **Methods**: camelCase (e.g., `private_core()`, `new_error_msg()`)
 - **Variables**: camelCase (e.g., `$this->table_name`, `$codejercicio`)
 - **Constants**: UPPER_SNAKE_CASE (e.g., `FS_DB_NAME`, `FS_COOKIES_EXPIRE`)
 - **Table names**: Plural lowercase with underscores (e.g., `fs_users`, `ejercicios`)
 - **XML model files**: Match table names (e.g., `model/table/fs_users.xml`)
+- **Namespaces**: PSR-4 autoloading with `FSFramework\` prefix for modern code
 
 ### Code Structure
 
@@ -134,21 +135,57 @@ Use provided helper functions:
 - `$this->var2str()` - Convert values to SQL-safe strings
 
 ### Directory Structure
+
 ```
-/                    # Root - index.php, config.php, build.sh
-/base/               # Core framework classes (fs_model, fs_controller, etc.)
-/controller/         # Main application controllers
-/model/              # Core models
-  /table/           # XML schema definitions
-/plugins/            # Plugins (business_data, adminlte, etc.)
-  /*/model/         # Plugin-specific models
-  /*/controller/    # Plugin-specific controllers
-/view/               # HTML templates and assets
-  /css/             # Stylesheets
-  /js/              # JavaScript files
-  /img/             # Images
-/extras/             # Third-party libraries (PHPMailer, XLSXWriter)
-/raintpl/            # Template engine
+/                              # Root - index.php, config.php, build.sh
+/base/                         # Core framework classes
+  fs_controller.php           # Main controller base class
+  fs_model.php                # Base model class
+  fs_db2.php                  # Database abstraction layer
+  fs_cache.php                # Legacy cache (Memcache)
+  fs_app.php                  # Base application class
+  fs_login.php                # Authentication utilities
+  fs_functions.php            # Global helper functions
+/controller/                   # Main application controllers
+  admin_*.php                 # Admin controllers
+  login.php                   # Login controller
+/model/                        # Core models
+  /table/                     # XML schema definitions
+/plugins/                      # Plugins (business_data, adminlte, etc.)
+  /*/controller/              # Plugin controllers
+  /*/model/                   # Plugin models
+  /*/view/                    # Plugin views
+  /*/translations/            # Plugin translations (YAML format)
+/src/                          # Modern Symfony-based code (PSR-4)
+  /Attribute/                 # PHP 8 Attributes (FSRoute, etc.)
+  /Cache/                     # CacheManager (Symfony Cache)
+  /Controller/                # Modern controllers (BaseController)
+  /Core/                      # Kernel, Router, ThemeManager
+  /DependencyInjection/       # Service Container
+  /Event/                     # Event dispatcher system
+  /Form/                      # FormHelper (Symfony Forms)
+  /Security/                  # CsrfManager, UserAdapter, PasswordHasher
+  /Traits/                    # ValidatorTrait, ResponseTrait
+  /Translation/               # FSTranslator, FS2025JsonLoader
+  /Twig/                      # Twig extensions
+  /Api/                       # REST API system
+/themes/                       # Theme templates (Twig)
+  /AdminLTE/                  # AdminLTE theme (default)
+    /view/                    # Template files (.html.twig)
+      /master/                # Base templates
+      /Macro/                 # Reusable macros
+      /block/                 # Block templates
+      /tab/                   # Tab templates
+    /css/                     # Theme stylesheets
+    /js/                      # Theme JavaScript
+    /img/                     # Theme images
+    /translations/            # Theme translations
+/view/                         # Static assets (shared)
+  /css/                       # Stylesheets (bootstrap, font-awesome)
+  /js/                        # JavaScript files (jquery, bootstrap)
+  /fonts/                     # Font files
+/translations/                 # Core translations (YAML format)
+/vendor/                       # Composer dependencies
 ```
 
 ### Imports and Includes
@@ -588,3 +625,434 @@ The "Limpiar caché" button in admin_info (`index.php?page=admin_info&clean_cach
 | `symfony/cache` | ^7.4 | Caching |
 | `symfony/console` | ^7.4 | CLI commands |
 | `twig/twig` | ^3.0 | Template engine |
+
+## PHP 8.2+ Features
+
+FSFramework leverages modern PHP 8.2+ features throughout the codebase:
+
+### Attributes (PHP 8)
+```php
+#[FSRoute('/api/users', methods: ['GET'])]
+class api_users extends fs_controller { }
+
+#[ApiResource(operations: [Operation::LIST, Operation::GET])]
+class cliente extends fs_model {
+    #[Assert\NotBlank(message: 'Name is required')]
+    public $nombre;
+}
+```
+
+### Typed Properties
+```php
+class MyController extends fs_controller
+{
+    protected \Symfony\Component\HttpFoundation\Request $request;
+    protected bool $is_ajax = false;
+    protected array $items = [];
+    protected ?Empresa $empresa = null;
+}
+```
+
+### Union Types
+```php
+public function processData(string|int $id): array|object
+{
+    // Handle both string and int IDs
+}
+```
+
+### Match Expressions
+```php
+$inputType = match ($type) {
+    'email' => 'email',
+    'password' => 'password',
+    'number', 'integer', 'money' => 'number',
+    'textarea' => 'textarea',
+    default => 'text',
+};
+```
+
+### Named Arguments
+```php
+$constraints = self::constraints()
+    ->length(min: 1, max: 100)
+    ->email(message: 'Invalid email format')
+    ->get();
+```
+
+### Constructor Property Promotion
+```php
+class UserAdapter implements UserInterface
+{
+    public function __construct(
+        private object $legacyUser
+    ) {}
+}
+```
+
+## REST API System
+
+Located in `src/Api/` directory:
+
+### API Attributes
+
+```php
+use FSFramework\Api\Attribute\ApiResource;
+use FSFramework\Api\Attribute\ApiField;
+use FSFramework\Api\Attribute\ApiHidden;
+use FSFramework\Api\Attribute\Operation;
+
+#[ApiResource(
+    operations: [Operation::LIST, Operation::GET, Operation::CREATE],
+    version: 'v1',
+    searchable: ['nombre', 'email'],
+    sortable: ['nombre', 'fechaalta'],
+    filterable: ['activo'],
+    perPage: 50,
+    requiresAuth: true
+)]
+class cliente extends fs_model {
+    #[ApiField(readable: true, writable: false)]
+    public $id;
+    
+    #[ApiField(readable: true, writable: true)]
+    public $nombre;
+    
+    #[ApiHidden(reason: 'Internal use only')]
+    public $internal_data;
+}
+```
+
+**Available Operations:**
+- `Operation::LIST` - GET collection
+- `Operation::GET` - GET single item
+- `Operation::CREATE` - POST
+- `Operation::UPDATE` - PUT/PATCH
+- `Operation::DELETE` - DELETE
+
+### API Registration via Container
+
+```php
+use FSFramework\DependencyInjection\Container;
+
+// Register API authentication implementation
+Container::registerApiAuth(
+    MyApiAuth::class,           // Implements ApiAuthInterface
+    MyAllowedUser::class,       // Implements AllowedUserInterface
+    MyApiLogger::class          // Optional: Implements ApiLogInterface
+);
+```
+
+## Response Helpers
+
+Via `ResponseTrait` in controllers (`fs_controller` already includes this trait):
+
+```php
+// JSON response
+return $this->json(['status' => 'success', 'data' => $users]);
+
+// Redirect
+return $this->redirect('index.php?page=admin_home');
+return $this->redirectToPage('admin_home', ['param' => 'value']);
+
+// HTML response
+return $this->html('<h1>Hello</h1>');
+
+// Error responses
+return $this->notFound('User not found');
+return $this->forbidden('Access denied');
+return $this->badRequest('Invalid parameters');
+
+// File download
+return $this->file($content, 'report.pdf', 'application/pdf');
+
+// Empty response
+return $this->noContent();
+```
+
+## Template System (Twig)
+
+### Directory Structure
+```
+themes/
+└── AdminLTE/
+    └── view/
+        ├── master/
+        │   ├── Base.html.twig           # Base template with blocks
+        │   ├── MenuTemplate.html.twig   # Layout with AdminLTE menu
+        │   └── MenuBghTemplate.html.twig # Alternative layout
+        ├── login/
+        │   └── default.html.twig        # Login page
+        ├── Macro/
+        │   ├── Menu.html.twig           # Menu macros
+        │   └── Utils.html.twig          # Utility macros
+        ├── block/                       # Block templates
+        ├── tab/                         # Tab templates
+        ├── header.html.twig             # Header template
+        └── footer.html.twig             # Footer template
+```
+
+**Note:** Themes are located in `/themes/` directory. The default theme is **AdminLTE**.
+Templates use Twig syntax and are organized within each theme's `view/` folder.
+
+### Available Variables in Templates
+- `fsc` - Controller instance
+- `app` - Application info
+- `user` - Current user
+- `menu` - Menu items
+- `path` - Current path
+
+### Twig Functions
+- `trans(key, params)` - Translate text
+- `csrf_field()` - CSRF token field
+- `csrf_meta()` - CSRF meta tag
+- `path(route, params)` - Generate URL
+- `getLocale()` - Get current locale
+- `getAvailableLanguages()` - List available languages
+
+## Modern Controller Patterns
+
+### Controller with Request Access
+```php
+class mi_modulo extends fs_controller
+{
+    public $items = [];
+    
+    public function __construct()
+    {
+        parent::__construct(__CLASS__, 'Mi Módulo', 'ventas', FALSE, TRUE);
+    }
+    
+    protected function private_core()
+    {
+        // Access Symfony Request
+        $request = $this->getRequest();
+        
+        // Handle POST
+        if ($request->request->has('save')) {
+            $this->save_data();
+        }
+        
+        // Load data with GET parameter
+        $page = $request->query->getInt('page', 1);
+        
+        // Check AJAX
+        if ($this->isAjax()) {
+            return $this->json(['data' => $this->items]);
+        }
+        
+        $model = new mi_modelo();
+        $this->items = $model->all($page);
+    }
+    
+    private function save_data()
+    {
+        // Validate CSRF (automatic)
+        if (!$this->isCsrfValid()) {
+            $this->new_error_msg('Token inválido');
+            return;
+        }
+        
+        $data = $this->getRequest()->request->all('data');
+        // Process...
+    }
+}
+```
+
+### Model with Full Validation
+```php
+class mi_modelo extends \fs_model
+{
+    use \FSFramework\Traits\ValidatorTrait;
+    
+    #[Assert\NotBlank(message: 'El código es obligatorio')]
+    #[Assert\Length(max: 10)]
+    public $codigo;
+    
+    #[Assert\Email(message: 'Email inválido')]
+    public $email;
+    
+    #[Assert\PositiveOrZero]
+    public $cantidad;
+    
+    public function __construct($data = FALSE)
+    {
+        parent::__construct('mi_tabla');
+        if ($data) {
+            $this->codigo = $data['codigo'] ?? null;
+            $this->email = $data['email'] ?? null;
+            $this->cantidad = $data['cantidad'] ?? 0;
+        }
+    }
+    
+    public function test(): bool
+    {
+        // Validate with Symfony
+        if (!$this->validate()) {
+            return false;
+        }
+        // Additional custom validation
+        if ($this->codigo === 'ADMIN' && !$this->isValidAdminCode()) {
+            $this->new_error_msg('Invalid admin code');
+            return false;
+        }
+        return true;
+    }
+    
+    public function save(): bool
+    {
+        if (!$this->test()) {
+            return false;
+        }
+        
+        // Dispatch events
+        $dispatcher = \FSFramework\Event\FSEventDispatcher::getInstance();
+        $event = $dispatcher->dispatchModelEvent('before_save', $this);
+        if ($event->isCancelled()) {
+            $this->new_error_msg($event->getCancellationReason());
+            return false;
+        }
+        
+        // Save logic...
+        $result = parent::save();
+        
+        if ($result) {
+            $dispatcher->dispatchModelEvent('after_save', $this);
+        }
+        
+        return $result;
+    }
+    
+    public function delete(): bool { /* ... */ }
+    public function exists(): bool { /* ... */ }
+}
+```
+
+## Important Notes
+
+1. **This is a fork** of FacturaScripts with significant modifications and modern architecture
+2. **Not 100% compatible** with base FacturaScripts plugins
+3. **Plugins** in `/plugins/*/` (except adminlte, business_data) are gitignored
+4. **Never commit**: `config.php`, `package-lock.json`, `node_modules/`
+5. **PHP 8.2+ features**: Attributes, typed properties, union types, match expressions, named arguments
+6. **Twig is primary** template engine located in `/themes/AdminLTE/view/`, RainTPL supported for compatibility
+7. **Lazy loading** for models available via `FS_LAZY_MODELS` constant
+8. **Symfony 7.4** components are fully integrated and available
+9. **API system** available via attributes - no manual route registration needed
+10. **CSRF protection** is automatic but can be checked via `isCsrfValid()`
+
+## Routing with PHP 8 Attributes
+
+Located in `src/Attribute/FSRoute.php`:
+
+```php
+use FSFramework\Attribute\FSRoute;
+
+#[FSRoute('/api/users', methods: ['GET'], name: 'api_users_list')]
+class api_users extends fs_controller
+{
+    protected function private_core()
+    {
+        // Handle GET /api/users
+        // Access route parameters via $this->request
+    }
+}
+```
+
+**FSRoute Parameters:**
+- `path` - URL path pattern
+- `methods` - HTTP methods array (GET, POST, PUT, DELETE, etc.)
+- `name` - Route name for URL generation
+- `requirements` - Parameter constraints (regex patterns)
+- `defaults` - Default parameter values
+
+## Database Operations
+
+### Legacy Database Layer (fs_db2)
+
+```php
+// In controllers/models:
+$result = $this->db->select("SELECT * FROM users WHERE active = " . $this->var2str(TRUE));
+
+// Prepared statements via fs_prepared_db
+$stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
+$result = $this->db->execute($stmt, [$userId]);
+
+// Get via Container
+$db = \FSFramework\DependencyInjection\Container::db();
+```
+
+### Schema Definition (XML)
+
+Located in `model/table/*.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<tabla>
+    <columna>
+        <nombre>id</nombre>
+        <tipo>serial</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>codejercicio</nombre>
+        <tipo>character varying(4)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <restriccion>
+        <nombre>ejercicios_pkey</nombre>
+        <consulta>PRIMARY KEY (id)</consulta>
+    </restriccion>
+</tabla>
+```
+
+## Plugin System
+
+### Plugin Structure
+```
+plugins/MyPlugin/
+├── controller/              # Controllers (legacy)
+├── Controller/              # Controllers (FS2025 style)
+├── model/                   # Models (legacy)
+├── Model/                   # Models (FS2025 style)
+├── view/                    # Views (legacy - lowercase)
+├── View/                    # Views (FS2025 - PascalCase)
+├── translations/            # Translations (YAML format)
+├── Translation/             # Translations (FS2025 - JSON format)
+├── config/
+│   └── services.php        # DI container services
+├── facturascripts.ini      # Plugin metadata
+└── description             # Plugin description
+```
+
+### Plugin Configuration
+```ini
+; facturascripts.ini
+name = MyPlugin
+description = My awesome plugin
+version = 1.0
+min_version = 2017.000
+```
+
+### Registering Plugin Services
+```php
+// plugins/MyPlugin/config/services.php
+return function(\Symfony\Component\DependencyInjection\ContainerBuilder $container) {
+    $container->register('my_service', MyService::class)
+        ->setPublic(true)
+        ->setAutowired(true);
+};
+```
+
+## Documentation References
+
+- [Translation System](docs/TRANSLATION.md) - Complete i18n documentation
+- [Theme System](THEME_SYSTEM.md) - Template and theming guide
+- Symfony 7.4 Documentation: https://symfony.com/doc/current/
+- Twig Documentation: https://twig.symfony.com/doc/
+
+---
+
+**Last Updated**: February 2025  
+**Framework Version**: FSFramework with Symfony 7.4  
+**PHP Version**: 8.2+
