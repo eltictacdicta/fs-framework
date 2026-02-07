@@ -714,7 +714,7 @@ class fs_mysql extends fs_db_engine
             return TRUE;
         } else if ($db_default == 'CURRENT_DATE' && $xml_default == date("'Y-m-d'")) {
             return TRUE;
-        } else if (substr($xml_default, 0, 8) == 'nextval(') {
+        } else if (substr($xml_default ?? '', 0, 8) == 'nextval(') {
             return TRUE;
         }
 
