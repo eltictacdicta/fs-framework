@@ -84,10 +84,10 @@
                   <i class="fa fa-address-card-o" aria-hidden="true"></i>
                   Rol <small>{{ fsc.rol.codrol }}</small>
                </h1>
-               <a href="{{ fsc.rol.url() }}&aplicar=TRUE" class="label label-success">
-                  <i class="fa fa-check" aria-hidden="true"></i> Aplicar
-               </a>
-               &nbsp; pulsa aplicar para regenerar los permisos de los usuarios.
+               <p class="help-block">
+                  <i class="fa fa-info-circle" aria-hidden="true"></i>&nbsp;
+                  Los cambios en los permisos del rol se aplican automáticamente a los usuarios asignados.
+               </p>
             </div>
             <div class="form-group">
                <input type="text" name="descripcion" value="{{ fsc.rol.descripcion }}" class="form-control" autocomplete="off"/>
@@ -99,7 +99,7 @@
       <li role="presentation" class="active">
          <a href="#autorizar" aria-controls="usuarios" role="tab" data-toggle="tab">
             <i class="fa fa-check-square" aria-hidden="true"></i>
-            <span class="hidden-xs">&nbsp;Autorizar</span>
+            <span class="hidden-xs">&nbsp;Páginas</span>
          </a>
       </li>
       <li role="presentation">

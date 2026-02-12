@@ -258,6 +258,7 @@ class fs_user extends \fs_model
 
     /**
      * Devuelve el menú del usuario, el conjunto de páginas a las que tiene acceso.
+     * Los permisos se calculan dinámicamente a partir de los roles asignados.
      * @param boolean $reload
      * @return array
      */
@@ -270,19 +271,48 @@ class fs_user extends \fs_model
             if ($this->admin || FS_DEMO) {
                 $this->menu = $page->all();
             } else {
-                $access = new \fs_access();
-                $access_list = $access->all_from_nick($this->nick);
+                /// Obtenemos las páginas permitidas por los roles del usuario
+                $allowed_pages = $this->get_role_allowed_pages();
                 foreach ($page->all() as $p) {
-                    foreach ($access_list as $a) {
-                        if ($p->name == $a->fs_page) {
-                            $this->menu[] = $p;
-                            break;
-                        }
+                    if (isset($allowed_pages[$p->name])) {
+                        $this->menu[] = $p;
                     }
                 }
             }
         }
         return $this->menu;
+    }
+
+    /**
+     * Devuelve un array asociativo con las páginas permitidas por los roles
+     * del usuario. La clave es el nombre de la página y el valor es un array
+     * con 'allow_delete' indicando si tiene permiso de eliminación.
+     * @return array
+     */
+    public function get_role_allowed_pages()
+    {
+        $allowed_pages = [];
+        $rol_user = new \fs_rol_user();
+        $user_roles = $rol_user->all_from_user($this->nick);
+
+        if (!empty($user_roles)) {
+            $rol_access = new \fs_rol_access();
+            foreach ($user_roles as $ur) {
+                $accesses = $rol_access->all_from_rol($ur->codrol);
+                foreach ($accesses as $a) {
+                    /// Si ya existe, hacemos merge: allow_delete es TRUE si algún rol lo permite
+                    if (isset($allowed_pages[$a->fs_page])) {
+                        $allowed_pages[$a->fs_page]['allow_delete'] = $allowed_pages[$a->fs_page]['allow_delete'] || $a->allow_delete;
+                    } else {
+                        $allowed_pages[$a->fs_page] = [
+                            'allow_delete' => $a->allow_delete
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $allowed_pages;
     }
 
     /**
@@ -326,12 +356,24 @@ class fs_user extends \fs_model
 
     /**
      * Devuelve la lista de accesos permitidos del usuario.
+     * Ahora se calcula dinámicamente desde los roles asignados.
      * @return array
      */
     public function get_accesses()
     {
-        $access = new \fs_access();
-        return $access->all_from_nick($this->nick);
+        $accesses = [];
+        $allowed_pages = $this->get_role_allowed_pages();
+
+        foreach ($allowed_pages as $page_name => $perms) {
+            /// Creamos objetos fs_access compatibles para mantener la interfaz
+            $a = new \fs_access();
+            $a->fs_user = $this->nick;
+            $a->fs_page = $page_name;
+            $a->allow_delete = $perms['allow_delete'];
+            $accesses[] = $a;
+        }
+
+        return $accesses;
     }
 
     public function show_last_login()

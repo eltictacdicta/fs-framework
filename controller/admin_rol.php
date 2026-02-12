@@ -45,8 +45,6 @@ class admin_rol extends fs_controller
         if ($this->rol) {
             if (filter_input(INPUT_POST, 'descripcion')) {
                 $this->modify();
-            } else if (filter_input(INPUT_GET, 'aplicar')) {
-                $this->aplicar_permisos();
             }
         } else {
             $this->new_error_msg("Rol no encontrado.", 'error', FALSE, FALSE);
@@ -174,54 +172,4 @@ class admin_rol extends fs_controller
         }
     }
 
-    private function aplicar_permisos()
-    {
-        $usuarios = [];
-        foreach ($this->all_users() as $usu) {
-            if ($usu->included) {
-                $usuarios[] = $usu;
-            }
-        }
-
-        /// primero eliminamos los permisos de todos los usuarios del rol
-        foreach ($usuarios as $usu) {
-            foreach ($usu->get_accesses() as $a) {
-                $a->delete();
-            }
-        }
-
-        /// ahora aplicamos los permisos del rol
-        $nump = 0;
-        $permisos = $this->all_pages();
-        foreach ($usuarios as $usu) {
-            foreach ($permisos as $p) {
-                if ($p->enabled) {
-                    $a = new fs_access();
-                    $a->fs_user = $usu->nick;
-                    $a->fs_page = $p->name;
-                    $a->allow_delete = $p->allow_delete;
-                    $a->save();
-                    $nump++;
-                }
-            }
-        }
-
-        /// ahora, para cada usuario, aplicamos los permisos del resto sus roles
-        foreach ($usuarios as $usu) {
-            foreach ($this->rol->all_for_user($usu->nick) as $rol) {
-                if ($rol->codrol != $this->rol->codrol) {
-                    foreach ($rol->get_accesses() as $p) {
-                        $a = new fs_access();
-                        $a->fs_user = $usu->nick;
-                        $a->fs_page = $p->fs_page;
-                        $a->allow_delete = $p->allow_delete;
-                        $a->save();
-                        $nump++;
-                    }
-                }
-            }
-        }
-
-        $this->new_message($nump . ' permisos aplicados correctamente.');
-    }
 }

@@ -91,4 +91,18 @@ class fs_rol_user extends fs_model
 
         return $accesslist;
     }
+
+    public function all_from_user($nick)
+    {
+        $list = [];
+
+        $data = $this->db->select("SELECT * FROM " . $this->table_name . " WHERE fs_user = " . $this->var2str($nick) . ";");
+        if ($data) {
+            foreach ($data as $a) {
+                $list[] = new fs_rol_user($a);
+            }
+        }
+
+        return $list;
+    }
 }

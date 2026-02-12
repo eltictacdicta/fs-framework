@@ -30,6 +30,8 @@ class admin_user extends fs_controller
     public $allow_modify;
     public $user_log;
     public $suser;
+    public $rol;
+    public $user_roles;
 
     public function __construct()
     {
@@ -47,6 +49,9 @@ class admin_user extends fs_controller
             $this->agente = null; // Set to null if class doesn't exist
         }
 
+        $this->rol = new fs_rol();
+        $this->user_roles = [];
+
         /// ¿El usuario tiene permiso para eliminar en esta página?
         $this->allow_delete = $this->user->admin;
 
@@ -61,6 +66,9 @@ class admin_user extends fs_controller
         if ($this->suser) {
             $this->page->title = $this->suser->nick;
 
+            /// Cargamos los roles del usuario
+            $this->user_roles = $this->rol->all_for_user($this->suser->nick);
+
             /// ¿Estamos modificando nuestro usuario?
             if ($this->suser->nick == $this->user->nick) {
                 $this->allow_modify = TRUE;
@@ -69,6 +77,8 @@ class admin_user extends fs_controller
 
             if (isset($_POST['nnombre'])) {
                 $this->nuevo_empleado();
+            } else if (isset($_POST['apply_roles'])) {
+                $this->aplicar_roles();
             } else if (isset($_POST['spassword']) || isset($_POST['scodagente']) || isset($_POST['sadmin'])) {
                 $this->modificar_user();
             } else if (fs_filter_input_req('senabled')) {
@@ -80,7 +90,7 @@ class admin_user extends fs_controller
                 $this->user = $this->suser;
             }
 
-            /// si el usuario no tiene acceso a ninguna página, entonces hay que informar del problema.
+            /// si el usuario no tiene acceso a ninguna página, informamos sobre roles.
             if (!$this->suser->admin) {
                 $sin_paginas = TRUE;
                 foreach ($this->all_pages() as $p) {
@@ -90,9 +100,9 @@ class admin_user extends fs_controller
                     }
                 }
                 if ($sin_paginas) {
-                    $this->new_advice('No has autorizado a este usuario a acceder a ninguna'
-                        . ' página y por tanto no podrá hacer nada. Puedes darle acceso a alguna página'
-                        . ' desde la pestaña autorizar.');
+                    $this->new_advice('Este usuario no tiene ningún rol asignado y por tanto'
+                        . ' no podrá acceder a ninguna página. Asígnale un rol desde la'
+                        . ' pestaña <b>Roles</b>.');
                 }
             }
 
@@ -125,15 +135,12 @@ class admin_user extends fs_controller
             $returnlist[] = $m;
         }
 
-        /// Completamos con la lista de accesos del usuario
-        $access = $this->suser->get_accesses();
+        /// Completamos con los permisos calculados desde los roles del usuario
+        $allowed_pages = $this->suser->get_role_allowed_pages();
         foreach ($returnlist as $i => $value) {
-            foreach ($access as $a) {
-                if ($value->name == $a->fs_page) {
-                    $returnlist[$i]->enabled = TRUE;
-                    $returnlist[$i]->allow_delete = $a->allow_delete;
-                    break;
-                }
+            if (isset($allowed_pages[$value->name])) {
+                $returnlist[$i]->enabled = TRUE;
+                $returnlist[$i]->allow_delete = $allowed_pages[$value->name]['allow_delete'];
             }
         }
 
@@ -278,11 +285,10 @@ class admin_user extends fs_controller
     {
         if (FS_DEMO && $this->user->nick != $this->suser->nick) {
             $this->new_error_msg('En el modo <b>demo</b> sólo puedes modificar los datos de TU usuario.
-            Esto es así para evitar malas prácticas entre usuarios que prueban la demo.');
+        Esto es así para evitar malas prácticas entre usuarios que prueban la demo.');
         } else if (!$this->allow_modify) {
             $this->new_error_msg('No tienes permiso para modificar estos datos.');
         } else {
-            $user_no_more_admin = FALSE;
             $error = FALSE;
             $spassword = filter_input(INPUT_POST, 'spassword');
             if ($spassword != '') {
@@ -311,17 +317,7 @@ class admin_user extends fs_controller
              * Propiedad admin: solamente un admin puede cambiarla.
              */
             if ($this->user->admin) {
-                /*
-                 * El propio usuario no puede decidir dejar de ser administrador.
-                 */
                 if ($this->user->nick != $this->suser->nick) {
-                    /*
-                     * Si un usuario es administrador y deja de serlo, hay que darle acceso
-                     * a algunas páginas, en caso contrario no podrá continuar
-                     */
-                    if ($this->suser->admin && !isset($_POST['sadmin'])) {
-                        $user_no_more_admin = TRUE;
-                    }
                     $this->suser->admin = isset($_POST['sadmin']);
                 }
             }
@@ -338,49 +334,8 @@ class admin_user extends fs_controller
             if ($error) {
                 /// si se han producido errores, no hacemos nada más
             } else if ($this->suser->save()) {
-                if (!$this->user->admin) {
-                    /// si no eres administrador, no puedes cambiar los permisos
-                } else if (!$this->suser->admin) {
-                    /// para cada página, comprobamos si hay que darle acceso o no
-                    foreach ($this->all_pages() as $p) {
-                        /**
-                         * Creamos un objeto fs_access con los datos del usuario y la página.
-                         * Si tiene acceso guardamos, sino eliminamos. Así no tenemos que comprobar uno a uno
-                         * si ya estaba en la base de datos. Eso lo hace el modelo.
-                         */
-                        $a = new fs_access(array('fs_user' => $this->suser->nick, 'fs_page' => $p->name, 'allow_delete' => FALSE));
-                        if (isset($_POST['allow_delete'])) {
-                            $a->allow_delete = in_array($p->name, $_POST['allow_delete']);
-                        }
-
-                        if ($user_no_more_admin) {
-                            /*
-                             * Si un usuario es administrador y deja de serlo, hay que darle acceso
-                             * a algunas páginas, en caso contrario no podrá continuar.
-                             */
-                            $a->save();
-                        } else if (!isset($_POST['enabled'])) {
-                            /**
-                             * No se ha marcado ningún checkbox de autorizado, así que eliminamos el acceso
-                             * a todas las páginas. Una a una.
-                             */
-                            $a->delete();
-                        } else if (in_array($p->name, $_POST['enabled'])) {
-                            /// la página ha sido marcada como autorizada.
-                            $a->save();
-
-                            /// si no hay una página de inicio para el usuario, usamos esta
-                            if (is_null($this->suser->fs_page) && $p->show_on_menu) {
-                                $this->suser->fs_page = $p->name;
-                                $this->suser->save();
-                            }
-                        } else {
-                            /// la página no está marcada como autorizada.
-                            $a->delete();
-                        }
-                    }
-                }
-
+                /// Los permisos ahora se gestionan exclusivamente por roles.
+                /// No se modifican permisos individuales (fs_access) desde aquí.
                 $this->new_message("Datos modificados correctamente.");
             } else {
                 $this->new_error_msg("¡Imposible modificar los datos!");
@@ -408,5 +363,48 @@ class admin_user extends fs_controller
                 $this->new_error_msg('Error al Activar/Desactivar el Usuario');
             }
         }
+    }
+
+    /**
+     * Aplica los roles seleccionados al usuario.
+     * Los permisos se calculan dinámicamente desde los roles,
+     * por lo que solo necesitamos gestionar la relación usuario-rol.
+     */
+    private function aplicar_roles()
+    {
+        if (!$this->user->admin) {
+            $this->new_error_msg('Solamente un administrador puede modificar los roles de un usuario.');
+            return;
+        }
+
+        if ($this->suser->admin) {
+            $this->new_error_msg('Los administradores tienen acceso a todo, no necesitan roles.');
+            return;
+        }
+
+        /// Primero eliminamos todos los roles actuales del usuario
+        $fru = new fs_rol_user();
+        $current_roles = $fru->all_from_user($this->suser->nick);
+        foreach ($current_roles as $cr) {
+            $cr->delete();
+        }
+
+        /// Ahora asignamos los roles seleccionados
+        $roles_seleccionados = filter_input(INPUT_POST, 'roles', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
+        if ($roles_seleccionados) {
+            foreach ($roles_seleccionados as $codrol) {
+                $rol = $this->rol->get($codrol);
+                if ($rol) {
+                    $nuevo_fru = new fs_rol_user();
+                    $nuevo_fru->codrol = $codrol;
+                    $nuevo_fru->fs_user = $this->suser->nick;
+                    $nuevo_fru->save();
+                }
+            }
+        }
+
+        /// Recargamos los roles del usuario
+        $this->user_roles = $this->rol->all_for_user($this->suser->nick);
+        $this->new_message('Roles actualizados correctamente.');
     }
 }
