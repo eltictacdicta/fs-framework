@@ -266,6 +266,11 @@ define('FS_DEFAULT_THEME', 'AdminLTE');
 │   ├── css/                # Estilos
 │   ├── js/                 # JavaScript
 │   └── img/                # Imágenes
+├── tests/                   # Pruebas unitarias (PHPUnit)
+│   ├── Base/               # Tests de clases core (base/)
+│   ├── Security/           # Tests de PasswordHasherService
+│   ├── Traits/             # Tests de ValidatorTrait
+│   └── Cache/              # Tests de CacheManager
 ├── vendor/                  # Dependencias Composer
 ├── docs/                    # Documentación
 └── extras/                  # Librerías terceros (PHPMailer, XLSXWriter)
@@ -288,6 +293,23 @@ define('FS_DEFAULT_THEME', 'AdminLTE');
    ```
 3. Configurar base de datos en `config.php`
 4. Acceder a `index.php` en el navegador
+
+## Pruebas Unitarias
+
+El proyecto utiliza **PHPUnit 11** con **symfony/phpunit-bridge** para pruebas unitarias.
+
+```bash
+# Ejecutar todas las pruebas
+ddev exec php vendor/bin/phpunit
+
+# Solo tests de clases core (base/)
+ddev exec php vendor/bin/phpunit --testsuite Base
+
+# Solo tests de componentes Symfony (src/)
+ddev exec php vendor/bin/phpunit --testsuite Components
+```
+
+> **119 tests, 193 assertions** cubriendo: `fs_model`, `fs_core_log`, `fs_functions`, `fs_ip_filter`, `fs_query_builder`, `PasswordHasherService`, `ValidatorTrait` y `CacheManager`.
 
 ## Documentación Adicional
 

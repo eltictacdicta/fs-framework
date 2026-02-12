@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         cacheDirectory=".phpunit.cache"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+>
+    <testsuites>
+        <testsuite name="Base">
+            <directory>tests/Base</directory>
+        </testsuite>
+        <testsuite name="Components">
+            <directory>tests/Security</directory>
+            <directory>tests/Traits</directory>
+            <directory>tests/Cache</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>base</directory>
+            <directory>src</directory>
+        </include>
+    </source>
+
+    <php>
+        <env name="SYMFONY_DEPRECATIONS_HELPER" value="weak"/>
+    </php>
+</phpunit>

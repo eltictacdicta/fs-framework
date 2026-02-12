@@ -44,3 +44,21 @@ AdminLTE-2.4.18
 !/update-and-backup/data/.htaccess
 !/update-and-backup/data/index.php
 
+# PHPUnit
+.phpunit.cache/
+
+# Logs (seguridad: evitar exponer logs con datos sensibles)
+*.log
+!/backups/.htaccess
+
+# Archivos de base de datos y backups sueltos
+*.sql
+*.bak
+*.backup
+*.dump
+*.sqlite
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local

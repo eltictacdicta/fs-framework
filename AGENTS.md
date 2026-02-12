@@ -30,8 +30,91 @@ cp node_modules/jquery/dist/jquery.min.js view/js/
 - Configure database connection in `config.php`
 - Access via `index.php` in browser
 
-### No Test Suite
-This codebase currently has **no automated tests**. Do not attempt to run test commands. If implementing tests, use PHPUnit and place test files in a `Test/` directory.
+### Testing
+
+This codebase uses **PHPUnit 11** with **symfony/phpunit-bridge** for unit testing.
+
+#### Running Tests
+
+```bash
+# Run all tests (via ddev)
+ddev exec php vendor/bin/phpunit
+
+# Run only base/core tests
+ddev exec php vendor/bin/phpunit --testsuite Base
+
+# Run only Symfony component tests
+ddev exec php vendor/bin/phpunit --testsuite Components
+
+# Run a specific test file
+ddev exec php vendor/bin/phpunit tests/Base/FsModelMethodsTest.php
+
+# Run without ddev (if PHP is available locally)
+php vendor/bin/phpunit
+```
+
+#### Test Structure
+
+```
+tests/
+├── bootstrap.php              # Defines minimal framework constants (no DB)
+├── Base/                      # Core class tests (base/ directory)
+│   ├── FsModelMethodsTest.php # no_html, str2bool, floatcmp, intval
+│   ├── FsCoreLogTest.php      # Messages, errors, advices, SQL history, stats
+│   ├── FsFunctionsTest.php    # bround, fs_fix_html, fs_is_local_ip
+│   ├── FsIpFilterTest.php     # IP ban/whitelist logic
+│   └── FsQueryBuilderTest.php # SQL generation (SELECT, WHERE, JOIN, INSERT, UPDATE, DELETE)
+├── Security/                  # Security component tests
+│   └── PasswordHasherServiceTest.php  # Hash, verify, legacy migration, salt
+├── Traits/                    # Trait tests
+│   └── ValidatorTraitTest.php # Attribute validation, ConstraintBuilder
+└── Cache/                     # Cache component tests
+    └── CacheManagerTest.php   # Singleton, set/get/has/delete, callbacks
+```
+
+#### Writing New Tests
+
+- **Namespace**: `Tests\` (PSR-4 autoloaded via `autoload-dev` in `composer.json`)
+- **Base classes**: Non-autoloaded classes in `base/` must be loaded with `require_once`
+- **Abstract `fs_model`**: Use an anonymous subclass with empty constructor to test pure methods without DB:
+  ```php
+  $model = new class() extends \fs_model {
+      public function __construct() {} // Skip DB
+      public function delete() { return false; }
+      public function exists() { return false; }
+      public function save() { return false; }
+  };
+  ```
+- **Query builder**: Pass a mock `fs_db2` to the constructor to avoid real DB connections:
+  ```php
+  $mockDb = new class {
+      public function escape_string(string $str): string {
+          return addslashes($str);
+      }
+  };
+  $qb = new \fs_query_builder($mockDb);
+  ```
+- **Static state** (e.g., `fs_core_log`): Reset via Reflection in `setUp()`:
+  ```php
+  $ref = new \ReflectionClass('fs_core_log');
+  $prop = $ref->getProperty('data_log');
+  $prop->setAccessible(true);
+  $prop->setValue(null, null);
+  ```
+- **Singletons** (e.g., `CacheManager`): Call `::reset()` in `setUp()` to get a fresh instance
+
+#### Test Suites
+
+| Suite | Dir | Covers |
+|-------|-----|--------|
+| **Base** | `tests/Base/` | Core classes in `base/` (fs_model, fs_core_log, fs_functions, fs_ip_filter, fs_query_builder) |
+| **Components** | `tests/Security/`, `tests/Traits/`, `tests/Cache/` | Symfony-based components in `src/` |
+
+#### Configuration
+
+- **Config file**: `phpunit.xml` (project root)
+- **Bootstrap**: `tests/bootstrap.php` — defines `FS_FOLDER`, `FS_DB_TYPE`, `FS_TMP_NAME` and other constants
+- **Deprecation detection**: `SYMFONY_DEPRECATIONS_HELPER=weak` — logs Symfony deprecations without failing tests
 
 ## Code Style Guidelines
 
@@ -185,6 +268,12 @@ Use provided helper functions:
   /js/                        # JavaScript files (jquery, bootstrap)
   /fonts/                     # Font files
 /translations/                 # Core translations (YAML format)
+/tests/                        # Unit tests (PHPUnit)
+  /Base/                       # Tests for core classes (base/)
+  /Security/                   # PasswordHasherService tests
+  /Traits/                     # ValidatorTrait tests
+  /Cache/                      # CacheManager tests
+  bootstrap.php                # Test bootstrap (constants, no DB)
 /vendor/                       # Composer dependencies
 ```
 
