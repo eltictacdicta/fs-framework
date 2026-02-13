@@ -731,8 +731,8 @@ class fs_mysql extends fs_db_engine
     private function fix_postgresql($sql)
     {
         return str_replace(
-            array('::character varying', 'without time zone', 'now()', 'CURRENT_TIMESTAMP', 'CURRENT_DATE'),
-            array('', '', "'00:00'", "'" . date('Y-m-d') . " 00:00:00'", date("'Y-m-d'")),
+            array('::regclass', '::character varying', '::integer', 'without time zone', 'now()', 'CURRENT_TIMESTAMP', 'CURRENT_DATE'),
+            array('', '', '', "'00:00'", "'" . date('Y-m-d') . " 00:00:00'", "'" . date('Y-m-d') . " 00:00:00'", date("'Y-m-d'")),
             $sql
         );
     }

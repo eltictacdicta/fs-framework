@@ -128,6 +128,8 @@ class fs_schema
 
         // Procesar restricciones
         if (isset($xml->restriccion)) {
+            $db = self::getDb();
+            
             foreach ($xml->restriccion as $rest) {
                 $name = (string) $rest->nombre;
                 $query = (string) $rest->consulta;
@@ -137,7 +139,7 @@ class fs_schema
                 } elseif (stripos($query, 'UNIQUE') !== false) {
                     $constraints[] = $query;
                 } elseif (stripos($query, 'FOREIGN KEY') !== false && $isMySQL) {
-                    $constraints[] = "CONSTRAINT `{$name}` " . $query;
+                    self::addForeignKeyConstraint($query, $name, $db, $constraints);
                 }
             }
         }
@@ -247,6 +249,46 @@ class fs_schema
 
         // Si no se encuentra, devolver el tipo original en mayúsculas
         return strtoupper($type);
+    }
+
+    /**
+     * Helper to validate and add a foreign key constraint.
+     * If the REFERENCES pattern matches and the referenced table exists, the
+     * constraint is pushed into $constraints. Otherwise a warning is logged
+     * with the constraint name and raw query so issues are visible.
+     *
+     * @param string $query
+     * @param string $name
+     * @param fs_db2 $db
+     * @param array &$constraints
+     * @return void
+     */
+    private static function addForeignKeyConstraint($query, $name, $db, array & $constraints)
+    {
+        $matches = [];
+        // Accept unquoted, backticked or double-quoted identifiers, allow schema-qualified names
+        if (preg_match('/REFERENCES\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_\.]+))/i', $query, $matches)) {
+            $refTable = $matches[1] ?: $matches[2] ?: $matches[3] ?: '';
+            // If schema-qualified (schema.table), take the last segment
+            if (strpos($refTable, '.') !== false) {
+                $parts = explode('.', $refTable);
+                $refTable = end($parts);
+            }
+            $refTable = trim($refTable, '"`');
+
+            if ($refTable === '') {
+                error_log("Advertencia: Foreign key '{$name}' omitida - nombre de tabla referenciada vacío. Query: {$query}");
+                return;
+            }
+
+            if ($db->table_exists($refTable)) {
+                $constraints[] = "CONSTRAINT `{$name}` " . $query;
+            } else {
+                error_log("Advertencia: Foreign key '{$name}' omitida - tabla referenciada '{$refTable}' no existe. Query: {$query}");
+            }
+        } else {
+            error_log("Advertencia: Foreign key '{$name}' omitida - patrón REFERENCES no coincide. Query: {$query}");
+        }
     }
 
     /**
@@ -441,37 +483,6 @@ class fs_schema
     }
 
     /**
-     * Instala las tablas de un plugin
-     * 
-     * @param string $pluginName Nombre del plugin
-     * @return array Resultados de instalación
-     */
-    public static function installPluginTables($pluginName)
-    {
-        $results = [];
-        $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
-        
-        // Buscar en model/table del plugin
-        $tableDir = $folder . '/plugins/' . $pluginName . '/model/table';
-        
-        if (!is_dir($tableDir)) {
-            return ['info' => 'No hay tablas que instalar para ' . $pluginName];
-        }
-
-        foreach (glob($tableDir . '/*.xml') as $file) {
-            $filename = basename($file);
-            try {
-                self::createFromXml($file);
-                $results[$filename] = 'OK';
-            } catch (Exception $e) {
-                $results[$filename] = 'ERROR: ' . $e->getMessage();
-            }
-        }
-
-        return $results;
-    }
-
-    /**
      * Genera SQL CREATE TABLE desde XML (sin ejecutar)
      * 
      * @param string $xmlFile Ruta al archivo XML
@@ -502,7 +513,10 @@ class fs_schema
             }
         }
 
+        // Procesar restricciones
         if (isset($xml->restriccion)) {
+            $db = self::getDb();
+            
             foreach ($xml->restriccion as $rest) {
                 $name = (string) $rest->nombre;
                 $query = (string) $rest->consulta;
@@ -512,7 +526,7 @@ class fs_schema
                 } elseif (stripos($query, 'UNIQUE') !== false) {
                     $constraints[] = $query;
                 } elseif (stripos($query, 'FOREIGN KEY') !== false && $isMySQL) {
-                    $constraints[] = "CONSTRAINT `{$name}` " . $query;
+                    self::addForeignKeyConstraint($query, $name, $db, $constraints);
                 }
             }
         }
