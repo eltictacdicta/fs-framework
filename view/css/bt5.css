@@ -918,7 +918,7 @@ small, .small { font-size: 0.875em; }
 */
 
 .fa-solid, .fa-regular, .fa-brands {
-  font-family: FontAwesome !important;
+  font-family: FontAwesome, sans-serif !important;
   font-style: normal;
   font-weight: normal;
 }

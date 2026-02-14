@@ -26,6 +26,8 @@
  */
 class fs_autoload
 {
+    private const PLUGINS_PATH = '/plugins/';
+
     /**
      * @var bool
      */
@@ -97,50 +99,9 @@ class fs_autoload
     private static function findClassFile($class)
     {
         $folder = self::$baseFolder;
-        
-        // 1. Clases en namespace FSFramework\Security
-        if (strpos($class, 'FSFramework\\Security\\') === 0) {
-            $relative = str_replace('FSFramework\\Security\\', '', $class);
-            $file = $folder . '/base/fs_' . self::camelToSnake($relative) . '.php';
-            if (file_exists($file)) {
-                return $file;
-            }
-        }
-
-        // 2. Clases en namespace FSFramework\Database
-        if (strpos($class, 'FSFramework\\Database\\') === 0) {
-            $relative = str_replace('FSFramework\\Database\\', '', $class);
-            $file = $folder . '/base/fs_' . self::camelToSnake($relative) . '.php';
-            if (file_exists($file)) {
-                return $file;
-            }
-        }
-
-        // 3. Clases en namespace FSFramework\Core
-        if (strpos($class, 'FSFramework\\Core\\') === 0) {
-            $relative = str_replace('FSFramework\\Core\\', '', $class);
-            $file = $folder . '/core/' . str_replace('\\', '/', $relative) . '.php';
-            if (file_exists($file)) {
-                return $file;
-            }
-        }
-
-        // 4. Clases en namespace FSFramework\Model
-        if (strpos($class, 'FSFramework\\Model\\') === 0) {
-            $relative = str_replace('FSFramework\\Model\\', '', $class);
-            $file = $folder . '/model/core/' . str_replace('\\', '/', $relative) . '.php';
-            if (file_exists($file)) {
-                return $file;
-            }
-        }
-
-        // 5. Clases en namespace FSFramework\Traits
-        if (strpos($class, 'FSFramework\\Traits\\') === 0) {
-            $relative = str_replace('FSFramework\\Traits\\', '', $class);
-            $file = $folder . '/core/Traits/' . str_replace('\\', '/', $relative) . '.php';
-            if (file_exists($file)) {
-                return $file;
-            }
+        $file = self::findNamespacedClassFile($folder, $class);
+        if ($file !== null) {
+            return $file;
         }
 
         // 6. Clases legacy sin namespace (fs_user, fs_model, etc.)
@@ -164,13 +125,13 @@ class fs_autoload
         if (isset($GLOBALS['plugins']) && is_array($GLOBALS['plugins'])) {
             foreach ($GLOBALS['plugins'] as $plugin) {
                 // Legacy models (model/)
-                $file = $folder . '/plugins/' . $plugin . '/model/' . $class . '.php';
+                $file = $folder . self::PLUGINS_PATH . $plugin . '/model/' . $class . '.php';
                 if (file_exists($file)) {
                     return $file;
                 }
                 
                 // FS2025 models (Model/)
-                $file = $folder . '/plugins/' . $plugin . '/Model/' . $class . '.php';
+                $file = $folder . self::PLUGINS_PATH . $plugin . '/Model/' . $class . '.php';
                 if (file_exists($file)) {
                     return $file;
                 }
@@ -187,6 +148,35 @@ class fs_autoload
         $file = $folder . '/model/' . $class . '.php';
         if (file_exists($file)) {
             return $file;
+        }
+
+        return null;
+    }
+
+    private static function findNamespacedClassFile($folder, $class)
+    {
+        $namespaceMap = [
+            'FSFramework\\Security\\' => '/base/fs_%s.php',
+            'FSFramework\\Database\\' => '/base/fs_%s.php',
+            'FSFramework\\Core\\' => '/core/%s.php',
+            'FSFramework\\Model\\' => '/model/core/%s.php',
+            'FSFramework\\Traits\\' => '/core/Traits/%s.php',
+        ];
+
+        foreach ($namespaceMap as $prefix => $pattern) {
+            if (strpos($class, $prefix) !== 0) {
+                continue;
+            }
+
+            $relative = str_replace($prefix, '', $class);
+            $relativePath = strpos($pattern, '/base/fs_') === 0
+                ? self::camelToSnake($relative)
+                : str_replace('\\', '/', $relative);
+
+            $file = $folder . sprintf($pattern, $relativePath);
+            if (file_exists($file)) {
+                return $file;
+            }
         }
 
         return null;

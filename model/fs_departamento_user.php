@@ -25,6 +25,8 @@
  */
 class fs_departamento_user extends fs_model
 {
+    private const SQL_SELECT_ALL_FROM = 'SELECT * FROM ';
+    private const SQL_WHERE = ' WHERE ';
 
     public $coddepartamento;
     public $fs_user;
@@ -58,15 +60,15 @@ class fs_departamento_user extends fs_model
             return FALSE;
         }
 
-        return $this->db->select("SELECT * FROM " . $this->table_name
-                . " WHERE coddepartamento = " . $this->var2str($this->coddepartamento)
+        return $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name
+            . self::SQL_WHERE . "coddepartamento = " . $this->var2str($this->coddepartamento)
                 . " AND fs_user = " . $this->var2str($this->fs_user) . ";");
     }
 
     public function get($coddepartamento, $fs_user)
     {
-        $data = $this->db->select("SELECT * FROM " . $this->table_name
-            . " WHERE coddepartamento = " . $this->var2str($coddepartamento)
+        $data = $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name
+            . self::SQL_WHERE . "coddepartamento = " . $this->var2str($coddepartamento)
             . " AND fs_user = " . $this->var2str($fs_user) . ";");
         if ($data) {
             return new fs_departamento_user($data[0]);
@@ -110,7 +112,7 @@ class fs_departamento_user extends fs_model
     {
         $lista = [];
 
-        $data = $this->db->select("SELECT * FROM " . $this->table_name . " WHERE coddepartamento = " . $this->var2str($coddepartamento) . " ORDER BY fs_user ASC;");
+        $data = $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "coddepartamento = " . $this->var2str($coddepartamento) . " ORDER BY fs_user ASC;");
         if ($data) {
             foreach ($data as $d) {
                 $lista[] = new fs_departamento_user($d);
@@ -129,7 +131,7 @@ class fs_departamento_user extends fs_model
     {
         $lista = [];
 
-        $data = $this->db->select("SELECT * FROM " . $this->table_name . " WHERE coddepartamento = " . $this->var2str($coddepartamento) . " AND es_admin = TRUE ORDER BY fs_user ASC;");
+        $data = $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "coddepartamento = " . $this->var2str($coddepartamento) . " AND es_admin = TRUE ORDER BY fs_user ASC;");
         if ($data) {
             foreach ($data as $d) {
                 $lista[] = new fs_departamento_user($d);
@@ -148,7 +150,7 @@ class fs_departamento_user extends fs_model
     {
         $lista = [];
 
-        $data = $this->db->select("SELECT * FROM " . $this->table_name . " WHERE fs_user = " . $this->var2str($nick) . " ORDER BY coddepartamento ASC;");
+        $data = $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "fs_user = " . $this->var2str($nick) . " ORDER BY coddepartamento ASC;");
         if ($data) {
             foreach ($data as $d) {
                 $lista[] = new fs_departamento_user($d);
@@ -166,8 +168,8 @@ class fs_departamento_user extends fs_model
      */
     public function is_admin($coddepartamento, $nick)
     {
-        $data = $this->db->select("SELECT * FROM " . $this->table_name
-            . " WHERE coddepartamento = " . $this->var2str($coddepartamento)
+        $data = $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name
+            . self::SQL_WHERE . "coddepartamento = " . $this->var2str($coddepartamento)
             . " AND fs_user = " . $this->var2str($nick)
             . " AND es_admin = TRUE;");
         return $data ? TRUE : FALSE;

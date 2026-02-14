@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 class FsCoreLogTest extends TestCase
 {
+    private const SQL_TEST_QUERY = 'SELECT 1';
+
     private \fs_core_log $log;
 
     protected function setUp(): void
@@ -111,7 +113,7 @@ class FsCoreLogTest extends TestCase
 
     public function testCleanSqlHistory(): void
     {
-        $this->log->new_sql('SELECT 1');
+        $this->log->new_sql(self::SQL_TEST_QUERY);
         $this->log->clean_sql_history();
 
         $this->assertEmpty($this->log->get_sql_history());
@@ -141,7 +143,7 @@ class FsCoreLogTest extends TestCase
         $this->log->new_message('msg');
         $this->log->new_error('err');
         $this->log->new_advice('adv');
-        $this->log->new_sql('SELECT 1');
+        $this->log->new_sql(self::SQL_TEST_QUERY);
 
         $this->log->clear();
 
@@ -156,7 +158,7 @@ class FsCoreLogTest extends TestCase
         $this->log->new_message('msg');
         $this->log->new_error('err');
         $this->log->new_advice('adv');
-        $this->log->new_sql('SELECT 1');
+        $this->log->new_sql(self::SQL_TEST_QUERY);
 
         $stats = $this->log->getStats();
 

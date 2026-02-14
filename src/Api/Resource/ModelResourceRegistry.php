@@ -38,7 +38,11 @@ class ModelResourceRegistry
     /** @var bool */
     private bool $scanned = false;
 
-    private function __construct() {}
+    private function __construct()
+    {
+        // Constructor intencionalmente vacío:
+        // esta clase se usa como singleton y debe instanciarse solo vía getInstance().
+    }
 
     public static function getInstance(): self
     {

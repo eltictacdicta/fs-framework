@@ -328,8 +328,12 @@ class RequestHelper
     public static function getIntParam(string $name, int $default = 0, ?int $min = null, ?int $max = null): int 
     { 
         $value = self::getInt($name, $default);
-        if ($min !== null && $value < $min) return $min;
-        if ($max !== null && $value > $max) return $max;
+        if ($min !== null && $value < $min) {
+            return $min;
+        }
+        if ($max !== null && $value > $max) {
+            return $max;
+        }
         return $value;
     }
     public static function getBoolParam(string $name, bool $default = false): bool { return self::getBool($name, $default); }

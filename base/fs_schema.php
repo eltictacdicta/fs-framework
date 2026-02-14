@@ -29,6 +29,8 @@
  */
 class fs_schema
 {
+    private const SQL_LINE_SEPARATOR = ",\n  ";
+
     /**
      * Mapeo de tipos PostgreSQL a MySQL
      * @var array
@@ -113,66 +115,94 @@ class fs_schema
     public static function createTable($tableName, $xml)
     {
         $isMySQL = self::isMySQL();
-        $columns = [];
-        $constraints = [];
-
-        // Procesar columnas
-        if (isset($xml->columna)) {
-            foreach ($xml->columna as $col) {
-                $colDef = self::parseColumn($col, $isMySQL);
-                if ($colDef) {
-                    $columns[] = $colDef;
-                }
-            }
-        }
-
-        // Procesar restricciones
-        if (isset($xml->restriccion)) {
-            $db = self::getDb();
-            
-            foreach ($xml->restriccion as $rest) {
-                $name = (string) $rest->nombre;
-                $query = (string) $rest->consulta;
-                
-                if (stripos($query, 'PRIMARY KEY') !== false) {
-                    $constraints[] = $query;
-                } elseif (stripos($query, 'UNIQUE') !== false) {
-                    $constraints[] = $query;
-                } elseif (stripos($query, 'FOREIGN KEY') !== false && $isMySQL) {
-                    self::addForeignKeyConstraint($query, $name, $db, $constraints);
-                }
-            }
-        }
+        $columns = self::collectColumns($xml, $isMySQL);
+        $constraints = self::collectConstraints($xml, $isMySQL);
 
         if (empty($columns)) {
             return false;
         }
-
-        // Construir SQL
-        $quote = $isMySQL ? '`' : '"';
-        $sql = "CREATE TABLE IF NOT EXISTS {$quote}{$tableName}{$quote} (\n";
-        $sql .= "  " . implode(",\n  ", $columns);
-        
-        if (!empty($constraints)) {
-            $sql .= ",\n  " . implode(",\n  ", $constraints);
-        }
-        
-        $sql .= "\n)";
-        
-        if ($isMySQL) {
-            $sql .= " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-        }
+        $sql = self::buildCreateTableSql($tableName, $columns, $constraints, $isMySQL);
 
         try {
             $db = self::getDb();
             return $db->exec($sql);
         } catch (Exception $e) {
-            // Si la tabla ya existe, no es un error
-            if (stripos($e->getMessage(), 'already exists') !== false) {
+            $code = (string) $e->getCode();
+            if ($code === '1050' || strtoupper($code) === '42P07') {
                 return true;
             }
             throw $e;
         }
+    }
+
+    private static function collectColumns($xml, $isMySQL)
+    {
+        $columns = [];
+        if (!isset($xml->columna)) {
+            return $columns;
+        }
+
+        foreach ($xml->columna as $col) {
+            $colDef = self::parseColumn($col, $isMySQL);
+            if ($colDef) {
+                $columns[] = $colDef;
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
+     * Recolecta restricciones SQL desde XML.
+     *
+     * @param SimpleXMLElement $xml Definición XML
+     * @param bool $isMySQL Si es MySQL
+     * @param bool $validateFks Si true, valida que la tabla referenciada exista (requiere conexión DB)
+     * @return array
+     */
+    private static function collectConstraints($xml, $isMySQL, bool $validateFks = true)
+    {
+        $constraints = [];
+        if (!isset($xml->restriccion)) {
+            return $constraints;
+        }
+
+        $db = null;
+        if ($validateFks) {
+            $db = self::getDb();
+        }
+
+        foreach ($xml->restriccion as $rest) {
+            $name = (string) $rest->nombre;
+            $query = (string) $rest->consulta;
+            if (stripos($query, 'PRIMARY KEY') !== false || stripos($query, 'UNIQUE') !== false) {
+                $constraints[] = $query;
+                continue;
+            }
+
+            if (stripos($query, 'FOREIGN KEY') !== false) {
+                self::addForeignKeyConstraint($query, $name, $db, $constraints, $isMySQL, $validateFks);
+            }
+        }
+
+        return $constraints;
+    }
+
+    private static function buildCreateTableSql($tableName, array $columns, array $constraints, $isMySQL)
+    {
+        $quote = $isMySQL ? '`' : '"';
+        $sql = "CREATE TABLE IF NOT EXISTS {$quote}{$tableName}{$quote} (\n";
+        $sql .= "  " . implode(self::SQL_LINE_SEPARATOR, $columns);
+        if (!empty($constraints)) {
+            $sql .= self::SQL_LINE_SEPARATOR . implode(self::SQL_LINE_SEPARATOR, $constraints);
+        }
+        $sql .= "\n)";
+
+        if ($isMySQL) {
+            $sql .= " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        }
+
+        return $sql;
     }
 
     /**
@@ -263,8 +293,15 @@ class fs_schema
      * @param array &$constraints
      * @return void
      */
-    private static function addForeignKeyConstraint($query, $name, $db, array & $constraints)
+    private static function addForeignKeyConstraint($query, $name, $db, array & $constraints, bool $isMySQL, bool $validateFks)
     {
+        $quote = $isMySQL ? '`' : '"';
+        $constraintSql = "CONSTRAINT {$quote}{$name}{$quote} " . $query;
+        if (!$validateFks) {
+            $constraints[] = $constraintSql;
+            return;
+        }
+
         $matches = [];
         // Accept unquoted, backticked or double-quoted identifiers, allow schema-qualified names
         if (preg_match('/REFERENCES\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_\.]+))/i', $query, $matches)) {
@@ -281,8 +318,8 @@ class fs_schema
                 return;
             }
 
-            if ($db->table_exists($refTable)) {
-                $constraints[] = "CONSTRAINT `{$name}` " . $query;
+            if ($db && $db->table_exists($refTable)) {
+                $constraints[] = $constraintSql;
             } else {
                 error_log("Advertencia: Foreign key '{$name}' omitida - tabla referenciada '{$refTable}' no existe. Query: {$query}");
             }
@@ -376,11 +413,17 @@ class fs_schema
             return $changes;
         }
 
-        // Obtener columnas actuales y del XML
         $db = self::getDb();
         $dbColumns = $db->get_columns($tableName);
+        self::syncColumns($db, $tableName, $xml, $dbColumns, $changes);
+        self::syncConstraints($db, $tableName, $xml, $changes);
+
+        return $changes;
+    }
+
+    private static function syncColumns($db, $tableName, $xml, $dbColumns, array &$changes)
+    {
         $xmlColumns = [];
-        
         if (isset($xml->columna)) {
             foreach ($xml->columna as $col) {
                 $xmlColumns[] = [
@@ -392,35 +435,31 @@ class fs_schema
             }
         }
 
-        // Comparar columnas
         $sql = $db->compare_columns($tableName, $xmlColumns, $dbColumns);
-        if (!empty($sql)) {
-            if ($db->exec($sql)) {
-                $changes[] = "Columnas actualizadas en {$tableName}";
-            }
+        if (!empty($sql) && $db->exec($sql)) {
+            $changes[] = "Columnas actualizadas en {$tableName}";
+        }
+    }
+
+    private static function syncConstraints($db, $tableName, $xml, array &$changes)
+    {
+        if (!isset($xml->restriccion)) {
+            return;
         }
 
-        // Comparar restricciones
-        if (isset($xml->restriccion)) {
-            $dbConstraints = $db->get_constraints($tableName);
-            $xmlConstraints = [];
-            
-            foreach ($xml->restriccion as $rest) {
-                $xmlConstraints[] = [
-                    'nombre' => (string) $rest->nombre,
-                    'consulta' => (string) $rest->consulta,
-                ];
-            }
-            
-            $sql = $db->compare_constraints($tableName, $xmlConstraints, $dbConstraints);
-            if (!empty($sql)) {
-                if ($db->exec($sql)) {
-                    $changes[] = "Restricciones actualizadas en {$tableName}";
-                }
-            }
+        $dbConstraints = $db->get_constraints($tableName);
+        $xmlConstraints = [];
+        foreach ($xml->restriccion as $rest) {
+            $xmlConstraints[] = [
+                'nombre' => (string) $rest->nombre,
+                'consulta' => (string) $rest->consulta,
+            ];
         }
 
-        return $changes;
+        $sql = $db->compare_constraints($tableName, $xmlConstraints, $dbConstraints);
+        if (!empty($sql) && $db->exec($sql)) {
+            $changes[] = "Restricciones actualizadas en {$tableName}";
+        }
     }
 
     /**
@@ -483,12 +522,16 @@ class fs_schema
     }
 
     /**
-     * Genera SQL CREATE TABLE desde XML (sin ejecutar)
-     * 
+     * Genera SQL CREATE TABLE desde XML (sin ejecutar).
+     *
+     * Cuando $validateFks es true se puede requerir acceso a base de datos
+     * para validar tablas referenciadas por claves foráneas.
+     *
      * @param string $xmlFile Ruta al archivo XML
+     * @param bool $validateFks Si true valida FKs contra DB; si false no accede a DB para validar FKs
      * @return string SQL generado
      */
-    public static function generateSql($xmlFile)
+    public static function generateSql($xmlFile, bool $validateFks = true)
     {
         if (!file_exists($xmlFile)) {
             throw new Exception("Archivo XML no encontrado: {$xmlFile}");
@@ -501,51 +544,10 @@ class fs_schema
 
         $tableName = pathinfo($xmlFile, PATHINFO_FILENAME);
         $isMySQL = self::isMySQL();
-        $columns = [];
-        $constraints = [];
+        $columns = self::collectColumns($xml, $isMySQL);
+        $constraints = self::collectConstraints($xml, $isMySQL, $validateFks);
 
-        if (isset($xml->columna)) {
-            foreach ($xml->columna as $col) {
-                $colDef = self::parseColumn($col, $isMySQL);
-                if ($colDef) {
-                    $columns[] = $colDef;
-                }
-            }
-        }
-
-        // Procesar restricciones
-        if (isset($xml->restriccion)) {
-            $db = self::getDb();
-            
-            foreach ($xml->restriccion as $rest) {
-                $name = (string) $rest->nombre;
-                $query = (string) $rest->consulta;
-                
-                if (stripos($query, 'PRIMARY KEY') !== false) {
-                    $constraints[] = $query;
-                } elseif (stripos($query, 'UNIQUE') !== false) {
-                    $constraints[] = $query;
-                } elseif (stripos($query, 'FOREIGN KEY') !== false && $isMySQL) {
-                    self::addForeignKeyConstraint($query, $name, $db, $constraints);
-                }
-            }
-        }
-
-        $quote = $isMySQL ? '`' : '"';
-        $sql = "CREATE TABLE IF NOT EXISTS {$quote}{$tableName}{$quote} (\n";
-        $sql .= "  " . implode(",\n  ", $columns);
-        
-        if (!empty($constraints)) {
-            $sql .= ",\n  " . implode(",\n  ", $constraints);
-        }
-        
-        $sql .= "\n)";
-        
-        if ($isMySQL) {
-            $sql .= " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-        }
-
-        return $sql;
+        return self::buildCreateTableSql($tableName, $columns, $constraints, $isMySQL);
     }
 
     /**

@@ -31,13 +31,14 @@
 
 // Establecer directorio de trabajo
 define('FS_FOLDER', __DIR__);
+define('FS_JSON_CONTENT_TYPE', 'Content-Type: application/json; charset=utf-8');
 chdir(FS_FOLDER);
 
 // Cargar configuración
 if (file_exists('config.php')) {
     require_once 'config.php';
 } else {
-    header('Content-Type: application/json; charset=utf-8');
+    header(FS_JSON_CONTENT_TYPE);
     http_response_code(500);
     echo json_encode([
         'success' => false,
@@ -60,7 +61,7 @@ require_once 'base/fs_model.php';
 // Inicializar conexión a base de datos
 $db = new fs_db2();
 if (!$db->connect()) {
-    header('Content-Type: application/json; charset=utf-8');
+    header(FS_JSON_CONTENT_TYPE);
     http_response_code(503);
     echo json_encode([
         'success' => false,
@@ -80,7 +81,7 @@ use FSFramework\Api\ApiKernel;
 try {
     ApiKernel::handle();
 } catch (\Throwable $e) {
-    header('Content-Type: application/json; charset=utf-8');
+    header(FS_JSON_CONTENT_TYPE);
     http_response_code(500);
     
     $response = [

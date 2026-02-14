@@ -25,6 +25,11 @@ require_once 'base/fs_file_manager.php';
  */
 class fs_plugin_manager
 {
+    private const PLUGINS_PATH = '/plugins/';
+    private const DOWNLOAD_ZIP_PATH = '/download.zip';
+    private const FS_VAR_MODEL = 'model/fs_var.php';
+    private const TMP_PLUGIN_UPLOAD_PATH = '/tmp/plugin_upload_temp/';
+    private const TMP_PLUGIN_DETECT_PATH = '/tmp/plugin_detect_temp/';
 
     /**
      *
@@ -111,6 +116,129 @@ class fs_plugin_manager
         }
     }
 
+    private function pluginsPath($pluginName = '')
+    {
+        return FS_FOLDER . self::PLUGINS_PATH . $pluginName;
+    }
+
+    private function downloadZipPath()
+    {
+        return FS_FOLDER . self::DOWNLOAD_ZIP_PATH;
+    }
+
+    private function getFsVarModel()
+    {
+        require_once self::FS_VAR_MODEL;
+        return new fs_var();
+    }
+
+    private function ensureDirectory($path)
+    {
+        if (!file_exists($path)) {
+            mkdir($path, 0777, true);
+        }
+    }
+
+    private function clearAndEnsureDirectory($path)
+    {
+        if (file_exists($path) && !fs_file_manager::del_tree($path)) {
+            throw new RuntimeException('No se pudo limpiar el directorio: ' . $path);
+        }
+
+        if (!mkdir($path, 0777, true) && !is_dir($path)) {
+            throw new RuntimeException('No se pudo crear el directorio: ' . $path);
+        }
+    }
+
+    private function deleteDownloadZip()
+    {
+        if (file_exists($this->downloadZipPath())) {
+            unlink($this->downloadZipPath());
+        }
+    }
+
+    private function findNewExtractedPluginFolder(array $plugins_list)
+    {
+        foreach (fs_file_manager::scan_folder($this->pluginsPath()) as $folderName) {
+            if (is_dir($this->pluginsPath($folderName)) && !in_array($folderName, $plugins_list)) {
+                return $folderName;
+            }
+        }
+
+        return null;
+    }
+
+    private function replacePluginFolder($sourceFolder, $targetPluginName)
+    {
+        $sourcePath = $this->pluginsPath($sourceFolder);
+        $targetPath = $this->pluginsPath($targetPluginName);
+        $backupPath = $targetPath . '.bak';
+        $hasBackup = false;
+
+        if (!file_exists($sourcePath)) {
+            throw new RuntimeException('No existe el plugin de origen para reemplazo: ' . $sourcePath);
+        }
+
+        if (file_exists($backupPath) && !fs_file_manager::del_tree($backupPath)) {
+            throw new RuntimeException('No se pudo limpiar el backup temporal del plugin: ' . $backupPath);
+        }
+
+        if (file_exists($targetPath)) {
+            if (!rename($targetPath, $backupPath)) {
+                throw new RuntimeException('No se pudo crear backup del plugin existente: ' . $targetPath);
+            }
+            $hasBackup = true;
+        }
+
+        if (!rename($sourcePath, $targetPath)) {
+            if ($hasBackup && !rename($backupPath, $targetPath)) {
+                error_log('Error crítico: no se pudo restaurar backup del plugin ' . $targetPluginName . ' desde ' . $backupPath);
+            }
+            throw new RuntimeException('No se pudo reemplazar el plugin destino: ' . $targetPath);
+        }
+
+        if ($hasBackup && file_exists($backupPath) && !fs_file_manager::del_tree($backupPath)) {
+            throw new RuntimeException('Plugin reemplazado, pero no se pudo eliminar backup temporal: ' . $backupPath);
+        }
+    }
+
+    private function extractDownloadZipIntoPlugins()
+    {
+        if (!fs_file_manager::extract_zip_safe($this->downloadZipPath(), $this->pluginsPath())) {
+            $this->core_log->new_error('Error al extraer el ZIP. Código de integridad o seguridad fallido.');
+            $this->deleteDownloadZip();
+            return false;
+        }
+
+        $this->deleteDownloadZip();
+        return true;
+    }
+
+    private function finalizeDownloadedPlugin(array $item, array $plugins_list)
+    {
+        if (!$this->extractDownloadZipIntoPlugins()) {
+            return false;
+        }
+
+        $newFolder = $this->findNewExtractedPluginFolder($plugins_list);
+        if (!is_null($newFolder)) {
+            $this->replacePluginFolder($newFolder, $item['nombre']);
+        }
+
+        return true;
+    }
+
+    private function getFirstDirectoryFromPath($path)
+    {
+        foreach (fs_file_manager::scan_folder($path) as $folderName) {
+            if (is_dir($path . $folderName)) {
+                return $folderName;
+            }
+        }
+
+        return null;
+    }
+
     public function disable($plugin_name)
     {
         if (!in_array($plugin_name, $this->enabled())) {
@@ -167,10 +295,10 @@ class fs_plugin_manager
 
         if ($plugin_name === 'legacy_support') {
             $validator_class = 'FacturaScripts\\Plugins\\legacy_support\\VersionValidator';
-            $validator_file = FS_FOLDER . '/plugins/legacy_support/VersionValidator.php';
+            $validator_file = $this->pluginsPath('legacy_support/VersionValidator.php');
         } elseif ($plugin_name === 'facturascripts_support') {
             $validator_class = 'FacturaScripts\\Plugins\\facturascripts_support\\VersionValidator';
-            $validator_file = FS_FOLDER . '/plugins/facturascripts_support/VersionValidator.php';
+            $validator_file = $this->pluginsPath('facturascripts_support/VersionValidator.php');
         } else {
             return; // No es un plugin de soporte
         }
@@ -220,39 +348,24 @@ class fs_plugin_manager
             }
 
             $this->core_log->new_message('Descargando el plugin ' . $item['nombre']);
-            if (!@fs_file_download($item['zip_link'], FS_FOLDER . '/download.zip')) {
+            if (!@fs_file_download($item['zip_link'], $this->downloadZipPath())) {
                 $this->core_log->new_error('Error al descargar. Tendrás que descargarlo manualmente desde '
                     . '<a href="' . $item['zip_link'] . '" target="_blank">aquí</a> y añadirlo pulsando el botón <b>añadir</b>.');
                 return false;
             }
 
             // Crear backup si existe y se solicita
-            if ($create_backup && file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
+            if ($create_backup && file_exists($this->pluginsPath($item['nombre']))) {
                 if (!$this->create_backup($item['nombre'])) {
-                    unlink(FS_FOLDER . '/download.zip');
+                    $this->deleteDownloadZip();
                     return false;
                 }
             }
 
-            $plugins_list = fs_file_manager::scan_folder(FS_FOLDER . '/plugins');
+            $plugins_list = fs_file_manager::scan_folder($this->pluginsPath());
 
-            if (!fs_file_manager::extract_zip_safe(FS_FOLDER . '/download.zip', FS_FOLDER . '/plugins/')) {
-                $this->core_log->new_error('Error al extraer el ZIP. Código de integridad o seguridad fallido.');
-                unlink(FS_FOLDER . '/download.zip');
+            if (!$this->finalizeDownloadedPlugin($item, $plugins_list)) {
                 return false;
-            }
-            unlink(FS_FOLDER . '/download.zip');
-
-            /// renombramos si es necesario
-            foreach (fs_file_manager::scan_folder(FS_FOLDER . '/plugins') as $f) {
-                if (is_dir(FS_FOLDER . '/plugins/' . $f) && !in_array($f, $plugins_list)) {
-                    // Eliminar el plugin existente si hay que sobrescribir
-                    if (file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
-                        fs_file_manager::del_tree(FS_FOLDER . '/plugins/' . $item['nombre']);
-                    }
-                    rename(FS_FOLDER . '/plugins/' . $f, FS_FOLDER . '/plugins/' . $item['nombre']);
-                    break;
-                }
             }
 
             $this->core_log->new_message('Plugin añadido correctamente.');
@@ -280,7 +393,7 @@ class fs_plugin_manager
         if ($json && $json != 'ERROR') {
             $this->download_list = json_decode($json, true);
             foreach ($this->download_list as $key => $value) {
-                $this->download_list[$key]['instalado'] = file_exists(FS_FOLDER . '/plugins/' . $value['nombre']);
+                $this->download_list[$key]['instalado'] = file_exists($this->pluginsPath($value['nombre']));
             }
 
             $this->cache->set('download_list', $this->download_list);
@@ -310,7 +423,7 @@ class fs_plugin_manager
                 'youtube_id' => "",
                 'demo_url' => "",
                 'precio' => 0,
-                'instalado' => file_exists(FS_FOLDER . '/plugins/facturacion_base')
+                'instalado' => file_exists($this->pluginsPath('facturacion_base'))
             ]
         ];
 
@@ -327,8 +440,7 @@ class fs_plugin_manager
             return $this->private_config;
         }
 
-        require_once 'model/fs_var.php';
-        $fs_var = new fs_var();
+        $fs_var = $this->getFsVarModel();
 
         $this->private_config = [
             'github_token' => '',
@@ -355,8 +467,7 @@ class fs_plugin_manager
      */
     public function save_private_config($github_token, $private_plugins_url)
     {
-        require_once 'model/fs_var.php';
-        $fs_var = new fs_var();
+        $fs_var = $this->getFsVarModel();
 
         $this->private_config = [
             'github_token' => $github_token,
@@ -378,8 +489,7 @@ class fs_plugin_manager
      */
     public function delete_private_config()
     {
-        require_once 'model/fs_var.php';
-        $fs_var = new fs_var();
+        $fs_var = $this->getFsVarModel();
 
         $this->private_config = null;
         $this->private_download_list = null;
@@ -450,7 +560,7 @@ class fs_plugin_manager
             // Marcar cada plugin con el flag de instalado y como privado
             // Y obtener versión/descripción del fsframework.ini del repositorio
             foreach ($this->private_download_list as $key => $value) {
-                $this->private_download_list[$key]['instalado'] = file_exists(FS_FOLDER . '/plugins/' . $value['nombre']);
+                $this->private_download_list[$key]['instalado'] = file_exists($this->pluginsPath($value['nombre']));
                 $this->private_download_list[$key]['privado'] = true;
 
                 // Asegurar que tiene un ID único (prefijado para evitar colisiones)
@@ -589,38 +699,23 @@ class fs_plugin_manager
             $this->core_log->new_message('Descargando el plugin privado ' . $item['nombre']);
 
             // Descargar usando autenticación
-            if (!@fs_file_download_auth($item['zip_link'], FS_FOLDER . '/download.zip', $config['github_token'], 60)) {
+            if (!@fs_file_download_auth($item['zip_link'], $this->downloadZipPath(), $config['github_token'], 60)) {
                 $this->core_log->new_error('Error al descargar el plugin privado. Verifica el token y los permisos del repositorio.');
                 return false;
             }
 
             // SIEMPRE crear backup si el plugin ya existe (para plugins privados)
-            if (file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
+            if (file_exists($this->pluginsPath($item['nombre']))) {
                 if (!$this->create_backup($item['nombre'])) {
-                    unlink(FS_FOLDER . '/download.zip');
+                    $this->deleteDownloadZip();
                     return false;
                 }
             }
 
-            $plugins_list = fs_file_manager::scan_folder(FS_FOLDER . '/plugins');
+            $plugins_list = fs_file_manager::scan_folder($this->pluginsPath());
 
-            if (!fs_file_manager::extract_zip_safe(FS_FOLDER . '/download.zip', FS_FOLDER . '/plugins/')) {
-                $this->core_log->new_error('Error al extraer el ZIP. Código de integridad o seguridad fallido.');
-                unlink(FS_FOLDER . '/download.zip');
+            if (!$this->finalizeDownloadedPlugin($item, $plugins_list)) {
                 return false;
-            }
-            unlink(FS_FOLDER . '/download.zip');
-
-            // Renombrar si es necesario
-            foreach (fs_file_manager::scan_folder(FS_FOLDER . '/plugins') as $f) {
-                if (is_dir(FS_FOLDER . '/plugins/' . $f) && !in_array($f, $plugins_list)) {
-                    // Eliminar el plugin existente si hay que sobrescribir
-                    if (file_exists(FS_FOLDER . '/plugins/' . $item['nombre'])) {
-                        fs_file_manager::del_tree(FS_FOLDER . '/plugins/' . $item['nombre']);
-                    }
-                    rename(FS_FOLDER . '/plugins/' . $f, FS_FOLDER . '/plugins/' . $item['nombre']);
-                    break;
-                }
             }
 
             $this->core_log->new_message('Plugin privado añadido correctamente.');
@@ -853,10 +948,8 @@ class fs_plugin_manager
         }
 
         // Extraer temporalmente para detectar el nombre real del plugin
-        $temp_dir = FS_FOLDER . '/tmp/plugin_upload_temp/';
-        if (!file_exists($temp_dir)) {
-            mkdir($temp_dir, 0777, true);
-        }
+        $temp_dir = FS_FOLDER . self::TMP_PLUGIN_UPLOAD_PATH;
+        $this->ensureDirectory($temp_dir);
 
         if (!fs_file_manager::extract_zip_safe($path, $temp_dir)) {
             $this->core_log->new_error('Error al extraer el archivo ZIP.');
@@ -864,20 +957,13 @@ class fs_plugin_manager
         }
 
         // Detectar el nombre del plugin extraído
-        $extracted_folders = [];
-        foreach (fs_file_manager::scan_folder($temp_dir) as $f) {
-            if (is_dir($temp_dir . $f)) {
-                $extracted_folders[] = $f;
-            }
-        }
-
-        if (empty($extracted_folders)) {
+        $plugin_folder_name = $this->getFirstDirectoryFromPath($temp_dir);
+        if (empty($plugin_folder_name)) {
             fs_file_manager::del_tree($temp_dir);
             $this->core_log->new_error('El archivo ZIP no contiene ninguna carpeta de plugin válida.');
             return false;
         }
 
-        $plugin_folder_name = $extracted_folders[0];
         $plugin_name = $this->rename_plugin($plugin_folder_name);
 
         // Si el plugin ya existe y se solicita backup, crearlo
@@ -965,6 +1051,17 @@ class fs_plugin_manager
         fs_file_manager::clear_raintpl_cache();
     }
 
+    private function existsPageInEnabledPlugins($pageName)
+    {
+        foreach ($this->enabled() as $plugin) {
+            if (file_exists($this->pluginsPath($plugin . '/controller/' . $pageName . '.php'))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function disable_unnused_pages()
     {
         $eliminadas = [];
@@ -974,15 +1071,7 @@ class fs_plugin_manager
                 continue;
             }
 
-            $encontrada = FALSE;
-            foreach ($this->enabled() as $plugin) {
-                if (file_exists(FS_FOLDER . '/plugins/' . $plugin . '/controller/' . $page->name . '.php')) {
-                    $encontrada = TRUE;
-                    break;
-                }
-            }
-
-            if (!$encontrada && $page->delete()) {
+            if (!$this->existsPageInEnabledPlugins($page->name) && $page->delete()) {
                 $eliminadas[] = $page->name;
             }
         }
@@ -992,86 +1081,194 @@ class fs_plugin_manager
         }
     }
 
+    private function saveControllerPage($controller, $pageName, $errorPrefix)
+    {
+        if (isset($controller->page) && $controller->page instanceof fs_page) {
+            if (!$controller->page->save()) {
+                $this->core_log->new_error($errorPrefix . $pageName);
+            }
+
+            return;
+        }
+
+        $page = new fs_page();
+        $page->name = $pageName;
+        $page->title = $pageName;
+        $page->folder = 'new';
+        if (!$page->save()) {
+            $this->core_log->new_error('Imposible guardar la página moderna básica ' . $pageName);
+        }
+    }
+
+    private function grantAdminAccessToPage($controller, $shortName)
+    {
+        if (!class_exists('fs_access')) {
+            return;
+        }
+
+        $realPageName = $shortName;
+        if (method_exists($controller, 'getPageData')) {
+            $pd = $controller->getPageData();
+            if (!empty($pd['name'])) {
+                $realPageName = $pd['name'];
+            }
+        } elseif (isset($controller->page) && !empty($controller->page->name)) {
+            $realPageName = $controller->page->name;
+        }
+
+        $access = new \fs_access();
+        $access->fs_user = 'admin';
+        $access->fs_page = $realPageName;
+        $access->allow_delete = TRUE;
+        $access->save();
+    }
+
+    private function enableLegacyControllers($plugin_name, array &$page_list)
+    {
+        if (!file_exists($this->pluginsPath($plugin_name . '/controller'))) {
+            return;
+        }
+
+        foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/controller'), 'php') as $f) {
+            $page_name = substr($f, 0, -4);
+            require_once 'plugins/' . $plugin_name . '/controller/' . $f;
+
+            if (!class_exists($page_name)) {
+                continue;
+            }
+
+            $page_list[] = $page_name;
+            $new_fsc = new $page_name();
+            if (!$new_fsc->page->save()) {
+                $this->core_log->new_error('Imposible guardar la página ' . $page_name);
+            }
+            unset($new_fsc);
+        }
+    }
+
+    private function enableModernControllers($plugin_name, array &$page_list)
+    {
+        if (!file_exists($this->pluginsPath($plugin_name . '/Controller'))) {
+            return;
+        }
+
+        foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/Controller'), 'php') as $f) {
+            $short_name = substr($f, 0, -4);
+            $full_class = "FacturaScripts\\Plugins\\$plugin_name\\Controller\\$short_name";
+
+            if (!class_exists($full_class)) {
+                continue;
+            }
+
+            $page_list[] = $short_name;
+            $new_fsc = new $full_class();
+            $this->saveControllerPage($new_fsc, $short_name, 'Imposible guardar la página moderna ');
+            $this->grantAdminAccessToPage($new_fsc, $short_name);
+            unset($new_fsc);
+        }
+    }
+
     private function enable_plugin_controllers($plugin_name)
     {
         /// cargamos el archivo functions.php
-        if (file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '/functions.php')) {
+        if (file_exists($this->pluginsPath($plugin_name . '/functions.php'))) {
             require_once 'plugins/' . $plugin_name . '/functions.php';
         }
 
-        /// buscamos controladores clásicos
         $page_list = [];
-        if (file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '/controller')) {
-            foreach (fs_file_manager::scan_files(FS_FOLDER . '/plugins/' . $plugin_name . '/controller', 'php') as $f) {
-                $page_name = substr($f, 0, -4);
-                require_once 'plugins/' . $plugin_name . '/controller/' . $f;
-
-                if (class_exists($page_name)) {
-                    $page_list[] = $page_name;
-                    $new_fsc = new $page_name();
-                    if (!$new_fsc->page->save()) {
-                        $this->core_log->new_error("Imposible guardar la página " . $page_name);
-                    }
-                    unset($new_fsc);
-                }
-            }
-        }
-
-        /// buscamos controladores modernos
-        if (file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '/Controller')) {
-            foreach (fs_file_manager::scan_files(FS_FOLDER . '/plugins/' . $plugin_name . '/Controller', 'php') as $f) {
-                $short_name = substr($f, 0, -4);
-                $full_class = "FacturaScripts\\Plugins\\$plugin_name\\Controller\\$short_name";
-
-                if (class_exists($full_class)) {
-                    $page_list[] = $short_name;
-                    $new_fsc = new $full_class();
-
-                    // Si el controlador moderno tiene la propiedad legacy 'page' (vía Base\Controller)
-                    if (isset($new_fsc->page) && $new_fsc->page instanceof fs_page) {
-                        if (!$new_fsc->page->save()) {
-                            $this->core_log->new_error("Imposible guardar la página moderna " . $short_name);
-                        }
-                    } else {
-                        // Si no hereda de Base\Controller, creamos una entrada básica
-                        $page = new fs_page();
-                        $page->name = $short_name;
-                        $page->title = $short_name;
-                        $page->folder = 'new';
-                        if (!$page->save()) {
-                            $this->core_log->new_error("Imposible guardar la página moderna básica " . $short_name);
-                        }
-                    }
-                    unset($new_fsc);
-
-                    // Asegurar permisos para administradores
-                    if (class_exists('fs_access')) {
-                        // Re-instanciar para obtener el nombre real de la página
-                        $temp_fsc = new $full_class();
-                        // Obtener nombre de página: prioridad a getPageData, luego objeto page, luego short_name
-                        $realPageName = $short_name;
-                        if (method_exists($temp_fsc, 'getPageData')) {
-                            $pd = $temp_fsc->getPageData();
-                            if (!empty($pd['name'])) {
-                                $realPageName = $pd['name'];
-                            }
-                        } elseif (isset($temp_fsc->page) && !empty($temp_fsc->page->name)) {
-                            $realPageName = $temp_fsc->page->name;
-                        }
-
-                        $access = new \fs_access();
-                        $access->fs_user = 'admin';
-                        $access->fs_page = $realPageName;
-                        $access->allow_delete = TRUE;
-                        $access->save();
-                    }
-                }
-            }
-        }
+        $this->enableLegacyControllers($plugin_name, $page_list);
+        $this->enableModernControllers($plugin_name, $page_list);
 
         if (!empty($page_list)) {
             $this->core_log->new_message('Se han activado automáticamente las siguientes páginas: ' . implode(', ', $page_list) . '.');
         }
+    }
+
+    private function loadPluginIni($plugin_name, &$isFsFrameworkIni)
+    {
+        $isFsFrameworkIni = false;
+        $fsframework_ini = $this->pluginsPath($plugin_name . '/fsframework.ini');
+        $facturascripts_ini = $this->pluginsPath($plugin_name . '/facturascripts.ini');
+
+        if (file_exists($fsframework_ini)) {
+            $isFsFrameworkIni = true;
+            return parse_ini_file($fsframework_ini);
+        }
+
+        if (file_exists($facturascripts_ini)) {
+            return parse_ini_file($facturascripts_ini);
+        }
+
+        return false;
+    }
+
+    private function applyFs2025PluginCompatibility(array &$plugin)
+    {
+        if (!in_array('facturascripts_support', $GLOBALS['plugins'])) {
+            $plugin['compatible'] = false;
+            $plugin['requires_support'] = ['facturascripts_support'];
+            $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Requiere activar el plugin <b>facturascripts_support</b> primero.';
+            return;
+        }
+
+        $plugin['compatible'] = $this->validate_fs2025_compatibility($plugin['min_version']);
+        $plugin['legacy_warning'] = true;
+        if ($plugin['compatible']) {
+            $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
+            return;
+        }
+
+        $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. Versión soportada insuficiente.';
+    }
+
+    private function applyFs2017PluginCompatibility(array &$plugin)
+    {
+        $has_legacy_support = in_array('legacy_support', $GLOBALS['plugins']);
+        $has_business_data = in_array('business_data', $GLOBALS['plugins']);
+
+        if (!$has_legacy_support || !$has_business_data) {
+            $plugin['compatible'] = false;
+            $missing_plugins = [];
+            if (!$has_legacy_support) {
+                $missing_plugins[] = 'legacy_support';
+            }
+            if (!$has_business_data) {
+                $missing_plugins[] = 'business_data';
+            }
+            $plugin['requires_support'] = $missing_plugins;
+            $plugin['error_msg'] = 'Plugin de FacturaScripts 2017. Requiere activar los plugins <b>legacy_support</b> y <b>business_data</b> (en ese orden) primero.';
+            return;
+        }
+
+        $plugin['compatible'] = $this->validate_fs2017_compatibility($plugin['min_version']);
+        $plugin['legacy_warning'] = true;
+
+        if ($plugin['compatible']) {
+            $plugin['error_msg'] = 'Plugin de FacturaScripts 2017 (arquitectura antigua). Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
+            return;
+        }
+
+        $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. Versión soportada insuficiente.';
+    }
+
+    private function applyPluginCompatibility(array &$plugin, $isFsFrameworkIni)
+    {
+        if ($isFsFrameworkIni) {
+            if ($this->version >= $plugin['min_version']) {
+                $plugin['compatible'] = true;
+            } else {
+                $plugin['error_msg'] = 'Requiere FSFramework ' . $plugin['min_version'];
+            }
+
+            return;
+        }
+
+        if ($plugin['min_version'] >= 2025) {
+            $this->applyFs2025PluginCompatibility($plugin);
+            return;
+        }
+
+        $this->applyFs2017PluginCompatibility($plugin);
     }
 
     private function get_plugin_data($plugin_name)
@@ -1094,20 +1291,13 @@ class fs_plugin_manager
             'legacy_warning' => FALSE,
         ];
 
-        $fsframework_ini = FS_FOLDER . '/plugins/' . $plugin_name . '/fsframework.ini';
-        $facturascripts_ini = FS_FOLDER . '/plugins/' . $plugin_name . '/facturascripts.ini';
-
-        // First, try to read fsframework.ini
-        if (file_exists($fsframework_ini)) {
-            $ini_file = parse_ini_file($fsframework_ini);
-            $plugin['error_msg'] = '';
-        }
-        // If fsframework.ini doesn't exist, try facturascripts.ini
-        elseif (file_exists($facturascripts_ini)) {
-            $ini_file = parse_ini_file($facturascripts_ini);
-        } else {
+        $isFsFrameworkIni = false;
+        $ini_file = $this->loadPluginIni($plugin_name, $isFsFrameworkIni);
+        if (false === $ini_file) {
             return $plugin;
         }
+
+        $plugin['error_msg'] = '';
 
         foreach (['description', 'idplugin', 'min_version', 'update_url', 'version', 'version_url', 'wizard'] as $field) {
             if (isset($ini_file[$field])) {
@@ -1124,65 +1314,10 @@ class fs_plugin_manager
         }
         $plugin['min_version'] = (float) $plugin['min_version'];
 
-        // Check compatibility based on configuration file type and version
-        if (file_exists($fsframework_ini)) {
-            // Plugin nativo FSFramework - validar con VERSION principal
-            if ($this->version >= $plugin['min_version']) {
-                $plugin['compatible'] = true;
-            } else {
-                $plugin['error_msg'] = 'Requiere FSFramework ' . $plugin['min_version'];
-            }
-        } else {
-            // Plugin de FacturaScripts - detectar arquitectura y requerir plugin de soporte
-            if ($plugin['min_version'] >= 2025) {
-                // FS2025 - requiere facturascripts_support activo
-                if (!in_array('facturascripts_support', $GLOBALS['plugins'])) {
-                    $plugin['compatible'] = false;
-                    $plugin['requires_support'] = ['facturascripts_support'];
-                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Requiere activar el plugin <b>facturascripts_support</b> primero.';
-                } else {
-                    // Delegar validación de versión al plugin facturascripts_support
-                    $plugin['compatible'] = $this->validate_fs2025_compatibility($plugin['min_version']);
-                    $plugin['legacy_warning'] = true;
-                    if ($plugin['compatible']) {
-                        $plugin['error_msg'] = 'Plugin de FacturaScripts 2025. Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
-                    } else {
-                        $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. Versión soportada insuficiente.';
-                    }
-                }
-            } else {
-                // FS2017 - requiere legacy_support y business_data activos (en ese orden)
-                $has_legacy_support = in_array('legacy_support', $GLOBALS['plugins']);
-                $has_business_data = in_array('business_data', $GLOBALS['plugins']);
+        $this->applyPluginCompatibility($plugin, $isFsFrameworkIni);
 
-                if (!$has_legacy_support || !$has_business_data) {
-                    $plugin['compatible'] = false;
-                    // Array con los plugins faltantes en el orden correcto de activación
-                    $missing_plugins = [];
-                    if (!$has_legacy_support) {
-                        $missing_plugins[] = 'legacy_support';
-                    }
-                    if (!$has_business_data) {
-                        $missing_plugins[] = 'business_data';
-                    }
-                    $plugin['requires_support'] = $missing_plugins;
-                    $plugin['error_msg'] = 'Plugin de FacturaScripts 2017. Requiere activar los plugins <b>legacy_support</b> y <b>business_data</b> (en ese orden) primero.';
-                } else {
-                    // Delegar validación de versión al plugin legacy_support
-                    $plugin['compatible'] = $this->validate_fs2017_compatibility($plugin['min_version']);
-                    $plugin['legacy_warning'] = true;
-
-                    if ($plugin['compatible']) {
-                        $plugin['error_msg'] = 'Plugin de FacturaScripts 2017 (arquitectura antigua). Aunque se ha mantenido la compatibilidad, no se garantiza al 100%. Se recomienda probarlo en un entorno de pruebas antes de usarlo en producción.';
-                    } else {
-                        $plugin['error_msg'] = 'Requiere FacturaScripts ' . $plugin['min_version'] . '. Versión soportada insuficiente.';
-                    }
-                }
-            }
-        }
-
-        if (file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '/description')) {
-            $plugin['description'] = file_get_contents(FS_FOLDER . '/plugins/' . $plugin_name . '/description');
+        if (file_exists($this->pluginsPath($plugin_name . '/description'))) {
+            $plugin['description'] = file_get_contents($this->pluginsPath($plugin_name . '/description'));
         }
 
         if (isset($ini_file['require']) && $ini_file['require'] != '') {
@@ -1362,27 +1497,15 @@ class fs_plugin_manager
     public function detect_plugin_from_zip($zip_path)
     {
         // Crear carpeta temporal
-        $temp_dir = FS_FOLDER . '/tmp/plugin_detect_temp/';
-        if (!file_exists($temp_dir)) {
-            mkdir($temp_dir, 0777, true);
-        } else {
-            // Limpiar si ya existe
-            fs_file_manager::del_tree($temp_dir);
-            mkdir($temp_dir, 0777, true);
-        }
+        $temp_dir = FS_FOLDER . self::TMP_PLUGIN_DETECT_PATH;
+        $this->clearAndEnsureDirectory($temp_dir);
 
         if (!fs_file_manager::extract_zip_safe($zip_path, $temp_dir)) {
             return false;
         }
 
         // Detectar carpeta del plugin
-        $plugin_folder = null;
-        foreach (fs_file_manager::scan_folder($temp_dir) as $f) {
-            if (is_dir($temp_dir . $f)) {
-                $plugin_folder = $f;
-                break;
-            }
-        }
+        $plugin_folder = $this->getFirstDirectoryFromPath($temp_dir);
 
         if (!$plugin_folder) {
             fs_file_manager::del_tree($temp_dir);

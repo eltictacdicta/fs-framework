@@ -27,6 +27,7 @@ use FSFramework\Security\SafeRedirect;
  */
 class login extends fs_controller
 {
+    private const LOCATION_HEADER = 'Location: ';
 
     public function __construct()
     {
@@ -65,53 +66,89 @@ class login extends fs_controller
      */
     private function process_login_logic()
     {
-        // URL por defecto para redirecciones
         $defaultRedirectUrl = $this->url();
 
-        // Comprobamos si hay variables en sesión, para restaurarlas o si se ha seleccionado otra db
-        if (isset($_SESSION['variable_buffer'])) {
-            foreach ($_SESSION['variable_buffer'] as $key => $value) {
-                ${$key} = $value;
-            }
-
-            unset($_SESSION['variable_buffer']);
-        } else if ($this->multi_db) {
-            if ((isset($_POST['cdb']) && $_POST['cdb'] != FS_DB_NAME) || (isset($_GET['cdb']) && $_GET['cdb'] != FS_DB_NAME)) {
-                $new_db = (isset($_POST['cdb']) ? $_POST['cdb'] : $_GET['cdb']);
-                if ($this->select_db($new_db)) {
-                    $this->user->load_from_session();
-                }
-            }
-        }
+        $this->restoreBufferedVariables();
+        $this->switchDatabaseIfRequested();
 
         if ($this->user->logged_on) {
-            // Redirección segura: valida que la URL sea interna antes de redirigir
-            $safeUrl = SafeRedirect::getFromRequest($defaultRedirectUrl);
-            header('Location: ' . $safeUrl);
-            exit();
-        } else if (isset($_POST['nick']) && isset($_POST['password'])) {
-            if ($this->user->login($_POST['nick'], $_POST['password'])) {
-                if (isset($_POST['keep_login_on']) && $_POST['keep_login_on'] == 'TRUE') {
-                    $this->user->set_cookie();
-                }
+            $this->redirectToSafeUrl($defaultRedirectUrl);
+        }
 
-                // Redirección segura: valida que la URL sea interna antes de redirigir
-                $safeUrl = SafeRedirect::getFromRequest($defaultRedirectUrl);
-                header('Location: ' . $safeUrl);
-                exit();
-            } else {
-                $this->mensaje_login = 'Nick o contraseña incorrectos.';
-            }
-        } elseif (isset($_GET['autologin'])) {
-            if ($this->user->login_from_cookie($_GET['autologin'])) {
-                // Redirección segura: valida que la URL sea interna antes de redirigir
-                $safeUrl = SafeRedirect::getFromRequest($defaultRedirectUrl);
-                header('Location: ' . $safeUrl);
-                exit();
-            }
-        } elseif (isset($_GET['logout'])) {
+        if ($this->handleCredentialLogin($defaultRedirectUrl)) {
+            return;
+        }
+
+        if ($this->handleAutoLogin($defaultRedirectUrl)) {
+            return;
+        }
+
+        if (isset($_GET['logout'])) {
             $this->user->logout();
         }
+    }
+
+    private function restoreBufferedVariables()
+    {
+        if (!isset($_SESSION['variable_buffer'])) {
+            return;
+        }
+
+        foreach ($_SESSION['variable_buffer'] as $key => $value) {
+            $this->{$key} = $value;
+        }
+
+        unset($_SESSION['variable_buffer']);
+    }
+
+    private function switchDatabaseIfRequested()
+    {
+        if (!$this->multi_db) {
+            return;
+        }
+
+        $requestedDb = $_POST['cdb'] ?? ($_GET['cdb'] ?? null);
+        if (!$requestedDb || $requestedDb == FS_DB_NAME) {
+            return;
+        }
+
+        if ($this->select_db($requestedDb)) {
+            $this->user->load_from_session();
+        }
+    }
+
+    private function handleCredentialLogin($defaultRedirectUrl)
+    {
+        if (!isset($_POST['nick'], $_POST['password'])) {
+            return false;
+        }
+
+        if (!$this->user->login($_POST['nick'], $_POST['password'])) {
+            $this->mensaje_login = 'Nick o contraseña incorrectos.';
+            return true;
+        }
+
+        if (isset($_POST['keep_login_on']) && $_POST['keep_login_on'] === 'TRUE') {
+            $this->user->set_cookie();
+        }
+
+        $this->redirectToSafeUrl($defaultRedirectUrl);
+    }
+
+    private function handleAutoLogin($defaultRedirectUrl)
+    {
+        if (!isset($_GET['autologin']) || !$this->user->login_from_cookie($_GET['autologin'])) {
+            return false;
+        }
+
+        $this->redirectToSafeUrl($defaultRedirectUrl);
+    }
+
+    private function redirectToSafeUrl($defaultRedirectUrl)
+    {
+        $safeUrl = SafeRedirect::getFromRequest($defaultRedirectUrl);
+        header(self::LOCATION_HEADER . $safeUrl);
+        exit();
     }
 
     protected function public_core()

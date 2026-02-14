@@ -24,6 +24,7 @@
  */
 class admin_info extends fs_list_controller
 {
+    private const CACHE_MANAGER_CLASS = 'FSFramework\\Cache\\CacheManager';
 
     private $fsvar;
 
@@ -35,7 +36,7 @@ class admin_info extends fs_list_controller
     public function cache_version()
     {
         // Usar el nuevo CacheManager si está disponible
-        if (class_exists('FSFramework\\Cache\\CacheManager')) {
+        if (class_exists(self::CACHE_MANAGER_CLASS)) {
             return \FSFramework\Cache\CacheManager::getInstance()->version();
         }
         // Fallback al sistema legacy
@@ -49,7 +50,7 @@ class admin_info extends fs_list_controller
      */
     public function cache_info()
     {
-        if (class_exists('FSFramework\\Cache\\CacheManager')) {
+        if (class_exists(self::CACHE_MANAGER_CLASS)) {
             return \FSFramework\Cache\CacheManager::getInstance()->getInfo();
         }
         return [

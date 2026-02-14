@@ -32,6 +32,8 @@ class TestModelWithValidation
 
 class ValidatorTraitTest extends TestCase
 {
+    private const TEST_EMAIL = 'test@test.com';
+
     // =====================================================================
     // Validación con atributos
     // =====================================================================
@@ -51,7 +53,7 @@ class ValidatorTraitTest extends TestCase
     {
         $model = new TestModelWithValidation();
         $model->nombre = '';
-        $model->email = 'test@test.com';
+        $model->email = self::TEST_EMAIL;
         $model->saldo = 0;
 
         $this->assertFalse($model->validate());
@@ -65,7 +67,7 @@ class ValidatorTraitTest extends TestCase
     {
         $model = new TestModelWithValidation();
         // nombre es null por defecto
-        $model->email = 'test@test.com';
+        $model->email = self::TEST_EMAIL;
 
         $this->assertFalse($model->validate());
     }
@@ -87,7 +89,7 @@ class ValidatorTraitTest extends TestCase
     {
         $model = new TestModelWithValidation();
         $model->nombre = 'Test';
-        $model->email = 'test@test.com';
+        $model->email = self::TEST_EMAIL;
         $model->saldo = -10.0;
 
         $this->assertFalse($model->validate());

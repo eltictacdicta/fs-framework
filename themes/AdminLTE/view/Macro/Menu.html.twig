@@ -13,16 +13,16 @@
  * @param boolean isActive - Whether this item is active
  #}
 {% macro menuItem(page, isActive) %}
-<li{% if isActive %} class="active"{% endif %}>
-    <a href="{{ page.url() }}">
-        {% if page.icon is defined and page.icon %}
-            <i class="fa fa-{{ page.icon }}" aria-hidden="true"></i>
-        {% else %}
-            <i class="fa fa-circle-o" aria-hidden="true"></i>
-        {% endif %}
-        <span>{{ page.title }}</span>
-    </a>
-</li>
+    <li{% if isActive %} class="active"{% endif %}>
+        <a href="{{ page.url() }}">
+            {% if page.icon is defined and page.icon %}
+                <i class="fa fa-{{ page.icon }}" aria-hidden="true"></i>
+            {% else %}
+                <i class="fa fa-circle-o" aria-hidden="true"></i>
+            {% endif %}
+            <span>{{ page.title }}</span>
+        </a>
+    </li>
 {% endmacro %}
 
 {#
@@ -34,7 +34,7 @@
  #}
 {% macro treeviewMenu(folder, pages, isActive, icon) %}
 <li class="treeview{% if isActive %} active{% endif %}">
-    <a href="#">
+    <a href="#" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }">
         <i class="fa fa-{{ icon|default('folder') }}" aria-hidden="true"></i>
         <span class="text-capitalize">{{ folder }}</span>
         <span class="pull-right-container">
@@ -66,7 +66,7 @@
  #}
 {% macro navbarDropdown(title, icon, items) %}
 <li class="dropdown">
-    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }">
         {% if icon %}<i class="fa fa-{{ icon }}" aria-hidden="true"></i>{% endif %}
         {% if title %}<span class="hidden-xs">{{ title }}</span>{% endif %}
     </a>

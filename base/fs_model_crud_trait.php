@@ -32,6 +32,9 @@
  */
 trait fs_model_crud_trait
 {
+    private const SQL_WHERE = ' WHERE ';
+    private const SQL_SELECT_ALL_FROM = 'SELECT * FROM ';
+
     /**
      * Cache de campos de la tabla
      * @var array
@@ -181,9 +184,12 @@ trait fs_model_crud_trait
     public function get($code, string $column = '')
     {
         $col = $column ?: $this->primaryColumn();
+        if (!in_array($col, $this->getFields(), true)) {
+            return false;
+        }
         
-        $sql = "SELECT * FROM " . $this->table_name . 
-               " WHERE " . $col . " = " . $this->var2str($code);
+        $sql = self::SQL_SELECT_ALL_FROM . $this->table_name . 
+            self::SQL_WHERE . $col . " = " . $this->var2str($code);
         
         $data = $this->db->select($sql);
         
@@ -286,7 +292,7 @@ trait fs_model_crud_trait
      */
     public function all(string $orderBy = '', string $order = 'ASC'): array
     {
-        $sql = "SELECT * FROM " . $this->table_name;
+        $sql = self::SQL_SELECT_ALL_FROM . $this->table_name;
         
         if ($orderBy) {
             $sql .= " ORDER BY " . $orderBy . " " . $order;
@@ -316,7 +322,7 @@ trait fs_model_crud_trait
      */
     public function allPaginated(int $offset = 0, int $limit = FS_ITEM_LIMIT, string $orderBy = '', string $order = 'ASC'): array
     {
-        $sql = "SELECT * FROM " . $this->table_name;
+        $sql = self::SQL_SELECT_ALL_FROM . $this->table_name;
         
         if ($orderBy) {
             $sql .= " ORDER BY " . $orderBy . " " . $order;
@@ -358,8 +364,33 @@ trait fs_model_crud_trait
      */
     public function findBy(string $column, $value, string $operator = '='): array
     {
-        $sql = "SELECT * FROM " . $this->table_name . 
-               " WHERE " . $column . " " . $operator . " " . $this->var2str($value);
+        $allowedColumns = $this->getFields();
+        if (!in_array($column, $allowedColumns, true)) {
+            return [];
+        }
+
+        $normalizedOperator = strtoupper(trim($operator));
+        $allowedOperators = ['=', '!=', '<', '>', '<=', '>=', 'LIKE', 'IN'];
+        if (!in_array($normalizedOperator, $allowedOperators, true)) {
+            return [];
+        }
+
+        if ($normalizedOperator === 'IN') {
+            if (!is_array($value) || empty($value)) {
+                return [];
+            }
+
+            $escapedValues = [];
+            foreach ($value as $item) {
+                $escapedValues[] = $this->var2str($item);
+            }
+
+            $sql = self::SQL_SELECT_ALL_FROM . $this->table_name .
+                self::SQL_WHERE . $column . " IN (" . implode(', ', $escapedValues) . ")";
+        } else {
+            $sql = self::SQL_SELECT_ALL_FROM . $this->table_name .
+                self::SQL_WHERE . $column . " " . $normalizedOperator . " " . $this->var2str($value);
+        }
 
         $data = $this->db->select($sql);
         $result = [];
@@ -383,8 +414,12 @@ trait fs_model_crud_trait
      */
     public function findOneBy(string $column, $value)
     {
-        $sql = "SELECT * FROM " . $this->table_name . 
-               " WHERE " . $column . " = " . $this->var2str($value) . " LIMIT 1";
+        if (!in_array($column, $this->getFields(), true)) {
+            return false;
+        }
+
+        $sql = self::SQL_SELECT_ALL_FROM . $this->table_name . 
+            self::SQL_WHERE . $column . " = " . $this->var2str($value) . " LIMIT 1";
 
         $data = $this->db->select($sql);
         

@@ -31,6 +31,8 @@
  */
 class fs_secure_chunked_upload
 {
+    private const SAFE_TOKEN_REGEX = '/[^a-zA-Z0-9_-]/';
+
     /**
      * Directorio destino para los archivos
      * @var string
@@ -108,8 +110,8 @@ class fs_secure_chunked_upload
         $this->request = \FSFramework\Core\Kernel::request();
 
         // Guardar configuración
-        $this->context_id = preg_replace('/[^a-zA-Z0-9_-]/', '', $context_id);
-        $this->user_nick = preg_replace('/[^a-zA-Z0-9_-]/', '', $user_nick);
+        $this->context_id = preg_replace(self::SAFE_TOKEN_REGEX, '', $context_id);
+        $this->user_nick = preg_replace(self::SAFE_TOKEN_REGEX, '', $user_nick);
         $this->upload_dir = $this->sanitize_path($upload_dir);
         $this->allowed_extensions = array_map('strtolower', $allowed_extensions);
         $this->max_file_size = $max_file_size_mb * 1024 * 1024;
@@ -137,33 +139,22 @@ class fs_secure_chunked_upload
      */
     public function handle_chunk($custom_filename = null)
     {
-        // Obtener parámetros de Resumable.js
-        $resumable_identifier = $this->get_param('resumableIdentifier');
-        $resumable_filename = $this->get_param('resumableFilename');
-        $resumable_chunk_number = (int) $this->get_param('resumableChunkNumber');
-        $resumable_total_chunks = (int) $this->get_param('resumableTotalChunks');
-        $resumable_total_size = (int) $this->get_param('resumableTotalSize');
-
-        // Sanitizar nombres para evitar Path Traversal
-        if ($custom_filename) {
-            $custom_filename = $this->sanitize_filename($custom_filename);
-        }
-        $resumable_filename = $this->sanitize_filename($resumable_filename);
+        $chunkParams = $this->getChunkParams($custom_filename);
 
         // Manejar petición GET (verificar si chunk existe)
         if ($this->request->isMethod('GET')) {
-            return $this->check_chunk_exists($resumable_identifier, $resumable_chunk_number);
+            return $this->check_chunk_exists($chunkParams['identifier'], $chunkParams['chunk_number']);
         }
 
         // Manejar petición POST (subir chunk)
         if ($this->request->isMethod('POST')) {
             return $this->receive_chunk(
-                $resumable_identifier,
-                $resumable_filename,
-                $resumable_chunk_number,
-                $resumable_total_chunks,
-                $resumable_total_size,
-                $custom_filename
+                $chunkParams['identifier'],
+                $chunkParams['filename'],
+                $chunkParams['chunk_number'],
+                $chunkParams['total_chunks'],
+                $chunkParams['total_size'],
+                $chunkParams['custom_filename']
             );
         }
 
@@ -198,28 +189,12 @@ class fs_secure_chunked_upload
      */
     protected function receive_chunk($identifier, $filename, $chunk_number, $total_chunks, $total_size, $custom_filename)
     {
-        // Validar extensión
-        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        if (!empty($this->allowed_extensions) && !in_array($ext, $this->allowed_extensions)) {
-            $this->log_event('INVALID_EXTENSION', [
-                'extension' => $ext,
-                'filename' => $filename
-            ]);
-            return $this->error_response('Tipo de archivo no permitido: ' . $ext);
+        $validationError = $this->validateChunkRequest($filename, $total_size);
+        if ($validationError !== null) {
+            return $this->error_response($validationError);
         }
 
-        // Validar tamaño total
-        if ($total_size > $this->max_file_size) {
-            $max_mb = round($this->max_file_size / 1024 / 1024);
-            return $this->error_response("El archivo excede el tamaño máximo de {$max_mb}MB");
-        }
-
-        // Verificar que se recibió el archivo usando Symfony Request
         $file = $this->request->files->get('file');
-        if (!$file || !$file->isValid()) {
-            $error_message = $file ? $file->getErrorMessage() : 'No se subió ningún archivo';
-            return $this->error_response('Error al recibir el chunk: ' . $error_message);
-        }
 
         // Crear directorio para chunks de este archivo
         $chunk_dir = $this->temp_dir . $this->sanitize_identifier($identifier) . '/';
@@ -234,62 +209,8 @@ class fs_secure_chunked_upload
             return $this->error_response('Error al guardar el chunk: ' . $e->getMessage());
         }
 
-        // Verificar si todos los chunks están completos
         if ($this->all_chunks_received($identifier, $total_chunks)) {
-            // Combinar chunks
-            $final_filename = $custom_filename ?: $filename;
-            $final_filename = $this->sanitize_filename($final_filename);
-            $final_path = $this->upload_dir . $final_filename;
-
-            if ($this->combine_chunks($identifier, $total_chunks, $final_path)) {
-                // Limpiar chunks temporales
-                $this->cleanup_chunks($identifier);
-
-                // Validar archivo final (firma, contenido)
-                if (!$this->validate_final_file($final_path)) {
-                    @unlink($final_path);
-                    return $this->error_response('El archivo no pasó la validación de seguridad');
-                }
-
-                $result = [
-                    'success' => true,
-                    'complete' => true,
-                    'file_path' => $final_path,
-                    'filename' => $final_filename,
-                    'filesize' => filesize($final_path),
-                    'message' => 'Archivo subido correctamente'
-                ];
-
-                // Ejecutar callback si está definido
-                if ($this->on_complete_callback !== null) {
-                    try {
-                        $callback_result = call_user_func(
-                            $this->on_complete_callback,
-                            $final_path,
-                            $final_filename,
-                            $result['filesize'],
-                            $this->get_custom_params(),
-                            $this->user_nick
-                        );
-                        if (is_array($callback_result)) {
-                            $result = array_merge($result, $callback_result);
-                        }
-                    } catch (\Exception $e) {
-                        @unlink($final_path);
-                        return $this->error_response($e->getMessage());
-                    }
-                }
-
-                $this->log_event('UPLOAD_COMPLETE', [
-                    'filename' => $final_filename,
-                    'size' => $result['filesize'],
-                    'context' => $this->context_id
-                ], 'INFO');
-
-                return $result;
-            } else {
-                return $this->error_response('Error al combinar los chunks');
-            }
+            return $this->finalizeUpload($identifier, $total_chunks, $filename, $custom_filename);
         }
 
         // Chunk recibido pero archivo incompleto
@@ -425,21 +346,7 @@ class fs_secure_chunked_upload
         if (is_dir($this->temp_dir)) {
             $directories = glob($this->temp_dir . '*', GLOB_ONLYDIR);
             foreach ($directories as $dir) {
-                $files = glob($dir . '/*');
-                $all_old = true;
-
-                foreach ($files as $file) {
-                    if (is_file($file)) {
-                        if (filemtime($file) < $threshold) {
-                            @unlink($file);
-                            $count++;
-                        } else {
-                            $all_old = false;
-                        }
-                    }
-                }
-
-                if ($all_old && count(glob($dir . '/*')) === 0) {
+                if ($this->cleanup_orphan_directory($dir, $threshold, $count)) {
                     @rmdir($dir);
                 }
             }
@@ -471,7 +378,7 @@ class fs_secure_chunked_upload
      */
     private function sanitize_identifier($identifier)
     {
-        return preg_replace('/[^a-zA-Z0-9_-]/', '', $identifier);
+        return preg_replace(self::SAFE_TOKEN_REGEX, '', $identifier);
     }
 
     /**
@@ -505,9 +412,139 @@ class fs_secure_chunked_upload
     private function sanitize_path($path)
     {
         $path = str_replace('\\', '/', $path);
-        $path = preg_replace('/\.\.\//', '', $path);
-        $path = preg_replace('/\.\.\\\\/', '', $path);
+        $previous = null;
+
+        while ($previous !== $path) {
+            $previous = $path;
+            $path = str_replace('../', '', $path);
+            $path = str_replace('/./', '/', $path);
+            $path = preg_replace('#/+#', '/', $path);
+        }
+
+        $path = ltrim($path, '/');
         return rtrim($path, '/') . '/';
+    }
+
+    private function getChunkParams($custom_filename)
+    {
+        return [
+            'identifier' => $this->get_param('resumableIdentifier'),
+            'filename' => $this->sanitize_filename($this->get_param('resumableFilename')),
+            'chunk_number' => (int) $this->get_param('resumableChunkNumber'),
+            'total_chunks' => (int) $this->get_param('resumableTotalChunks'),
+            'total_size' => (int) $this->get_param('resumableTotalSize'),
+            'custom_filename' => $custom_filename ? $this->sanitize_filename($custom_filename) : null,
+        ];
+    }
+
+    private function validateChunkRequest($filename, $total_size)
+    {
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if (!empty($this->allowed_extensions) && !in_array($ext, $this->allowed_extensions)) {
+            $this->log_event('INVALID_EXTENSION', [
+                'extension' => $ext,
+                'filename' => $filename
+            ]);
+            return 'Tipo de archivo no permitido: ' . $ext;
+        }
+
+        if ($total_size > $this->max_file_size) {
+            $max_mb = round($this->max_file_size / 1024 / 1024);
+            return "El archivo excede el tamaño máximo de {$max_mb}MB";
+        }
+
+        $file = $this->request->files->get('file');
+        if (!$file || !$file->isValid()) {
+            $error_message = $file ? $file->getErrorMessage() : 'No se subió ningún archivo';
+            return 'Error al recibir el chunk: ' . $error_message;
+        }
+
+        return null;
+    }
+
+    private function finalizeUpload($identifier, $total_chunks, $filename, $custom_filename)
+    {
+        $final_filename = $custom_filename ?: $filename;
+        $final_filename = $this->sanitize_filename($final_filename);
+        $final_path = $this->upload_dir . $final_filename;
+
+        if (!$this->combine_chunks($identifier, $total_chunks, $final_path)) {
+            return $this->error_response('Error al combinar los chunks');
+        }
+
+        $this->cleanup_chunks($identifier);
+        if (!$this->validate_final_file($final_path)) {
+            @unlink($final_path);
+            return $this->error_response('El archivo no pasó la validación de seguridad');
+        }
+
+        $result = [
+            'success' => true,
+            'complete' => true,
+            'file_path' => $final_path,
+            'filename' => $final_filename,
+            'filesize' => filesize($final_path),
+            'message' => 'Archivo subido correctamente'
+        ];
+
+        $callbackResult = $this->executeOnCompleteCallback($final_path, $final_filename, $result['filesize']);
+        if ($callbackResult === false) {
+            @unlink($final_path);
+            return $this->error_response($this->last_error);
+        }
+        if (is_array($callbackResult)) {
+            $result = array_merge($result, $callbackResult);
+        }
+
+        $this->log_event('UPLOAD_COMPLETE', [
+            'filename' => $final_filename,
+            'size' => $result['filesize'],
+            'context' => $this->context_id
+        ], 'INFO');
+
+        return $result;
+    }
+
+    private function executeOnCompleteCallback($final_path, $final_filename, $filesize)
+    {
+        if ($this->on_complete_callback === null) {
+            return null;
+        }
+
+        try {
+            return call_user_func(
+                $this->on_complete_callback,
+                $final_path,
+                $final_filename,
+                $filesize,
+                $this->get_custom_params(),
+                $this->user_nick
+            );
+        } catch (\Exception $e) {
+            $this->last_error = $e->getMessage();
+            return false;
+        }
+    }
+
+    private function cleanup_orphan_directory($dir, $threshold, &$count)
+    {
+        $files = glob($dir . '/*');
+        $all_old = true;
+
+        foreach ($files as $file) {
+            if (!is_file($file)) {
+                continue;
+            }
+
+            if (filemtime($file) < $threshold) {
+                @unlink($file);
+                $count++;
+            } else {
+                $all_old = false;
+            }
+        }
+
+        return $all_old && count(glob($dir . '/*')) === 0;
     }
 
     /**

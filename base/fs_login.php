@@ -207,57 +207,72 @@ class fs_login
         }
 
         $user = $this->user_model->get($nick);
-        if ($user && $user->enabled) {
-            // Validación robusta
-            // Si la clave coincide, todo perfecto
-            if ($user->log_key == $logkey) {
-                $user->logged_on = TRUE;
-                $user->update_login();
-
-                // Aseguramos que la sesión de Symfony tenga los datos actualizados
-                $this->save_session_data($user);
-
-                $controller_user = $user;
-                return TRUE;
-            }
-
-            // Si la clave no coincide, PERO tenemos una sesión PHP válida activa para este usuario
-            // (por ejemplo, race condition donde la BBDD rotó la clave pero la cookie vieja llegó)
-            // podemos ser tolerantes si la IP es segura.
-            if ($this->session->get('user_nick') === $user->nick && $this->session->get('user_logged_in') === true) {
-                // La sesión PHP dice que es él. Confiamos en la sesión de servidor sobre la cookie antigua.
-                // Actualizamos la cookie/clave del usuario a la nueva
-                $controller_user = $user;
-                $controller_user->logged_on = TRUE;
-                $this->save_session_data($user);
-                return TRUE;
-            }
-
-            // Si llegamos aquí, realmente la clave no es válida y no hay sesión confiable
-            if (!is_null($user->log_key)) {
-                $msg = '¡Sesión no válida! ';
-                if ($user->last_ip == fs_get_ip()) {
-                    // Auto-recuperación silenciosa para mismo equipo (lo que pidió el usuario implícitamente)
-                    // Si es la misma IP, simplemente le pedimos loguearse de nuevo sin drama
-                    $this->log_out(TRUE);
-                    return FALSE;
-                } else if (fs_is_local_ip($user->last_ip) && fs_is_local_ip(fs_get_ip())) {
-                    $msg .= 'Acceso detectado desde otro equipo de la red local (' . $user->last_ip . ').';
-                } else {
-                    $msg .= 'Alguien ha accedido a esta cuenta desde otra ubicación (IP: ' . $user->last_ip . ').';
-                }
-
-                $this->core_log->new_message($msg);
-                $this->log_out();
-            }
-        } else {
+        if (!$user || !$user->enabled) {
             $this->core_log->new_error('¡El usuario ' . $nick . ' no existe o está desactivado!');
             $this->log_out(TRUE);
             $this->user_model->clean_cache(TRUE);
             $this->cache->clean();
+            return $controller_user->logged_on;
         }
 
+        if ($this->applyValidCookieLogin($user, $logkey, $controller_user)) {
+            return TRUE;
+        }
+
+        if ($this->applyTrustedSessionLogin($user, $controller_user)) {
+            return TRUE;
+        }
+
+        $this->handleInvalidCookieSession($user);
+
         return $controller_user->logged_on;
+    }
+
+    private function applyValidCookieLogin($user, $logkey, &$controller_user)
+    {
+        if (!hash_equals((string) ($user->log_key ?? ''), (string) ($logkey ?? ''))) {
+            return false;
+        }
+
+        $user->logged_on = TRUE;
+        $user->update_login();
+        $this->save_session_data($user);
+        $controller_user = $user;
+        return true;
+    }
+
+    private function applyTrustedSessionLogin($user, &$controller_user)
+    {
+        if ($this->session->get('user_nick') !== $user->nick || $this->session->get('user_logged_in') !== true) {
+            return false;
+        }
+
+        $controller_user = $user;
+        $controller_user->logged_on = TRUE;
+        $this->save_session_data($user);
+        return true;
+    }
+
+    private function handleInvalidCookieSession($user)
+    {
+        if (is_null($user->log_key)) {
+            return;
+        }
+
+        $msg = '¡Sesión no válida! ';
+        if ($user->last_ip == fs_get_ip()) {
+            $this->log_out(TRUE);
+            return;
+        }
+
+        if (fs_is_local_ip($user->last_ip) && fs_is_local_ip(fs_get_ip())) {
+            $msg .= 'Acceso detectado desde otro equipo de la red local (' . $user->last_ip . ').';
+        } else {
+            $msg .= 'Alguien ha accedido a esta cuenta desde otra ubicación (IP: ' . $user->last_ip . ').';
+        }
+
+        $this->core_log->new_message($msg);
+        $this->log_out();
     }
 
     /**

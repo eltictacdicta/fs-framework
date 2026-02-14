@@ -24,6 +24,8 @@
  */
 class fs_departamento extends fs_model
 {
+    private const SQL_SELECT_ALL_FROM = 'SELECT * FROM ';
+    private const SQL_WHERE = ' WHERE ';
 
     public $coddepartamento;
     public $nombre;
@@ -88,7 +90,7 @@ class fs_departamento extends fs_model
 
     public function get($coddepartamento)
     {
-        $data = $this->db->select("SELECT * FROM " . $this->table_name . " WHERE coddepartamento = " . $this->var2str($coddepartamento) . ";");
+        $data = $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "coddepartamento = " . $this->var2str($coddepartamento) . ";");
         if ($data) {
             return new fs_departamento($data[0]);
         }
@@ -152,7 +154,7 @@ class fs_departamento extends fs_model
             return FALSE;
         }
 
-        return $this->db->select("SELECT * FROM " . $this->table_name . " WHERE coddepartamento = " . $this->var2str($this->coddepartamento) . ";");
+        return $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "coddepartamento = " . $this->var2str($this->coddepartamento) . ";");
     }
 
     public function test()
@@ -214,7 +216,7 @@ class fs_departamento extends fs_model
     {
         $lista = [];
 
-        $sql = "SELECT * FROM " . $this->table_name . " ORDER BY nombre ASC;";
+        $sql = self::SQL_SELECT_ALL_FROM . $this->table_name . " ORDER BY nombre ASC;";
         $data = $this->db->select($sql);
         if ($data) {
             foreach ($data as $d) {
@@ -229,7 +231,7 @@ class fs_departamento extends fs_model
     {
         $lista = [];
 
-        $sql = "SELECT * FROM " . $this->table_name . " WHERE activo = TRUE ORDER BY nombre ASC;";
+        $sql = self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "activo = TRUE ORDER BY nombre ASC;";
         $data = $this->db->select($sql);
         if ($data) {
             foreach ($data as $d) {
@@ -246,8 +248,8 @@ class fs_departamento extends fs_model
 
         // Instanciar el modelo para asegurar que la tabla existe
         $du = new fs_departamento_user();
-        $sql = "SELECT * FROM " . $this->table_name . " WHERE coddepartamento IN "
-            . "(SELECT coddepartamento FROM " . $du->table_name() . " WHERE fs_user = " . $this->var2str($nick) . ");";
+        $sql = self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "coddepartamento IN "
+            . "(SELECT coddepartamento FROM " . $du->table_name() . self::SQL_WHERE . "fs_user = " . $this->var2str($nick) . ");";
         $data = $this->db->select($sql);
         if ($data) {
             foreach ($data as $d) {
@@ -269,8 +271,8 @@ class fs_departamento extends fs_model
 
         // Instanciar el modelo para asegurar que la tabla existe
         $du = new fs_departamento_user();
-        $sql = "SELECT * FROM " . $this->table_name . " WHERE coddepartamento IN "
-            . "(SELECT coddepartamento FROM " . $du->table_name() . " WHERE fs_user = " . $this->var2str($nick) . " AND es_admin = TRUE);";
+        $sql = self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "coddepartamento IN "
+            . "(SELECT coddepartamento FROM " . $du->table_name() . self::SQL_WHERE . "fs_user = " . $this->var2str($nick) . " AND es_admin = TRUE);";
         $data = $this->db->select($sql);
         if ($data) {
             foreach ($data as $d) {

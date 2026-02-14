@@ -26,6 +26,8 @@
  */
 class fs_rol_user extends fs_model
 {
+    private const SQL_SELECT_ALL_FROM = 'SELECT * FROM ';
+    private const SQL_WHERE = ' WHERE ';
 
     public $codrol;
     public $fs_user;
@@ -53,8 +55,8 @@ class fs_rol_user extends fs_model
             return FALSE;
         }
 
-        return $this->db->select("SELECT * FROM " . $this->table_name
-                . " WHERE codrol = " . $this->var2str($this->codrol)
+        return $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name
+            . self::SQL_WHERE . "codrol = " . $this->var2str($this->codrol)
                 . " AND fs_user = " . $this->var2str($this->fs_user) . ";");
     }
 
@@ -82,7 +84,7 @@ class fs_rol_user extends fs_model
     {
         $accesslist = [];
 
-        $data = $this->db->select("SELECT * FROM " . $this->table_name . " WHERE codrol = " . $this->var2str($codrol) . ";");
+        $data = $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "codrol = " . $this->var2str($codrol) . ";");
         if ($data) {
             foreach ($data as $a) {
                 $accesslist[] = new fs_rol_user($a);
@@ -96,7 +98,7 @@ class fs_rol_user extends fs_model
     {
         $list = [];
 
-        $data = $this->db->select("SELECT * FROM " . $this->table_name . " WHERE fs_user = " . $this->var2str($nick) . ";");
+        $data = $this->db->select(self::SQL_SELECT_ALL_FROM . $this->table_name . self::SQL_WHERE . "fs_user = " . $this->var2str($nick) . ";");
         if ($data) {
             foreach ($data as $a) {
                 $list[] = new fs_rol_user($a);

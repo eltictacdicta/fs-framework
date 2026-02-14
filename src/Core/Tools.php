@@ -54,10 +54,13 @@ class Tools
                 }
             }
 
-            private static function interpolate($msg, $params)
+            private static function interpolate($msg, $params = [])
             {
+                $message = is_scalar($msg) || (is_object($msg) && method_exists($msg, '__toString'))
+                    ? (string) $msg
+                    : '';
                 if (empty($params) || !is_iterable($params)) {
-                    return $msg;
+                    return $message;
                 }
                 $replacements = [];
                 foreach ($params as $key => $val) {
@@ -66,7 +69,7 @@ class Tools
                         ? (string) $val
                         : '';
                 }
-                return strtr($msg, $replacements);
+                return strtr($message, $replacements);
             }
         };
     }

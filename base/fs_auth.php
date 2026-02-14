@@ -27,6 +27,9 @@ require_once __DIR__ . '/fs_session_manager.php';
  */
 class fs_auth
 {
+    private const ADMIN_HOME_URL = 'index.php?page=admin_home';
+    private const LEGACY_SAMESITE_PATH = '/; SameSite=Lax';
+
     /**
      * Usuario actual cacheado
      * @var fs_user|null
@@ -310,7 +313,7 @@ class fs_auth
      * @param string $redirectTo URL de redirección
      * @return void
      */
-    public static function requirePermission($pageName, $redirectTo = 'index.php?page=admin_home')
+    public static function requirePermission($pageName, $redirectTo = self::ADMIN_HOME_URL)
     {
         self::requireAuth();
 
@@ -326,7 +329,7 @@ class fs_auth
      * @param string $redirectTo URL de redirección
      * @return void
      */
-    public static function requireAdmin($redirectTo = 'index.php?page=admin_home')
+    public static function requireAdmin($redirectTo = self::ADMIN_HOME_URL)
     {
         self::requireAuth();
 
@@ -377,7 +380,7 @@ class fs_auth
      * @param string $default URL por defecto
      * @return string
      */
-    public static function getIntendedUrl($default = 'index.php?page=admin_home')
+    public static function getIntendedUrl($default = self::ADMIN_HOME_URL)
     {
         $url = fs_session_manager::get('_intended_url', $default);
         fs_session_manager::remove('_intended_url');
@@ -392,7 +395,7 @@ class fs_auth
      * @param string $redirectTo URL de redirección
      * @return bool False si la autenticación falla
      */
-    public static function authenticateAndRedirect($nick, $password, $redirectTo = 'index.php?page=admin_home')
+    public static function authenticateAndRedirect($nick, $password, $redirectTo = self::ADMIN_HOME_URL)
     {
         if (self::attempt($nick, $password)) {
             $redirect = self::getIntendedUrl($redirectTo);
@@ -489,8 +492,8 @@ class fs_auth
                 'samesite' => 'Lax'
             ]);
         } else {
-            setcookie('user', $user->nick, $expire, '/; SameSite=Lax', '', $secure, true);
-            setcookie('logkey', $user->log_key, $expire, '/; SameSite=Lax', '', $secure, true);
+            setcookie('user', $user->nick, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+            setcookie('logkey', $user->log_key, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
         }
     }
 
@@ -520,8 +523,8 @@ class fs_auth
                 'samesite' => 'Lax'
             ]);
         } else {
-            setcookie('user', '', $expire, '/; SameSite=Lax', '', $secure, true);
-            setcookie('logkey', '', $expire, '/; SameSite=Lax', '', $secure, true);
+            setcookie('user', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+            setcookie('logkey', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
         }
     }
 

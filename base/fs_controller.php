@@ -669,26 +669,35 @@ class fs_controller extends fs_app
         );
 
         /// ahora debemos comprobar si guardar o no
-        if ($name !== 'fs_controller') {
-            $page = $this->page->get($name);
-            if ($page) {
-                /// la página ya existe ¿Actualizamos?
-                if ($page->title != $title || $page->folder != $folder || $page->show_on_menu != $shmenu || $page->important != $important) {
-                    error_log("Updating page $name: show_on_menu from " . ($page->show_on_menu ? 'TRUE' : 'FALSE') . " to " . ($shmenu ? 'TRUE' : 'FALSE'));
-                    $page->title = $title;
-                    $page->folder = $folder;
-                    $page->show_on_menu = $shmenu;
-                    $page->important = $important;
-                    $page->save();
-                }
-
-                $this->page = $page;
-            } else {
-                /// la página no existe, guardamos.
-                error_log("Creating new page $name with show_on_menu = " . ($shmenu ? 'TRUE' : 'FALSE'));
-                $this->page->save();
-            }
+        if ($name === 'fs_controller') {
+            return;
         }
+
+        $page = $this->page->get($name);
+        if (!$page) {
+            error_log("Creating new page $name with show_on_menu = " . ($shmenu ? 'TRUE' : 'FALSE'));
+            $this->page->save();
+            return;
+        }
+
+        if ($this->mustUpdatePage($page, $title, $folder, $shmenu, $important)) {
+            error_log("Updating page $name: show_on_menu from " . ($page->show_on_menu ? 'TRUE' : 'FALSE') . " to " . ($shmenu ? 'TRUE' : 'FALSE'));
+            $page->title = $title;
+            $page->folder = $folder;
+            $page->show_on_menu = $shmenu;
+            $page->important = $important;
+            $page->save();
+        }
+
+        $this->page = $page;
+    }
+
+    private function mustUpdatePage($page, $title, $folder, $shmenu, $important)
+    {
+        return $page->title != $title
+            || $page->folder != $folder
+            || $page->show_on_menu != $shmenu
+            || $page->important != $important;
     }
 
     private function load_extensions()

@@ -310,59 +310,65 @@ class fs_mysql extends fs_db_engine
      */
     public function exec($sql, $transaction = TRUE, $params = [])
     {
-        $i = 0;
         if (!self::$link) {
             $this->connect();
         }
 
-        $result = FALSE;
-        if (self::$link) {
-            /// añadimos la consulta sql al historial
-            self::$core_log->new_sql($sql);
+        if (!self::$link) {
+            return FALSE;
+        }
 
-            if ($transaction) {
-                $this->begin_transaction();
-            }
+        self::$core_log->new_sql($sql);
+        if ($transaction) {
+            $this->begin_transaction();
+        }
 
-            try {
-                if (!empty($params) && method_exists(self::$link, 'execute_query')) {
-                    /// Use execute_query for parameterized execution
-                    $stmt = self::$link->execute_query($sql, $params);
-                    $result = TRUE;
-                } else if (self::$link->multi_query($sql)) {
-                    do {
-                        $i++;
-                    } while (self::$link->more_results() && self::$link->next_result());
-                    $result = TRUE;
-                }
-            } catch (mysqli_sql_exception $e) {
-                self::$last_error = $e->getMessage();
-                $error = 'Error al ejecutar la consulta ' . $i . ': ' . self::$last_error .
-                    '. La secuencia ocupa la posición ' . count(self::$core_log->get_sql_history());
-                self::$core_log->new_error($error);
-                self::$core_log->save($error);
-            }
+        $queryIndex = 0;
+        $result = $this->execute_statement($sql, $params, $queryIndex);
+        if (self::$link->errno && !$result) {
+            self::$last_error = self::$link->error;
+            $this->log_exec_error($queryIndex, self::$last_error);
+        } elseif ($result) {
+            $result = TRUE;
+        }
 
-            if (self::$link->errno && !$result) {
-                self::$last_error = self::$link->error;
-                $error = 'Error al ejecutar la consulta ' . $i . ': ' . self::$last_error .
-                    '. La secuencia ocupa la posición ' . count(self::$core_log->get_sql_history());
-                self::$core_log->new_error($error);
-                self::$core_log->save($error);
-            } else {
-                $result = TRUE;
-            }
-
-            if ($transaction) {
-                if ($result) {
-                    $this->commit();
-                } else {
-                    $this->rollback();
-                }
-            }
+        if ($transaction) {
+            $result ? $this->commit() : $this->rollback();
         }
 
         return $result;
+    }
+
+    private function execute_statement($sql, $params, &$queryIndex)
+    {
+        try {
+            if (!empty($params) && method_exists(self::$link, 'execute_query')) {
+                $result = self::$link->execute_query($sql, $params);
+                return $result !== FALSE;
+            }
+
+            if (!self::$link->multi_query($sql)) {
+                return FALSE;
+            }
+
+            do {
+                $queryIndex++;
+            } while (self::$link->more_results() && self::$link->next_result());
+
+            return TRUE;
+        } catch (mysqli_sql_exception $e) {
+            self::$last_error = $e->getMessage();
+            $this->log_exec_error($queryIndex, self::$last_error);
+            return FALSE;
+        }
+    }
+
+    private function log_exec_error($queryIndex, $message)
+    {
+        $error = 'Error al ejecutar la consulta ' . $queryIndex . ': ' . $message
+            . '. La secuencia ocupa la posición ' . count(self::$core_log->get_sql_history());
+        self::$core_log->new_error($error);
+        self::$core_log->save($error);
     }
 
     /**
@@ -669,29 +675,47 @@ class fs_mysql extends fs_db_engine
     private function compare_data_types($db_type, $xml_type)
     {
         if (FS_CHECK_DB_TYPES != 1) {
-            /// si está desactivada la comprobación de tipos, devolvemos que son iguales.
             return TRUE;
-        } else if ($db_type == $xml_type) {
+        }
+
+        if ($db_type == $xml_type || strtolower($xml_type) == 'serial') {
             return TRUE;
-        } else if (strtolower($xml_type) == 'serial') {
+        }
+
+        if ($db_type == 'tinyint(1)' && $xml_type == 'boolean') {
             return TRUE;
-        } else if ($db_type == 'tinyint(1)' && $xml_type == 'boolean') {
+        }
+
+        if (substr($db_type, 0, 3) == 'int' && strtolower($xml_type) == 'integer') {
             return TRUE;
-        } else if (substr($db_type, 0, 3) == 'int' && strtolower($xml_type) == 'integer') {
+        }
+
+        if (substr($db_type, 0, 6) == 'double' && $xml_type == 'double precision') {
             return TRUE;
-        } else if (substr($db_type, 0, 6) == 'double' && $xml_type == 'double precision') {
+        }
+
+        if (substr($db_type, 0, 4) == 'time' && substr($xml_type, 0, 4) == 'time') {
             return TRUE;
-        } else if (substr($db_type, 0, 4) == 'time' && substr($xml_type, 0, 4) == 'time') {
+        }
+
+        if ($this->same_character_length($db_type, $xml_type, 'varchar(', 8)
+            || $this->same_character_length($db_type, $xml_type, 'char(', 5)) {
             return TRUE;
-        } else if (substr($db_type, 0, 8) == 'varchar(' && substr($xml_type, 0, 18) == 'character varying(') {
-            /// comprobamos las longitudes
-            return (substr($db_type, 8, -1) == substr($xml_type, 18, -1));
-        } else if (substr($db_type, 0, 5) == 'char(' && substr($xml_type, 0, 18) == 'character varying(') {
-            /// comprobamos las longitudes
-            return (substr($db_type, 5, -1) == substr($xml_type, 18, -1));
         }
 
         return FALSE;
+    }
+
+    private function same_character_length($dbType, $xmlType, $prefix, $start)
+    {
+        $xmlPrefix = $prefix === 'char(' ? 'character(' : 'character varying(';
+        $xmlStart = strlen($xmlPrefix);
+
+        if (substr($dbType, 0, strlen($prefix)) != $prefix || substr($xmlType, 0, $xmlStart) != $xmlPrefix) {
+            return false;
+        }
+
+        return substr($dbType, $start, -1) == substr($xmlType, $xmlStart, -1);
     }
 
     /**

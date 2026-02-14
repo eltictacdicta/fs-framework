@@ -59,6 +59,9 @@ class UploadedFile
             // fall through
             case 'k':
                 $value *= 1024;
+                break;
+            default:
+                break;
         }
 
         return $value;

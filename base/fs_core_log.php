@@ -48,6 +48,7 @@ use Psr\Log\LogLevel;
  */
 class fs_core_log
 {
+    private const LOG_DATETIME_FORMAT = 'Y-m-d H:i:s';
 
     /**
      * Nombre del controlador que inicia este log.
@@ -141,59 +142,61 @@ class fs_core_log
      */
     private static function initMonolog()
     {
-        // Solo inicializar si Monolog está disponible y no hay logger externo
-        if (self::$externalLogger !== null) {
-            return;
-        }
-
-        if (!class_exists('Monolog\\Logger')) {
+        if (self::$externalLogger !== null || !class_exists('Monolog\\Logger')) {
             return;
         }
 
         try {
             $logger = new \Monolog\Logger('fsframework');
-            
-            // Handler para archivo
-            if (self::$fileLoggingEnabled || defined('FS_LOG_FILE')) {
-                $logFile = defined('FS_LOG_FILE') ? FS_LOG_FILE : self::$logFilePath;
-                $logDir = dirname($logFile);
-                
-                if (!is_dir($logDir)) {
-                    @mkdir($logDir, 0755, true);
-                }
-                
-                if (is_writable($logDir) || is_writable($logFile)) {
-                    $handler = new \Monolog\Handler\RotatingFileHandler(
-                        $logFile,
-                        defined('FS_LOG_MAX_FILES') ? FS_LOG_MAX_FILES : 7,
-                        self::getMonologLevel()
-                    );
-                    $handler->setFormatter(new \Monolog\Formatter\LineFormatter(
-                        "[%datetime%] %channel%.%level_name%: %message% %context%\n",
-                        'Y-m-d H:i:s'
-                    ));
-                    $logger->pushHandler($handler);
-                }
-            }
-            
-            // Handler para errores del sistema (syslog) en producción
-            if (defined('FS_DEBUG') && !FS_DEBUG) {
-                if (class_exists('Monolog\\Handler\\SyslogHandler')) {
-                    $syslogHandler = new \Monolog\Handler\SyslogHandler(
-                        'fsframework',
-                        LOG_USER,
-                        \Monolog\Logger::ERROR
-                    );
-                    $logger->pushHandler($syslogHandler);
-                }
-            }
-            
+            self::attachFileHandler($logger);
+            self::attachSyslogHandler($logger);
             self::$externalLogger = $logger;
-            
         } catch (Exception $e) {
             // Si falla Monolog, continuamos sin él
             error_log('fs_core_log: Error inicializando Monolog: ' . $e->getMessage());
         }
+    }
+
+    private static function attachFileHandler($logger)
+    {
+        if (!self::$fileLoggingEnabled && !defined('FS_LOG_FILE')) {
+            return;
+        }
+
+        $logFile = defined('FS_LOG_FILE') ? FS_LOG_FILE : self::$logFilePath;
+        $logDir = dirname($logFile);
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+
+        if (!is_writable($logDir) && !is_writable($logFile)) {
+            return;
+        }
+
+        $handler = new \Monolog\Handler\RotatingFileHandler(
+            $logFile,
+            defined('FS_LOG_MAX_FILES') ? FS_LOG_MAX_FILES : 7,
+            self::getMonologLevel()
+        );
+        $handler->setFormatter(new \Monolog\Formatter\LineFormatter(
+            "[%datetime%] %channel%.%level_name%: %message% %context%\n",
+            self::LOG_DATETIME_FORMAT
+        ));
+        $logger->pushHandler($handler);
+    }
+
+    private static function attachSyslogHandler($logger)
+    {
+        if (!defined('FS_DEBUG') || FS_DEBUG || !class_exists('Monolog\\Handler\\SyslogHandler')) {
+            return;
+        }
+
+        $syslogHandler = new \Monolog\Handler\SyslogHandler(
+            'fsframework',
+            LOG_USER,
+            \Monolog\Logger::ERROR
+        );
+        $logger->pushHandler($syslogHandler);
     }
 
     /**

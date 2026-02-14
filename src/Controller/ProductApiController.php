@@ -15,6 +15,9 @@ use Symfony\Component\HttpFoundation\Request;
 #[FSRoute('/api/products', name: 'api_products_')]
 class ProductApiController extends BaseController
 {
+    private const ROUTE_ID = '/{id}';
+    private const PRODUCT_NAME_PREFIX = 'Product ';
+
     /**
      * List all products.
      * 
@@ -38,10 +41,10 @@ class ProductApiController extends BaseController
      * @param int $id Product ID
      * @return JsonResponse JSON response with product details
      */
-    #[FSRoute('/{id}', methods: ['GET'], requirements: ['id' => '\d+'], name: 'show')]
+    #[FSRoute(self::ROUTE_ID, methods: ['GET'], requirements: ['id' => '\d+'], name: 'show')]
     public function showProduct(Request $request, int $id)
     {
-        $product = ['id' => $id, 'name' => 'Product ' . $id, 'price' => $id * 10.99];
+        $product = ['id' => $id, 'name' => self::PRODUCT_NAME_PREFIX . $id, 'price' => $id * 10.99];
         return $this->json($product);
     }
 
@@ -70,14 +73,14 @@ class ProductApiController extends BaseController
      * @param int $id Product ID
      * @return JsonResponse JSON response with updated product
      */
-    #[FSRoute('/{id}', methods: ['PUT'], requirements: ['id' => '\d+'], name: 'update')]
+    #[FSRoute(self::ROUTE_ID, methods: ['PUT'], requirements: ['id' => '\d+'], name: 'update')]
     public function updateProduct(Request $request, int $id)
     {
         $data = $request->request->all();
         
         $product = [
             'id' => $id,
-            'name' => $data['name'] ?? 'Product ' . $id,
+            'name' => $data['name'] ?? self::PRODUCT_NAME_PREFIX . $id,
             'price' => $data['price'] ?? $id * 10.99
         ];
         
@@ -90,9 +93,9 @@ class ProductApiController extends BaseController
      * @param int $id Product ID
      * @return JsonResponse JSON response with success message
      */
-    #[FSRoute('/{id}', methods: ['DELETE'], requirements: ['id' => '\d+'], name: 'delete')]
+    #[FSRoute(self::ROUTE_ID, methods: ['DELETE'], requirements: ['id' => '\d+'], name: 'delete')]
     public function deleteProduct(Request $request, int $id)
     {
-        return $this->json(['message' => 'Product ' . $id . ' deleted successfully']);
+        return $this->json(['message' => self::PRODUCT_NAME_PREFIX . $id . ' deleted successfully']);
     }
 }

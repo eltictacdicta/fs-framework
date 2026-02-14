@@ -1,4 +1,10 @@
 <?php
+
+const FS_PLUGIN_LEGACY_CONTROLLER_PATH = '/controller/';
+const FS_PLUGIN_MODERN_CONTROLLER_PATH = '/Controller/';
+const FS_HTTP_SEPARATOR = "\r\n\r\n";
+const FS_GITHUB_ACCEPT_HEADER = 'Accept: application/vnd.github.v3.raw';
+const FS_GITHUB_AUTH_HEADER_PREFIX = 'Authorization: token ';
 /**
  * This file is part of FSFramework originally based on Facturascript 2017
  * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
@@ -76,43 +82,19 @@ function fatal_handler()
 function find_controller($name)
 {
     foreach ($GLOBALS['plugins'] as $plugin) {
-        // Legacy plugins: controller/ folder (lowercase)
-        if (file_exists(FS_FOLDER . '/plugins/' . $plugin . '/controller/' . $name . '.php')) {
-            return 'plugins/' . $plugin . '/controller/' . $name . '.php';
+        $legacyPath = 'plugins/' . $plugin . FS_PLUGIN_LEGACY_CONTROLLER_PATH . $name . '.php';
+        if (file_exists(FS_FOLDER . '/' . $legacyPath)) {
+            return $legacyPath;
         }
 
-        // FS2025 plugins: Controller/ folder (PascalCase)
-        // Check if controller class name matches the page name
-        $modernPath = FS_FOLDER . '/plugins/' . $plugin . '/Controller/' . $name . '.php';
-        if (file_exists($modernPath)) {
-            return 'plugins/' . $plugin . '/Controller/' . $name . '.php';
+        $modernPath = 'plugins/' . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $name . '.php';
+        if (file_exists(FS_FOLDER . '/' . $modernPath)) {
+            return $modernPath;
         }
 
-        // FS2025: Also check all controllers for matching page name in getPageData()
-        $modernDir = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
-        if (is_dir($modernDir)) {
-            foreach (scandir($modernDir) as $file) {
-                if (substr($file, -4) !== '.php')
-                    continue;
-
-                $className = substr($file, 0, -4);
-                $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
-
-                if (class_exists($fullClass)) {
-                    try {
-                        $reflection = new \ReflectionClass($fullClass);
-                        $tempInstance = $reflection->newInstanceWithoutConstructor();
-                        if (method_exists($tempInstance, 'getPageData')) {
-                            $pd = $tempInstance->getPageData();
-                            if (isset($pd['name']) && $pd['name'] === $name) {
-                                return 'plugins/' . $plugin . '/Controller/' . $file;
-                            }
-                        }
-                    } catch (\Throwable $e) {
-                        // Continue checking
-                    }
-                }
-            }
+        $matchedModern = fs_find_controller_by_page_data($plugin, $name);
+        if ($matchedModern !== null) {
+            return $matchedModern;
         }
     }
 
@@ -132,43 +114,38 @@ function find_modern_controller($pageName)
 {
     foreach ($GLOBALS['plugins'] as $plugin) {
         $modernDir = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
-        if (!is_dir($modernDir))
+        if (!is_dir($modernDir)) {
             continue;
+        }
 
-        foreach (scandir($modernDir) as $file) {
-            if (substr($file, -4) !== '.php')
+        $entries = scandir($modernDir);
+        if (!is_array($entries)) {
+            continue;
+        }
+
+        foreach ($entries as $file) {
+            if (substr($file, -4) !== '.php') {
                 continue;
+            }
 
             $className = substr($file, 0, -4);
             $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
 
-            if (!class_exists($fullClass))
+            if (!class_exists($fullClass)) {
                 continue;
-
-            try {
-                $reflection = new \ReflectionClass($fullClass);
-                $tempInstance = $reflection->newInstanceWithoutConstructor();
-
-                // Get page name from getPageData or use class name
-                $detectedName = $className;
-                if (method_exists($tempInstance, 'getPageData')) {
-                    $pd = $tempInstance->getPageData();
-                    if (isset($pd['name']) && !empty($pd['name'])) {
-                        $detectedName = $pd['name'];
-                    }
-                }
-
-                if ($detectedName === $pageName) {
-                    return [
-                        'plugin' => $plugin,
-                        'class' => $fullClass,
-                        'className' => $className,
-                        'file' => $modernDir . '/' . $file
-                    ];
-                }
-            } catch (\Throwable $e) {
-                // Continue checking
             }
+
+            $detectedName = fs_detect_controller_page_name($fullClass, $className);
+            if ($detectedName === null || $detectedName !== $pageName) {
+                continue;
+            }
+
+            return [
+                'plugin' => $plugin,
+                'class' => $fullClass,
+                'className' => $className,
+                'file' => $modernDir . '/' . $file
+            ];
         }
     }
 
@@ -190,7 +167,7 @@ function fs_curl_redirect_exec($ch, &$redirects, $curlopt_header = false)
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
     if ($http_code == 301 || $http_code == 302) {
-        list($header) = explode("\r\n\r\n", $data, 2);
+        list($header) = explode(FS_HTTP_SEPARATOR, $data, 2);
         $matches = [];
         preg_match("/(Location:|URI:)[^(\n)]*/i", $header, $matches);
         $url = trim(str_replace($matches[1], "", $matches[0]));
@@ -207,7 +184,7 @@ function fs_curl_redirect_exec($ch, &$redirects, $curlopt_header = false)
         return $data;
     }
 
-    list(, $body) = explode("\r\n\r\n", $data, 2);
+    list(, $body) = explode(FS_HTTP_SEPARATOR, $data, 2);
     curl_close($ch);
     return $body;
 }
@@ -465,7 +442,7 @@ function fs_file_get_contents($url, $timeout = 10)
         if ($info['http_code'] == 200) {
             curl_close($ch);
             return $data;
-        } else if ($info['http_code'] == 301 || $info['http_code'] == 302) {
+        } elseif ($info['http_code'] == 301 || $info['http_code'] == 302) {
             $redirs = 0;
             return fs_curl_redirect_exec($ch, $redirs);
         }
@@ -664,12 +641,7 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
     curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Plugin-Manager');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 
-    // Headers de autenticación para GitHub API
-    $headers = [
-        'Accept: application/vnd.github.v3.raw',
-        'Authorization: token ' . $token
-    ];
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, fs_github_headers($token));
 
     if (ini_get('open_basedir') === NULL) {
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
@@ -690,7 +662,7 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
     if ($info['http_code'] == 200) {
         curl_close($ch);
         return $data;
-    } else if ($info['http_code'] == 301 || $info['http_code'] == 302) {
+    } elseif ($info['http_code'] == 301 || $info['http_code'] == 302) {
         $redirs = 0;
         return fs_curl_redirect_exec_auth($ch, $redirs, $token);
     }
@@ -702,7 +674,7 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
             $error = 'ERROR ' . $info['http_code'];
             if ($info['http_code'] == 401) {
                 $error .= ' - Token de GitHub inválido o expirado';
-            } else if ($info['http_code'] == 403) {
+            } elseif ($info['http_code'] == 403) {
                 $error .= ' - Acceso denegado. Verifica los permisos del token';
             }
         }
@@ -730,17 +702,13 @@ function fs_curl_redirect_exec_auth($ch, &$redirects, $token, $curlopt_header = 
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
     // Mantener la autenticación en redirects
-    $headers = [
-        'Accept: application/vnd.github.v3.raw',
-        'Authorization: token ' . $token
-    ];
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, fs_github_headers($token));
 
     $data = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
     if ($http_code == 301 || $http_code == 302) {
-        list($header) = explode("\r\n\r\n", $data, 2);
+        list($header) = explode(FS_HTTP_SEPARATOR, $data, 2);
         $matches = [];
         preg_match("/(Location:|URI:)[^(\n)]*/i", $header, $matches);
         $url = trim(str_replace($matches[1], "", $matches[0]));
@@ -757,9 +725,69 @@ function fs_curl_redirect_exec_auth($ch, &$redirects, $token, $curlopt_header = 
         return $data;
     }
 
-    list(, $body) = explode("\r\n\r\n", $data, 2);
+    list(, $body) = explode(FS_HTTP_SEPARATOR, $data, 2);
     curl_close($ch);
     return $body;
+}
+
+function fs_github_headers($token)
+{
+    return [
+        FS_GITHUB_ACCEPT_HEADER,
+        FS_GITHUB_AUTH_HEADER_PREFIX . $token,
+    ];
+}
+
+function fs_find_controller_by_page_data($plugin, $name)
+{
+    $modernDir = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
+    if (!is_dir($modernDir)) {
+        return null;
+    }
+
+    $files = scandir($modernDir);
+    if (!is_array($files)) {
+        return null;
+    }
+
+    foreach ($files as $file) {
+        if (substr($file, -4) !== '.php') {
+            continue;
+        }
+
+        $className = substr($file, 0, -4);
+        $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
+        $detectedName = fs_detect_controller_page_name($fullClass, $className);
+        if ($detectedName === $name) {
+            return 'plugins/' . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $file;
+        }
+    }
+
+    return null;
+}
+
+function fs_detect_controller_page_name($fullClass, $default)
+{
+    if (!class_exists($fullClass)) {
+        return null;
+    }
+
+    try {
+        $reflection = new \ReflectionClass($fullClass);
+        $tempInstance = $reflection->newInstanceWithoutConstructor();
+        if (!method_exists($tempInstance, 'getPageData')) {
+            return $default;
+        }
+
+        $pd = $tempInstance->getPageData();
+        if (isset($pd['name']) && !empty($pd['name'])) {
+            return $pd['name'];
+        }
+    } catch (\Throwable $e) {
+        return null;
+    }
+
+    return $default;
 }
 
 /**

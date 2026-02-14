@@ -51,6 +51,9 @@ if (!function_exists('adminlte_menu_icon')) {
             case 'ventas':
                 $icon = '<i class="fa fa-shopping-cart fa-fw"></i>';
                 break;
+
+            default:
+                break;
         }
         return $icon;
     }
@@ -108,6 +111,9 @@ if (!function_exists('adminlte_page_icon')) {
 
             case 'informe_contabilidad':
                 $icon = '<i class="fa fa-balance-scale fa-fw"></i>';
+                break;
+
+            default:
                 break;
         }
         return $icon;

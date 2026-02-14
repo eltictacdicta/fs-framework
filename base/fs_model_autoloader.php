@@ -30,6 +30,8 @@
  */
 class fs_model_autoloader
 {
+    private const PLUGINS_PATH = '/plugins/';
+
     /**
      * @var bool Si el autoloader está registrado
      */
@@ -94,25 +96,35 @@ class fs_model_autoloader
             return;
         }
         
-        $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
         $activePlugins = $GLOBALS['plugins'] ?? [];
         
-        foreach (self::$classMap as $class => $path) {
-            // Verificar si la ruta es de un plugin
-            if (strpos($path, '/plugins/') !== false) {
-                // Extraer nombre del plugin de la ruta
-                if (preg_match('#/plugins/([^/]+)/#', $path, $matches)) {
-                    $pluginName = $matches[1];
-                    // Si el plugin no está activo, invalidar todo el cache
-                    if (!in_array($pluginName, $activePlugins)) {
-                        self::$classMap = [];
-                        if (self::$cacheFile && file_exists(self::$cacheFile)) {
-                            @unlink(self::$cacheFile);
-                        }
-                        return;
-                    }
-                }
+        foreach (self::$classMap as $path) {
+            $pluginName = self::extractPluginNameFromPath($path);
+            if ($pluginName !== null && !in_array($pluginName, $activePlugins)) {
+                self::clearCacheFile();
+                return;
             }
+        }
+    }
+
+    private static function extractPluginNameFromPath(string $path): ?string
+    {
+        if (strpos($path, self::PLUGINS_PATH) === false) {
+            return null;
+        }
+
+        if (preg_match('#/plugins/([^/]+)/#', $path, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
+    private static function clearCacheFile(): void
+    {
+        self::$classMap = [];
+        if (self::$cacheFile && file_exists(self::$cacheFile)) {
+            @unlink(self::$cacheFile);
         }
     }
 
@@ -125,7 +137,7 @@ class fs_model_autoloader
         // Incluir tanto model/ como model/core/ de cada plugin
         if (isset($GLOBALS['plugins'])) {
             foreach ($GLOBALS['plugins'] as $plugin) {
-                $dir = $folder . '/plugins/' . $plugin . '/model';
+                $dir = $folder . self::PLUGINS_PATH . $plugin . '/model';
                 if (is_dir($dir)) {
                     self::$modelDirs[] = $dir;
                     
