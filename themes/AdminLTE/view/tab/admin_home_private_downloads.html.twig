@@ -156,6 +156,13 @@
                             {% if value.version is defined and value.version %}
                             <span class="label label-info">v{{ value.version }}</span>
                             {% endif %}
+                            {% if value.creador is defined and value.creador %}
+                            <br/>
+                            <small class="text-muted"><i class="fa fa-user"></i>&nbsp;{{ value.creador }}</small>
+                            {% elseif value.author is defined and value.author %}
+                            <br/>
+                            <small class="text-muted"><i class="fa fa-user"></i>&nbsp;{{ value.author }}</small>
+                            {% endif %}
                             <span class="label label-warning">Privado</span>
                             <br/><br/>
                             {% if value.instalado is defined and value.instalado %}

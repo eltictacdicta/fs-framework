@@ -350,16 +350,10 @@ class CacheManager
             'legacy_templates' => $this->clearLegacyTemplateCache(),
             'legacy_file_cache' => $this->clearLegacyFileCache(),
         ];
-        
-        // Limpiar también fs_cache legacy si está disponible
-        if (class_exists('fs_cache')) {
-            try {
-                $legacyCache = new \fs_cache();
-                $results['legacy_memcache'] = $legacyCache->clean();
-            } catch (\Exception $e) {
-                $results['legacy_memcache'] = false;
-            }
-        }
+
+        // Compatibilidad: conservar clave informativa legacy sin acoplarse a fs_cache.
+        // La limpieza de caché se realiza íntegramente a través de Symfony CacheManager.
+        $results['legacy_memcache'] = true;
         
         return $results;
     }

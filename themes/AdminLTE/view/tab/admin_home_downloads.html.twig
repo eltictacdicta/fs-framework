@@ -31,7 +31,17 @@
                 {% endif %}
             </td>
             <td>
-                {{ value.nombre }} &nbsp; v{{ value.version }}
+                {{ value.nombre }}
+                {% if value.version is defined and value.version %}
+                &nbsp; <span class="label label-info">v{{ value.version }}</span>
+                {% endif %}
+                {% if value.creador is defined and value.creador %}
+                <br/>
+                <small class="text-muted"><i class="fa fa-user"></i>&nbsp;{{ value.creador }}</small>
+                {% elseif value.author is defined and value.author %}
+                <br/>
+                <small class="text-muted"><i class="fa fa-user"></i>&nbsp;{{ value.author }}</small>
+                {% endif %}
                 <br/><br/>
                 {% if value.instalado %}
                 <a href="{{ fsc.url() }}&caca={{ fsc.random_string(4) }}#plugins" class="btn btn-xs btn-default">
@@ -56,8 +66,10 @@
                 {% endif %}
             </td>
             <td>
-                {{ value.descripcion|nl2br }}<br/>
+                {{ value.descripcion|default('Sin descripción disponible')|nl2br }}<br/>
+                {% if value.ultima_modificacion is defined and value.ultima_modificacion %}
                 Última modificación: {{ value.ultima_modificacion }}
+                {% endif %}
                 {% if not value.estable %}
                 <span class="label label-danger" title="inestable: no lo instales a menos que sepas lo que haces">inestable</span>
                 {% endif %}

@@ -384,16 +384,62 @@ class fs_plugin_manager
 
         /// buscamos en la cache
         $this->download_list = $this->cache->get('download_list');
-        if ($this->download_list) {
-            return $this->download_list;
+        if ($this->download_list && is_array($this->download_list)) {
+            $has_complete_cache = true;
+
+            foreach ($this->download_list as $key => $value) {
+                $this->download_list[$key] = $this->normalize_download_item($value, $key);
+
+                if (empty($this->download_list[$key]['version']) || empty($this->download_list[$key]['creador'])) {
+                    $has_complete_cache = false;
+                }
+            }
+
+            if ($has_complete_cache) {
+                return $this->download_list;
+            }
+
+            // Caché antigua o incompleta: forzar recarga
+            $this->cache->delete('download_list');
         }
 
         /// lista de plugins de la comunidad, se descarga de Internet.
         $json = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-cusmtom-plugins/main/custom_plugins.json', 10);
         if ($json && $json != 'ERROR') {
             $this->download_list = json_decode($json, true);
+            if (!is_array($this->download_list)) {
+                $this->download_list = [];
+                $this->core_log->new_error('Error al parsear la lista remota de plugins. Verifica el formato del JSON.');
+                return $this->download_list;
+            }
+
             foreach ($this->download_list as $key => $value) {
-                $this->download_list[$key]['instalado'] = file_exists($this->pluginsPath($value['nombre']));
+                $item = $this->normalize_download_item($value, $key);
+
+                // Completar metadatos desde fsframework.ini/facturascripts.ini remoto cuando faltan
+                if (empty($item['version']) || empty($item['descripcion']) || empty($item['creador'])) {
+                    $remote_ini_data = $this->get_public_remote_plugin_ini($item);
+                    if ($remote_ini_data) {
+                        if (empty($item['version']) && isset($remote_ini_data['version'])) {
+                            $item['version'] = $remote_ini_data['version'];
+                        }
+
+                        if (empty($item['descripcion']) && isset($remote_ini_data['description'])) {
+                            $item['descripcion'] = $remote_ini_data['description'];
+                        }
+
+                        if (empty($item['creador'])) {
+                            if (isset($remote_ini_data['author'])) {
+                                $item['creador'] = $remote_ini_data['author'];
+                            } elseif (isset($remote_ini_data['author_name'])) {
+                                $item['creador'] = $remote_ini_data['author_name'];
+                            }
+                        }
+                    }
+                }
+
+                $item['instalado'] = file_exists($this->pluginsPath($item['nombre']));
+                $this->download_list[$key] = $item;
             }
 
             $this->cache->set('download_list', $this->download_list);
@@ -428,6 +474,135 @@ class fs_plugin_manager
         ];
 
         return $this->download_list;
+    }
+
+    /**
+     * Normaliza los campos de un item de descarga para soportar cambios de esquema JSON.
+     *
+     * @param array $item
+     * @param int|string $key
+     * @return array
+     */
+    private function normalize_download_item(array $item, $key)
+    {
+        if (!isset($item['id']) || $item['id'] === '') {
+            $item['id'] = $key;
+        }
+
+        if (empty($item['nombre']) && !empty($item['name'])) {
+            $item['nombre'] = $item['name'];
+        }
+
+        if (empty($item['descripcion']) && !empty($item['description'])) {
+            $item['descripcion'] = $item['description'];
+        }
+
+        if (empty($item['creador'])) {
+            if (!empty($item['author'])) {
+                $item['creador'] = $item['author'];
+            } elseif (!empty($item['autor'])) {
+                $item['creador'] = $item['autor'];
+            }
+        }
+
+        if (empty($item['link']) && !empty($item['url'])) {
+            $item['link'] = $item['url'];
+        }
+
+        if (empty($item['zip_link'])) {
+            if (!empty($item['download_url'])) {
+                $item['zip_link'] = $item['download_url'];
+            } elseif (!empty($item['archive_url'])) {
+                $item['zip_link'] = $item['archive_url'];
+            }
+        }
+
+        if (empty($item['ultima_modificacion'])) {
+            if (!empty($item['updated_at'])) {
+                $item['ultima_modificacion'] = $item['updated_at'];
+            } elseif (!empty($item['updated'])) {
+                $item['ultima_modificacion'] = $item['updated'];
+            }
+        }
+
+        if (!isset($item['estable'])) {
+            $item['estable'] = true;
+        }
+
+        if (empty($item['tipo'])) {
+            $item['tipo'] = 'gratis';
+        }
+
+        if (!isset($item['version'])) {
+            $item['version'] = '';
+        }
+
+        if (!isset($item['descripcion'])) {
+            $item['descripcion'] = '';
+        }
+
+        if (!isset($item['creador'])) {
+            $item['creador'] = '';
+        }
+
+        return $item;
+    }
+
+    /**
+     * Obtiene datos de fsframework.ini/facturascripts.ini desde un repositorio público.
+     *
+     * @param array $plugin_data
+     * @return array|false
+     */
+    private function get_public_remote_plugin_ini(array $plugin_data)
+    {
+        if (!isset($plugin_data['link']) || empty($plugin_data['link'])) {
+            return false;
+        }
+
+        $parsed = parse_url($plugin_data['link']);
+        if (!isset($parsed['path'])) {
+            return false;
+        }
+
+        $path_parts = explode('/', trim($parsed['path'], '/'));
+        if (count($path_parts) < 2) {
+            return false;
+        }
+
+        $user = $path_parts[0];
+        $repo = $path_parts[1];
+        $branch = isset($plugin_data['branch']) && !empty($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
+
+        foreach (['fsframework.ini', 'facturascripts.ini'] as $ini_file) {
+            $raw_url = "https://raw.githubusercontent.com/{$user}/{$repo}/{$branch}/{$ini_file}";
+            $ini_content = @fs_file_get_contents($raw_url, 10);
+
+            if (!$ini_content || $ini_content === 'ERROR') {
+                continue;
+            }
+
+            $ini_data = @parse_ini_string($ini_content, true);
+            if (!$ini_data || !is_array($ini_data)) {
+                continue;
+            }
+
+            if (isset($ini_data['plugin']) && is_array($ini_data['plugin'])) {
+                return $ini_data['plugin'];
+            }
+
+            if (isset($ini_data['version']) || isset($ini_data['description']) || isset($ini_data['author'])) {
+                return $ini_data;
+            }
+
+            foreach ($ini_data as $values) {
+                if (is_array($values) && (isset($values['version']) || isset($values['description']) || isset($values['author']))) {
+                    return $values;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

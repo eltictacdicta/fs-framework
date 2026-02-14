@@ -17,51 +17,55 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-require_once __DIR__ . '/php_file_cache.php';
 
 /**
- * Clase para concectar e interactuar con memcache.
+ * Capa legacy de caché (retrocompatible) unificada sobre Symfony CacheManager.
+ *
+ * Mantiene la API histórica de fs_cache para evitar romper código legacy,
+ * pero internamente usa exclusivamente la caché moderna del sistema.
+ *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
 class fs_cache
 {
-
-    private static $memcache;
+    /**
+     * @var \FSFramework\Cache\CacheManager|null
+     */
+    private static $cache_manager = null;
 
     /**
-     *
-     * @var php_file_cache
+     * @var bool
      */
-    private static $php_file_cache;
-    private static $connected;
-    private static $error;
-    private static $error_msg;
+    private static $connected = false;
+
+    /**
+     * @var bool
+     */
+    private static $error = false;
+
+    /**
+     * @var string
+     */
+    private static $error_msg = '';
 
     public function __construct()
     {
-        if (!isset(self::$memcache)) {
-            if (class_exists('Memcache')) {
-                self::$memcache = new Memcache();
-                if (@self::$memcache->connect(FS_CACHE_HOST, FS_CACHE_PORT)) {
-                    self::$connected = TRUE;
-                    self::$error = FALSE;
-                    self::$error_msg = '';
-                } else {
-                    self::$connected = FALSE;
-                    self::$error = TRUE;
-                    self::$error_msg = 'Error al conectar al servidor Memcache.';
-                }
-            } else {
-                self::$memcache = NULL;
-                self::$connected = FALSE;
-                self::$error = TRUE;
-                self::$error_msg = 'Clase Memcache no encontrada. Debes
-               <a target="_blank" href="//facturascripts.com/comm3/index.php?page=community_item&id=553">
-               instalar Memcache</a> y activarlo en el php.ini';
-            }
+        if (self::$cache_manager !== null) {
+            return;
         }
 
-        self::$php_file_cache = new php_file_cache();
+        try {
+            self::$cache_manager = \FSFramework\Cache\CacheManager::getInstance();
+            $info = self::$cache_manager->getInfo();
+            self::$connected = !empty($info['memcached_available']);
+            self::$error = false;
+            self::$error_msg = '';
+        } catch (\Throwable $e) {
+            self::$cache_manager = null;
+            self::$connected = false;
+            self::$error = true;
+            self::$error_msg = 'No se pudo inicializar Symfony CacheManager: ' . $e->getMessage();
+        }
     }
 
     public function error()
@@ -76,27 +80,26 @@ class fs_cache
 
     public function close()
     {
-        if (isset(self::$memcache) && self::$connected) {
-            self::$memcache->close();
-        }
+        // No aplica al backend Symfony/PSR-6. Se mantiene por compatibilidad.
+        return true;
     }
 
     public function set($key, $object, $expire = 5400)
     {
-        if (self::$connected) {
-            self::$memcache->set(FS_CACHE_PREFIX . $key, $object, FALSE, $expire);
-        } else {
-            self::$php_file_cache->put($key, $object);
+        if (self::$cache_manager === null) {
+            return false;
         }
+
+        return self::$cache_manager->set((string) $key, $object, (int) $expire);
     }
 
     public function get($key)
     {
-        if (self::$connected) {
-            return self::$memcache->get(FS_CACHE_PREFIX . $key);
+        if (self::$cache_manager === null) {
+            return null;
         }
 
-        return self::$php_file_cache->get($key);
+        return self::$cache_manager->getItem((string) $key);
     }
 
     /**
@@ -106,21 +109,8 @@ class fs_cache
      */
     public function get_array($key)
     {
-        $aa = [];
-
-        if (self::$connected) {
-            $a = self::$memcache->get(FS_CACHE_PREFIX . $key);
-            if ($a) {
-                $aa = $a;
-            }
-        } else {
-            $a = self::$php_file_cache->get($key);
-            if ($a) {
-                $aa = $a;
-            }
-        }
-
-        return $aa;
+        $value = $this->get($key);
+        return is_array($value) ? $value : [];
     }
 
     /**
@@ -132,72 +122,60 @@ class fs_cache
      */
     public function get_array2($key, &$error)
     {
-        $aa = [];
-        $error = TRUE;
-
-        if (self::$connected) {
-            $a = self::$memcache->get(FS_CACHE_PREFIX . $key);
-            if (is_array($a)) {
-                $aa = $a;
-                $error = FALSE;
-            }
-        } else {
-            $a = self::$php_file_cache->get($key);
-            if (is_array($a)) {
-                $aa = $a;
-                $error = FALSE;
-            }
+        $value = $this->get($key);
+        if (is_array($value)) {
+            $error = false;
+            return $value;
         }
 
-        return $aa;
+        $error = true;
+        return [];
     }
 
     public function delete($key)
     {
-        if (self::$connected) {
-            return self::$memcache->delete(FS_CACHE_PREFIX . $key);
+        if (self::$cache_manager === null) {
+            return false;
         }
 
-        return self::$php_file_cache->delete($key);
+        return self::$cache_manager->delete((string) $key);
     }
 
     public function delete_multi($keys)
     {
-        $done = FALSE;
-
-        if (self::$connected) {
-            foreach ($keys as $i => $value) {
-                $done = self::$memcache->delete(FS_CACHE_PREFIX . $value);
-            }
-        } else {
-            foreach ($keys as $i => $value) {
-                $done = self::$php_file_cache->delete($value);
-            }
+        if (self::$cache_manager === null) {
+            return false;
         }
 
-        return $done;
+        $normalized = [];
+        foreach ((array) $keys as $value) {
+            $normalized[] = (string) $value;
+        }
+
+        return self::$cache_manager->deleteMultiple($normalized);
     }
 
     public function clean()
     {
-        if (self::$connected) {
-            return self::$memcache->flush();
+        if (self::$cache_manager === null) {
+            return false;
         }
 
-        return self::$php_file_cache->flush();
+        return self::$cache_manager->clear();
     }
 
     public function version()
     {
-        if (self::$connected) {
-            return 'Memcache ' . self::$memcache->getVersion();
+        if (self::$cache_manager === null) {
+            return 'Symfony Cache (unavailable)';
         }
 
-        return 'Files';
+        return self::$cache_manager->version();
     }
 
     public function connected()
     {
+        // Semántica legacy: "connected" se refiere a backend de red tipo memcache.
         return self::$connected;
     }
 }
