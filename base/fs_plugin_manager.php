@@ -549,6 +549,62 @@ class fs_plugin_manager
     }
 
     /**
+     * Parsea una URL de repositorio de forma segura evitando warnings de parse_url().
+     *
+     * @param mixed $url
+     * @return array|false
+     */
+    private function parse_repository_url($url)
+    {
+        if (!is_string($url) || '' === $url) {
+            return false;
+        }
+
+        $sanitized = trim($url);
+        $sanitized = preg_replace('/[\x00-\x1F\x7F]/', '', $sanitized);
+        if (!is_string($sanitized) || '' === $sanitized) {
+            return false;
+        }
+
+        $sanitized = str_replace(' ', '%20', $sanitized);
+        $sanitized = filter_var($sanitized, FILTER_SANITIZE_URL);
+        if (!is_string($sanitized) || '' === $sanitized) {
+            return false;
+        }
+
+        $parsed = @parse_url($sanitized);
+        if (!is_array($parsed) || !isset($parsed['path'])) {
+            return false;
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Extrae usuario y repositorio desde un link tipo GitHub.
+     *
+     * @param mixed $url
+     * @return array|false
+     */
+    private function extract_repo_parts($url)
+    {
+        $parsed = $this->parse_repository_url($url);
+        if (false === $parsed) {
+            return false;
+        }
+
+        $path_parts = explode('/', trim($parsed['path'], '/'));
+        if (count($path_parts) < 2 || '' === $path_parts[0] || '' === $path_parts[1]) {
+            return false;
+        }
+
+        return [
+            'user' => $path_parts[0],
+            'repo' => $path_parts[1],
+        ];
+    }
+
+    /**
      * Obtiene datos de fsframework.ini/facturascripts.ini desde un repositorio público.
      *
      * @param array $plugin_data
@@ -560,18 +616,13 @@ class fs_plugin_manager
             return false;
         }
 
-        $parsed = parse_url($plugin_data['link']);
-        if (!isset($parsed['path'])) {
+        $repo_parts = $this->extract_repo_parts($plugin_data['link']);
+        if (false === $repo_parts) {
             return false;
         }
 
-        $path_parts = explode('/', trim($parsed['path'], '/'));
-        if (count($path_parts) < 2) {
-            return false;
-        }
-
-        $user = $path_parts[0];
-        $repo = $path_parts[1];
+        $user = $repo_parts['user'];
+        $repo = $repo_parts['repo'];
         $branch = isset($plugin_data['branch']) && !empty($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
 
         foreach (['fsframework.ini', 'facturascripts.ini'] as $ini_file) {
@@ -787,19 +838,13 @@ class fs_plugin_manager
             return false;
         }
 
-        // Extraer usuario y repo del link
-        $parsed = parse_url($plugin_data['link']);
-        if (!isset($parsed['path'])) {
+        $repo_parts = $this->extract_repo_parts($plugin_data['link']);
+        if (false === $repo_parts) {
             return false;
         }
 
-        $path_parts = explode('/', trim($parsed['path'], '/'));
-        if (count($path_parts) < 2) {
-            return false;
-        }
-
-        $user = $path_parts[0];
-        $repo = $path_parts[1];
+        $user = $repo_parts['user'];
+        $repo = $repo_parts['repo'];
 
         // Determinar la rama (por defecto master, pero podría ser main)
         $branch = isset($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
@@ -993,10 +1038,15 @@ class fs_plugin_manager
 
             // Construir URL de la API
             if (isset($plugin['link'])) {
-                $parsed = parse_url($plugin['link']);
-                $path_parts = explode('/', trim($parsed['path'], '/'));
-                $user = $path_parts[0];
-                $repo = $path_parts[1];
+                $repo_parts = $this->extract_repo_parts($plugin['link']);
+                if (false === $repo_parts) {
+                    $plugin_debug['ini_response'] = 'Link inválido o malformado';
+                    $result['plugins'][] = $plugin_debug;
+                    continue;
+                }
+
+                $user = $repo_parts['user'];
+                $repo = $repo_parts['repo'];
                 $branch = isset($plugin['branch']) ? $plugin['branch'] : 'master';
 
                 $api_url = "https://api.github.com/repos/{$user}/{$repo}/contents/fsframework.ini?ref={$branch}";

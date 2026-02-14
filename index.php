@@ -38,6 +38,7 @@ require_once 'config.php';
 require_once 'base/config2.php';
 
 /// Self-heal: asegurar tablas core críticas en instalaciones incompletas
+require_once 'base/fs_core_log.php';
 require_once 'base/fs_db2.php';
 require_once 'base/fs_schema.php';
 try {
