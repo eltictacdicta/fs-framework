@@ -35,6 +35,7 @@ $uptime = $tiempo[1] + $tiempo[0];
 
 require_once 'base/fs_core_log.php';
 require_once 'base/fs_db2.php';
+require_once 'base/fs_schema.php';
 $core_log = new fs_core_log();
 $db = new fs_db2();
 
@@ -45,6 +46,13 @@ require_once 'base/fs_log_manager.php';
 require_all_models();
 
 if ($db->connect()) {
+    // Self-heal: asegurar tablas core críticas en instalaciones incompletas
+    try {
+        fs_schema::selfHealCoreTables();
+    } catch (\Throwable $e) {
+        $core_log->new_error('Core tables self-heal failed in cron: ' . $e->getMessage());
+    }
+
     $fsvar = new fs_var();
     $cron_vars = $fsvar->array_get(array('cron_exists' => FALSE, 'cron_lock' => FALSE, 'cron_error' => FALSE));
 

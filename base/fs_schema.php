@@ -30,6 +30,24 @@
 class fs_schema
 {
     private const SQL_LINE_SEPARATOR = ",\n  ";
+    private const CORE_TABLE_FILES = [
+        'fs_pages.xml',
+        'fs_users.xml',
+        'fs_roles.xml',
+        'fs_access.xml',
+        'fs_roles_access.xml',
+        'fs_roles_users.xml',
+        'fs_vars.xml',
+    ];
+    private const CORE_MODEL_MAP = [
+        'fs_pages' => ['file' => 'model/fs_page.php', 'class' => 'fs_page'],
+        'fs_users' => ['file' => 'model/fs_user.php', 'class' => 'fs_user'],
+        'fs_roles' => ['file' => 'model/fs_rol.php', 'class' => 'fs_rol'],
+        'fs_access' => ['file' => 'model/fs_access.php', 'class' => 'fs_access'],
+        'fs_roles_access' => ['file' => 'model/fs_rol_access.php', 'class' => 'fs_rol_access'],
+        'fs_roles_users' => ['file' => 'model/fs_rol_user.php', 'class' => 'fs_rol_user'],
+        'fs_vars' => ['file' => 'model/fs_var.php', 'class' => 'fs_var'],
+    ];
 
     /**
      * Mapeo de tipos PostgreSQL a MySQL
@@ -482,15 +500,7 @@ class fs_schema
         }
 
         // Orden de instalación (por dependencias)
-        $order = [
-            'fs_pages.xml',
-            'fs_users.xml',
-            'fs_roles.xml',
-            'fs_access.xml',
-            'fs_roles_access.xml',
-            'fs_roles_users.xml',
-            'fs_vars.xml',
-        ];
+        $order = self::CORE_TABLE_FILES;
 
         // Primero instalar en orden
         foreach ($order as $file) {
@@ -515,6 +525,81 @@ class fs_schema
                 } catch (Exception $e) {
                     $results[$filename] = 'ERROR: ' . $e->getMessage();
                 }
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Verifica y crea únicamente tablas core faltantes.
+     *
+     * @param string|null $tableDir Directorio de tablas (opcional)
+     * @return array Resultado con tablas creadas y errores
+     */
+    public static function selfHealCoreTables($tableDir = null)
+    {
+        $results = [
+            'checked' => [],
+            'created' => [],
+            'errors' => [],
+        ];
+
+        $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
+        if ($tableDir === null) {
+            $tableDir = $folder . '/model/table';
+        }
+
+        if (!is_dir($tableDir)) {
+            $results['errors'][] = 'Directorio de tablas no encontrado: ' . $tableDir;
+            return $results;
+        }
+
+        $db = self::getDb();
+        $tables = $db->list_tables();
+        if ($tables === false) {
+            $results['errors'][] = 'No se pudo obtener la lista de tablas para self-heal.';
+            return $results;
+        }
+
+        foreach (self::CORE_TABLE_FILES as $xmlFile) {
+            $tableName = pathinfo($xmlFile, PATHINFO_FILENAME);
+            $results['checked'][] = $tableName;
+
+            if ($db->table_exists($tableName, $tables)) {
+                continue;
+            }
+
+            if (!isset(self::CORE_MODEL_MAP[$tableName])) {
+                $results['errors'][] = 'No hay mapeo de modelo para tabla: ' . $tableName;
+                continue;
+            }
+
+            $modelInfo = self::CORE_MODEL_MAP[$tableName];
+            $modelPath = $folder . '/' . $modelInfo['file'];
+            $modelClass = $modelInfo['class'];
+
+            if (!class_exists($modelClass, false)) {
+                if (!file_exists($modelPath)) {
+                    $results['errors'][] = 'Modelo no encontrado: ' . $modelPath;
+                    continue;
+                }
+
+                require_once $modelPath;
+            }
+
+            try {
+                new $modelClass();
+
+                // refrescamos la lista de tablas tras posible creación
+                $tables = $db->list_tables();
+                if ($tables !== false && $db->table_exists($tableName, $tables)) {
+                    $results['created'][] = $tableName;
+                } else {
+                    $results['errors'][] = 'La tabla ' . $tableName . ' no se pudo crear mediante el modelo ' . $modelClass;
+                }
+            } catch (\Throwable $e) {
+                $results['errors'][] = $tableName . ': ' . $e->getMessage();
             }
         }
 

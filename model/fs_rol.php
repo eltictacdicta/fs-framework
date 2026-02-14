@@ -136,8 +136,11 @@ class fs_rol extends fs_model
     {
         $lista = [];
 
+        // Instanciar el modelo para asegurar que la tabla existe
+        $ru = new fs_rol_user();
+
         $sql = "SELECT * FROM " . $this->table_name . " WHERE codrol IN "
-            . "(SELECT codrol FROM fs_roles_users WHERE fs_user = " . $this->var2str($nick) . ");";
+            . "(SELECT codrol FROM " . $ru->table_name() . " WHERE fs_user = " . $this->var2str($nick) . ");";
         $data = $this->db->select($sql);
         if ($data) {
             foreach ($data as $d) {

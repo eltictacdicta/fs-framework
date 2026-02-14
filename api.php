@@ -56,6 +56,7 @@ if (file_exists('vendor/autoload.php')) {
 require_once 'base/fs_core_log.php';
 require_once 'base/fs_cache.php';
 require_once 'base/fs_db2.php';
+require_once 'base/fs_schema.php';
 require_once 'base/fs_model.php';
 
 // Inicializar conexión a base de datos
@@ -68,6 +69,13 @@ if (!$db->connect()) {
         'error' => 'Error de conexión a la base de datos'
     ]);
     exit;
+}
+
+// Self-heal: asegurar tablas core críticas en instalaciones incompletas
+try {
+    fs_schema::selfHealCoreTables();
+} catch (\Throwable $e) {
+    error_log('Core tables self-heal failed in API: ' . $e->getMessage());
 }
 
 // Cargar plugins activos
