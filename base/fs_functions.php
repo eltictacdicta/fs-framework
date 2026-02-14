@@ -404,9 +404,10 @@ function fs_curl_update_ca_bundle($maxAgeDays = 90)
 /**
  * Aplica la configuración SSL y CA bundle a un handle cURL.
  *
- * Si se define FS_CURL_SSL_VERIFY como false en config.php, se desactiva
- * la verificación SSL (NO recomendado, usar solo como último recurso en
- * hostings con SSL roto).
+ * La verificación SSL siempre permanece activa por seguridad.
+ *
+ * Si se define FS_CURL_SSL_VERIFY como false en config.php, el valor se
+ * ignora para evitar conexiones TLS inseguras.
  *
  * @param resource $ch Handle cURL
  * @param bool|null $forceVerify Forzar verificación (ignora config). NULL = usar config.
@@ -416,17 +417,17 @@ function fs_curl_set_ssl($ch, $forceVerify = null)
 {
     $verify = $forceVerify ?? (defined('FS_CURL_SSL_VERIFY') ? (bool) FS_CURL_SSL_VERIFY : true);
 
-    if ($verify) {
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+    if (!$verify && class_exists('fs_core_log')) {
+        $core_log = new fs_core_log();
+        $core_log->new_advice('FS_CURL_SSL_VERIFY=false se ignora por seguridad: TLS verification remains enabled.');
+    }
 
-        $caInfo = fs_curl_ca_info();
-        if ($caInfo) {
-            curl_setopt($ch, CURLOPT_CAINFO, $caInfo);
-        }
-    } else {
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+    $caInfo = fs_curl_ca_info();
+    if ($caInfo) {
+        curl_setopt($ch, CURLOPT_CAINFO, $caInfo);
     }
 }
 

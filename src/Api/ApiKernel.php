@@ -300,7 +300,6 @@ class ApiKernel
     {
         $duration = (microtime(true) - $this->startTime) * 1000; // ms
         $statusCode = ($result['success'] ?? false) ? 200 : 400;
-        $userId = $this->router->getUser()['nick'] ?? null;
         $errorMessage = $result['error'] ?? null;
 
         try {
@@ -318,22 +317,16 @@ class ApiKernel
 
             // Si no hay logger configurado, solo registrar en error_log si debug está activo
             if ($this->debug) {
-                $safePath = str_replace(["\r", "\n"], '', $path);
-                $safeMethod = str_replace(["\r", "\n"], '', $method);
-                $safeUser = str_replace(["\r", "\n"], '', $userId ?? 'anonymous');
                 error_log(sprintf(
-                    "API Request: %s %s - Status: %d - Duration: %.2fms - User: %s",
-                    $safeMethod,
-                    $safePath,
+                    "API Request - Status: %d - Duration: %.2fms",
                     $statusCode,
-                    $duration,
-                    $safeUser
+                    $duration
                 ));
             }
         } catch (\Exception $e) {
             // Silenciar errores de logging
             if ($this->debug) {
-                error_log("API Log error: " . $e->getMessage());
+                error_log('API Log error.');
             }
         }
     }

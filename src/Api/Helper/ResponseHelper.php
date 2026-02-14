@@ -29,6 +29,78 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 class ResponseHelper
 {
     /**
+     * @return string[]
+     */
+    private static function getAllowedOrigins(): array
+    {
+        if (!defined('FS_API_CORS_ORIGINS')) {
+            return [];
+        }
+
+        $origins = FS_API_CORS_ORIGINS;
+        if (is_string($origins)) {
+            $origins = array_map('trim', explode(',', $origins));
+        }
+
+        if (!is_array($origins)) {
+            return [];
+        }
+
+        return array_values(array_filter($origins, static function ($origin): bool {
+            return is_string($origin) && $origin !== '';
+        }));
+    }
+
+    private static function resolveCorsOrigin(): ?string
+    {
+        $requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? null;
+        if (!is_string($requestOrigin) || $requestOrigin === '') {
+            return null;
+        }
+
+        $allowedOrigins = self::getAllowedOrigins();
+        if (empty($allowedOrigins)) {
+            return null;
+        }
+
+        if (in_array('*', $allowedOrigins, true)) {
+            return $requestOrigin;
+        }
+
+        return in_array($requestOrigin, $allowedOrigins, true) ? $requestOrigin : null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function getCorsHeaders(): array
+    {
+        $headers = [
+            'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Content-Type, Authorization, X-Auth-Token'
+        ];
+
+        $allowedOrigins = self::getAllowedOrigins();
+        if (!empty($allowedOrigins)) {
+            $headers['Vary'] = 'Origin';
+            
+            $origin = self::resolveCorsOrigin();
+            if ($origin !== null) {
+                $headers['Access-Control-Allow-Origin'] = $origin;
+            }
+        }
+
+        return $headers;
+    }
+
+    private static function sendCorsHeaders(): void
+    {
+        foreach (self::getCorsHeaders() as $name => $value) {
+            header($name . ': ' . $value);
+        }
+    }
+
+    /**
      * Envía una respuesta de éxito
      */
     public static function sendSuccess(array $data = [], int $statusCode = 200, ?string $message = null): never
@@ -71,9 +143,7 @@ class ResponseHelper
         http_response_code($statusCode);
         
         header('Content-Type: application/json; charset=utf-8');
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token');
+        self::sendCorsHeaders();
         
         echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
@@ -84,11 +154,7 @@ class ResponseHelper
      */
     public static function createJsonResponse(array $data, int $statusCode = 200): JsonResponse
     {
-        return new JsonResponse($data, $statusCode, [
-            'Access-Control-Allow-Origin' => '*',
-            'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-            'Access-Control-Allow-Headers' => 'Content-Type, Authorization, X-Auth-Token'
-        ]);
+        return new JsonResponse($data, $statusCode, self::getCorsHeaders());
     }
     
     public static function sendCreated(array $data = [], string $message = 'Recurso creado exitosamente'): never

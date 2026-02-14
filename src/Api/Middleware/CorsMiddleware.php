@@ -46,11 +46,55 @@ class CorsMiddleware implements MiddlewareInterface
      */
     public function __construct(array $options = [])
     {
-        $this->allowedOrigins = $options['origins'] ?? ['*'];
+        $this->allowedOrigins = $options['origins'] ?? $this->getConfiguredOrigins();
         $this->allowedMethods = $options['methods'] ?? ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'];
         $this->allowedHeaders = $options['headers'] ?? ['Content-Type', 'Authorization', 'X-Auth-Token', 'X-Requested-With'];
         $this->allowCredentials = $options['credentials'] ?? false;
         $this->maxAge = $options['max_age'] ?? 86400;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getConfiguredOrigins(): array
+    {
+        if (!defined('FS_API_CORS_ORIGINS')) {
+            return [];
+        }
+
+        $origins = FS_API_CORS_ORIGINS;
+        if (is_string($origins)) {
+            $origins = array_map('trim', explode(',', $origins));
+        }
+
+        if (!is_array($origins)) {
+            return [];
+        }
+
+        return array_values(array_filter($origins, static function ($origin): bool {
+            return is_string($origin) && $origin !== '';
+        }));
+    }
+
+    private function resolveAllowedOrigin(?string $origin): ?string
+    {
+        if (!is_string($origin) || $origin === '') {
+            return null;
+        }
+
+        if (in_array('*', $this->allowedOrigins, true)) {
+            // Security check: reject insecure wildcard+credentials combination
+            if ($this->allowCredentials) {
+                if (class_exists('fs_core_log')) {
+                    $log = new \fs_core_log();
+                    $log->new_error('CORS security error: wildcard origin "*" combined with credentials=true is insecure and denied.');
+                }
+                return null;
+            }
+            return $origin;
+        }
+
+        return in_array($origin, $this->allowedOrigins, true) ? $origin : null;
     }
 
     /**
@@ -77,13 +121,12 @@ class CorsMiddleware implements MiddlewareInterface
      */
     public function addCorsHeaders(Response $response, ?Request $request = null): void
     {
-        $origin = $request?->headers->get('Origin') ?? '*';
-        
-        // Verificar origen permitido
-        if (in_array('*', $this->allowedOrigins, true)) {
-            $response->headers->set('Access-Control-Allow-Origin', '*');
-        } elseif (in_array($origin, $this->allowedOrigins, true)) {
-            $response->headers->set('Access-Control-Allow-Origin', $origin);
+        $origin = $request?->headers->get('Origin');
+        $allowedOrigin = $this->resolveAllowedOrigin($origin);
+
+        if ($allowedOrigin !== null) {
+            $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
+            $response->headers->set('Vary', 'Origin');
         }
         
         $response->headers->set('Access-Control-Allow-Methods', implode(', ', $this->allowedMethods));
@@ -100,12 +143,12 @@ class CorsMiddleware implements MiddlewareInterface
      */
     public function setHeaders(): void
     {
-        $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
-        
-        if (in_array('*', $this->allowedOrigins, true)) {
-            header('Access-Control-Allow-Origin: *');
-        } elseif (in_array($origin, $this->allowedOrigins, true)) {
-            header('Access-Control-Allow-Origin: ' . $origin);
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+        $allowedOrigin = $this->resolveAllowedOrigin(is_string($origin) ? $origin : null);
+
+        if ($allowedOrigin !== null) {
+            header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+            header('Vary: Origin');
         }
         
         header('Access-Control-Allow-Methods: ' . implode(', ', $this->allowedMethods));
