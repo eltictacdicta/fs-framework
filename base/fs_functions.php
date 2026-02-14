@@ -415,9 +415,11 @@ function fs_curl_update_ca_bundle($maxAgeDays = 90)
  */
 function fs_curl_set_ssl($ch, $forceVerify = null)
 {
+    static $ssl_warning_emitted = false;
     $verify = $forceVerify ?? (defined('FS_CURL_SSL_VERIFY') ? (bool) FS_CURL_SSL_VERIFY : true);
 
-    if (!$verify && class_exists('fs_core_log')) {
+    if (!$verify && !$ssl_warning_emitted && class_exists('fs_core_log')) {
+        $ssl_warning_emitted = true;
         $core_log = new fs_core_log();
         $core_log->new_advice('FS_CURL_SSL_VERIFY=false se ignora por seguridad: TLS verification remains enabled.');
     }
