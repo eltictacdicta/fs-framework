@@ -37,6 +37,8 @@ chdir(FS_FOLDER);
 // Cargar configuración
 if (file_exists('config.php')) {
     require_once 'config.php';
+    require_once 'base/fs_secret_migrator.php';
+    fs_secret_migrator::ensure();
 } else {
     header(FS_JSON_CONTENT_TYPE);
     http_response_code(500);

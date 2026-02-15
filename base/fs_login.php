@@ -172,6 +172,14 @@ class fs_login
             }
         }
 
+        if (filter_input(INPUT_COOKIE, 'auth_sig')) {
+            setcookie('auth_sig', '', time() - FS_COOKIES_EXPIRE);
+            setcookie('auth_sig', '', time() - FS_COOKIES_EXPIRE, $path);
+            if ($path != '/') {
+                setcookie('auth_sig', '', time() - FS_COOKIES_EXPIRE, '/');
+            }
+        }
+
         /// ¿Eliminamos la cookie del usuario?
         $user = filter_input(INPUT_COOKIE, 'user');
         if ($rmuser && $user) {
@@ -195,11 +203,13 @@ class fs_login
         // 1. Intentar recuperar desde Sesión de Symfony (más seguro y estable)
         $nick = $this->session->get('user_nick');
         $logkey = $this->session->get('user_logkey');
+        $authSig = filter_input(INPUT_COOKIE, 'auth_sig') ?: '';
 
         // 2. Si no hay sesión, mirar cookies (legacy / primera carga)
         if (!$nick) {
             $nick = filter_input(INPUT_COOKIE, 'user');
             $logkey = filter_input(INPUT_COOKIE, 'logkey');
+            $authSig = filter_input(INPUT_COOKIE, 'auth_sig') ?: '';
         }
 
         if (!$nick) {
@@ -215,7 +225,7 @@ class fs_login
             return $controller_user->logged_on;
         }
 
-        if ($this->applyValidCookieLogin($user, $logkey, $controller_user)) {
+        if ($this->applyValidCookieLogin($user, $logkey, $authSig, $controller_user)) {
             return TRUE;
         }
 
@@ -228,9 +238,13 @@ class fs_login
         return $controller_user->logged_on;
     }
 
-    private function applyValidCookieLogin($user, $logkey, &$controller_user)
+    private function applyValidCookieLogin($user, $logkey, $authSig, &$controller_user)
     {
         if (!hash_equals((string) ($user->log_key ?? ''), (string) ($logkey ?? ''))) {
+            return false;
+        }
+
+        if (!empty($authSig) && !\FSFramework\Security\CookieSigner::verifyRememberMe($user->nick, (string) $logkey, (string) $authSig)) {
             return false;
         }
 
@@ -420,8 +434,10 @@ class fs_login
      */
     private function save_cookie($user)
     {
+        $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, (string) $user->log_key);
         setcookie('user', $user->nick, time() + FS_COOKIES_EXPIRE);
         setcookie('logkey', $user->log_key, time() + FS_COOKIES_EXPIRE);
+        setcookie('auth_sig', $signature, time() + FS_COOKIES_EXPIRE);
     }
 
     /**

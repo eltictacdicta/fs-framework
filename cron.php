@@ -28,6 +28,8 @@ define('FS_FOLDER', __DIR__);
 
 /// cargamos las constantes de configuración
 require_once 'config.php';
+require_once 'base/fs_secret_migrator.php';
+fs_secret_migrator::ensure();
 require_once 'base/config2.php';
 
 $tiempo = explode(' ', microtime());

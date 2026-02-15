@@ -57,6 +57,7 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         fwrite($archivo, "define('FS_TMP_NAME', '" . random_string(20) . "/');\n");
         fwrite($archivo, "define('FS_COOKIES_EXPIRE', 604800);\n");
         fwrite($archivo, "define('FS_ITEM_LIMIT', 50);\n");
+        fwrite($archivo, "define('FS_SECRET_KEY', '" . random_secret_key() . "');\n");
 
         // Sistema de temas: Definir tema por defecto
         fwrite($archivo, "\n// Sistema de temas\n");
@@ -229,6 +230,15 @@ function test_postgresql(&$errors, &$errors2)
 function random_string($length = 20)
 {
     return substr(str_shuffle("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"), 0, $length);
+}
+
+function random_secret_key($length = 64)
+{
+    if (function_exists('random_bytes')) {
+        return bin2hex(random_bytes(intval($length / 2)));
+    }
+
+    return random_string($length);
 }
 /**
  * Buscamos errores

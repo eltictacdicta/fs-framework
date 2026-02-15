@@ -123,6 +123,36 @@ class fs_var extends fs_model
     }
 
     /**
+     * Devuelve el valor descifrado de una clave dada.
+     * Si el valor no está cifrado, lo devuelve tal cual para mantener compatibilidad.
+     *
+     * @param string $name
+     * @return string|boolean
+     */
+    public function simple_get_decrypted($name)
+    {
+        $value = $this->simple_get($name);
+        if ($value === FALSE || !is_string($value)) {
+            return $value;
+        }
+
+        if (!str_starts_with($value, 'v1:')) {
+            return $value;
+        }
+
+        $encryption = $this->getEncryptionService();
+        if ($encryption === null) {
+            return FALSE;
+        }
+
+        try {
+            return $encryption->decrypt($value);
+        } catch (\Throwable $e) {
+            return FALSE;
+        }
+    }
+
+    /**
      * Almacena el par clave/valor proporcionado.
      * 
      * @param string $name
@@ -146,6 +176,28 @@ class fs_var extends fs_model
         }
 
         return $this->db->exec($sql);
+    }
+
+    /**
+     * Almacena el par clave/valor cifrando el valor con EncryptionService.
+     *
+     * @param string $name
+     * @param string $value
+     * @return boolean
+     */
+    public function simple_save_encrypted($name, $value)
+    {
+        $encryption = $this->getEncryptionService();
+        if ($encryption === null) {
+            return FALSE;
+        }
+
+        try {
+            $encrypted = $encryption->encrypt((string) $value);
+            return $this->simple_save($name, $encrypted);
+        } catch (\Throwable $e) {
+            return FALSE;
+        }
     }
 
     /**
@@ -216,5 +268,28 @@ class fs_var extends fs_model
         }
 
         return $done;
+    }
+
+    /**
+     * Obtiene el servicio de cifrado si está disponible.
+     *
+     * @return \FSFramework\Security\EncryptionService|null
+     */
+    private function getEncryptionService()
+    {
+        if (!class_exists('FSFramework\\DependencyInjection\\Container')) {
+            return null;
+        }
+
+        try {
+            $service = \FSFramework\DependencyInjection\Container::encryption();
+            if (!$service->isAvailable()) {
+                return null;
+            }
+
+            return $service;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

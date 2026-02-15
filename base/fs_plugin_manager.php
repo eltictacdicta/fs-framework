@@ -674,11 +674,21 @@ class fs_plugin_manager
             'enabled' => false
         ];
 
-        $saved_config = $fs_var->simple_get('private_plugins_config');
+        $raw_config = $fs_var->simple_get('private_plugins_config');
+        $saved_config = method_exists($fs_var, 'simple_get_decrypted')
+            ? $fs_var->simple_get_decrypted('private_plugins_config')
+            : $raw_config;
+
         if ($saved_config) {
             $decoded = json_decode($saved_config, true);
             if (is_array($decoded)) {
                 $this->private_config = array_merge($this->private_config, $decoded);
+
+                if (is_string($raw_config)
+                    && !str_starts_with($raw_config, 'v1:')
+                    && method_exists($fs_var, 'simple_save_encrypted')) {
+                    $fs_var->simple_save_encrypted('private_plugins_config', json_encode($this->private_config));
+                }
             }
         }
 
@@ -701,7 +711,14 @@ class fs_plugin_manager
             'enabled' => !empty($github_token) && !empty($private_plugins_url)
         ];
 
-        $result = $fs_var->simple_save('private_plugins_config', json_encode($this->private_config));
+        if (method_exists($fs_var, 'simple_save_encrypted')) {
+            $result = $fs_var->simple_save_encrypted('private_plugins_config', json_encode($this->private_config));
+            if (!$result) {
+                $result = $fs_var->simple_save('private_plugins_config', json_encode($this->private_config));
+            }
+        } else {
+            $result = $fs_var->simple_save('private_plugins_config', json_encode($this->private_config));
+        }
 
         // Limpiar cache de la lista de plugins privados
         $this->cache->delete('private_download_list');

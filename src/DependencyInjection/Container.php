@@ -24,6 +24,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Reference;
 use FSFramework\Event\FSEventDispatcher;
 use FSFramework\Security\CsrfManager;
+use FSFramework\Security\EncryptionService;
 use FSFramework\Security\PasswordHasherService;
 use FSFramework\Security\SessionManager;
 use FSFramework\Cache\CacheManager;
@@ -94,6 +95,10 @@ class Container
 
         // Password Hasher
         $container->register('password_hasher', PasswordHasherService::class)
+            ->setPublic(true);
+
+        // Encryption Service (Sodium)
+        $container->register('encryption', EncryptionService::class)
             ->setPublic(true);
 
         // Cache Manager
@@ -395,6 +400,11 @@ class Container
     public static function passwordHasher(): PasswordHasherService
     {
         return self::get('password_hasher');
+    }
+
+    public static function encryption(): EncryptionService
+    {
+        return self::get('encryption');
     }
 
     public static function cache(): CacheManager

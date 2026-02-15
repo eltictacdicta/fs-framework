@@ -475,6 +475,7 @@ class fs_auth
     {
         $expire = time() + (defined('FS_COOKIES_EXPIRE') ? FS_COOKIES_EXPIRE : 31536000);
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, (string) $user->log_key);
         
         if (PHP_VERSION_ID >= 70300) {
             setcookie('user', $user->nick, [
@@ -491,9 +492,17 @@ class fs_auth
                 'httponly' => true,
                 'samesite' => 'Lax'
             ]);
+            setcookie('auth_sig', $signature, [
+                'expires' => $expire,
+                'path' => '/',
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
         } else {
             setcookie('user', $user->nick, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
             setcookie('logkey', $user->log_key, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+            setcookie('auth_sig', $signature, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
         }
     }
 
@@ -522,9 +531,17 @@ class fs_auth
                 'httponly' => true,
                 'samesite' => 'Lax'
             ]);
+            setcookie('auth_sig', '', [
+                'expires' => $expire,
+                'path' => '/',
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
         } else {
             setcookie('user', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
             setcookie('logkey', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+            setcookie('auth_sig', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
         }
     }
 

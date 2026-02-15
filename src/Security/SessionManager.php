@@ -176,6 +176,7 @@ class SessionManager
     {
         $cookieUser = $_COOKIE['user'] ?? null;
         $cookieLogkey = $_COOKIE['logkey'] ?? null;
+        $cookieSig = $_COOKIE['auth_sig'] ?? null;
 
         if (!$cookieUser || !$cookieLogkey) {
             return false;
@@ -196,6 +197,10 @@ class SessionManager
             $user = $userModel->get($cookieUser);
 
             if ($user && $user->enabled && $user->log_key === $cookieLogkey) {
+                if (!empty($cookieSig) && !CookieSigner::verifyRememberMe((string) $cookieUser, (string) $cookieLogkey, (string) $cookieSig)) {
+                    return false;
+                }
+
                 $this->login([
                     'nick' => $user->nick,
                     'email' => $user->email ?? null,
@@ -255,6 +260,13 @@ class SessionManager
             'samesite' => 'Lax'
         ]);
         setcookie('logkey', '', [
+            'expires' => $expire,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+        setcookie('auth_sig', '', [
             'expires' => $expire,
             'path' => '/',
             'secure' => $secure,

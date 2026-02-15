@@ -199,6 +199,8 @@ class fs_session_manager
      */
     private static function syncFromLegacyCookies($nick, $logkey)
     {
+        $cookieSig = isset($_COOKIE['auth_sig']) ? (string) $_COOKIE['auth_sig'] : '';
+
         // Si ya está sincronizado, retornar true
         if (isset($_SESSION['user_nick']) && $_SESSION['user_nick'] === $nick) {
             return true;
@@ -216,6 +218,10 @@ class fs_session_manager
             $user = $userModel->get($nick);
             
             if ($user && $user->enabled && $user->log_key === $logkey) {
+                if (!empty($cookieSig) && !\FSFramework\Security\CookieSigner::verifyRememberMe((string) $nick, (string) $logkey, $cookieSig)) {
+                    return false;
+                }
+
                 // Sincronizar sesión
                 $_SESSION['user_nick'] = $user->nick;
                 $_SESSION['user_email'] = isset($user->email) ? $user->email : null;

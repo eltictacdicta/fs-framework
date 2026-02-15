@@ -545,6 +545,10 @@ class fs_schema
             'errors' => [],
         ];
 
+        if (!class_exists('fs_model', false)) {
+            require_once 'base/fs_model.php';
+        }
+
         $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
         if ($tableDir === null) {
             $tableDir = $folder . '/model/table';

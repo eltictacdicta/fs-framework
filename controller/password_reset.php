@@ -43,6 +43,12 @@ class password_reset extends fs_controller
     /** @var string Token recibido por URL */
     public $reset_token;
 
+    /** @var string Firma de URL recibida */
+    public $reset_signature;
+
+    /** @var string Expiración de URL recibida */
+    public $reset_expires;
+
     /** @var bool Si la contraseña fue cambiada correctamente */
     public $password_changed;
 
@@ -70,6 +76,8 @@ class password_reset extends fs_controller
         $this->password_changed = FALSE;
         $this->reset_nick = '';
         $this->reset_token = '';
+        $this->reset_signature = '';
+        $this->reset_expires = '';
 
         // Determinar la acción
         $token = $this->request->query->get('token', '');
@@ -80,6 +88,13 @@ class password_reset extends fs_controller
             $this->action = 'reset';
             $this->reset_nick = $nick;
             $this->reset_token = $token;
+            $this->reset_signature = $this->request->query->get('_hash', '');
+            $this->reset_expires = $this->request->query->get('_expiration', '');
+
+            if ($this->request->getMethod() === 'POST') {
+                $this->reset_signature = $this->request->request->get('_hash', $this->reset_signature);
+                $this->reset_expires = $this->request->request->get('_expiration', $this->reset_expires);
+            }
 
             if ($this->request->getMethod() === 'POST') {
                 $this->process_reset();
@@ -143,6 +158,12 @@ class password_reset extends fs_controller
      */
     private function validate_token()
     {
+        if (!$this->validate_signed_reset_url()) {
+            $this->token_valid = FALSE;
+            $this->new_error_msg(FSTranslator::trans('password-reset-invalid-or-expired'));
+            return;
+        }
+
         $user_model = new fs_user();
         $user = $user_model->get($this->reset_nick);
 
@@ -159,6 +180,11 @@ class password_reset extends fs_controller
      */
     private function process_reset()
     {
+        if (!$this->validate_signed_reset_url()) {
+            $this->new_error_msg(FSTranslator::trans('password-reset-invalid-or-expired'));
+            return;
+        }
+
         $ip = fs_get_ip();
 
         if ($this->ip_filter->is_banned($ip)) {
@@ -231,6 +257,7 @@ class password_reset extends fs_controller
         $reset_url = $base_url . $path . '/index.php?page=password_reset'
             . '&nick=' . urlencode($user->nick)
             . '&token=' . urlencode($plain_token);
+        $reset_url = \FSFramework\Security\SignedUrlService::sign($reset_url, time() + 3600);
 
         $subject = FSTranslator::trans('password-reset-email-subject', ['%company%' => $from_name]);
 
@@ -305,5 +332,10 @@ class password_reset extends fs_controller
         }
 
         return 'localhost';
+    }
+
+    private function validate_signed_reset_url()
+    {
+        return \FSFramework\Security\SignedUrlService::check($this->request->getUri());
     }
 }

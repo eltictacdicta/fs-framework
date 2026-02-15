@@ -35,6 +35,8 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 /// cargamos las constantes de configuración (DEBE ser antes de Kernel::boot para que $GLOBALS['plugins'] esté disponible)
 require_once 'config.php';
+require_once 'base/fs_secret_migrator.php';
+fs_secret_migrator::ensure();
 require_once 'base/config2.php';
 
 /// Self-heal: asegurar tablas core críticas en instalaciones incompletas
