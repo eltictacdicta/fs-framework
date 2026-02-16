@@ -418,7 +418,35 @@ class fs_mysql extends fs_db_engine
         }
 
         return $this->fix_postgresql($sql) . ' ' . $this->generate_table_constraints($xml_cons) . ' ) '
-            . 'ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;';
+            . $this->table_charset_collation_sql() . ';';
+    }
+
+    /**
+     * Devuelve la configuración de charset/collation para crear tablas,
+     * priorizando la configuración real de la base de datos.
+     *
+     * @return string
+     */
+    private function table_charset_collation_sql()
+    {
+        $charset = 'utf8mb4';
+        $collation = 'utf8mb4_unicode_ci';
+
+        $dbConf = $this->select("SELECT @@character_set_database AS db_charset, @@collation_database AS db_collation;");
+        if (!empty($dbConf)) {
+            $dbCharset = isset($dbConf[0]['db_charset']) ? $dbConf[0]['db_charset'] : '';
+            $dbCollation = isset($dbConf[0]['db_collation']) ? $dbConf[0]['db_collation'] : '';
+
+            if (preg_match('/^[a-z0-9_]+$/i', $dbCharset)) {
+                $charset = strtolower($dbCharset);
+            }
+
+            if (preg_match('/^[a-z0-9_]+$/i', $dbCollation)) {
+                $collation = strtolower($dbCollation);
+            }
+        }
+
+        return 'ENGINE=InnoDB DEFAULT CHARSET=' . $charset . ' COLLATE=' . $collation;
     }
 
     /**
