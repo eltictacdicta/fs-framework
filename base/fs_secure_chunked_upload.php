@@ -106,12 +106,38 @@ class fs_secure_chunked_upload
         $context_id = 'default',
         $user_nick = 'system'
     ) {
+        if (is_array($upload_dir)) {
+            $config = $upload_dir;
+            $upload_dir = isset($config['upload_dir']) ? $config['upload_dir'] : '';
+
+            if (isset($config['allowed_extensions']) && is_array($config['allowed_extensions'])) {
+                $allowed_extensions = $config['allowed_extensions'];
+            }
+
+            if (isset($config['max_file_size_mb'])) {
+                $max_file_size_mb = (int) $config['max_file_size_mb'];
+            } elseif (isset($config['max_file_size'])) {
+                $max_file_size_bytes = (int) $config['max_file_size'];
+                if ($max_file_size_bytes > 0) {
+                    $max_file_size_mb = (int) ceil($max_file_size_bytes / 1024 / 1024);
+                }
+            }
+
+            if (isset($config['context_id'])) {
+                $context_id = $config['context_id'];
+            }
+
+            if (isset($config['user_nick'])) {
+                $user_nick = $config['user_nick'];
+            }
+        }
+
         // Obtener request de Symfony
         $this->request = \FSFramework\Core\Kernel::request();
 
         // Guardar configuración
-        $this->context_id = preg_replace(self::SAFE_TOKEN_REGEX, '', $context_id);
-        $this->user_nick = preg_replace(self::SAFE_TOKEN_REGEX, '', $user_nick);
+        $this->context_id = preg_replace(self::SAFE_TOKEN_REGEX, '', (string) $context_id);
+        $this->user_nick = preg_replace(self::SAFE_TOKEN_REGEX, '', (string) $user_nick);
         $this->upload_dir = $this->sanitize_path($upload_dir);
         $this->allowed_extensions = array_map('strtolower', $allowed_extensions);
         $this->max_file_size = $max_file_size_mb * 1024 * 1024;
@@ -411,7 +437,18 @@ class fs_secure_chunked_upload
      */
     private function sanitize_path($path)
     {
+        if (!is_scalar($path)) {
+            return '';
+        }
+
+        $path = trim((string) $path);
+        if ($path === '') {
+            return '';
+        }
+
         $path = str_replace('\\', '/', $path);
+        $has_drive = (bool) preg_match('/^[A-Za-z]:\//', $path);
+        $is_absolute = !$has_drive && strpos($path, '/') === 0;
         $previous = null;
 
         while ($previous !== $path) {
@@ -422,7 +459,17 @@ class fs_secure_chunked_upload
         }
 
         $path = ltrim($path, '/');
-        return rtrim($path, '/') . '/';
+        $path = rtrim($path, '/');
+
+        if ($path === '') {
+            return $is_absolute ? '/' : '';
+        }
+
+        if ($is_absolute) {
+            return '/' . $path . '/';
+        }
+
+        return $path . '/';
     }
 
     private function getChunkParams($custom_filename)
