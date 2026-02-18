@@ -53,10 +53,11 @@ class admin_user extends fs_controller
         $this->user_roles = [];
 
         /// ¿El usuario tiene permiso para eliminar en esta página?
-        $this->allow_delete = $this->user->admin;
+        $this->allow_delete = $this->user->admin || $this->user->allow_delete_on(__CLASS__);
 
         /// ¿El usuario tiene permiso para modificar en esta página?
-        $this->allow_modify = $this->user->admin;
+        /// Con el sistema de roles, tener acceso a la página implica permiso de modificación.
+        $this->allow_modify = $this->user->admin || $this->user->have_access_to(__CLASS__);
 
         $this->suser = FALSE;
         if (isset($_GET['snick'])) {
@@ -77,10 +78,12 @@ class admin_user extends fs_controller
 
             if (isset($_POST['nnombre'])) {
                 $this->nuevo_empleado();
-            } else if (isset($_POST['apply_roles'])) {
-                $this->aplicar_roles();
-            } else if (isset($_POST['spassword']) || isset($_POST['scodagente']) || isset($_POST['sadmin'])) {
+            } else if ($this->request->getMethod() === 'POST') {
                 $this->modificar_user();
+
+                if (isset($_POST['roles_form_present'])) {
+                    $this->aplicar_roles();
+                }
             } else if (fs_filter_input_req('senabled')) {
                 $this->desactivar_usuario();
             }
@@ -290,15 +293,15 @@ class admin_user extends fs_controller
             $this->new_error_msg('No tienes permiso para modificar estos datos.');
         } else {
             $error = FALSE;
-            $spassword = filter_input(INPUT_POST, 'spassword');
-            if ($spassword != '') {
-                if ($spassword == filter_input(INPUT_POST, 'spassword2')) {
+            $spassword = trim((string) filter_input(INPUT_POST, 'spassword'));
+            $spassword2 = trim((string) filter_input(INPUT_POST, 'spassword2'));
+            if ($spassword !== '' || $spassword2 !== '') {
+                if ($spassword !== '' && $spassword === $spassword2) {
                     if ($this->suser->set_password($spassword)) {
                         $this->new_message('Se ha cambiado la contraseña del usuario ' . $this->suser->nick, TRUE, 'login', TRUE);
                     }
                 } else {
-                    $this->new_error_msg('Las contraseñas no coinciden.');
-                    $error = TRUE;
+                    $this->new_error_msg('Las contraseñas no coinciden. El resto de cambios sí se han guardado.');
                 }
             }
 

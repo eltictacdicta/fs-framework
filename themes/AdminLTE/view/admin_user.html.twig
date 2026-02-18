@@ -111,8 +111,8 @@
          <div class="col-sm-2">
             <div class="form-group">
                Contraseña:
-               <input class="form-control" type="password" name="spassword" maxlength="32" placeholder="nueva contraseña"/>
-               <input class="form-control" type="password" name="spassword2" maxlength="32" placeholder="repite la contraseña"/>
+               <input class="form-control" type="password" name="spassword" maxlength="32" placeholder="nueva contraseña" autocomplete="new-password"/>
+               <input class="form-control" type="password" name="spassword2" maxlength="32" placeholder="repite la contraseña" autocomplete="new-password"/>
             </div>
          </div>
          <div class="col-sm-2">
@@ -244,9 +244,7 @@
                   </div>
                </div>
             </div>
-            <form class="form" action="{{ fsc.url() }}" method="post">
-               {{ csrf_field() }}
-               <input type="hidden" name="apply_roles" value="TRUE"/>
+            <input type="hidden" name="roles_form_present" value="1"/>
                <div class="table-responsive">
                   <table class="table table-hover">
                      <thead>
@@ -284,19 +282,6 @@
                      {% endfor %}
                   </table>
                </div>
-               {% if fsc.rol.all()|length > 0 %}
-               <div class="container-fluid">
-                  <div class="row">
-                     <div class="col-sm-12 text-right" style="margin-bottom: 15px;">
-                        <button class="btn btn-sm btn-primary" type="submit">
-                           <span class="glyphicon glyphicon-floppy-disk"></span>
-                           &nbsp;Guardar roles
-                        </button>
-                     </div>
-                  </div>
-               </div>
-               {% endif %}
-            </form>
          </div>
          {% endif %}
          <div role="tabpanel" class="tab-pane{% if fsc.suser.admin or not fsc.user.admin %} active{% endif %}" id="permisos">
