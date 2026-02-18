@@ -223,6 +223,11 @@ class RainToTwig
         // Remove $ from variables
         $expr = preg_replace('/\$([a-zA-Z_][a-zA-Z0-9_]*)/', '$1', $expr);
 
+        // Translate legacy unquoted array keys to Twig string keys.
+        // Example: orphan_stats[contactos] -> orphan_stats['contactos']
+        // This prevents Twig from treating "contactos" as an undefined variable.
+        $expr = preg_replace('/\[([a-zA-Z_][a-zA-Z0-9_]*)\]/', "['$1']", $expr);
+
         // Translate -> to .
         $expr = str_replace('->', '.', $expr);
 
