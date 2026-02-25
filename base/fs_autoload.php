@@ -179,6 +179,19 @@ class fs_autoload
             }
         }
 
+        // Buscar modelos con namespace FSFramework\model\ en plugins activos
+        if (strpos($class, 'FSFramework\\model\\') === 0) {
+            $className = substr($class, strlen('FSFramework\\model\\'));
+            if (isset($GLOBALS['plugins']) && is_array($GLOBALS['plugins'])) {
+                foreach ($GLOBALS['plugins'] as $plugin) {
+                    $file = $folder . self::PLUGINS_PATH . $plugin . '/model/' . $className . '.php';
+                    if (file_exists($file)) {
+                        return $file;
+                    }
+                }
+            }
+        }
+
         return null;
     }
 

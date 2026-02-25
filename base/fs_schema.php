@@ -217,10 +217,43 @@ class fs_schema
         $sql .= "\n)";
 
         if ($isMySQL) {
-            $sql .= " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+            $sql .= self::getMysqlTableOptions();
         }
 
         return $sql;
+    }
+
+    /**
+     * Devuelve las opciones ENGINE/CHARSET/COLLATE para MySQL,
+     * usando la configuración real de la base de datos para mantener
+     * consistencia con las tablas creadas por fs_mysql::generate_table().
+     *
+     * @return string
+     */
+    private static function getMysqlTableOptions()
+    {
+        $charset = 'utf8mb4';
+        $collation = 'utf8mb4_unicode_ci';
+
+        try {
+            $db = self::getDb();
+            $dbConf = $db->select("SELECT @@character_set_database AS db_charset, @@collation_database AS db_collation;");
+            if (!empty($dbConf)) {
+                $dbCharset = isset($dbConf[0]['db_charset']) ? $dbConf[0]['db_charset'] : '';
+                $dbCollation = isset($dbConf[0]['db_collation']) ? $dbConf[0]['db_collation'] : '';
+
+                if (preg_match('/^[a-z0-9_]+$/i', $dbCharset)) {
+                    $charset = strtolower($dbCharset);
+                }
+                if (preg_match('/^[a-z0-9_]+$/i', $dbCollation)) {
+                    $collation = strtolower($dbCollation);
+                }
+            }
+        } catch (\Throwable $e) {
+            // fallback to defaults
+        }
+
+        return " ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}";
     }
 
     /**

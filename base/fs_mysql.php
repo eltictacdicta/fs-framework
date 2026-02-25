@@ -107,11 +107,9 @@ class fs_mysql extends fs_db_engine
         $sql = '';
 
         foreach ($xml_cols as $xml_col) {
+            $xml_col['tipo'] = $this->convert_pg_type($xml_col['tipo']);
+
             if (strtolower($xml_col['tipo']) == 'integer') {
-                /**
-                 * Desde la pestaña avanzado el panel de control se puede cambiar
-                 * el tipo de entero a usar en las columnas.
-                 */
                 $xml_col['tipo'] = FS_DB_INTEGER;
             }
 
@@ -372,6 +370,19 @@ class fs_mysql extends fs_db_engine
     }
 
     /**
+     * Mapeo de tipos PostgreSQL a MySQL para generate_table().
+     * @var array
+     */
+    private static $pgToMysqlTypes = [
+        'character varying' => 'VARCHAR',
+        'character' => 'CHAR',
+        'boolean' => 'TINYINT(1)',
+        'double precision' => 'DOUBLE',
+        'real' => 'FLOAT',
+        'bytea' => 'BLOB',
+    ];
+
+    /**
      * Devuelve la sentencia SQL necesaria para crear una tabla con la estructura proporcionada.
      * @param string $table_name
      * @param array $xml_cols
@@ -380,34 +391,37 @@ class fs_mysql extends fs_db_engine
      */
     public function generate_table($table_name, $xml_cols, $xml_cons)
     {
+        $fkCollations = $this->get_fk_column_collations($xml_cons);
         $sql = "CREATE TABLE " . $table_name . " ( ";
 
         $i = FALSE;
         foreach ($xml_cols as $col) {
-            /// añade la coma al final
             if ($i) {
                 $sql .= ", ";
             } else {
                 $i = TRUE;
             }
 
+            $col['tipo'] = $this->convert_pg_type($col['tipo']);
+
             if ($col['tipo'] == 'serial') {
                 $sql .= '`' . $col['nombre'] . '` ' . FS_DB_INTEGER . ' NOT NULL AUTO_INCREMENT';
             } else {
                 if (strtolower($col['tipo']) == 'integer') {
-                    /**
-                     * Desde la pestaña avanzado el panel de control se puede cambiar
-                     * el tipo de entero a usar en las columnas.
-                     */
                     $col['tipo'] = FS_DB_INTEGER;
                 }
 
                 $sql .= '`' . $col['nombre'] . '` ' . $col['tipo'];
 
+                $columnName = isset($col['nombre']) ? $col['nombre'] : '';
+                if (isset($fkCollations[$columnName]) && $this->is_collatable_column_type($col['tipo'])) {
+                    $sql .= ' CHARACTER SET ' . $fkCollations[$columnName]['charset']
+                        . ' COLLATE ' . $fkCollations[$columnName]['collation'];
+                }
+
                 if ($col['nulo'] == 'NO') {
                     $sql .= " NOT NULL";
                 } else {
-                    /// es muy importante especificar que la columna permite NULL
                     $sql .= " NULL";
                 }
 
@@ -417,8 +431,151 @@ class fs_mysql extends fs_db_engine
             }
         }
 
-        return $this->fix_postgresql($sql) . ' ' . $this->generate_table_constraints($xml_cons) . ' ) '
+        $validatedCons = $this->validate_fk_constraints($xml_cons);
+        return $this->fix_postgresql($sql) . ' ' . $this->generate_table_constraints($validatedCons) . ' ) '
             . $this->table_charset_collation_sql() . ';';
+    }
+
+    /**
+     * Convierte un tipo PostgreSQL a su equivalente MySQL.
+     *
+     * @param string $type
+     * @return string
+     */
+    private function convert_pg_type($type)
+    {
+        $matches = [];
+        if (preg_match('/^([a-z\s]+)(?:\((\d+(?:,\d+)?)\))?$/i', trim($type), $matches)) {
+            $baseType = strtolower(trim($matches[1]));
+            $length = isset($matches[2]) ? $matches[2] : null;
+
+            foreach (self::$pgToMysqlTypes as $pgType => $mysqlType) {
+                if ($baseType === $pgType || strpos($baseType, $pgType) === 0) {
+                    if ($length && strpos($mysqlType, '(') === false) {
+                        return "{$mysqlType}({$length})";
+                    }
+                    return $mysqlType;
+                }
+            }
+        }
+
+        return $type;
+    }
+
+    /**
+     * Filtra las restricciones FK cuya tabla referenciada no existe aún,
+     * evitando errno 150 durante la creación de la tabla.
+     *
+     * @param array $xml_cons
+     * @return array
+     */
+    private function validate_fk_constraints($xml_cons)
+    {
+        if (empty($xml_cons)) {
+            return $xml_cons;
+        }
+
+        $tables = $this->list_tables();
+        $tableNames = [];
+        if (is_array($tables)) {
+            foreach ($tables as $t) {
+                $tableNames[] = strtolower($t['name']);
+            }
+        }
+
+        $validated = [];
+        foreach ($xml_cons as $con) {
+            if (stripos($con['consulta'], 'FOREIGN KEY') === false) {
+                $validated[] = $con;
+                continue;
+            }
+
+            if (preg_match('/REFERENCES\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_]+))/i', $con['consulta'], $m)) {
+                $refTable = $m[1] ?: ($m[2] ?: ($m[3] ?: ''));
+                $refTable = trim($refTable, '"`');
+
+                if ($refTable !== '' && in_array(strtolower($refTable), $tableNames)) {
+                    $validated[] = $con;
+                } else {
+                    error_log("generate_table: FK '{$con['nombre']}' omitida - tabla '{$refTable}' no existe aún.");
+                }
+            } else {
+                $validated[] = $con;
+            }
+        }
+
+        return $validated;
+    }
+
+    /**
+     * Devuelve el charset/collation para las columnas locales que tienen claves foráneas,
+     * tomando la configuración de la columna referenciada.
+     *
+     * @param array $xml_cons
+     * @return array
+     */
+    private function get_fk_column_collations($xml_cons)
+    {
+        $result = [];
+
+        if (empty($xml_cons) || !is_array($xml_cons)) {
+            return $result;
+        }
+
+        foreach ($xml_cons as $cons) {
+            if (empty($cons['consulta']) || stripos($cons['consulta'], 'FOREIGN KEY') === false) {
+                continue;
+            }
+
+            if (!preg_match('/FOREIGN\s+KEY\s*\(\s*`?([a-zA-Z0-9_]+)`?\s*\)\s*REFERENCES\s*`?([a-zA-Z0-9_]+)`?\s*\(\s*`?([a-zA-Z0-9_]+)`?\s*\)/i', $cons['consulta'], $matches)) {
+                continue;
+            }
+
+            $localColumn = $matches[1];
+            $refTable = $matches[2];
+            $refColumn = $matches[3];
+
+            $sql = "SELECT character_set_name AS charset_name, collation_name AS collation_name"
+                . " FROM information_schema.columns"
+                . " WHERE table_schema = DATABASE()"
+                . " AND table_name = '" . $refTable . "'"
+                . " AND column_name = '" . $refColumn . "'"
+                . " LIMIT 1;";
+
+            $data = $this->select($sql);
+            if (empty($data)) {
+                continue;
+            }
+
+            $charset = isset($data[0]['charset_name']) ? strtolower($data[0]['charset_name']) : '';
+            $collation = isset($data[0]['collation_name']) ? strtolower($data[0]['collation_name']) : '';
+
+            if (!preg_match('/^[a-z0-9_]+$/i', $charset) || !preg_match('/^[a-z0-9_]+$/i', $collation)) {
+                continue;
+            }
+
+            $result[$localColumn] = [
+                'charset' => $charset,
+                'collation' => $collation,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Indica si el tipo de columna admite collation en MySQL.
+     *
+     * @param string $columnType
+     * @return bool
+     */
+    private function is_collatable_column_type($columnType)
+    {
+        $type = strtolower(trim((string) $columnType));
+        return strpos($type, 'char') !== false
+            || strpos($type, 'text') !== false
+            || strpos($type, 'enum(') === 0
+            || strpos($type, 'set(') === 0;
     }
 
     /**
