@@ -108,10 +108,14 @@ class fs_mysql extends fs_db_engine
 
         foreach ($xml_cols as $xml_col) {
             $xml_col['tipo'] = $this->convert_pg_type($xml_col['tipo']);
+            $xmlType = $xml_col['tipo'];
 
             if (strtolower($xml_col['tipo']) == 'integer') {
                 $xml_col['tipo'] = FS_DB_INTEGER;
+                $xmlType = $xml_col['tipo'];
             }
+
+            $xmlDefault = $this->normalize_mysql_default($xml_col['defecto'], $xmlType);
 
             $db_col = $this->search_in_array($db_cols, 'name', $xml_col['nombre']);
             if (empty($db_col)) {
@@ -122,11 +126,11 @@ class fs_mysql extends fs_db_engine
                     continue;
                 }
 
-                $sql .= $xml_col['tipo'];
+                $sql .= $xmlType;
                 $sql .= ($xml_col['nulo'] == 'NO') ? " NOT NULL" : " NULL";
 
-                if ($xml_col['defecto'] !== NULL) {
-                    $sql .= " DEFAULT " . $xml_col['defecto'] . ";";
+                if ($xmlDefault !== NULL) {
+                    $sql .= " DEFAULT " . $xmlDefault . ";";
                 } else if ($xml_col['nulo'] == 'YES') {
                     $sql .= " DEFAULT NULL;";
                 } else {
@@ -136,29 +140,29 @@ class fs_mysql extends fs_db_engine
             }
 
             /// columna ya presente en db_cols. La modificamos
-            if (!$this->compare_data_types($db_col['type'], $xml_col['tipo'])) {
-                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xml_col['tipo'] . ';';
+            if (!$this->compare_data_types($db_col['type'], $xmlType)) {
+                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ';';
             }
 
             if ($db_col['is_nullable'] == $xml_col['nulo']) {
                 /// do nothing
             } elseif ($xml_col['nulo'] == 'YES') {
-                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xml_col['tipo'] . ' NULL;';
+                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ' NULL;';
             } else {
-                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xml_col['tipo'] . ' NOT NULL;';
+                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ' NOT NULL;';
             }
 
-            if ($this->compare_defaults($db_col['default'], $xml_col['defecto'])) {
+            if ($this->compare_defaults($db_col['default'], $xmlDefault)) {
                 /// do nothing
-            } elseif (is_null($xml_col['defecto'])) {
+            } elseif (is_null($xmlDefault)) {
                 $sql .= 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` DROP DEFAULT;';
-            } elseif (strtolower(substr($xml_col['defecto'], 0, 9)) == "nextval('") { /// nextval es para postgresql
+            } elseif (strtolower(substr($xmlDefault, 0, 9)) == "nextval('") { /// nextval es para postgresql
                 if ($db_col['extra'] != 'auto_increment') {
-                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xml_col['tipo'];
+                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType;
                     $sql .= ($xml_col['nulo'] == 'YES') ? ' NULL AUTO_INCREMENT;' : ' NOT NULL AUTO_INCREMENT;';
                 }
             } else {
-                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` SET DEFAULT ' . $xml_col['defecto'] . ";";
+                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` SET DEFAULT ' . $xmlDefault . ";";
             }
         }
 
@@ -426,7 +430,7 @@ class fs_mysql extends fs_db_engine
                 }
 
                 if ($col['defecto'] !== NULL) {
-                    $sql .= " DEFAULT " . $col['defecto'];
+                    $sql .= " DEFAULT " . $this->normalize_mysql_default($col['defecto'], $col['tipo']);
                 }
             }
         }
@@ -447,6 +451,7 @@ class fs_mysql extends fs_db_engine
         $matches = [];
         if (preg_match('/^([a-z\s]+)(?:\((\d+(?:,\d+)?)\))?$/i', trim($type), $matches)) {
             $baseType = strtolower(trim($matches[1]));
+            $baseType = preg_replace('/\s+without\s+time\s+zone$/i', '', $baseType);
             $length = isset($matches[2]) ? $matches[2] : null;
 
             foreach (self::$pgToMysqlTypes as $pgType => $mysqlType) {
@@ -917,6 +922,18 @@ class fs_mysql extends fs_db_engine
             return in_array($xml_default, array('0', 'false', 'FALSE'));
         } else if (in_array($db_default, array('1', 'true', 'TRUE'))) {
             return in_array($xml_default, array('1', 'true', 'TRUE'));
+        } else if (in_array(strtoupper((string) $db_default), array('CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))
+            && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))
+        ) {
+            return TRUE;
+        } else if (in_array(strtoupper((string) $db_default), array('CURRENT_TIME', 'CURRENT_TIME()'))
+            && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_TIME', 'CURRENT_TIME()'))
+        ) {
+            return TRUE;
+        } else if (in_array(strtoupper((string) $db_default), array('CURRENT_DATE', 'CURRENT_DATE()'))
+            && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_DATE', 'CURRENT_DATE()'))
+        ) {
+            return TRUE;
         } else if ($db_default == '00:00:00' && $xml_default == 'now()') {
             return TRUE;
         } else if ($db_default == date('Y-m-d') . ' 00:00:00' && $xml_default == 'CURRENT_TIMESTAMP') {
@@ -933,17 +950,57 @@ class fs_mysql extends fs_db_engine
     }
 
     /**
+     * Normaliza valores por defecto según el tipo de columna en MySQL/MariaDB.
+     *
+     * @param string|null $default
+     * @param string $columnType
+     * @return string|null
+     */
+    private function normalize_mysql_default($default, $columnType)
+    {
+        if ($default === NULL) {
+            return NULL;
+        }
+
+        $default = trim((string) $default);
+        if ($default === '') {
+            return $default;
+        }
+
+        $type = strtolower(trim((string) $columnType));
+        $type = preg_replace('/\(.*/', '', $type);
+        $type = preg_replace('/\s+without\s+time\s+zone$/i', '', $type);
+
+        $upperDefault = strtoupper($default);
+        if (in_array($upperDefault, array('NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))) {
+            if ($type === 'time') {
+                return 'CURRENT_TIME';
+            }
+
+            if ($type === 'date') {
+                return 'CURRENT_DATE';
+            }
+
+            return 'CURRENT_TIMESTAMP';
+        }
+
+        return $default;
+    }
+
+    /**
      * Elimina código problemático de postgresql.
      * @param string $sql
      * @return string
      */
     private function fix_postgresql($sql)
     {
-        return str_replace(
-            array('::regclass', '::character varying', '::integer', 'without time zone', 'now()', 'CURRENT_TIMESTAMP', 'CURRENT_DATE'),
-            array('', '', '', "'00:00'", "'" . date('Y-m-d') . " 00:00:00'", "'" . date('Y-m-d') . " 00:00:00'", date("'Y-m-d'")),
+        $sql = str_replace(
+            array('::regclass', '::character varying', '::integer'),
+            array('', '', ''),
             $sql
         );
+
+        return preg_replace('/\b(timestamp|time)\s+without\s+time\s+zone\b/i', '$1', $sql);
     }
 
     /**

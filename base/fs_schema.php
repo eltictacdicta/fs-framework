@@ -272,6 +272,7 @@ class fs_schema
 
         // Convertir tipo de datos
         $sqlType = self::convertType($type, $isMySQL);
+        $normalizedDefault = self::normalizeDefault($default, $sqlType, $isMySQL);
 
         // Construir definición
         $quote = $isMySQL ? '`' : '"';
@@ -281,21 +282,72 @@ class fs_schema
             $def .= " NOT NULL";
         }
         
-        if ($default !== null && $default !== '') {
-            if ($default === 'true' || $default === 'false') {
-                $def .= " DEFAULT " . ($default === 'true' ? '1' : '0');
-            } elseif (is_numeric($default)) {
-                $def .= " DEFAULT {$default}";
-            } elseif (strtoupper($default) === 'CURRENT_TIMESTAMP' || strtoupper($default) === 'NOW()') {
-                $def .= " DEFAULT CURRENT_TIMESTAMP";
-            } elseif (strtoupper($default) === 'NULL') {
+        if ($normalizedDefault !== null && $normalizedDefault !== '') {
+            if ($normalizedDefault === 'true' || $normalizedDefault === 'false') {
+                if ($isMySQL) {
+                    $def .= " DEFAULT " . ($normalizedDefault === 'true' ? '1' : '0');
+                } else {
+                    $def .= " DEFAULT " . strtoupper($normalizedDefault);
+                }
+            } elseif (is_numeric($normalizedDefault)) {
+                $def .= " DEFAULT {$normalizedDefault}";
+            } elseif (
+                strtoupper($normalizedDefault) === 'CURRENT_TIMESTAMP'
+                || strtoupper($normalizedDefault) === 'NOW()'
+                || strtoupper($normalizedDefault) === 'CURRENT_TIME'
+                || strtoupper($normalizedDefault) === 'CURRENT_DATE'
+            ) {
+                $def .= " DEFAULT " . strtoupper($normalizedDefault);
+            } elseif (strtoupper($normalizedDefault) === 'NULL') {
                 $def .= " DEFAULT NULL";
             } else {
-                $def .= " DEFAULT '{$default}'";
+                $def .= " DEFAULT '{$normalizedDefault}'";
             }
         }
 
         return $def;
+    }
+
+    /**
+     * Normaliza el valor por defecto según motor y tipo de columna.
+     *
+     * @param string|null $default
+     * @param string $sqlType
+     * @param bool $isMySQL
+     * @return string|null
+     */
+    private static function normalizeDefault($default, $sqlType, $isMySQL)
+    {
+        if ($default === null) {
+            return null;
+        }
+
+        $default = trim((string) $default);
+        if ($default === '') {
+            return $default;
+        }
+
+        if (!$isMySQL) {
+            return $default;
+        }
+
+        $type = strtolower(trim($sqlType));
+        $type = preg_replace('/\(.*/', '', $type);
+
+        $upperDefault = strtoupper($default);
+        if (in_array($upperDefault, ['NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'])) {
+            if ($type === 'time') {
+                return 'CURRENT_TIME';
+            }
+
+            if ($type === 'date') {
+                return 'CURRENT_DATE';
+            }
+
+            return 'CURRENT_TIMESTAMP';
+        }
+
+        return $default;
     }
 
     /**
@@ -313,7 +365,7 @@ class fs_schema
 
         // Extraer tipo base y longitud
         $matches = [];
-        if (preg_match('/^([a-z\s]+)(?:\((\d+(?:,\d+)?)\))?$/i', trim($type), $matches)) {
+        if (preg_match('/^([a-z\s]+?)(?:\s+without\s+time\s+zone)?(?:\((\d+(?:,\d+)?)\))?$/i', trim($type), $matches)) {
             $baseType = strtolower(trim($matches[1]));
             $length = isset($matches[2]) ? $matches[2] : null;
 
