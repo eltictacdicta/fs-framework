@@ -258,12 +258,16 @@ class fs_mysql extends fs_db_engine
             if (self::$link->connect_error) {
                 $error_msg = 'Error de conexión MySQL (' . self::$link->connect_errno . ') ' . self::$link->connect_error;
                 self::$core_log->new_error($error_msg);
-                error_log("FS_DEBUG: " . $error_msg);
+                if (defined('FS_DEBUG') && FS_DEBUG) {
+                    error_log("FS_DEBUG: " . $error_msg);
+                }
                 self::$link = NULL;
             } else {
                 self::$link->set_charset('utf8');
                 $connected = TRUE;
-                error_log("FS_DEBUG: Connected to database " . FS_DB_NAME . " on " . FS_DB_HOST);
+                if (defined('FS_DEBUG') && FS_DEBUG) {
+                    error_log("FS_DEBUG: Connected to database " . FS_DB_NAME . " on " . FS_DB_HOST);
+                }
 
                 if (!FS_FOREIGN_KEYS) {
                     /// desactivamos las claves ajenas
@@ -745,7 +749,9 @@ class fs_mysql extends fs_db_engine
             }
         }
 
-        error_log("FS_DEBUG: list_tables() for '" . FS_DB_NAME . "' returned " . count($tables) . " tables");
+        if (defined('FS_DEBUG') && FS_DEBUG) {
+            error_log("FS_DEBUG: list_tables() for '" . FS_DB_NAME . "' returned " . count($tables) . " tables");
+        }
         return $tables;
     }
 
@@ -783,7 +789,9 @@ class fs_mysql extends fs_db_engine
                 }
             } catch (mysqli_sql_exception $e) {
                 self::$last_error = $e->getMessage();
-                error_log("FS_DEBUG: Query EXCEPTION: $sql Error: " . self::$last_error);
+                if (defined('FS_DEBUG') && FS_DEBUG) {
+                    error_log("FS_DEBUG: Query EXCEPTION: $sql Error: " . self::$last_error);
+                }
                 $aux = FALSE;
             }
 
@@ -797,7 +805,9 @@ class fs_mysql extends fs_db_engine
                 }
             } else {
                 self::$last_error = self::$link->error;
-                error_log("FS_DEBUG: Query FAILED: $sql Error: " . self::$last_error);
+                if (defined('FS_DEBUG') && FS_DEBUG) {
+                    error_log("FS_DEBUG: Query FAILED: $sql Error: " . self::$last_error);
+                }
                 /// añadimos el error a la lista de errores
                 self::$core_log->new_error(self::$last_error);
                 self::$core_log->save(self::$last_error);

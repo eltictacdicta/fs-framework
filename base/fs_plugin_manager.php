@@ -110,7 +110,9 @@ class fs_plugin_manager
         if (file_exists(FS_FOLDER . '/VERSION')) {
             $raw_version = file_get_contents(FS_FOLDER . '/VERSION');
             $this->version = trim($raw_version);
-            error_log("Debug fs_plugin_manager: Read VERSION file. Content: '$raw_version', Result: '{$this->version}'");
+            if (defined('FS_DEBUG') && FS_DEBUG) {
+                error_log("Debug fs_plugin_manager: Read VERSION file. Content: '$raw_version', Result: '{$this->version}'");
+            }
         } elseif (class_exists('FSFramework\\Core\\Kernel')) {
             $this->version = \FSFramework\Core\Kernel::version();
         }

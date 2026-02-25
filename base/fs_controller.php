@@ -675,13 +675,17 @@ class fs_controller extends fs_app
 
         $page = $this->page->get($name);
         if (!$page) {
-            error_log("Creating new page $name with show_on_menu = " . ($shmenu ? 'TRUE' : 'FALSE'));
+            if (defined('FS_DEBUG') && FS_DEBUG) {
+                error_log("Creating new page $name with show_on_menu = " . ($shmenu ? 'TRUE' : 'FALSE'));
+            }
             $this->page->save();
             return;
         }
 
         if ($this->mustUpdatePage($page, $title, $folder, $shmenu, $important)) {
-            error_log("Updating page $name: show_on_menu from " . ($page->show_on_menu ? 'TRUE' : 'FALSE') . " to " . ($shmenu ? 'TRUE' : 'FALSE'));
+            if (defined('FS_DEBUG') && FS_DEBUG) {
+                error_log("Updating page $name: show_on_menu from " . ($page->show_on_menu ? 'TRUE' : 'FALSE') . " to " . ($shmenu ? 'TRUE' : 'FALSE'));
+            }
             $page->title = $title;
             $page->folder = $folder;
             $page->show_on_menu = $shmenu;
