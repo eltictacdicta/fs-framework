@@ -106,6 +106,9 @@ class fs_mysql extends fs_db_engine
     {
         $sql = '';
 
+        // Obtener columnas con FK para evitar ALTERs innecesarios
+        $fk_columns = $this->get_fk_column_names($table_name);
+
         foreach ($xml_cols as $xml_col) {
             $xml_col['tipo'] = $this->convert_pg_type($xml_col['tipo']);
             $xmlType = $xml_col['tipo'];
@@ -141,15 +144,25 @@ class fs_mysql extends fs_db_engine
 
             /// columna ya presente en db_cols. La modificamos
             if (!$this->compare_data_types($db_col['type'], $xmlType)) {
-                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ';';
+                // Si la columna tiene FK, comprobar si realmente necesita cambio
+                if (in_array($xml_col['nombre'], $fk_columns)) {
+                    // Solo emitir ALTER si los tamaños realmente difieren
+                    if ($this->column_type_really_differs($db_col['type'], $xmlType)) {
+                        $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ';';
+                    }
+                } else {
+                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ';';
+                }
             }
 
             if ($db_col['is_nullable'] == $xml_col['nulo']) {
                 /// do nothing
-            } elseif ($xml_col['nulo'] == 'YES') {
-                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ' NULL;';
-            } else {
-                $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ' NOT NULL;';
+            } elseif (!in_array($xml_col['nombre'], $fk_columns) || $this->column_type_really_differs($db_col['type'], $xmlType)) {
+                if ($xml_col['nulo'] == 'YES') {
+                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ' NULL;';
+                } else {
+                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ' NOT NULL;';
+                }
             }
 
             if ($this->compare_defaults($db_col['default'], $xmlDefault)) {
@@ -878,28 +891,34 @@ class fs_mysql extends fs_db_engine
             return TRUE;
         }
 
-        if ($db_type == $xml_type || strtolower($xml_type) == 'serial') {
+        // Comparación case-insensitive para evitar falsos positivos varchar vs VARCHAR
+        $db_lower = strtolower($db_type);
+        $xml_lower = strtolower($xml_type);
+
+        if ($db_lower == $xml_lower || $xml_lower == 'serial') {
             return TRUE;
         }
 
-        if ($db_type == 'tinyint(1)' && $xml_type == 'boolean') {
+        if ($db_lower == 'tinyint(1)' && $xml_lower == 'boolean') {
             return TRUE;
         }
 
-        if (substr($db_type, 0, 3) == 'int' && strtolower($xml_type) == 'integer') {
+        if (substr($db_lower, 0, 3) == 'int' && $xml_lower == 'integer') {
             return TRUE;
         }
 
-        if (substr($db_type, 0, 6) == 'double' && $xml_type == 'double precision') {
+        if (substr($db_lower, 0, 6) == 'double' && $xml_lower == 'double precision') {
             return TRUE;
         }
 
-        if (substr($db_type, 0, 4) == 'time' && substr($xml_type, 0, 4) == 'time') {
+        if (substr($db_lower, 0, 4) == 'time' && substr($xml_lower, 0, 4) == 'time') {
             return TRUE;
         }
 
-        if ($this->same_character_length($db_type, $xml_type, 'varchar(', 8)
-            || $this->same_character_length($db_type, $xml_type, 'char(', 5)) {
+        if (
+            $this->same_character_length($db_lower, $xml_lower, 'varchar(', 8)
+            || $this->same_character_length($db_lower, $xml_lower, 'char(', 5)
+        ) {
             return TRUE;
         }
 
@@ -908,6 +927,17 @@ class fs_mysql extends fs_db_engine
 
     private function same_character_length($dbType, $xmlType, $prefix, $start)
     {
+        // Soportar tanto el formato PostgreSQL original como el ya convertido a MySQL
+        // PostgreSQL: character varying(20)  ->  MySQL: varchar(20) / VARCHAR(20)
+        $dbType = strtolower($dbType);
+        $xmlType = strtolower($xmlType);
+
+        // Si ambos ya son formato MySQL (varchar/char), comparar directamente
+        if (substr($dbType, 0, strlen($prefix)) == $prefix && substr($xmlType, 0, strlen($prefix)) == $prefix) {
+            return substr($dbType, $start, -1) == substr($xmlType, $start, -1);
+        }
+
+        // Si el XML todavía está en formato PostgreSQL
         $xmlPrefix = $prefix === 'char(' ? 'character(' : 'character varying(';
         $xmlStart = strlen($xmlPrefix);
 
@@ -916,6 +946,69 @@ class fs_mysql extends fs_db_engine
         }
 
         return substr($dbType, $start, -1) == substr($xmlType, $xmlStart, -1);
+    }
+
+    /**
+     * Obtiene los nombres de columnas que están involucradas en claves foráneas.
+     * @param string $table_name
+     * @return array
+     */
+    private function get_fk_column_names($table_name)
+    {
+        $columns = [];
+        $sql = "SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE "
+            . "WHERE TABLE_SCHEMA = SCHEMA() AND TABLE_NAME = '" . $table_name . "' "
+            . "AND REFERENCED_TABLE_NAME IS NOT NULL;";
+        $data = $this->select($sql);
+        if ($data) {
+            foreach ($data as $d) {
+                $columns[] = $d['COLUMN_NAME'];
+            }
+        }
+        return $columns;
+    }
+
+    /**
+     * Comprueba si dos tipos de columna realmente difieren en tamaño.
+     * Usado para columnas con FK donde MySQL no permite ALTER TABLE MODIFY innecesarios.
+     * @param string $db_type Tipo actual en la BD (ej: varchar(20))
+     * @param string $xml_type Tipo deseado del XML (ej: VARCHAR(20))
+     * @return boolean TRUE si realmente son diferentes
+     */
+    private function column_type_really_differs($db_type, $xml_type)
+    {
+        $db_lower = strtolower(trim($db_type));
+        $xml_lower = strtolower(trim($xml_type));
+
+        // Si son exactamente iguales (case-insensitive), no hay diferencia real
+        if ($db_lower === $xml_lower) {
+            return FALSE;
+        }
+
+        // Extraer tipo base y longitud de ambos
+        $db_info = $this->extract_type_info($db_lower);
+        $xml_info = $this->extract_type_info($xml_lower);
+
+        // Si el tipo base y la longitud coinciden, no hay diferencia real
+        if ($db_info['base'] === $xml_info['base'] && $db_info['length'] === $xml_info['length']) {
+            return FALSE;
+        }
+
+        return TRUE;
+    }
+
+    /**
+     * Extrae el tipo base y la longitud de un tipo de columna.
+     * @param string $type Ej: varchar(20), int(11)
+     * @return array ['base' => 'varchar', 'length' => '20']
+     */
+    private function extract_type_info($type)
+    {
+        $type = strtolower(trim($type));
+        if (preg_match('/^([a-z\s]+)\(([^)]+)\)$/', $type, $m)) {
+            return ['base' => trim($m[1]), 'length' => trim($m[2])];
+        }
+        return ['base' => $type, 'length' => null];
     }
 
     /**
@@ -932,15 +1025,18 @@ class fs_mysql extends fs_db_engine
             return in_array($xml_default, array('0', 'false', 'FALSE'));
         } else if (in_array($db_default, array('1', 'true', 'TRUE'))) {
             return in_array($xml_default, array('1', 'true', 'TRUE'));
-        } else if (in_array(strtoupper((string) $db_default), array('CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))
+        } else if (
+            in_array(strtoupper((string) $db_default), array('CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))
             && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))
         ) {
             return TRUE;
-        } else if (in_array(strtoupper((string) $db_default), array('CURRENT_TIME', 'CURRENT_TIME()'))
+        } else if (
+            in_array(strtoupper((string) $db_default), array('CURRENT_TIME', 'CURRENT_TIME()'))
             && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_TIME', 'CURRENT_TIME()'))
         ) {
             return TRUE;
-        } else if (in_array(strtoupper((string) $db_default), array('CURRENT_DATE', 'CURRENT_DATE()'))
+        } else if (
+            in_array(strtoupper((string) $db_default), array('CURRENT_DATE', 'CURRENT_DATE()'))
             && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_DATE', 'CURRENT_DATE()'))
         ) {
             return TRUE;
