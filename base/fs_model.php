@@ -199,11 +199,13 @@ abstract class fs_model
      * Esta función convierte:
      * < en &lt;
      * > en &gt;
-     * " en &quot;
      * ' en &#39;
      * 
-     * No tengas la tentación de sustiturla por htmlentities o htmlspecialshars
-     * porque te encontrarás con muchas sorpresas desagradables.
+     * Las comillas dobles (") NO se convierten porque no afectan a las consultas
+     * SQL (MySQL usa comillas simples), var2str()/escape_string() ya protegen 
+     * contra SQL injection, y Twig auto-escapa en las vistas.
+     * Convertirlas causaba corrupción de datos (" → &quot;) en importaciones 
+     * y saves repetidos.
      * @param string $txt
      * @return string
      */
@@ -214,8 +216,8 @@ abstract class fs_model
         }
 
         $newt = str_replace(
-            array('<', '>', '"', "'"),
-            array('&lt;', '&gt;', '&quot;', '&#39;'),
+            array('<', '>', "'"),
+            array('&lt;', '&gt;', '&#39;'),
             $txt
         );
 
