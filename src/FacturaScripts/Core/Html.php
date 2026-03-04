@@ -72,6 +72,11 @@ class Html
         // Render the template normally
         $html = self::render($template, $params);
 
+        // If the rendered HTML has no full-page structure, it is already a partial
+        if (stripos($html, '<body') === false && stripos($html, '</html>') === false) {
+            return trim($html);
+        }
+
         // Try to extract just the main content
         // Look for content-wrapper or similar containers
         $patterns = [
@@ -88,10 +93,12 @@ class Html
         }
 
         // If no pattern matched, try to strip header and footer completely
-        // Remove everything before <body> tag content and after </footer>
-        $html = preg_replace('/^.*<body[^>]*>/si', '', $html);
-        $html = preg_replace('/<footer.*$/si', '', $html);
-        $html = preg_replace('/<\/body>.*$/si', '', $html);
+        $result = preg_replace('/^.*<body[^>]*>/si', '', $html);
+        $html = $result ?? $html;
+        $result = preg_replace('/<footer.*$/si', '', $html);
+        $html = $result ?? $html;
+        $result = preg_replace('/<\/body>.*$/si', '', $html);
+        $html = $result ?? $html;
 
         return trim($html);
     }
