@@ -216,8 +216,8 @@ abstract class fs_model
         }
 
         $newt = str_replace(
-            array('<', '>', "'"),
-            array('&lt;', '&gt;', '&#39;'),
+            array('&', '"', "'", '<', '>'),
+            array('&amp;', '&quot;', '&#39;', '&lt;', '&gt;'),
             $txt
         );
 

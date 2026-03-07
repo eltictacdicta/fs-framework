@@ -18,6 +18,8 @@
  */
 require_once 'base/fs_mysql.php';
 require_once 'base/fs_postgresql.php';
+require_once 'base/fs_dbal.php';
+require_once 'base/fs_dbal_engine.php';
 
 /**
  * Clase genérica de acceso a la base de datos, ya sea MySQL o PostgreSQL.
@@ -26,6 +28,19 @@ require_once 'base/fs_postgresql.php';
  */
 class fs_db2
 {
+    /**
+     * Backend de acceso activo realmente usado por fs_db2.
+     *
+     * @var string
+     */
+    private static $active_backend = 'legacy';
+
+    /**
+     * Evita repetir el aviso de fallback si DBAL no está disponible.
+     *
+     * @var bool
+     */
+    private static $reported_backend_fallback = false;
 
     /**
      * Transacttiones automáticas activadas si o no.
@@ -48,10 +63,23 @@ class fs_db2
     public function __construct()
     {
         if (!isset(self::$engine)) {
-            if (strtolower(FS_DB_TYPE) == 'mysql') {
-                self::$engine = new fs_mysql();
+            if (fs_dbal::is_enabled()) {
+                self::$engine = new fs_dbal_engine();
+                self::$active_backend = fs_dbal::BACKEND_DBAL;
             } else {
-                self::$engine = new fs_postgresql();
+                self::$active_backend = fs_dbal::BACKEND_LEGACY;
+
+                if (fs_dbal::is_requested() && !fs_dbal::is_available() && !self::$reported_backend_fallback) {
+                    $log = new fs_core_log();
+                    $log->new_advice('Doctrine DBAL está solicitado, pero no disponible todavía. Se usa el backend legacy.');
+                    self::$reported_backend_fallback = true;
+                }
+
+                if (strtolower(FS_DB_TYPE) == 'mysql') {
+                    self::$engine = new fs_mysql();
+                } else {
+                    self::$engine = new fs_postgresql();
+                }
             }
 
             self::$auto_transactions = TRUE;
@@ -206,6 +234,56 @@ class fs_db2
     public function get_auto_transactions()
     {
         return self::$auto_transactions;
+    }
+
+    /**
+     * Devuelve el backend de base de datos solicitado por configuración.
+     *
+     * @return string
+     */
+    public function get_requested_backend_name()
+    {
+        return fs_dbal::requested_backend();
+    }
+
+    /**
+     * Devuelve el backend realmente activo.
+     *
+     * @return string
+     */
+    public function get_active_backend_name()
+    {
+        return self::$active_backend;
+    }
+
+    /**
+     * Indica si Doctrine DBAL ha sido solicitado por configuración.
+     *
+     * @return bool
+     */
+    public function dbal_requested()
+    {
+        return fs_dbal::is_requested();
+    }
+
+    /**
+     * Indica si Doctrine DBAL está disponible en runtime.
+     *
+     * @return bool
+     */
+    public function dbal_available()
+    {
+        return fs_dbal::is_available();
+    }
+
+    /**
+     * Indica si fs_db2 está usando Doctrine DBAL realmente.
+     *
+     * @return bool
+     */
+    public function using_dbal()
+    {
+        return self::$active_backend === fs_dbal::BACKEND_DBAL;
     }
 
     /**

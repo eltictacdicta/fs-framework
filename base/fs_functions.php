@@ -507,8 +507,8 @@ function fs_filter_input_req($name, $default = false)
  */
 function fs_fix_html($txt)
 {
-    $original = array('&lt;', '&gt;', '&quot;', '&#39;');
-    $final = array('<', '>', "'", "'");
+    $original = array('&lt;', '&gt;', '&quot;', '&#39;', '&amp;');
+    $final = array('<', '>', '"', "'", '&');
     return trim(str_replace($original, $final, $txt));
 }
 

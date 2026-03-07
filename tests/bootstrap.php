@@ -23,6 +23,26 @@ if (!defined('FS_DB_TYPE')) {
     define('FS_DB_TYPE', 'MYSQL');
 }
 
+if (!defined('FS_DB_HOST')) {
+    define('FS_DB_HOST', 'localhost');
+}
+
+if (!defined('FS_DB_PORT')) {
+    define('FS_DB_PORT', '3306');
+}
+
+if (!defined('FS_DB_NAME')) {
+    define('FS_DB_NAME', 'fsframework_test');
+}
+
+if (!defined('FS_DB_USER')) {
+    define('FS_DB_USER', 'root');
+}
+
+if (!defined('FS_DB_PASS')) {
+    define('FS_DB_PASS', '');
+}
+
 if (!defined('FS_IP_WHITELIST')) {
     define('FS_IP_WHITELIST', '*');
 }

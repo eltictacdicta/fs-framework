@@ -57,8 +57,8 @@ class FsFunctionsTest extends TestCase
 
     public function testFsFixHtmlRestoresQuotes(): void
     {
-        // Nota: tanto &quot; como &#39; se convierten a comilla simple
-        $this->assertSame("'hello'", fs_fix_html('&quot;hello&quot;'));
+        // &quot; se convierte a comilla doble, &#39; a comilla simple
+        $this->assertSame('"hello"', fs_fix_html('&quot;hello&quot;'));
         $this->assertSame("'hello'", fs_fix_html('&#39;hello&#39;'));
     }
 

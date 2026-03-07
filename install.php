@@ -48,6 +48,7 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         foreach ($fields as $name) {
             fwrite($archivo, "define('FS_" . $name . "', '" . filter_input(INPUT_POST, strtolower($name)) . "');\n");
         }
+        fwrite($archivo, "define('FS_DB_BACKEND', 'legacy'); // legacy | doctrine_dbal\n");
 
         if (filter_input(INPUT_POST, 'db_type') == 'MYSQL' && filter_input(INPUT_POST, 'mysql_socket') != '') {
             fwrite($archivo, "ini_set('mysqli.default_socket', '" . filter_input(INPUT_POST, 'mysql_socket') . "');\n");

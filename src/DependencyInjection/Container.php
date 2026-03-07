@@ -116,6 +116,11 @@ class Container
             ->setPublic(true)
             ->setShared(true);
 
+        // Doctrine DBAL Factory (migración gradual, backend opcional)
+        $container->register('dbal.connection_factory', \FSFramework\Database\DbalConnectionFactory::class)
+            ->setPublic(true)
+            ->setShared(true);
+
         // Request (desde Kernel)
         $container->register('request', \Symfony\Component\HttpFoundation\Request::class)
             ->setFactory([\FSFramework\Core\Kernel::class, 'request'])
