@@ -377,6 +377,7 @@ class fs_db2
     public function table_exists($name, $list = FALSE)
     {
         $result = FALSE;
+        $used_cached_list = ($list === FALSE);
 
         if ($list === FALSE) {
             $list = $this->list_tables();
@@ -386,6 +387,17 @@ class fs_db2
             if ($table['name'] == $name) {
                 $result = TRUE;
                 break;
+            }
+        }
+
+        if (!$result && $used_cached_list) {
+            self::$table_list = self::$engine->list_tables();
+
+            foreach (self::$table_list as $table) {
+                if ($table['name'] == $name) {
+                    $result = TRUE;
+                    break;
+                }
             }
         }
 

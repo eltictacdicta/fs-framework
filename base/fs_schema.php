@@ -634,6 +634,14 @@ class fs_schema
             require_once 'base/fs_model.php';
         }
 
+        if (!class_exists('fs_model_autoloader', false) && file_exists('base/fs_model_autoloader.php')) {
+            require_once 'base/fs_model_autoloader.php';
+        }
+
+        if (class_exists('fs_model_autoloader', false)) {
+            fs_model_autoloader::register(false);
+        }
+
         $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
         if ($tableDir === null) {
             $tableDir = $folder . '/model/table';

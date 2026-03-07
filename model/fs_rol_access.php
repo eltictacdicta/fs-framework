@@ -47,6 +47,9 @@ class fs_rol_access extends fs_model
 
     protected function install()
     {
+        new fs_rol();
+        new fs_page();
+
         return '';
     }
 

@@ -305,6 +305,17 @@ class fs_core_log
         $this->clean('errors');
     }
 
+    /**
+     * Elimina un error concreto de los canales 'errors' y 'save' usando
+     * coincidencia por contenido (str_contains).
+     * @param string $msg
+     */
+    public function clear_error($msg)
+    {
+        $this->clear_by_message('errors', $msg);
+        $this->clear_by_message('save', $msg);
+    }
+
     public function clean_messages()
     {
         $this->clean('messages');
@@ -453,6 +464,22 @@ class fs_core_log
     {
         foreach (self::$data_log as $key => $value) {
             if ($value['channel'] === $channel) {
+                unset(self::$data_log[$key]);
+            }
+        }
+    }
+
+    /**
+     * Elimina entradas de un canal cuyo mensaje contenga la cadena indicada.
+     * Se usa str_contains porque el motor de BD añade un sufijo al mensaje
+     * original (posición de secuencia), haciendo que la coincidencia exacta falle.
+     * @param string $channel
+     * @param string $msg
+     */
+    private function clear_by_message($channel, $msg)
+    {
+        foreach (self::$data_log as $key => $value) {
+            if ($value['channel'] === $channel && str_contains($value['message'], $msg)) {
                 unset(self::$data_log[$key]);
             }
         }

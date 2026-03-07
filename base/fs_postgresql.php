@@ -263,7 +263,7 @@ class fs_postgresql extends fs_db_engine
      */
     public function generate_table($table_name, $xml_cols, $xml_cons)
     {
-        $sql = 'CREATE TABLE ' . $table_name . ' (';
+        $sql = 'CREATE TABLE IF NOT EXISTS ' . $table_name . ' (';
 
         $i = FALSE;
         foreach ($xml_cols as $col) {
@@ -285,7 +285,7 @@ class fs_postgresql extends fs_db_engine
             }
         }
 
-        return $sql . ' ); ' . $this->compare_constraints($table_name, $xml_cons, FALSE);
+        return $sql . ' ); ' . $this->compare_constraints($table_name, $xml_cons, []);
     }
 
     /**

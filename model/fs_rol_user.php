@@ -46,6 +46,9 @@ class fs_rol_user extends fs_model
 
     protected function install()
     {
+        new fs_rol();
+        new fs_user();
+
         return '';
     }
 

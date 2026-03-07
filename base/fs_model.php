@@ -330,6 +330,41 @@ abstract class fs_model
         }
 
         if ($sql != '' && !$this->db->exec($sql)) {
+            $initial_error = $this->db->get_error_msg();
+
+            /**
+             * En instalaciones parciales o reintentos puede ocurrir que la tabla ya exista
+             * aunque no se haya detectado inicialmente. Si es así, recalculamos el SQL como
+             * si la tabla existiese y reintentamos sin ejecutar install().
+             */
+            if ($this->db->table_exists($table_name)) {
+                $retry_sql = '';
+
+                $this->pre_migrate_data($table_name, $xml_cons);
+
+                $db_cons = $this->db->get_constraints($table_name);
+                $sql2 = $this->db->compare_constraints($table_name, $xml_cons, $db_cons, TRUE);
+                if ($sql2 != '' && !$this->db->exec($sql2)) {
+                    $msg = 'Error al comprobar la tabla ' . $table_name . ' [SQL: ' . $sql2 . '] [Error: ' . $this->db->get_error_msg() . ']';
+                    $this->new_error_msg($msg);
+                    return FALSE;
+                }
+
+                $db_cons = $this->db->get_constraints($table_name);
+                $db_cols = $this->db->get_columns($table_name);
+                $retry_sql .= $this->db->compare_columns($table_name, $xml_cols, $db_cols);
+                $retry_sql .= $this->db->compare_constraints($table_name, $xml_cons, $db_cons);
+
+                if ($retry_sql != '' && !$this->db->exec($retry_sql)) {
+                    $msg = 'Error al comprobar la tabla ' . $table_name . ' [SQL: ' . $retry_sql . '] [Error: ' . $this->db->get_error_msg() . ']';
+                    $this->new_error_msg($msg);
+                    return FALSE;
+                }
+
+                $this->clear_error_msg($initial_error);
+                return TRUE;
+            }
+
             $msg = 'Error al comprobar la tabla ' . $table_name . ' [SQL: ' . $sql . '] [Error: ' . $this->db->get_error_msg() . ']';
             $this->new_error_msg($msg);
             return FALSE;
@@ -345,6 +380,8 @@ abstract class fs_model
      */
     protected function pre_migrate_data($table_name, $xml_cons)
     {
+        $identifier_quote = strtolower(FS_DB_TYPE) === 'mysql' ? '`' : '"';
+
         foreach ($xml_cons as $con) {
             if (preg_match('/^UNIQUE\s*\((\w+)\)/i', $con['consulta'], $matches)) {
                 $col_name = $matches[1];
@@ -357,7 +394,9 @@ abstract class fs_model
                     }
                 }
                 if ($is_nullable) {
-                    $this->db->exec("UPDATE " . $table_name . " SET `" . $col_name . "` = NULL WHERE `" . $col_name . "` = '';");
+                    $this->db->exec('UPDATE ' . $identifier_quote . $table_name . $identifier_quote
+                        . ' SET ' . $identifier_quote . $col_name . $identifier_quote . ' = NULL'
+                        . ' WHERE ' . $identifier_quote . $col_name . $identifier_quote . " = '';");
                 }
             }
         }
@@ -503,6 +542,15 @@ abstract class fs_model
     {
         self::$core_log->new_error($msg);
         self::$core_log->save($msg);
+    }
+
+    /**
+     * Elimina un mensaje de error concreto del listado de errores del modelo.
+     * @param string $msg
+     */
+    protected function clear_error_msg($msg)
+    {
+        self::$core_log->clear_error($msg);
     }
 
     /**

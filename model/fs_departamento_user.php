@@ -51,6 +51,9 @@ class fs_departamento_user extends fs_model
 
     protected function install()
     {
+        new fs_departamento();
+        new fs_user();
+
         return '';
     }
 

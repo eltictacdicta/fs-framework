@@ -413,7 +413,7 @@ class fs_mysql extends fs_db_engine
     public function generate_table($table_name, $xml_cols, $xml_cons)
     {
         $fkCollations = $this->get_fk_column_collations($xml_cons);
-        $sql = "CREATE TABLE " . $table_name . " ( ";
+        $sql = "CREATE TABLE IF NOT EXISTS " . $table_name . " ( ";
 
         $i = FALSE;
         foreach ($xml_cols as $col) {
