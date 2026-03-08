@@ -64,29 +64,14 @@ class Router
 
     private function loadRoutesFromFiles(RouteCollection $collection): void
     {
-        // Cargar rutas del núcleo
+        // Only load core routes from config/routes.php.
+        // Plugin routes MUST use #[FSRoute] attributes on controllers,
+        // which are loaded exclusively for active plugins via loadRoutesFromAttributes().
         $configDir = $this->rootFolder . '/config';
         if (is_dir($configDir)) {
             $loader = new PhpFileLoader(new FileLocator($configDir));
             if (file_exists($configDir . '/routes.php')) {
                 $collection->addCollection($loader->load('routes.php'));
-            }
-        }
-
-        // Cargar rutas de plugins
-        $pluginsDir = $this->rootFolder . '/plugins';
-        if (is_dir($pluginsDir)) {
-            $dirs = scandir($pluginsDir);
-            foreach ($dirs as $dir) {
-                if ($dir === '.' || $dir === '..') {
-                    continue;
-                }
-
-                $pluginRouteFile = $pluginsDir . '/' . $dir . '/config/routes.php';
-                if (file_exists($pluginRouteFile)) {
-                    $loader = new PhpFileLoader(new FileLocator(dirname($pluginRouteFile)));
-                    $collection->addCollection($loader->load('routes.php'));
-                }
             }
         }
     }

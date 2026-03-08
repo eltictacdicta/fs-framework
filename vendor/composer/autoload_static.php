@@ -97,6 +97,7 @@ class ComposerStaticInit751b4d4f7b2c4c680951860734c7f0f4
         ),
         'F' =>
         array (
+            'Firebase\\JWT\\' => 13,
             'FacturaScripts\\Plugins\\' => 23,
             'FacturaScripts\\' => 15,
             'FSFramework\\' => 12,
@@ -306,6 +307,10 @@ class ComposerStaticInit751b4d4f7b2c4c680951860734c7f0f4
         'Matrix\\' =>
         array (
             0 => __DIR__ . '/..' . '/markbaker/matrix/classes/src',
+        ),
+        'Firebase\\JWT\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/firebase/php-jwt/src',
         ),
         'FacturaScripts\\Plugins\\' =>
         array (

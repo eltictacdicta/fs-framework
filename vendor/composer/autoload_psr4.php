@@ -54,6 +54,7 @@ return array(
     'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
     'OpenApi\\' => array($vendorDir . '/zircote/swagger-php/src'),
     'Matrix\\' => array($vendorDir . '/markbaker/matrix/classes/src'),
+    'Firebase\\JWT\\' => array($vendorDir . '/firebase/php-jwt/src'),
     'FacturaScripts\\Plugins\\' => array($baseDir . '/plugins'),
     'FacturaScripts\\' => array($baseDir . '/src/FacturaScripts'),
     'FSFramework\\' => array($baseDir . '/src'),

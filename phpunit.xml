@@ -17,6 +17,9 @@
             <directory>tests/Traits</directory>
             <directory>tests/Cache</directory>
         </testsuite>
+        <testsuite name="Api">
+            <directory>tests/Api</directory>
+        </testsuite>
     </testsuites>
 
     <source>
