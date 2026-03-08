@@ -10,6 +10,127 @@
  * @license LGPL-3.0-or-later
  */
 
+function updater_redirect($url)
+{
+    header('Location: ' . $url);
+    exit;
+}
+
+function updater_self_update_redirect($success)
+{
+    if ($success) {
+        updater_redirect('index.php?page=admin_updater&success=updater-self-update');
+    }
+
+    $fallback = file_exists(__DIR__ . '/plugins/system_updater/controller/admin_updater.php')
+        ? 'index.php?page=admin_updater&error=updater-self-update'
+        : 'index.php?page=admin_home';
+
+    updater_redirect($fallback);
+}
+
+function updater_is_valid_staged_plugin($path)
+{
+    return is_dir($path)
+        && file_exists($path . '/fsframework.ini')
+        && file_exists($path . '/controller/admin_updater.php');
+}
+
+function updater_restore_backup($backupPath, $pluginPath)
+{
+    if (file_exists($backupPath) && !file_exists($pluginPath)) {
+        @rename($backupPath, $pluginPath);
+    }
+}
+
+function updater_finalize_self_update()
+{
+    define('FS_FOLDER', __DIR__);
+
+    if (!file_exists(__DIR__ . '/config.php')) {
+        die('Archivo config.php no encontrado. No puedes actualizar sin instalar.');
+    }
+
+    require_once __DIR__ . '/config.php';
+    require_once __DIR__ . '/base/fs_file_manager.php';
+
+    $manifestPath = __DIR__ . '/tmp/system_updater_self_update.json';
+    $token = (string) filter_input(INPUT_GET, 'token');
+
+    if ($token === '' || !file_exists($manifestPath)) {
+        updater_self_update_redirect(false);
+    }
+
+    $manifest = json_decode((string) @file_get_contents($manifestPath), true);
+    if (!is_array($manifest) || empty($manifest['token']) || empty($manifest['staged_path'])) {
+        @unlink($manifestPath);
+        updater_self_update_redirect(false);
+    }
+
+    if (!hash_equals((string) $manifest['token'], $token)) {
+        updater_self_update_redirect(false);
+    }
+
+    $stagedPath = $manifest['staged_path'];
+    $stagingRoot = $manifest['staging_root'] ?? dirname($stagedPath);
+    $realStagedPath = realpath($stagedPath);
+    $realTmpPath = realpath(__DIR__ . '/tmp');
+
+    if ($realStagedPath === false || $realTmpPath === false || strpos($realStagedPath, $realTmpPath) !== 0 || !updater_is_valid_staged_plugin($realStagedPath)) {
+        if (!empty($stagingRoot)) {
+            fs_file_manager::del_tree($stagingRoot);
+        }
+        @unlink($manifestPath);
+        updater_self_update_redirect(false);
+    }
+
+    $pluginPath = __DIR__ . '/plugins/system_updater';
+    $backupPath = __DIR__ . '/plugins/system_updater_back';
+    $hasCurrentPlugin = is_dir($pluginPath);
+
+    if (file_exists($backupPath) && !fs_file_manager::del_tree($backupPath)) {
+        updater_self_update_redirect(false);
+    }
+
+    if ($hasCurrentPlugin && !@rename($pluginPath, $backupPath)) {
+        updater_self_update_redirect(false);
+    }
+
+    $deployed = @rename($realStagedPath, $pluginPath);
+    if (!$deployed) {
+        $deployed = fs_file_manager::recurse_copy($realStagedPath, $pluginPath);
+    }
+
+    if (!$deployed || !updater_is_valid_staged_plugin($pluginPath)) {
+        if (is_dir($pluginPath)) {
+            fs_file_manager::del_tree($pluginPath);
+        }
+        updater_restore_backup($backupPath, $pluginPath);
+        if (!empty($stagingRoot) && file_exists($stagingRoot)) {
+            fs_file_manager::del_tree($stagingRoot);
+        }
+        @unlink($manifestPath);
+        updater_self_update_redirect(false);
+    }
+
+    if (defined('FS_TMP_NAME')) {
+        fs_file_manager::clear_all_template_cache();
+    }
+
+    if (!empty($stagingRoot) && file_exists($stagingRoot)) {
+        fs_file_manager::del_tree($stagingRoot);
+    }
+    @unlink($manifestPath);
+
+    updater_self_update_redirect(true);
+}
+
+$action = (string) filter_input(INPUT_GET, 'action');
+
+if ($action === 'finalize_system_updater_update') {
+    updater_finalize_self_update();
+}
+
 // Verificar que existe config.php (sistema instalado)
 if (!file_exists(__DIR__ . '/config.php')) {
     die('Archivo config.php no encontrado. No puedes actualizar sin instalar.');
@@ -18,11 +139,9 @@ if (!file_exists(__DIR__ . '/config.php')) {
 // Verificar si el plugin system_updater está instalado
 if (file_exists(__DIR__ . '/plugins/system_updater/controller/admin_updater.php')) {
     // El plugin existe, redirigir directamente al actualizador
-    header('Location: index.php?page=admin_updater');
-    exit;
+    updater_redirect('index.php?page=admin_updater');
 }
 
 // El plugin no existe, redirigir al panel de control para instalación automática
 // La descarga se hace desde admin_home (contexto autenticado) para seguridad
-header('Location: index.php?page=admin_home&install_system_updater=1');
-exit;
+updater_redirect('index.php?page=admin_home&install_system_updater=1');
