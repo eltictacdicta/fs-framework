@@ -142,15 +142,17 @@
         });
         
         {% if fsc.step == '1' %}
-        $('#tab_panel_control a[href="#t_descargas"]').tab('show');
+        $('#tab_panel_control a[href="#t_publicos"]').tab('show');
         {% endif %}
 
         if (window.location.hash.substring(1) == 'paginas') {
             $('#tab_panel_control a[href="#t_paginas"]').tab('show');
         } else if (window.location.hash.substring(1) == 'plugins') {
             $('#tab_panel_control a[href="#t_plugins"]').tab('show');
-        } else if (window.location.hash.substring(1) == 'descargas') {
-            $('#tab_panel_control a[href="#t_descargas"]').tab('show');
+        } else if (window.location.hash.substring(1) == 'descargas' || window.location.hash.substring(1) == 'publicos') {
+            $('#tab_panel_control a[href="#t_publicos"]').tab('show');
+        } else if (window.location.hash.substring(1) == 'updater') {
+            $('#tab_panel_control a[href="#t_updater"]').tab('show');
         } else if (window.location.hash.substring(1) == 'privados') {
             $('#tab_panel_control a[href="#t_privados"]').tab('show');
         } else if (window.location.hash.substring(1) == 'avanzado') {
@@ -215,27 +217,27 @@
     <p class="help-block">
         El núcleo solamente se encarga de la gestión de usuarios, plugins y páginas.
         Para todo lo demás tienes los plugins.
-        En la pestaña <b>descargas</b> tienes disponibles los principales plugins.
-        Elige los que necesites. Hay de todo y la lista se actualiza periódicamente.
+        En la pestaña <b>plugins públicos</b> encontrarás la tienda de plugins públicos,
+        con los complementos principales listos para instalar.
         <br/>
         Los plugins instalados los tienes en la pestaña <b>plugins</b>. Puedes añadir
         plugins manualmente, si lo deseas, y también puedes activar o desactivar,
         incluso eliminarlos.
         <br/>
-        Además, toda la facturación y contabilidad básica ha sido movida al plugin
-        <b>facturacion_base</b>. Puedes descargarlo automáticamente e instalarlo pulsando
-        este botón.
+        Para gestionar actualizaciones del sistema y hacer copias de seguridad,
+        instala el plugin <b>system_updater</b>. Desde ahí tendrás acceso a esas
+        herramientas y al flujo recomendado de mantenimiento.
     </p>
-    {% if file_exists('plugins/facturacion_base') %}
-    <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&enable=facturacion_base#plugins" class="btn btn-sm btn-primary">
-        <span class="glyphicon glyphicon-ok"></span>&nbsp; Activar facturacion_base
+    {% if file_exists('plugins/system_updater') %}
+    <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&install_system_updater=1#updater" class="btn btn-sm btn-primary">
+        <span class="glyphicon glyphicon-ok"></span>&nbsp; Abrir system_updater
     </a>
     {% else %}
-    <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&download=87#plugins" class="btn btn-sm btn-primary">
-        <span class="glyphicon glyphicon-download-alt"></span>&nbsp; Descargar facturacion_base
+    <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&install_system_updater=1#updater" class="btn btn-sm btn-primary">
+        <span class="glyphicon glyphicon-download-alt"></span>&nbsp; Instalar system_updater
     </a>
     {% endif %}
-    <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&skip=TRUE#descargas" class="btn btn-sm btn-warning">
+    <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&skip=TRUE#publicos" class="btn btn-sm btn-warning">
         <span class="glyphicon glyphicon-remove"></span>&nbsp; No, gracias
     </a>
 </div>
@@ -298,11 +300,29 @@
                 <span class="hidden-xs">&nbsp;{{ 'plugins'|trans }}</span>
             </a>
         </li>
+        <li role="presentation">
+            <a href="#t_publicos" aria-controls="t_publicos" role="tab" data-toggle="tab">
+                <i class="fa fa-download"></i>
+                <span class="hidden-xs">&nbsp;Plugins públicos</span>
+            </a>
+        </li>
+        <li role="presentation">
+            <a href="#t_privados" aria-controls="t_privados" role="tab" data-toggle="tab">
+                <i class="fa fa-lock"></i>
+                <span class="hidden-xs">&nbsp;Plugins privados</span>
+            </a>
+        </li>
 
         <li role="presentation">
             <a href="#t_temas" aria-controls="t_temas" role="tab" data-toggle="tab">
                 <i class="fa fa-paint-brush"></i>
                 <span class="hidden-xs">&nbsp;{{ 'themes'|trans }}</span>
+            </a>
+        </li>
+        <li role="presentation">
+            <a href="#t_updater" aria-controls="t_updater" role="tab" data-toggle="tab">
+                <i class="fa fa-refresh"></i>
+                <span class="hidden-xs">&nbsp;Actualizador</span>
             </a>
         </li>
         <li role="presentation">
@@ -320,9 +340,18 @@
         <div role="tabpanel" class="tab-pane" id="t_plugins">
             {{ include('tab/admin_home_plugins.html.twig') }}
         </div>
+        <div role="tabpanel" class="tab-pane" id="t_publicos">
+            {{ include('tab/admin_home_downloads.html.twig') }}
+        </div>
+        <div role="tabpanel" class="tab-pane" id="t_privados">
+            {{ include('tab/admin_home_private_downloads.html.twig') }}
+        </div>
 
         <div role="tabpanel" class="tab-pane" id="t_temas">
             {{ include('tab/admin_home_themes.html.twig') }}
+        </div>
+        <div role="tabpanel" class="tab-pane" id="t_updater">
+            {{ include('tab/admin_home_updater.html.twig') }}
         </div>
         <div role="tabpanel" class="tab-pane" id="t_avanzado">
             {{ include('tab/admin_home_advanced.html.twig') }}
