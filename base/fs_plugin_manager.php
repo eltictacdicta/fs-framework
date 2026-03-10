@@ -1400,14 +1400,24 @@ class fs_plugin_manager
             $short_name = substr($f, 0, -4);
             $full_class = "FacturaScripts\\Plugins\\$plugin_name\\Controller\\$short_name";
 
-            if (!class_exists($full_class)) {
+            if (!fs_is_modern_page_controller($full_class)) {
                 continue;
             }
 
-            $page_list[] = $short_name;
+            $page_name = fs_detect_controller_page_name($full_class, $short_name);
+            if ($page_name === null) {
+                $stalePage = new fs_page();
+                $stale = $stalePage->get($short_name);
+                if ($stale) {
+                    $stale->delete();
+                }
+                continue;
+            }
+
+            $page_list[] = $page_name;
             $new_fsc = new $full_class();
-            $this->saveControllerPage($new_fsc, $short_name, 'Imposible guardar la página moderna ');
-            $this->grantAdminAccessToPage($new_fsc, $short_name);
+            $this->saveControllerPage($new_fsc, $page_name, 'Imposible guardar la página moderna ');
+            $this->grantAdminAccessToPage($new_fsc, $page_name);
             unset($new_fsc);
         }
     }

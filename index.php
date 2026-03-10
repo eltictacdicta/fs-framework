@@ -130,7 +130,7 @@ if (!empty($pagename)) {
                         $fullClass = "FacturaScripts\\Plugins\\$plugin\\Controller\\$className";
                         
                         // Skip if class doesn't exist (autoloader didn't find it)
-                        if (!class_exists($fullClass)) {
+                        if (!fs_is_modern_page_controller($fullClass)) {
                             continue;
                         }
                         

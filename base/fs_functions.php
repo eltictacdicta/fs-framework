@@ -89,7 +89,10 @@ function find_controller($name)
 
         $modernPath = 'plugins/' . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $name . '.php';
         if (file_exists(FS_FOLDER . '/' . $modernPath)) {
-            return $modernPath;
+            $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$name}";
+            if (fs_is_modern_page_controller($fullClass)) {
+                return $modernPath;
+            }
         }
 
         $matchedModern = fs_find_controller_by_page_data($plugin, $name);
@@ -757,6 +760,10 @@ function fs_find_controller_by_page_data($plugin, $name)
 
         $className = substr($file, 0, -4);
         $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
+        if (!fs_is_modern_page_controller($fullClass)) {
+            continue;
+        }
+
         $detectedName = fs_detect_controller_page_name($fullClass, $className);
         if ($detectedName === $name) {
             return 'plugins/' . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $file;
@@ -768,17 +775,13 @@ function fs_find_controller_by_page_data($plugin, $name)
 
 function fs_detect_controller_page_name($fullClass, $default)
 {
-    if (!class_exists($fullClass)) {
+    if (!fs_is_modern_page_controller($fullClass)) {
         return null;
     }
 
     try {
         $reflection = new \ReflectionClass($fullClass);
         $tempInstance = $reflection->newInstanceWithoutConstructor();
-        if (!method_exists($tempInstance, 'getPageData')) {
-            return $default;
-        }
-
         $pd = $tempInstance->getPageData();
         if (isset($pd['name']) && !empty($pd['name'])) {
             return $pd['name'];
@@ -788,6 +791,15 @@ function fs_detect_controller_page_name($fullClass, $default)
     }
 
     return $default;
+}
+
+function fs_is_modern_page_controller($fullClass)
+{
+    if (!class_exists($fullClass)) {
+        return false;
+    }
+
+    return is_subclass_of($fullClass, 'FacturaScripts\\Core\\Base\\Controller');
 }
 
 /**

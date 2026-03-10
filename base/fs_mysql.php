@@ -1077,6 +1077,10 @@ class fs_mysql extends fs_db_engine
         $type = preg_replace('/\(.*/', '', $type);
         $type = preg_replace('/\s+without\s+time\s+zone$/i', '', $type);
 
+        // Remove PostgreSQL style casts from XML defaults before adapting them to MySQL.
+        $default = preg_replace('/::[a-z_][a-z0-9_ ]*/i', '', $default);
+        $default = trim((string) $default);
+
         $upperDefault = strtoupper($default);
         if (in_array($upperDefault, array('NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))) {
             if ($type === 'time') {
@@ -1090,7 +1094,37 @@ class fs_mysql extends fs_db_engine
             return 'CURRENT_TIMESTAMP';
         }
 
-        return $default;
+        if (stripos($default, 'nextval(') === 0) {
+            return $default;
+        }
+
+        if ($upperDefault === 'NULL') {
+            return 'NULL';
+        }
+
+        if (in_array($type, array('bool', 'boolean', 'tinyint'))) {
+            if (in_array($upperDefault, array('TRUE', '1'))) {
+                return '1';
+            }
+
+            if (in_array($upperDefault, array('FALSE', '0'))) {
+                return '0';
+            }
+        }
+
+        if (is_numeric($default)) {
+            return $default;
+        }
+
+        if (preg_match('/^\'.*\'$/s', $default)) {
+            return $default;
+        }
+
+        if (preg_match('/^".*"$/s', $default)) {
+            $default = substr($default, 1, -1);
+        }
+
+        return "'" . str_replace(array('\\', "'"), array('\\\\', "\\'"), $default) . "'";
     }
 
     /**
