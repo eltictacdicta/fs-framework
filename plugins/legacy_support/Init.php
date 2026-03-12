@@ -23,8 +23,11 @@ use FSFramework\Event\TwigInitEvent;
  */
 class Init
 {
+    private const EOL_TARGET_VERSION = '3.0';
+
     public function init(): void
     {
+        self::emitDeprecationNotice();
         $dispatcher = FSEventDispatcher::getInstance();
 
         // Subscribe to the Twig loader initialization event
@@ -32,6 +35,7 @@ class Init
             $loader = $event->getLoader();
 
             // Wrap the loader with our RainTPL translator
+            LegacyTelemetry::incrementLegacyComponent('legacy_support.loader', 'twig_loader_init');
             $event->setLoader(new \FacturaScripts\Plugins\legacy_support\Template\LegacyFilesystemLoader($loader));
         });
 
@@ -45,6 +49,21 @@ class Init
      * Register PHP functions as Twig functions for legacy template compatibility
      * RainTPL templates use {function="php_func($var)"} which get translated to {{ php_func(var) }}
      */
+
+
+    /**
+     * @deprecated plugin legacy_support será retirado en v3.0.
+     *             Migración: usar plantillas Twig nativas (.html.twig) y controladores FSRoute.
+     */
+    private static function emitDeprecationNotice(): void
+    {
+        @trigger_error(
+            'legacy_support está deprecado y se retirará en v' . self::EOL_TARGET_VERSION
+            . '. Migración recomendada: plantillas Twig (.html.twig) + rutas/controladores modernos.',
+            E_USER_DEPRECATED
+        );
+    }
+
     private function registerPhpFunctions(\Twig\Environment $twig): void
     {
         $phpFunctions = [

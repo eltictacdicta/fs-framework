@@ -74,6 +74,25 @@ class admin_info extends fs_list_controller
         return $this->db->get_locks();
     }
 
+    public function legacy_telemetry_summary()
+    {
+        if (class_exists('FacturaScripts\Plugins\legacy_support\LegacyTelemetry')) {
+            return \FacturaScripts\Plugins\legacy_support\LegacyTelemetry::getSummary();
+        }
+
+        return [
+            'updated_at' => null,
+            'totals' => [
+                'route_hits' => 0,
+                'component_hits' => 0,
+                'unique_routes' => 0,
+                'unique_components' => 0,
+            ],
+            'top_routes' => [],
+            'top_components' => [],
+        ];
+    }
+
     public function php_version()
     {
         return phpversion();

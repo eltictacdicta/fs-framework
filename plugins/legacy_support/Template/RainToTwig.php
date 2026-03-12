@@ -15,6 +15,8 @@ namespace FacturaScripts\Plugins\legacy_support\Template;
  * RainToTwig
  * ----------
  * Translates RainTPL syntax to Twig syntax to maintain backward compatibility.
+ *
+ * @deprecated Será retirado en v3.0. Migrar vistas RainTPL a Twig nativo.
  */
 class RainToTwig
 {
