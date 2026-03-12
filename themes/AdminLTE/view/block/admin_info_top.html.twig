@@ -71,6 +71,59 @@
             {% endif %}
         </div>
     </div>
+
+    {% set legacyTelemetry = fsc.legacy_telemetry_summary() %}
+    <div class="row">
+        <div class="col-sm-12">
+            <br />
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Resumen de uso legacy (telemetría)</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Hits rutas legacy:</strong> {{ legacyTelemetry.totals.route_hits }}</div>
+                        <div class="col-sm-3"><strong>Hits componentes legacy:</strong> {{ legacyTelemetry.totals.component_hits }}</div>
+                        <div class="col-sm-3"><strong>Endpoints legacy únicos:</strong> {{ legacyTelemetry.totals.unique_routes }}</div>
+                        <div class="col-sm-3"><strong>Componentes legacy únicos:</strong> {{ legacyTelemetry.totals.unique_components }}</div>
+                    </div>
+                    <p class="help-block" style="margin-top: 10px; margin-bottom: 0;">
+                        Última actualización: {{ legacyTelemetry.updated_at ?: 'sin datos' }}.
+                    </p>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-condensed table-hover" style="margin-bottom: 0;">
+                        <thead>
+                        <tr>
+                            <th class="text-left">Top endpoints legacy</th>
+                            <th class="text-right">Hits</th>
+                            <th class="text-left">Top componentes legacy</th>
+                            <th class="text-right">Hits</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% set maxRows = [legacyTelemetry.top_routes|length, legacyTelemetry.top_components|length]|max %}
+                        {% for i in 0..(maxRows > 0 ? maxRows - 1 : 0) %}
+                            {% set routeItem = legacyTelemetry.top_routes|slice(i, 1) %}
+                            {% set componentItem = legacyTelemetry.top_components|slice(i, 1) %}
+                            <tr>
+                                <td>{{ routeItem|keys|first ?: '-' }}</td>
+                                <td class="text-right">{{ routeItem|first ?: 0 }}</td>
+                                <td>{{ componentItem|keys|first ?: '-' }}</td>
+                                <td class="text-right">{{ componentItem|first ?: 0 }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="4">Sin uso legacy registrado todavía.</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% if fsc.get_locks() %}
     <div class="row">
         <div class="col-sm-12">

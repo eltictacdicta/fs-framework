@@ -27,6 +27,10 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * @author FacturaScripts Team
  */
+/**
+ * @deprecated Las APIs helper legacy se retirarán en v3.0.
+ *             Migración: usar Request de Symfony inyectado y métodos modernos de este helper.
+ */
 class RequestHelper
 {
     private static ?Request $request = null;
@@ -324,9 +328,20 @@ class RequestHelper
     }
 
     // Legacy method aliases
-    public static function getJsonInput_legacy(): array { return self::getJsonInput(); }
+    /**
+     * @deprecated Será retirado en v3.0. Usar getJsonBody() o getJsonInput().
+     */
+    public static function getJsonInput_legacy(): array
+    {
+        self::legacyDeprecation('getJsonInput_legacy', 'getJsonBody/getJsonInput');
+        return self::getJsonInput();
+    }
+    /**
+     * @deprecated Será retirado en v3.0. Usar getInt() + validación explícita.
+     */
     public static function getIntParam(string $name, int $default = 0, ?int $min = null, ?int $max = null): int 
     { 
+        self::legacyDeprecation('getIntParam', 'getInt');
         $value = self::getInt($name, $default);
         if ($min !== null && $value < $min) {
             return $min;
@@ -336,5 +351,28 @@ class RequestHelper
         }
         return $value;
     }
-    public static function getBoolParam(string $name, bool $default = false): bool { return self::getBool($name, $default); }
+    /**
+     * @deprecated Será retirado en v3.0. Usar getBool().
+     */
+    public static function getBoolParam(string $name, bool $default = false): bool
+    {
+        self::legacyDeprecation('getBoolParam', 'getBool');
+        return self::getBool($name, $default);
+    }
+
+    private static function legacyDeprecation(string $method, string $replacement): void
+    {
+        if (class_exists('FacturaScripts\\Plugins\\legacy_support\\LegacyTelemetry')) {
+            \FacturaScripts\Plugins\legacy_support\LegacyTelemetry::incrementLegacyComponent(
+                'api.request_helper',
+                $method
+            );
+        }
+
+        @trigger_error(
+            sprintf('%s() está deprecado y será retirado en v3.0. Migración recomendada: %s().', $method, $replacement),
+            E_USER_DEPRECATED
+        );
+    }
 }
+

@@ -11,6 +11,7 @@
 
 namespace FacturaScripts\Plugins\legacy_support\Template;
 
+use FacturaScripts\Plugins\legacy_support\LegacyTelemetry;
 use Twig\Loader\FilesystemLoader;
 use Twig\Source;
 
@@ -19,6 +20,8 @@ use Twig\Source;
  * 1. Translates legacy RainTPL templates (.html) to Twig syntax
  * 2. Falls back from .html to .html.twig when the .html file doesn't exist
  * 3. Maps legacy template aliases to current templates (e.g., footer2 -> footer)
+ *
+ * @deprecated Será retirado en v3.0. Migrar plantillas legacy .html a .html.twig nativas.
  */
 class LegacyFilesystemLoader extends FilesystemLoader
 {
@@ -36,6 +39,7 @@ class LegacyFilesystemLoader extends FilesystemLoader
 
     public function __construct(FilesystemLoader $innerLoader)
     {
+        LegacyTelemetry::incrementLegacyComponent('legacy.template_loader', '__construct');
         $this->innerLoader = $innerLoader;
         // Initialize parent with same paths
         parent::__construct($innerLoader->getPaths());
@@ -137,6 +141,7 @@ class LegacyFilesystemLoader extends FilesystemLoader
         // Only translate legacy .html files (RainTPL syntax)
         // Native .html.twig files are used as-is
         if (str_ends_with($resolvedName, '.html') && !str_ends_with($resolvedName, '.html.twig')) {
+            LegacyTelemetry::incrementLegacyComponent('legacy.template_translation', $resolvedName);
             return new Source(
                 RainToTwig::translate($context->getCode()),
                 $context->getName(),
@@ -161,6 +166,7 @@ class LegacyFilesystemLoader extends FilesystemLoader
 
         // Prefix cache key with 'legacy_' for translated templates
         if (str_ends_with($resolvedName, '.html') && !str_ends_with($resolvedName, '.html.twig')) {
+            LegacyTelemetry::incrementLegacyComponent('legacy.template_translation', $resolvedName);
             return 'legacy_' . $this->innerLoader->getCacheKey($resolvedName);
         }
         return $this->innerLoader->getCacheKey($resolvedName);
@@ -193,6 +199,7 @@ class LegacyFilesystemLoader extends FilesystemLoader
 
         // If it's a .html file, try .html.twig fallback
         if (str_ends_with($resolvedName, '.html') && !str_ends_with($resolvedName, '.html.twig')) {
+            LegacyTelemetry::incrementLegacyComponent('legacy.template_translation', $resolvedName);
             return $this->innerLoader->exists($resolvedName . '.twig');
         }
 

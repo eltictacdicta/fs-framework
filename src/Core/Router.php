@@ -290,6 +290,9 @@ class Router
             if (is_string($controller) && class_exists($controller)) {
                 // Si es un controlador legacy (hereda de fs_controller)
                 if (is_subclass_of($controller, 'fs_controller')) {
+                    if (class_exists('FacturaScripts\\Plugins\\legacy_support\\LegacyTelemetry')) {
+                        \FacturaScripts\Plugins\legacy_support\LegacyTelemetry::incrementLegacyRoute($controller, 'legacy_controller');
+                    }
                     return null; // Dejar que el index.php legacy lo maneje
                 }
 
