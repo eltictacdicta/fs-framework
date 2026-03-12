@@ -291,6 +291,7 @@ foreach ($errors as $e) {
 }
 
 $system_info = str_replace('"', "'", $system_info);
+$system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 ?>
 <!DOCTYPE html>
@@ -442,7 +443,7 @@ $system_info = str_replace('"', "'", $system_info);
                         <?php } ?>
                         <!-- Modal de feedback deshabilitado temporalmente (enlaces no disponibles)
         <form name="f_feedback" action="<?php echo FS_COMMUNITY_URL; ?>/feedback" method="post" target="_blank" class="form" role="form">
-            <input type="hidden" name="feedback_info" value="<?php echo $system_info; ?>"/>
+                            <input type="hidden" name="feedback_info" value="<?php echo $system_info_attr; ?>"/>
             <input type="hidden" name="feedback_type" value="error"/>
             <div class="modal" id="modal_feedback">
                 <div class="modal-dialog">
