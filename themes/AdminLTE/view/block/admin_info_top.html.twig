@@ -102,8 +102,11 @@
                         </tr>
                         </thead>
                         <tbody>
-                        {% set maxRows = [legacyTelemetry.top_routes|length, legacyTelemetry.top_components|length]|max %}
-                        {% for i in 0..(maxRows > 0 ? maxRows - 1 : 0) %}
+                        {% set routesCount = legacyTelemetry.top_routes|length %}
+                        {% set componentsCount = legacyTelemetry.top_components|length %}
+                        {% set maxRows = routesCount > componentsCount ? routesCount : componentsCount %}
+                        {% if maxRows > 0 %}
+                        {% for i in 0..(maxRows - 1) %}
                             {% set routeItem = legacyTelemetry.top_routes|slice(i, 1) %}
                             {% set componentItem = legacyTelemetry.top_components|slice(i, 1) %}
                             <tr>
@@ -112,11 +115,12 @@
                                 <td>{{ componentItem|keys|first ?: '-' }}</td>
                                 <td class="text-right">{{ componentItem|first ?: 0 }}</td>
                             </tr>
+                        {% endfor %}
                         {% else %}
                             <tr>
                                 <td colspan="4">Sin uso legacy registrado todavía.</td>
                             </tr>
-                        {% endfor %}
+                        {% endif %}
                         </tbody>
                     </table>
                 </div>

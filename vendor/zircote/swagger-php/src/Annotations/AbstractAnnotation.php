@@ -6,9 +6,9 @@
 
 namespace OpenApi\Annotations;
 
+use OpenApi\Annotations as OA;
 use OpenApi\Context;
 use OpenApi\Generator;
-use OpenApi\Annotations as OA;
 use OpenApi\OpenApiException;
 use Symfony\Component\Yaml\Yaml;
 
@@ -34,10 +34,7 @@ abstract class AbstractAnnotation implements \JsonSerializable
      */
     public $attachables = Generator::UNDEFINED;
 
-    /**
-     * @var Context|null
-     */
-    public $_context;
+    public ?Context $_context;
 
     /**
      * Annotations that couldn't be merged by mapping or postprocessing.
@@ -49,7 +46,7 @@ abstract class AbstractAnnotation implements \JsonSerializable
     /**
      * The properties which are required by [the spec](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md).
      *
-     * @var string[]
+     * @var list<string>
      */
     public static $_required = [];
 
@@ -57,9 +54,9 @@ abstract class AbstractAnnotation implements \JsonSerializable
      * Specify the type of the property.
      *
      * Examples:
-     *   'name' => 'string' // a string
-     *   'required' => 'boolean', // true or false
-     *   'tags' => '[string]', // array containing strings
+     *   'name' => 'string'         // a string
+     *   'required' => 'boolean',   // true or false
+     *   'tags' => '[string]',      // string array
      *   'in' => ["query", "header", "path", "formData", "body"] // must be one on these
      *   'oneOf' => [Schema::class] // array of schema objects.
      *
@@ -71,9 +68,9 @@ abstract class AbstractAnnotation implements \JsonSerializable
      * Declarative mapping of Annotation types to properties.
      *
      * Examples:
-     *   Info::clas => 'info',                // Set @OA\Info annotation as the info property.
-     *   Parameter::clas => ['parameters'],   // Append @OA\Parameter annotations the parameters array.
-     *   PathItem::clas => ['paths', 'path'], // Append @OA\PathItem annotations the paths array and use path as key.
+     *   Info::class => 'info',                // Set @OA\Info annotation as the info property.
+     *   Parameter::class => ['parameters'],   // Append @OA\Parameter annotations the parameters list.
+     *   PathItem::class => ['paths', 'path'], // Add @OA\PathItem annotation to the `paths` map and use `path` as key.
      *
      * @var array<class-string<AbstractAnnotation>,string|array<string>>
      */
@@ -87,7 +84,7 @@ abstract class AbstractAnnotation implements \JsonSerializable
     public static $_parents = [];
 
     /**
-     * List of properties are blacklisted from the JSON output.
+     * Properties that are blacklisted from the JSON output.
      *
      * @var array<string>
      */
@@ -147,10 +144,10 @@ abstract class AbstractAnnotation implements \JsonSerializable
      *
      * Annotations that couldn't be merged are added to the _unmerged array.
      *
-     * @param AbstractAnnotation[] $annotations
-     * @param bool                 $ignore      Ignore unmerged annotations
+     * @param list<AbstractAnnotation> $annotations
+     * @param bool                     $ignore      Ignore unmerged annotations
      *
-     * @return AbstractAnnotation[] The unmerged annotations
+     * @return list<AbstractAnnotation> The unmerged annotations
      */
     public function merge(array $annotations, bool $ignore = false): array
     {
@@ -477,7 +474,7 @@ abstract class AbstractAnnotation implements \JsonSerializable
                 } elseif (Generator::isDefault($item->{$keyField})) {
                     $this->_context->logger->error($item->identity() . ' is missing key-field: "' . $keyField . '" in ' . $item->_context);
                 } elseif (isset($keys[$item->{$keyField}])) {
-                    $this->_context->logger->error('Multiple ' . $item->_identity([]) . ' with the same ' . $keyField . '="' . $item->{$keyField} . "\":\n  " . $item->_context . "\n  " . $keys[$item->{$keyField}]->_context);
+                    $this->_context->logger->error('Multiple ' . $item->identity([]) . ' with the same ' . $keyField . '="' . $item->{$keyField} . "\":\n  " . $item->_context . "\n  " . $keys[$item->{$keyField}]->_context);
                 } else {
                     $keys[$item->{$keyField}] = $item;
                 }
@@ -586,24 +583,37 @@ abstract class AbstractAnnotation implements \JsonSerializable
     }
 
     /**
-     * Return a identity for easy debugging.
-     * Example: "@OA\Get(path="/pets")".
+     * Return a simple string representation of the annotation.
+     *
+     * @param array|null $properties the properties to include in the string representation
+     * @example "@OA\Response(response=200)"
      */
-    public function identity(): string
+    public function identity(?array $properties = null): string
     {
         $class = static::class;
-        $properties = [];
-        /** @var class-string<AbstractAnnotation> $parent */
-        foreach (static::$_parents as $parent) {
-            foreach ($parent::$_nested as $annotationClass => $entry) {
-                if ($annotationClass === $class && is_array($entry) && !Generator::isDefault($this->{$entry[1]})) {
-                    $properties[] = $entry[1];
-                    break 2;
+
+        if (null === $properties) {
+            $properties = [];
+            /** @var class-string<AbstractAnnotation> $parent */
+            foreach (static::$_parents as $parent) {
+                foreach ($parent::$_nested as $annotationClass => $entry) {
+                    if ($annotationClass === $class && is_array($entry) && !Generator::isDefault($this->{$entry[1]})) {
+                        $properties[] = $entry[1];
+                        break 2;
+                    }
                 }
             }
         }
 
-        return $this->_identity($properties);
+        $details = [];
+        foreach ($properties as $property) {
+            $value = $this->{$property};
+            if ($value !== null && !Generator::isDefault($value)) {
+                $details[] = $property . '=' . (is_string($value) ? '"' . $value . '"' : $value);
+            }
+        }
+
+        return static::shorten(static::class) . '(' . implode(',', $details) . ')';
     }
 
     /**
@@ -651,22 +661,6 @@ abstract class AbstractAnnotation implements \JsonSerializable
     public function isRoot(string $rootClass): bool
     {
         return static::class === $rootClass || $this->getRoot() === $rootClass;
-    }
-
-    /**
-     * Helper for generating the identity().
-     */
-    protected function _identity(array $properties): string
-    {
-        $fields = [];
-        foreach ($properties as $property) {
-            $value = $this->{$property};
-            if ($value !== null && !Generator::isDefault($value)) {
-                $fields[] = $property . '=' . (is_string($value) ? '"' . $value . '"' : $value);
-            }
-        }
-
-        return static::shorten(static::class) . '(' . implode(',', $fields) . ')';
     }
 
     /**
@@ -780,7 +774,7 @@ abstract class AbstractAnnotation implements \JsonSerializable
      *
      * @param array|object|string $classes Class(es) to shorten
      *
-     * @return string|string[] One or more shortened class names
+     * @return string|list<string> One or more shortened class names
      */
     protected static function shorten($classes)
     {

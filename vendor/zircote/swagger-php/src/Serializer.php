@@ -61,6 +61,9 @@ class Serializer
         OA\XmlContent::class,
     ];
 
+    /**
+     * @param class-string<OA\AbstractAnnotation> $className
+     */
     protected static function isValidAnnotationClass(string $className): bool
     {
         return in_array($className, self::$VALID_ANNOTATIONS);
@@ -68,20 +71,24 @@ class Serializer
 
     /**
      * Deserialize a string.
+     *
+     * @param class-string<OA\AbstractAnnotation> $className
      */
-    public function deserialize(string $jsonString, string $className): OA\AbstractAnnotation
+    public function deserialize(string $jsonString, string $className, ?Context $context = null): OA\AbstractAnnotation
     {
         if (!static::isValidAnnotationClass($className)) {
             throw new OpenApiException($className . ' is not defined in OpenApi PHP Annotations');
         }
 
-        return $this->doDeserialize(json_decode($jsonString), $className, new Context(['generated' => true]));
+        return $this->doDeserialize(json_decode($jsonString), $className, $context ?? new Context(['generated' => true]));
     }
 
     /**
      * Deserialize a file.
+     *
+     * @param class-string<OA\AbstractAnnotation> $className
      */
-    public function deserializeFile(string $filename, string $format = 'json', string $className = OA\OpenApi::class): OA\AbstractAnnotation
+    public function deserializeFile(string $filename, string $format = 'json', string $className = OA\OpenApi::class, ?Context $context = null): OA\AbstractAnnotation
     {
         if (!static::isValidAnnotationClass($className)) {
             throw new OpenApiException($className . ' is not a valid OpenApi PHP Annotations');
@@ -94,15 +101,17 @@ class Serializer
             $contents = json_encode(Yaml::parse($contents));
         }
 
-        return $this->doDeserialize(json_decode($contents), $className, new Context(['generated' => true]));
+        return $this->doDeserialize(json_decode($contents), $className, $context ?? new Context(['generated' => true]));
     }
 
     /**
      * Do deserialization.
+     *
+     * @param class-string<OA\AbstractAnnotation> $className
      */
-    protected function doDeserialize(\stdClass $c, string $class, Context $context): OA\AbstractAnnotation
+    protected function doDeserialize(\stdClass $c, string $className, Context $context): OA\AbstractAnnotation
     {
-        $annotation = new $class(['_context' => $context]);
+        $annotation = new $className(['_context' => $context]);
         foreach ((array) $c as $property => $value) {
             if ($property === '$ref') {
                 $property = 'ref';

@@ -3,12 +3,13 @@
 namespace Radebatz\TypeInfoExtras\Type;
 
 use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
 /**
  * A special type of `BuiltinType` for when a more specific type exits.
  *
- * When using this library either code would have to check for `BuiltinType|ExplicitType` or just rely on `Type::getTypeIdentifier()`.
+ * When using this library, either code would have to check for `BuiltinType|ExplicitType` or just rely on `Type::getTypeIdentifier()`.
  *
  * @template T of TypeIdentifier
  */
@@ -29,6 +30,14 @@ class ExplicitType extends Type
     public function getTypeIdentifier(): TypeIdentifier
     {
         return $this->typeIdentifier;
+    }
+
+    /**
+     * Get the underlying builtin type.
+     */
+    public function getBuiltinType(): BuiltinType
+    {
+        return Type::builtin($this->typeIdentifier);
     }
 
     public function getExplicitType(): string
