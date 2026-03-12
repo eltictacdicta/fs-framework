@@ -511,12 +511,20 @@ class fs_plugin_manager
             $item['link'] = $item['url'];
         }
 
+        if (!empty($item['link'])) {
+            $item['link'] = fs_normalize_url($item['link']);
+        }
+
         if (empty($item['zip_link'])) {
             if (!empty($item['download_url'])) {
                 $item['zip_link'] = $item['download_url'];
             } elseif (!empty($item['archive_url'])) {
                 $item['zip_link'] = $item['archive_url'];
             }
+        }
+
+        if (!empty($item['zip_link'])) {
+            $item['zip_link'] = fs_normalize_url($item['zip_link']);
         }
 
         if (empty($item['ultima_modificacion'])) {

@@ -67,6 +67,26 @@ class FsFunctionsTest extends TestCase
         $this->assertSame('hello', fs_fix_html('  hello  '));
     }
 
+    public function testNormalizeUrlTrimsTrailingWhitespace(): void
+    {
+        $url = "https://github.com/eltictacdicta/facturacion_base/archive/master.zip \n";
+
+        $this->assertSame(
+            'https://github.com/eltictacdicta/facturacion_base/archive/master.zip',
+            fs_normalize_url($url)
+        );
+    }
+
+    public function testNormalizeUrlDecodesHtmlEntitiesAndSpaces(): void
+    {
+        $url = 'https://example.com/download?foo=1&amp;bar=two words';
+
+        $this->assertSame(
+            'https://example.com/download?foo=1&bar=two%20words',
+            fs_normalize_url($url)
+        );
+    }
+
     // =====================================================================
     // fs_is_local_ip()
     // =====================================================================

@@ -414,6 +414,30 @@ function fs_curl_set_ssl($ch, $forceVerify = null)
 }
 
 /**
+ * Normaliza una URL remota antes de usarla en peticiones HTTP.
+ * Recorta espacios al inicio y al final, decodifica entidades HTML y elimina
+ * caracteres de control como saltos de línea para evitar URLs malformadas.
+ * Devuelve una cadena vacía cuando el valor recibido no es string o cuando la
+ * URL queda vacía tras el saneado.
+ * @param mixed $url
+ * @return string
+ */
+function fs_normalize_url($url)
+{
+    if (!is_string($url)) {
+        return '';
+    }
+
+    $normalized = html_entity_decode(trim($url), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $normalized = preg_replace('/[\x00-\x1F\x7F]/u', '', $normalized);
+    if (!is_string($normalized) || '' === $normalized) {
+        return '';
+    }
+
+    return str_replace(' ', '%20', $normalized);
+}
+
+/**
  * Descarga el contenido con curl o file_get_contents.
  * @param string $url
  * @param integer $timeout
@@ -421,6 +445,11 @@ function fs_curl_set_ssl($ch, $forceVerify = null)
  */
 function fs_file_get_contents($url, $timeout = 10)
 {
+    $url = fs_normalize_url($url);
+    if ('' === $url) {
+        return 'ERROR';
+    }
+
     if (function_exists('curl_init')) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -630,6 +659,11 @@ function require_model($name)
  */
 function fs_file_get_contents_auth($url, $token, $timeout = 10)
 {
+    $url = fs_normalize_url($url);
+    if ('' === $url) {
+        return 'ERROR';
+    }
+
     if (!function_exists('curl_init')) {
         if (class_exists('fs_core_log')) {
             $core_log = new fs_core_log();
@@ -839,6 +873,11 @@ function fs_file_download_auth($url, $filename, $token, $timeout = 60)
  */
 function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
 {
+    $api_url = fs_normalize_url($api_url);
+    if ('' === $api_url) {
+        return 'ERROR';
+    }
+
     if (!function_exists('curl_init')) {
         return 'ERROR';
     }
