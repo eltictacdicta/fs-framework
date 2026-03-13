@@ -576,11 +576,22 @@ class admin_home extends fs_controller
             }
 
             // FS2025 plugins: Controller/ folder (PascalCase)
+            // Only include page controllers, NOT route controllers (FSRoute)
             $modernPath = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
             if (file_exists($modernPath)) {
                 foreach (fs_file_manager::scan_files($modernPath, 'php') as $file_name) {
                     $className = substr($file_name, 0, -4);
                     $fullClass = "FacturaScripts\\Plugins\\$plugin\\Controller\\$className";
+
+                    // Skip route controllers (they use #[FSRoute] and are not CMS pages)
+                    if (fs_is_route_controller($fullClass)) {
+                        continue;
+                    }
+                    
+                    // Only include if it's a proper page controller
+                    if (!fs_is_page_controller($fullClass)) {
+                        continue;
+                    }
 
                     // Get page name from getPageData() if available
                     $pageName = $className;

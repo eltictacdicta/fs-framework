@@ -1408,6 +1408,17 @@ class fs_plugin_manager
             $short_name = substr($f, 0, -4);
             $full_class = "FacturaScripts\\Plugins\\$plugin_name\\Controller\\$short_name";
 
+            // Skip route controllers (they use #[FSRoute] and are not CMS pages)
+            if (fs_is_route_controller($full_class)) {
+                // Clean up any stale page entries for route controllers
+                $stalePage = new fs_page();
+                $stale = $stalePage->get($short_name);
+                if ($stale) {
+                    $stale->delete();
+                }
+                continue;
+            }
+
             if (!fs_is_modern_page_controller($full_class)) {
                 continue;
             }

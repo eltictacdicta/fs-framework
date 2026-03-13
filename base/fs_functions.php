@@ -837,6 +837,71 @@ function fs_is_modern_page_controller($fullClass)
 }
 
 /**
+ * Verifica si una clase es un controlador de rutas (usa #[FSRoute] attribute).
+ * Los controladores de rutas NO deben ser registrados como páginas del CMS.
+ * @param string $fullClass
+ * @return bool
+ */
+function fs_is_route_controller($fullClass)
+{
+    if (!class_exists($fullClass)) {
+        return false;
+    }
+
+    try {
+        $reflection = new \ReflectionClass($fullClass);
+        
+        // Check class-level FSRoute attribute
+        $classAttributes = $reflection->getAttributes('FSFramework\\Attribute\\FSRoute');
+        if (!empty($classAttributes)) {
+            return true;
+        }
+        
+        // Check method-level FSRoute attributes
+        foreach ($reflection->getMethods() as $method) {
+            $methodAttributes = $method->getAttributes('FSFramework\\Attribute\\FSRoute');
+            if (!empty($methodAttributes)) {
+                return true;
+            }
+        }
+    } catch (\Throwable $e) {
+        return false;
+    }
+    
+    return false;
+}
+
+/**
+ * Verifica si una clase es un controlador de páginas del CMS.
+ * Un controlador de páginas extiende fs_controller o FacturaScripts\Core\Base\Controller
+ * y NO usa atributos FSRoute.
+ * @param string $fullClass
+ * @return bool
+ */
+function fs_is_page_controller($fullClass)
+{
+    if (!class_exists($fullClass)) {
+        return false;
+    }
+    
+    // Si usa FSRoute, NO es un controlador de páginas
+    if (fs_is_route_controller($fullClass)) {
+        return false;
+    }
+    
+    // Es un controlador de páginas si extiende las clases base
+    if (is_subclass_of($fullClass, 'fs_controller')) {
+        return true;
+    }
+    
+    if (is_subclass_of($fullClass, 'FacturaScripts\\Core\\Base\\Controller')) {
+        return true;
+    }
+    
+    return false;
+}
+
+/**
  * Descarga archivo con autenticación (para repositorios privados de GitHub).
  * @param string $url
  * @param string $filename
