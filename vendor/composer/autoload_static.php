@@ -98,8 +98,7 @@ class ComposerStaticInit751b4d4f7b2c4c680951860734c7f0f4
         'F' =>
         array (
             'Firebase\\JWT\\' => 13,
-            'FacturaScripts\\Plugins\\' => 23,
-            'FacturaScripts\\' => 15,
+            'FSFramework\\Plugins\\' => 20,
             'FSFramework\\' => 12,
         ),
         'D' =>
@@ -312,13 +311,9 @@ class ComposerStaticInit751b4d4f7b2c4c680951860734c7f0f4
         array (
             0 => __DIR__ . '/..' . '/firebase/php-jwt/src',
         ),
-        'FacturaScripts\\Plugins\\' =>
+        'FSFramework\\Plugins\\' =>
         array (
             0 => __DIR__ . '/../..' . '/plugins',
-        ),
-        'FacturaScripts\\' =>
-        array (
-            0 => __DIR__ . '/../..' . '/src/FacturaScripts',
         ),
         'FSFramework\\' =>
         array (

@@ -36,8 +36,7 @@
     "autoload": {
         "psr-4": {
             "FSFramework\\": "src/",
-            "FacturaScripts\\": "src/FacturaScripts/",
-            "FacturaScripts\\Plugins\\": "plugins/"
+            "FSFramework\\Plugins\\": "plugins/"
         }
     },
     "config": {

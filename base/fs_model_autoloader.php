@@ -174,9 +174,9 @@ class fs_model_autoloader
         // Manejar namespaces FacturaScripts\model\ClassName
         // Estos son modelos legacy que usan namespace pero están en plugins
         $originalClass = $class;
-        if (strpos($class, 'FacturaScripts\\model\\') === 0) {
+        if (strpos($class, 'FSFramework\\model\\') === 0) {
             // Extraer solo el nombre de la clase
-            $class = substr($class, strlen('FacturaScripts\\model\\'));
+            $class = substr($class, strlen('FSFramework\\model\\'));
         } elseif (strpos($class, '\\') !== false) {
             // Otros namespaces - dejar que Composer los maneje
             return false;

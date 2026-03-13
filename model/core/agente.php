@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-namespace FacturaScripts\model;
+namespace FSFramework\model;
 
 /**
  * El agente/empleado es el que se asocia a un albarán, factura o caja.

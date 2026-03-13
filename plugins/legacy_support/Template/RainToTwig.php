@@ -9,7 +9,7 @@
  * License, or (at your option) any later version.
  */
 
-namespace FacturaScripts\Plugins\legacy_support\Template;
+namespace FSFramework\Plugins\legacy_support\Template;
 
 /**
  * RainToTwig

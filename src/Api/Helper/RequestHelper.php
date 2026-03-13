@@ -362,8 +362,8 @@ class RequestHelper
 
     private static function legacyDeprecation(string $method, string $replacement): void
     {
-        if (class_exists('FacturaScripts\\Plugins\\legacy_support\\LegacyTelemetry')) {
-            \FacturaScripts\Plugins\legacy_support\LegacyTelemetry::incrementLegacyComponent(
+        if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
+            \FSFramework\Plugins\legacy_support\LegacyUsageTracker::incrementLegacyComponent(
                 'api.request_helper',
                 $method
             );

@@ -296,10 +296,10 @@ class fs_plugin_manager
         $validator_class = null;
 
         if ($plugin_name === 'legacy_support') {
-            $validator_class = 'FacturaScripts\\Plugins\\legacy_support\\VersionValidator';
+            $validator_class = 'FSFramework\\Plugins\\legacy_support\\VersionValidator';
             $validator_file = $this->pluginsPath('legacy_support/VersionValidator.php');
         } elseif ($plugin_name === 'facturascripts_support') {
-            $validator_class = 'FacturaScripts\\Plugins\\facturascripts_support\\VersionValidator';
+            $validator_class = 'FSFramework\\Plugins\\facturascripts_support\\VersionValidator';
             $validator_file = $this->pluginsPath('facturascripts_support/VersionValidator.php');
         } else {
             return; // No es un plugin de soporte
@@ -1406,7 +1406,7 @@ class fs_plugin_manager
 
         foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/Controller'), 'php') as $f) {
             $short_name = substr($f, 0, -4);
-            $full_class = "FacturaScripts\\Plugins\\$plugin_name\\Controller\\$short_name";
+            $full_class = "FSFramework\\Plugins\\$plugin_name\\Controller\\$short_name";
 
             // Skip route controllers (they use #[FSRoute] and are not CMS pages)
             if (fs_is_route_controller($full_class)) {
@@ -1822,7 +1822,7 @@ class fs_plugin_manager
     private function validate_fs2017_compatibility($min_version)
     {
         // Intentar usar el validador del plugin legacy_support
-        $validator_class = 'FacturaScripts\\Plugins\\legacy_support\\VersionValidator';
+        $validator_class = 'FSFramework\\Plugins\\legacy_support\\VersionValidator';
         if (class_exists($validator_class)) {
             return $validator_class::isCompatible($min_version);
         }
@@ -1856,7 +1856,7 @@ class fs_plugin_manager
     private function validate_fs2025_compatibility($min_version)
     {
         // Intentar usar el validador del plugin facturascripts_support
-        $validator_class = 'FacturaScripts\\Plugins\\facturascripts_support\\VersionValidator';
+        $validator_class = 'FSFramework\\Plugins\\facturascripts_support\\VersionValidator';
         if (class_exists($validator_class)) {
             return $validator_class::isCompatible($min_version);
         }

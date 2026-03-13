@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace FacturaScripts\Plugins\legacy_support;
+namespace FSFramework\Plugins\legacy_support;
 
 /**
  * Version validator for FacturaScripts 2017 compatibility.

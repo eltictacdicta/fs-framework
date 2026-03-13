@@ -26,7 +26,7 @@ require_once 'model/core/agente.php';
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
-class agente extends \FacturaScripts\model\agente
+class agente extends \FSFramework\model\agente
 {
     
 }

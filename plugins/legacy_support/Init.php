@@ -9,7 +9,7 @@
  * License, or (at your option) any later version.
  */
 
-namespace FacturaScripts\Plugins\legacy_support;
+namespace FSFramework\Plugins\legacy_support;
 
 use FSFramework\Event\FSEventDispatcher;
 use FSFramework\Event\TwigLoaderEvent;
@@ -35,8 +35,8 @@ class Init
             $loader = $event->getLoader();
 
             // Wrap the loader with our RainTPL translator
-            LegacyTelemetry::incrementLegacyComponent('legacy_support.loader', 'twig_loader_init');
-            $event->setLoader(new \FacturaScripts\Plugins\legacy_support\Template\LegacyFilesystemLoader($loader));
+            LegacyUsageTracker::incrementLegacyComponent('legacy_support.loader', 'twig_loader_init');
+            $event->setLoader(new \FSFramework\Plugins\legacy_support\Template\LegacyFilesystemLoader($loader));
         });
 
         // Subscribe to Twig init to register PHP functions

@@ -4,8 +4,8 @@ namespace FSFramework\Controller;
 use FSFramework\Attribute\FSRoute;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use FacturaScripts\Core\Html;
-use FacturaScripts\Core\Base\Controller;
+use FSFramework\Core\Html;
+use FSFramework\Core\Base\Controller;
 
 #[FSRoute('/test-modern', methods: ['GET'], name: 'test_modern')]
 class TestModernController extends Controller

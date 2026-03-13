@@ -17,11 +17,11 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace FacturaScripts\Core;
+namespace FSFramework\Core;
 
 /**
- * Bridge for FacturaScripts UploadedFile.
- * Provides helper methods for file upload limits as used by FS2025 plugins.
+ * UploadedFile helper class for FSFramework.
+ * Provides helper methods for file upload limits.
  */
 class UploadedFile
 {

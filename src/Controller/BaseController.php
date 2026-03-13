@@ -5,7 +5,7 @@ namespace FSFramework\Controller;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use FacturaScripts\Core\Html;
+use FSFramework\Core\Html;
 
 /**
  * Base controller for modern FSFramework controllers.

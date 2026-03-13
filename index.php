@@ -33,6 +33,20 @@ define('FS_FOLDER', __DIR__);
 /// Carga de dependencias
 require_once __DIR__ . '/vendor/autoload.php';
 
+/// Compatibilidad temporal para plugins bajo el namespace FSFramework\Plugins\*
+spl_autoload_register(function ($class) {
+    $prefix = 'FSFramework\\Plugins\\';
+    if (strpos($class, $prefix) !== 0) {
+        return;
+    }
+
+    $relativePath = str_replace('\\', '/', substr($class, strlen($prefix)));
+    $file = __DIR__ . '/plugins/' . $relativePath . '.php';
+    if (file_exists($file)) {
+        require_once $file;
+    }
+}, true, true);
+
 /// cargamos las constantes de configuración (DEBE ser antes de Kernel::boot para que $GLOBALS['plugins'] esté disponible)
 require_once 'config.php';
 require_once 'base/fs_secret_migrator.php';
@@ -127,7 +141,7 @@ if (!empty($pagename)) {
                 foreach (scandir($modernDir) as $file) {
                     if (substr($file, -4) === '.php') {
                         $className = substr($file, 0, -4);
-                        $fullClass = "FacturaScripts\\Plugins\\$plugin\\Controller\\$className";
+                        $fullClass = "FSFramework\\Plugins\\$plugin\\Controller\\$className";
                         
                         // Skip if class doesn't exist (autoloader didn't find it)
                         if (!fs_is_modern_page_controller($fullClass)) {
@@ -257,9 +271,9 @@ if ($fsc->template) {
     if ($fsc->isAjax()) {
         header('Content-Type: text/html; charset=UTF-8');
         header('X-Content-Type-Options: nosniff');
-        echo \FacturaScripts\Core\Html::renderAjax($fsc->template, $renderParams);
+        echo \FSFramework\Core\Html::renderAjax($fsc->template, $renderParams);
     } else {
-        echo \FacturaScripts\Core\Html::render($fsc->template, $renderParams);
+        echo \FSFramework\Core\Html::render($fsc->template, $renderParams);
     }
 }
 

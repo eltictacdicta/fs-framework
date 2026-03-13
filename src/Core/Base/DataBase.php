@@ -1,9 +1,10 @@
 <?php
 
-namespace FacturaScripts\Core\Base;
+namespace FSFramework\Core\Base;
 
 /**
- * Bridge for FacturaScripts\Core\Base\DataBase
+ * DataBase wrapper for FSFramework.
+ * Provides compatibility layer over fs_db2.
  */
 class DataBase
 {

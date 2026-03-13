@@ -1,12 +1,12 @@
 <?php
 
-namespace FacturaScripts\Dinamic\Model;
+namespace FSFramework\Dinamic\Model;
 
 class User
 {
     public $idempresa;
     public $nick;
-    public $admin = true; // Temporary generic fallback
+    public $admin = true;
     public $fs_user_legacy;
 
     public function __construct()

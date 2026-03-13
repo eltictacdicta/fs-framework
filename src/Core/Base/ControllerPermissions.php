@@ -1,6 +1,6 @@
 <?php
 
-namespace FacturaScripts\Core\Base;
+namespace FSFramework\Core\Base;
 
 class ControllerPermissions
 {

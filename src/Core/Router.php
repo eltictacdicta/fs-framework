@@ -108,7 +108,7 @@ class Router
                 $pluginModernControllerDir = $pluginsDir . '/' . $plugin . '/Controller';
                 if (is_dir($pluginModernControllerDir)) {
                     try {
-                        $namespace = 'FacturaScripts\\Plugins\\' . $plugin . '\\Controller\\';
+                        $namespace = 'FSFramework\\Plugins\\' . $plugin . '\\Controller\\';
                         $this->loadAttributeRoutesFromDirectory($collection, $pluginModernControllerDir, $namespace);
                     } catch (\Exception $e) {
                         error_log("Error loading plugin routes: " . $e->getMessage());
@@ -290,8 +290,8 @@ class Router
             if (is_string($controller) && class_exists($controller)) {
                 // Si es un controlador legacy (hereda de fs_controller)
                 if (is_subclass_of($controller, 'fs_controller')) {
-                    if (class_exists('FacturaScripts\\Plugins\\legacy_support\\LegacyTelemetry')) {
-                        \FacturaScripts\Plugins\legacy_support\LegacyTelemetry::incrementLegacyRoute($controller, 'legacy_controller');
+                    if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
+                        \FSFramework\Plugins\legacy_support\LegacyUsageTracker::incrementLegacyRoute($controller, 'legacy_controller');
                     }
                     return null; // Dejar que el index.php legacy lo maneje
                 }

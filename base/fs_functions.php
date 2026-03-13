@@ -89,7 +89,7 @@ function find_controller($name)
 
         $modernPath = 'plugins/' . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $name . '.php';
         if (file_exists(FS_FOLDER . '/' . $modernPath)) {
-            $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$name}";
+            $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$name}";
             if (fs_is_modern_page_controller($fullClass)) {
                 return $modernPath;
             }
@@ -132,7 +132,7 @@ function find_modern_controller($pageName)
             }
 
             $className = substr($file, 0, -4);
-            $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
+            $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$className}";
 
             if (!class_exists($fullClass)) {
                 continue;
@@ -793,7 +793,7 @@ function fs_find_controller_by_page_data($plugin, $name)
         }
 
         $className = substr($file, 0, -4);
-        $fullClass = "FacturaScripts\\Plugins\\{$plugin}\\Controller\\{$className}";
+        $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$className}";
         if (!fs_is_modern_page_controller($fullClass)) {
             continue;
         }
@@ -833,7 +833,8 @@ function fs_is_modern_page_controller($fullClass)
         return false;
     }
 
-    return is_subclass_of($fullClass, 'FacturaScripts\\Core\\Base\\Controller');
+    return is_subclass_of($fullClass, 'FSFramework\\Core\\Base\\Controller')
+        || is_subclass_of($fullClass, 'FSFramework\\Controller\\PageController');
 }
 
 /**
@@ -873,7 +874,8 @@ function fs_is_route_controller($fullClass)
 
 /**
  * Verifica si una clase es un controlador de páginas del CMS.
- * Un controlador de páginas extiende fs_controller o FacturaScripts\Core\Base\Controller
+ * Un controlador de páginas extiende fs_controller, FSFramework\Controller\PageController
+ * o los bridges FSFramework\Core\Base\Controller / FacturaScripts\Core\Base\Controller
  * y NO usa atributos FSRoute.
  * @param string $fullClass
  * @return bool
@@ -893,8 +895,12 @@ function fs_is_page_controller($fullClass)
     if (is_subclass_of($fullClass, 'fs_controller')) {
         return true;
     }
-    
-    if (is_subclass_of($fullClass, 'FacturaScripts\\Core\\Base\\Controller')) {
+
+    if (is_subclass_of($fullClass, 'FSFramework\\Controller\\PageController')) {
+        return true;
+    }
+
+    if (is_subclass_of($fullClass, 'FSFramework\\Core\\Base\\Controller')) {
         return true;
     }
     

@@ -1,14 +1,15 @@
 <?php
 
-namespace FacturaScripts\Core\Template;
+namespace FSFramework\Core\Template;
 
 /**
- * Bridge for FacturaScripts\Core\Template\InitClass
+ * InitClass base for FSFramework plugins.
+ * Plugin initialization classes should extend this.
  */
 abstract class InitClass
 {
     /**
-     * Code to load every time FacturaScripts starts.
+     * Code to load every time FSFramework starts.
      */
     abstract public function init(): void;
 

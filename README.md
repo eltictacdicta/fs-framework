@@ -52,7 +52,7 @@ Para mantener compatibilidad con plugins de FacturaScripts 2017, se incluye un t
 
 FSFramework ofrece **soporte inicial** para plugins de FacturaScripts 2025:
 
-- **Capa de compatibilidad**: Namespace `FacturaScripts\Core` con bridges para `Controller`, `Tools`, `Html`, `Cache`, etc.
+- **Capa de compatibilidad**: Namespace `FSFramework` con bridges para `Controller`, `Tools`, `Html`, `Cache`, etc.
 - **Estructura dual**: Soporte para `Controller/` (FS2025) y `controller/` (legacy)
 - **Traducciones FS2025**: Carga automática de `Translation/{locale}.json`
 - **Vistas FS2025**: Soporte para carpeta `View/` (PascalCase) además de `view/`

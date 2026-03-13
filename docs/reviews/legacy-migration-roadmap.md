@@ -1,9 +1,9 @@
 # Legacy Migration Roadmap
 
 ## Objetivo
-Reducir progresivamente la dependencia de rutas, APIs y capas legacy hasta su retirada planificada en **v3.0**, minimizando riesgo operativo mediante telemetría y criterios de salida objetivos.
+Reducir progresivamente la dependencia de rutas, APIs y capas legacy hasta su retirada planificada en **v3.0**, minimizando riesgo operativo mediante registro de uso y criterios de salida objetivos.
 
-## Métricas de adopción (fuente: telemetría legacy)
+## Métricas de adopción (fuente: registro de uso legacy)
 - **route_hits**: total de accesos a endpoints legacy (`index.php?page=...` / controladores legacy).
 - **component_hits**: uso de componentes legacy (loader/translator RainTPL, alias API legacy).
 - **unique_routes**: número de endpoints legacy distintos aún activos.
@@ -17,7 +17,7 @@ Reducir progresivamente la dependencia de rutas, APIs y capas legacy hasta su re
 - Publicar mensajes de deprecación con objetivo de retirada en v3.0.
 
 **Criterio de salida:**
-- 100% de instalaciones con telemetría disponible y visible en admin.
+- 100% de instalaciones con registro de uso disponible y visible en admin.
 - Baseline de 30 días para identificar top legacy.
 
 ### Fase 1 — Migración de alto impacto

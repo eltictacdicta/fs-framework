@@ -74,10 +74,10 @@ class admin_info extends fs_list_controller
         return $this->db->get_locks();
     }
 
-    public function legacy_telemetry_summary()
+    public function legacy_usage_summary()
     {
-        if (class_exists('FacturaScripts\Plugins\legacy_support\LegacyTelemetry')) {
-            return \FacturaScripts\Plugins\legacy_support\LegacyTelemetry::getSummary();
+        if (class_exists('FSFramework\Plugins\legacy_support\LegacyUsageTracker')) {
+            return \FSFramework\Plugins\legacy_support\LegacyUsageTracker::getSummary();
         }
 
         return [
@@ -91,6 +91,11 @@ class admin_info extends fs_list_controller
             'top_routes' => [],
             'top_components' => [],
         ];
+    }
+
+    public function has_legacy_usage()
+    {
+        return class_exists('FSFramework\Plugins\legacy_support\LegacyUsageTracker');
     }
 
     public function php_version()
@@ -150,6 +155,9 @@ class admin_info extends fs_list_controller
     protected function exec_previous_action($action)
     {
         switch ($action) {
+            case 'clear-legacy-usage':
+                return $this->clear_legacy_usage_action();
+
             case 'remove-all':
                 return $this->remove_all_action();
 
@@ -199,6 +207,22 @@ class admin_info extends fs_list_controller
             $this->new_message('Historial borrado correctamente.', true);
         }
 
+        return true;
+    }
+
+    protected function clear_legacy_usage_action()
+    {
+        if (!$this->has_legacy_usage()) {
+            $this->new_error_msg('El registro de uso legacy no está disponible.');
+            return true;
+        }
+
+        if (\FSFramework\Plugins\legacy_support\LegacyUsageTracker::reset()) {
+            $this->new_message('Historial de uso legacy borrado correctamente.', true);
+            return true;
+        }
+
+        $this->new_error_msg('No se pudo borrar el historial de uso legacy.');
         return true;
     }
 

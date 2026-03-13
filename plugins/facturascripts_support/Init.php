@@ -9,54 +9,37 @@
  * License, or (at your option) any later version.
  */
 
-namespace FacturaScripts\Plugins\facturascripts_support;
+namespace FSFramework\Plugins\facturascripts_support;
 
 /**
  * Initialization class for facturascripts_support plugin.
  * Provides FacturaScripts 2025 compatibility layer:
- * - Autoloader for FacturaScripts\Core namespace
+ * - Autoloader for FSFramework namespace
  */
 class Init
 {
     public function init(): void
     {
-        // Register autoloader for FacturaScripts\Core namespace
+        // Register autoloader for FSFramework namespace
         $this->registerAutoloader();
 
 
     }
 
     /**
-     * Register autoloader for FacturaScripts\Core classes
+     * Register autoloader for FSFramework classes
      */
     private function registerAutoloader(): void
     {
+        // Autoloader for FSFramework\Plugins namespace
+        // FSFramework\Plugins\Backup\Init -> plugins/backup/Init.php
         spl_autoload_register(function ($class) {
-            // Only handle FacturaScripts\Core namespace
-            if (strpos($class, 'FacturaScripts\\Core\\') !== 0) {
-                return;
-            }
-
-            // Convert namespace to path
-            // FacturaScripts\Core\Tools -> plugins/facturascripts_support/Core/Tools.php
-            $relativePath = str_replace('FacturaScripts\\Core\\', '', $class);
-            $relativePath = str_replace('\\', '/', $relativePath);
-            $file = __DIR__ . '/Core/' . $relativePath . '.php';
-
-            if (file_exists($file)) {
-                require_once $file;
-            }
-        });
-
-        // Autoloader for FacturaScripts\Plugins namespace
-        // FacturaScripts\Plugins\Backup\Init -> plugins/backup/Init.php
-        spl_autoload_register(function ($class) {
-            if (strpos($class, 'FacturaScripts\\Plugins\\') !== 0) {
+            if (strpos($class, 'FSFramework\\Plugins\\') !== 0) {
                 return;
             }
 
             // Remove prefix
-            $relative = str_replace('FacturaScripts\\Plugins\\', '', $class);
+            $relative = str_replace('FSFramework\\Plugins\\', '', $class);
             // $relative is now Backup\Init
 
             $parts = explode('\\', $relative);

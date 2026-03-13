@@ -1,11 +1,9 @@
 <?php
 
-namespace FacturaScripts\Core;
+namespace FSFramework\Core;
 
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
-use Twig\Source;
-use FacturaScripts\Core\Template\RainToTwig;
 use FSFramework\Translation\FSTranslator;
 use FSFramework\Twig\TranslationExtension;
 use FSFramework\Security\CsrfManager;
@@ -354,10 +352,7 @@ class Html
                         return $template;
                     }
 
-
-                    // Enforce .html.twig extension
-                    // Legacy support plugin will handle fallback to .html if needed
-                    return $template . '.html.twig';
+                    return self::resolveTemplate($template);
                 }
             ));
 
@@ -493,9 +488,24 @@ class Html
             return $template;
         }
 
-        // Enforce .html.twig extension
-        // Legacy support plugin will handle fallback to .html if needed
-        return $template . '.html.twig';
+        $twigTemplate = $template . '.html.twig';
+        if (self::$twig !== null && self::$twig->getLoader()->exists($twigTemplate)) {
+            return $twigTemplate;
+        }
+
+        if (self::isLegacySupportEnabled()) {
+            $htmlTemplate = $template . '.html';
+            if (self::$twig !== null && self::$twig->getLoader()->exists($htmlTemplate)) {
+                return $htmlTemplate;
+            }
+        }
+
+        return $twigTemplate;
+    }
+
+    private static function isLegacySupportEnabled(): bool
+    {
+        return in_array('legacy_support', $GLOBALS['plugins'] ?? [], true);
     }
 
     /**
@@ -517,7 +527,11 @@ class Html
             return $loader->exists($template);
         }
 
-        return $loader->exists($template . '.html.twig') || $loader->exists($template . '.html');
+        if ($loader->exists($template . '.html.twig')) {
+            return true;
+        }
+
+        return self::isLegacySupportEnabled() && $loader->exists($template . '.html');
     }
 
     /**

@@ -1,6 +1,6 @@
 <?php
 
-namespace FacturaScripts\Core;
+namespace FSFramework\Core;
 
 class Response
 {

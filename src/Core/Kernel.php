@@ -43,7 +43,7 @@ class Kernel
     {
         if (self::$instance === null) {
             self::$instance = new self();
-            \FacturaScripts\Core\Plugins::init();
+            Plugins::init();
         }
         return self::$instance;
     }

@@ -1,8 +1,8 @@
 <?php
 
-namespace FacturaScripts\Core\Base;
+namespace FSFramework\Core\Base;
 
-use FacturaScripts\Core\Html;
+use FSFramework\Core\Html;
 
 /**
  * Modern Controller base class for FSFramework.
@@ -147,8 +147,8 @@ class Controller
             }
 
             // Initialize response and permissions
-            $this->response = new \FacturaScripts\Core\Response();
-            $this->permissions = new \FacturaScripts\Core\Base\ControllerPermissions();
+            $this->response = new \FSFramework\Core\Response();
+            $this->permissions = new \FSFramework\Core\Base\ControllerPermissions();
 
             // 1. Authenticate immediately
             $this->login_tools->log_in($this->user);
@@ -167,7 +167,7 @@ class Controller
             if (!$this->user->logged_on) {
                 // For now, simple forceful redirect/render to protect content.
                 // We exit here to prevent 'handle()' or 'run()' from executing sensitive logic.
-                echo \FacturaScripts\Core\Html::render('login/default', [
+                echo \FSFramework\Core\Html::render('login/default', [
                     'fsc' => $this,
                     'user' => $this->user,
                     'empresa' => $this->empresa
@@ -181,7 +181,7 @@ class Controller
             
             if (!$hasAccess) {
                 // Access Denied
-                echo \FacturaScripts\Core\Html::render('access_denied', ['fsc' => $this]);
+                echo \FSFramework\Core\Html::render('access_denied', ['fsc' => $this]);
                 exit;
             }
             
@@ -507,4 +507,3 @@ class Controller
         $this->core_log->new_advice($msg);
     }
 }
-

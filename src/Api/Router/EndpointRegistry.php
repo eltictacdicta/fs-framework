@@ -235,7 +235,7 @@ class EndpointRegistry
         $className = $info['class'];
         
         // Intentar con namespace del plugin
-        $namespacedClass = "\\FacturaScripts\\Plugins\\" . ucfirst($plugin) . "\\Endpoint\\" . $className;
+        $namespacedClass = "\\FSFramework\\Plugins\\" . ucfirst($plugin) . "\\Endpoint\\" . $className;
         if (class_exists($namespacedClass)) {
             return new $namespacedClass();
         }

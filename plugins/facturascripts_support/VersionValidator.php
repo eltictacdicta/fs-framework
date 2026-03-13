@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace FacturaScripts\Plugins\facturascripts_support;
+namespace FSFramework\Plugins\facturascripts_support;
 
 /**
  * Version validator for FacturaScripts 2025 compatibility.
