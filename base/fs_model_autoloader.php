@@ -31,6 +31,10 @@
 class fs_model_autoloader
 {
     private const PLUGINS_PATH = '/plugins/';
+    private const MODEL_NAMESPACES = [
+        'FSFramework\\model\\',
+        'FacturaScripts\\model\\',
+    ];
 
     /**
      * @var bool Si el autoloader está registrado
@@ -171,13 +175,9 @@ class fs_model_autoloader
      */
     public static function loadClass(string $class): bool
     {
-        // Manejar namespaces FacturaScripts\model\ClassName
-        // Estos son modelos legacy que usan namespace pero están en plugins
         $originalClass = $class;
-        if (strpos($class, 'FSFramework\\model\\') === 0) {
-            // Extraer solo el nombre de la clase
-            $class = substr($class, strlen('FSFramework\\model\\'));
-        } elseif (strpos($class, '\\') !== false) {
+        $class = self::normalizeModelClassName($class);
+        if ($class === null) {
             // Otros namespaces - dejar que Composer los maneje
             return false;
         }
@@ -188,7 +188,9 @@ class fs_model_autoloader
             $path = self::$classMap[$cacheKey];
             if (file_exists($path)) {
                 require_once $path;
-                return true;
+                if (self::resolveLoadedModelClass($originalClass, $class)) {
+                    return true;
+                }
             }
             // Cache inválido, eliminar entrada
             unset(self::$classMap[$cacheKey]);
@@ -203,8 +205,54 @@ class fs_model_autoloader
                 self::$classMap[$cacheKey] = $path;
                 self::saveCache();
                 require_once $path;
-                return true;
+                if (self::resolveLoadedModelClass($originalClass, $class)) {
+                    return true;
+                }
             }
+        }
+
+        return false;
+    }
+
+    private static function normalizeModelClassName(string $class): ?string
+    {
+        foreach (self::MODEL_NAMESPACES as $prefix) {
+            if (strpos($class, $prefix) === 0) {
+                return substr($class, strlen($prefix));
+            }
+        }
+
+        if (strpos($class, '\\') !== false) {
+            return null;
+        }
+
+        return $class;
+    }
+
+    private static function resolveLoadedModelClass(string $requestedClass, string $shortClass): bool
+    {
+        if (class_exists($requestedClass, false)) {
+            return true;
+        }
+
+        $candidates = [
+            $shortClass,
+        ];
+
+        foreach (self::MODEL_NAMESPACES as $prefix) {
+            $candidates[] = $prefix . $shortClass;
+        }
+
+        foreach (array_unique($candidates) as $candidate) {
+            if (!class_exists($candidate, false)) {
+                continue;
+            }
+
+            if ($candidate !== $requestedClass) {
+                class_alias($candidate, $requestedClass);
+            }
+
+            return true;
         }
 
         return false;

@@ -253,19 +253,7 @@ abstract class fs_model
      */
     public function var2str($val)
     {
-        if (is_null($val)) {
-            return 'NULL';
-        } else if (is_bool($val)) {
-            return $val ? 'TRUE' : 'FALSE';
-        } else if (preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4})$/i', $val)) {
-            /// es una fecha
-            return "'" . Date($this->db->date_style(), strtotime($val)) . "'";
-        } else if (preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4}) ([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2})$/i', $val)) {
-            /// es una fecha+hora
-            return "'" . Date($this->db->date_style() . ' H:i:s', strtotime($val)) . "'";
-        }
-
-        return "'" . $this->db->escape_string($val) . "'";
+        return $this->db->var2str($val);
     }
 
     /**

@@ -256,6 +256,17 @@ class fs_controller extends fs_app
     }
 
     /**
+     * Transforma una variable en una cadena válida para consultas SQL.
+     *
+     * @param mixed $val
+     * @return string
+     */
+    public function var2str($val)
+    {
+        return $this->db->var2str($val);
+    }
+
+    /**
      * Elimina la lista con los últimos cambios del usuario.
      */
     public function clean_last_changes()
