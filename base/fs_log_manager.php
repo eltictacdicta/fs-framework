@@ -40,15 +40,19 @@ class fs_log_manager
     public function save()
     {
         foreach ($this->core_log->get_to_save() as $data) {
-            $new_log = new fs_log();
-            $new_log->alerta = $data['context']['alert'];
-            $new_log->controlador = $this->core_log->controller_name();
-            $new_log->detalle = $data['message'];
-            $new_log->fecha = date('d-m-Y H:i:s', $data['time']);
-            $new_log->ip = fs_get_ip();
-            $new_log->tipo = $data['context']['type'];
-            $new_log->usuario = $this->core_log->user_nick();
-            $new_log->save();
+            try {
+                $new_log = new fs_log();
+                $new_log->alerta = $data['context']['alert'];
+                $new_log->controlador = $this->core_log->controller_name();
+                $new_log->detalle = $data['message'];
+                $new_log->fecha = date('d-m-Y H:i:s', $data['time']);
+                $new_log->ip = fs_get_ip();
+                $new_log->tipo = $data['context']['type'];
+                $new_log->usuario = $this->core_log->user_nick();
+                $new_log->save();
+            } catch (Throwable $e) {
+                error_log('fs_log_manager: imposible guardar log en base de datos: ' . $e->getMessage());
+            }
         }
         
         $this->core_log->clean_to_save();
