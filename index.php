@@ -133,11 +133,29 @@ require_once 'base/fs_log_manager.php';
  */
 register_shutdown_function("fatal_handler");
 
+/**
+ * Accept only canonical page identifiers used by legacy and FS2025 page controllers.
+ */
+function fs_get_requested_page_name(): ?string
+{
+    $page = filter_input(INPUT_GET, 'page', FILTER_UNSAFE_RAW);
+    if (!is_string($page)) {
+        return null;
+    }
+
+    $page = trim($page);
+    if ($page === '') {
+        return '';
+    }
+
+    return preg_match('/^[a-z][a-z0-9_]*$/', $page) ? $page : '';
+}
+
 /// ¿Qué controlador usar?
-$pagename = '';
-if (filter_input(INPUT_GET, 'page')) {
-    $pagename = filter_input(INPUT_GET, 'page');
-} elseif (defined('FS_HOMEPAGE')) {
+$requestedPage = fs_get_requested_page_name();
+$invalidPageRequested = ($requestedPage === '');
+$pagename = $requestedPage ?? '';
+if ($requestedPage === null && defined('FS_HOMEPAGE')) {
     $pagename = FS_HOMEPAGE;
 }
 
@@ -210,6 +228,10 @@ if (!empty($pagename)) {
 
 $fsc_error = FALSE;
 if ($pagename == '') {
+    if ($invalidPageRequested) {
+        header("HTTP/1.0 404 Not Found");
+    }
+
     $fsc = new fs_controller();
 } else {
     // First check if it's a FS2025 modern controller
@@ -244,7 +266,12 @@ if ($pagename == '') {
                 header("HTTP/1.0 404 Not Found");
                 $fsc = new fs_controller();
             } else {
-                $fsc = new $pagename();
+                $legacyControllerClass = basename($class_path, '.php');
+                if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $legacyControllerClass) || !class_exists($legacyControllerClass)) {
+                    throw new RuntimeException('Legacy controller class not found for page: ' . $pagename);
+                }
+
+                $fsc = new $legacyControllerClass();
             }
         } catch (Exception $exc) {
             echo "<h1>Error fatal</h1>"
