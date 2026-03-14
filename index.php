@@ -31,7 +31,17 @@ if (!file_exists('config.php')) {
 define('FS_FOLDER', __DIR__);
 
 /// Carga de dependencias
-require_once __DIR__ . '/vendor/autoload.php';
+$composerAutoload = __DIR__ . '/vendor/autoload.php';
+if (!file_exists($composerAutoload)) {
+    error_log('FSFramework bootstrap error: falta vendor/autoload.php. Ejecute composer install o restaure la carpeta vendor.');
+    http_response_code(500);
+    echo '<h1>Error de arranque</h1>'
+        . '<p>Faltan las dependencias de Composer.</p>'
+        . '<p>Restaure la carpeta vendor desde una copia valida o ejecute <code>composer install --no-dev --optimize-autoloader</code>.</p>';
+    exit;
+}
+
+require_once $composerAutoload;
 
 /// Compatibilidad temporal para plugins bajo el namespace FSFramework\Plugins\*
 spl_autoload_register(function ($class) {

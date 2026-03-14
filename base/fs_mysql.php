@@ -44,7 +44,7 @@ class fs_mysql extends fs_db_engine
          * Ejecutamos START TRANSACTION en lugar de begin_transaction()
          * para mayor compatibilidad.
          */
-        return self::$link ? self::$link->query("START TRANSACTION;") : FALSE;
+        return $this->execute_transaction_command('START TRANSACTION;');
     }
 
     /**
@@ -86,10 +86,10 @@ class fs_mysql extends fs_db_engine
      */
     public function commit()
     {
-        if (self::$link) {
+        if ($this->execute_transaction_command('COMMIT;')) {
             /// aumentamos el contador de selects realizados
             self::$t_transactions++;
-            return self::$link->commit();
+            return TRUE;
         }
 
         return FALSE;
@@ -774,7 +774,75 @@ class fs_mysql extends fs_db_engine
      */
     public function rollback()
     {
-        return self::$link ? self::$link->rollback() : FALSE;
+        return $this->execute_transaction_command('ROLLBACK;');
+    }
+
+    /**
+     * Ejecuta una orden de control transaccional y reintenta una vez si MySQL
+     * ha cerrado la conexión durante procesos largos como actualizaciones.
+     *
+     * @param string $sql
+     * @return bool
+     */
+    private function execute_transaction_command($sql)
+    {
+        if (!self::$link && !$this->connect()) {
+            return FALSE;
+        }
+
+        try {
+            return (bool) self::$link->query($sql);
+        } catch (mysqli_sql_exception $e) {
+            self::$last_error = $e->getMessage();
+
+            if ($this->should_retry_after_disconnect($e)) {
+                $this->reset_connection();
+
+                if ($this->connect()) {
+                    try {
+                        return (bool) self::$link->query($sql);
+                    } catch (mysqli_sql_exception $retryException) {
+                        self::$last_error = $retryException->getMessage();
+                    }
+                }
+            }
+
+            self::$core_log->new_error(self::$last_error);
+            return FALSE;
+        }
+    }
+
+    /**
+     * Identifica errores de conexión que admiten un reintento transparente.
+     *
+     * @param mysqli_sql_exception $exception
+     * @return bool
+     */
+    private function should_retry_after_disconnect(mysqli_sql_exception $exception)
+    {
+        $message = strtolower($exception->getMessage());
+        $code = (int) $exception->getCode();
+
+        return in_array($code, [2006, 2013], TRUE)
+            || str_contains($message, 'server has gone away')
+            || str_contains($message, 'lost connection');
+    }
+
+    /**
+     * Descarta el enlace actual para forzar una nueva conexión limpia.
+     *
+     * @return void
+     */
+    private function reset_connection()
+    {
+        if (self::$link) {
+            try {
+                self::$link->close();
+            } catch (Throwable $e) {
+            }
+        }
+
+        self::$link = NULL;
     }
 
     /**
