@@ -20,12 +20,16 @@
         <testsuite name="Api">
             <directory>tests/Api</directory>
         </testsuite>
+        <testsuite name="ClientesCore">
+            <directory>tests/ClientesCore</directory>
+        </testsuite>
     </testsuites>
 
     <source>
         <include>
             <directory>base</directory>
             <directory>src</directory>
+            <directory>plugins/clientes_core</directory>
         </include>
     </source>
 
