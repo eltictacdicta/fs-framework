@@ -180,6 +180,9 @@ class Html
             FSTranslator::loadAllPluginTranslations();
             self::$twig->addExtension(new TranslationExtension());
 
+            // Register base64_encode filter for templates
+            self::$twig->addFilter(new \Twig\TwigFilter('base64_encode', 'base64_encode'));
+
             // Register CSRF protection functions (core functionality)
             self::$twig->addFunction(new \Twig\TwigFunction(
                 'csrf_token',
