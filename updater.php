@@ -16,11 +16,14 @@ function updater_redirect($url)
     exit;
 }
 
-function updater_self_update_redirect($success)
+function updater_self_update_redirect($success, $reason = '')
 {
     if ($success) {
+        error_log('system_updater: self-update finalized successfully.');
         updater_redirect('index.php?page=admin_updater&success=updater-self-update');
     }
+
+    error_log('system_updater: self-update finalize FAILED' . ($reason !== '' ? ': ' . $reason : '.'));
 
     $fallback = file_exists(__DIR__ . '/plugins/system_updater/controller/admin_updater.php')
         ? 'index.php?page=admin_updater&error=updater-self-update'
@@ -58,17 +61,17 @@ function updater_finalize_self_update()
     $token = (string) filter_input(INPUT_GET, 'token');
 
     if ($token === '' || !file_exists($manifestPath)) {
-        updater_self_update_redirect(false);
+        updater_self_update_redirect(false, 'Token vacío o manifiesto no encontrado (manifest=' . ($manifestPath) . ', token_empty=' . ($token === '' ? 'sí' : 'no') . ')');
     }
 
     $manifest = json_decode((string) @file_get_contents($manifestPath), true);
     if (!is_array($manifest) || empty($manifest['token']) || empty($manifest['staged_path'])) {
         @unlink($manifestPath);
-        updater_self_update_redirect(false);
+        updater_self_update_redirect(false, 'Manifiesto inválido o incompleto');
     }
 
     if (!hash_equals((string) $manifest['token'], $token)) {
-        updater_self_update_redirect(false);
+        updater_self_update_redirect(false, 'Token no coincide');
     }
 
     $stagedPath = $manifest['staged_path'];
@@ -77,11 +80,15 @@ function updater_finalize_self_update()
     $realTmpPath = realpath(__DIR__ . '/tmp');
 
     if ($realStagedPath === false || $realTmpPath === false || strpos($realStagedPath, $realTmpPath) !== 0 || !updater_is_valid_staged_plugin($realStagedPath)) {
+        $detail = 'stagedPath=' . $stagedPath
+            . ', realStagedPath=' . var_export($realStagedPath, true)
+            . ', realTmpPath=' . var_export($realTmpPath, true)
+            . ', validPlugin=' . (($realStagedPath !== false && updater_is_valid_staged_plugin($realStagedPath)) ? 'sí' : 'no');
         if (!empty($stagingRoot)) {
             fs_file_manager::del_tree($stagingRoot);
         }
         @unlink($manifestPath);
-        updater_self_update_redirect(false);
+        updater_self_update_redirect(false, 'Staged path inválido: ' . $detail);
     }
 
     $pluginPath = __DIR__ . '/plugins/system_updater';
@@ -89,11 +96,11 @@ function updater_finalize_self_update()
     $hasCurrentPlugin = is_dir($pluginPath);
 
     if (file_exists($backupPath) && !fs_file_manager::del_tree($backupPath)) {
-        updater_self_update_redirect(false);
+        updater_self_update_redirect(false, 'No se pudo eliminar el backup anterior: ' . $backupPath);
     }
 
     if ($hasCurrentPlugin && !@rename($pluginPath, $backupPath)) {
-        updater_self_update_redirect(false);
+        updater_self_update_redirect(false, 'No se pudo mover el plugin actual a backup: ' . $pluginPath . ' → ' . $backupPath);
     }
 
     $deployed = @rename($realStagedPath, $pluginPath);
@@ -102,6 +109,7 @@ function updater_finalize_self_update()
     }
 
     if (!$deployed || !updater_is_valid_staged_plugin($pluginPath)) {
+        error_log('system_updater: deploy failed. deployed=' . var_export($deployed, true) . ', valid=' . var_export(updater_is_valid_staged_plugin($pluginPath), true));
         if (is_dir($pluginPath)) {
             fs_file_manager::del_tree($pluginPath);
         }
@@ -110,7 +118,7 @@ function updater_finalize_self_update()
             fs_file_manager::del_tree($stagingRoot);
         }
         @unlink($manifestPath);
-        updater_self_update_redirect(false);
+        updater_self_update_redirect(false, 'No se pudo desplegar el plugin actualizado');
     }
 
     if (defined('FS_TMP_NAME')) {
