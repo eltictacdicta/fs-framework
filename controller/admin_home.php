@@ -185,9 +185,7 @@ class admin_home extends fs_controller
         }
 
         // Inicializar variables para plugins pendientes
-        $this->pending_plugin = isset($_SESSION['pending_plugin']) ? $_SESSION['pending_plugin'] : null;
-        $this->pending_download = isset($_SESSION['pending_download']) ? $_SESSION['pending_download'] : null;
-        $this->pending_private_download = isset($_SESSION['pending_private_download']) ? $_SESSION['pending_private_download'] : null;
+        $this->sync_pending_actions();
         $this->private_test_result = null;
 
         // Inicializar información del actualizador
@@ -200,6 +198,13 @@ class admin_home extends fs_controller
 
         $this->paginas = $this->all_pages();
         $this->load_menu(TRUE);
+    }
+
+    private function sync_pending_actions()
+    {
+        $this->pending_plugin = isset($_SESSION['pending_plugin']) ? $_SESSION['pending_plugin'] : null;
+        $this->pending_download = isset($_SESSION['pending_download']) ? $_SESSION['pending_download'] : null;
+        $this->pending_private_download = isset($_SESSION['pending_private_download']) ? $_SESSION['pending_private_download'] : null;
     }
 
     /**
@@ -448,6 +453,7 @@ class admin_home extends fs_controller
                 }
                 unset($_SESSION['pending_plugin']);
             }
+            $this->sync_pending_actions();
             return;
         }
 
@@ -456,6 +462,7 @@ class admin_home extends fs_controller
             if (isset($_SESSION['pending_download'])) {
                 unset($_SESSION['pending_download']);
             }
+            $this->sync_pending_actions();
             return;
         }
 
@@ -464,6 +471,7 @@ class admin_home extends fs_controller
             if (isset($_SESSION['pending_private_download'])) {
                 unset($_SESSION['pending_private_download']);
             }
+            $this->sync_pending_actions();
             return;
         }
 
@@ -754,6 +762,7 @@ class admin_home extends fs_controller
                 'name' => $plugin_name,
                 'current_version' => $existing_plugin['version']
             ];
+            $this->sync_pending_actions();
 
             $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
             return;
@@ -764,6 +773,7 @@ class admin_home extends fs_controller
             $pending = $_SESSION['pending_download'];
             $this->plugin_manager->download($pending['plugin_id'], true);
             unset($_SESSION['pending_download']);
+            $this->sync_pending_actions();
             return;
         }
 
@@ -897,7 +907,33 @@ class admin_home extends fs_controller
 
     private function install_plugin()
     {
-        if (!is_uploaded_file($_FILES['fplugin']['tmp_name'])) {
+        if (filter_input(INPUT_POST, 'confirm_overwrite') && isset($_SESSION['pending_plugin'])) {
+            $pending = $_SESSION['pending_plugin'];
+
+            if (empty($pending['temp_file']) || !file_exists($pending['temp_file'])) {
+                $this->new_error_msg('El archivo temporal del plugin no se encuentra. Vuelve a subir el ZIP.');
+                unset($_SESSION['pending_plugin']);
+                $this->sync_pending_actions();
+                return;
+            }
+
+            $result = $this->plugin_manager->install($pending['temp_file'], $pending['name'] . '.zip', true);
+
+            if (file_exists($pending['temp_file'])) {
+                unlink($pending['temp_file']);
+            }
+
+            unset($_SESSION['pending_plugin']);
+            $this->sync_pending_actions();
+
+            if ($result) {
+                $this->new_message('Plugin <b>' . $result . '</b> instalado correctamente. El plugin anterior se guardó como backup.');
+            }
+
+            return;
+        }
+
+        if (empty($_FILES['fplugin']['tmp_name']) || !is_uploaded_file($_FILES['fplugin']['tmp_name'])) {
             $this->new_error_msg('Archivo no encontrado. ¿Pesa más de '
                 . $this->get_max_file_upload() . ' MB? Ese es el límite que tienes'
                 . ' configurado en tu servidor.');
@@ -918,10 +954,13 @@ class admin_home extends fs_controller
         // Verificar si el plugin ya existe
         $existing_plugin = $this->plugin_manager->check_plugin_exists($plugin_name);
 
-        if ($existing_plugin && !filter_input(INPUT_POST, 'confirm_overwrite')) {
+        if ($existing_plugin) {
             // El plugin existe y no hay confirmación, guardar el archivo temporalmente
-            $temp_file = FS_FOLDER . '/tmp/plugin_pending_install.zip';
-            move_uploaded_file($_FILES['fplugin']['tmp_name'], $temp_file);
+            $temp_file = FS_FOLDER . '/tmp/plugin_pending_install_' . session_id() . '_' . bin2hex(random_bytes(8)) . '.zip';
+            if (!move_uploaded_file($_FILES['fplugin']['tmp_name'], $temp_file)) {
+                $this->new_error_msg('No se pudo guardar temporalmente el archivo del plugin para confirmar la sobreescritura.');
+                return;
+            }
 
             // Guardar información en sesión para el modal
             $_SESSION['pending_plugin'] = [
@@ -930,33 +969,9 @@ class admin_home extends fs_controller
                 'current_version' => $existing_plugin['version'],
                 'temp_file' => $temp_file
             ];
+            $this->sync_pending_actions();
 
             $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
-            return;
-        }
-
-        // Si hay confirmación pendiente, procesarla
-        if (filter_input(INPUT_POST, 'confirm_overwrite') && isset($_SESSION['pending_plugin'])) {
-            $pending = $_SESSION['pending_plugin'];
-
-            if (!file_exists($pending['temp_file'])) {
-                $this->new_error_msg('El archivo temporal del plugin no se encuentra.');
-                unset($_SESSION['pending_plugin']);
-                return;
-            }
-
-            // Instalar con backup
-            $result = $this->plugin_manager->install($pending['temp_file'], $pending['name'] . '.zip', true);
-
-            // Limpiar archivo temporal
-            if (file_exists($pending['temp_file'])) {
-                unlink($pending['temp_file']);
-            }
-            unset($_SESSION['pending_plugin']);
-
-            if ($result) {
-                $this->new_message('Plugin <b>' . $result . '</b> instalado correctamente. El plugin anterior se guardó como backup.');
-            }
             return;
         }
 
@@ -1214,7 +1229,7 @@ class admin_home extends fs_controller
         if (isset($_SESSION['pending_private_download'])) {
             unset($_SESSION['pending_private_download']);
         }
-        $this->pending_private_download = null;
+        $this->sync_pending_actions();
 
         // Descargar el plugin (siempre crea backup si ya existe)
         $this->plugin_manager->download_private($plugin_id);

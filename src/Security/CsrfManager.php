@@ -19,6 +19,7 @@
 
 namespace FSFramework\Security;
 
+use FSFramework\Core\Kernel;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use Symfony\Component\Security\Csrf\TokenGenerator\UriSafeTokenGenerator;
@@ -73,8 +74,9 @@ class CsrfManager
             // Asegurar que la sesión está iniciada
             self::ensureSession();
             
-            // Crear Request desde globals y asignarle la sesión
-            $request = Request::createFromGlobals();
+            // Reutilizar el request activo evita volver a hidratar $_FILES tras mover
+            // o eliminar un upload temporal durante el mismo ciclo de petición.
+            $request = self::resolveRequest();
             $request->setSession(self::$session);
             
             // Crear RequestStack y añadir el request
@@ -91,6 +93,15 @@ class CsrfManager
         }
         
         return self::$manager;
+    }
+
+    private static function resolveRequest(): Request
+    {
+        try {
+            return Kernel::request();
+        } catch (\Throwable $e) {
+            return new Request();
+        }
     }
 
     /**
