@@ -119,6 +119,14 @@ class fs_login
     {
         $ip = fs_get_ip();
         $nick = filter_input(INPUT_POST, 'user');
+        if ($nick === null) {
+            $nick = filter_input(INPUT_POST, 'nick');
+        }
+
+        if ($nick !== null) {
+            $nick = trim($nick);
+        }
+
         if ($this->ip_filter->is_banned($ip)) {
             $this->core_log->new_error('Tu IP ha sido baneada, ' . $nick . '. ' . $this->ban_message);
             $this->core_log->save('Tu IP ha sido baneada, ' . $nick . '. ' . $this->ban_message, 'login', TRUE);
@@ -126,6 +134,10 @@ class fs_login
         }
 
         $password = filter_input(INPUT_POST, 'password');
+        if ($password !== null) {
+            $password = trim($password);
+        }
+
         if ($nick && $password) {
             if (FS_DEMO) {
                 /// en el modo demo nos olvidamos de la contraseña

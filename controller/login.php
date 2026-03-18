@@ -119,11 +119,22 @@ class login extends fs_controller
 
     private function handleCredentialLogin($defaultRedirectUrl)
     {
-        if (!isset($_POST['nick'], $_POST['password'])) {
+        $nick = $_POST['nick'] ?? ($_POST['user'] ?? null);
+        $password = $_POST['password'] ?? null;
+
+        if ($nick === null || $password === null) {
             return false;
         }
 
-        if (!$this->user->login($_POST['nick'], $_POST['password'])) {
+        $nick = trim((string) $nick);
+        $password = trim((string) $password);
+
+        if ($nick === '' || $password === '') {
+            $this->mensaje_login = 'Nick o contraseña incorrectos.';
+            return true;
+        }
+
+        if (!$this->user->login($nick, $password)) {
             $this->mensaje_login = 'Nick o contraseña incorrectos.';
             return true;
         }
