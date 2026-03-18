@@ -63,13 +63,25 @@ tests/
 │   ├── FsCoreLogTest.php      # Messages, errors, advices, SQL history, stats
 │   ├── FsFunctionsTest.php    # bround, fs_fix_html, fs_is_local_ip
 │   ├── FsIpFilterTest.php     # IP ban/whitelist logic
-│   └── FsQueryBuilderTest.php # SQL generation (SELECT, WHERE, JOIN, INSERT, UPDATE, DELETE)
+│   ├── FsQueryBuilderTest.php # SQL generation (SELECT, WHERE, JOIN, INSERT, UPDATE, DELETE)
+│   ├── FsDbalHelperTest.php   # DBAL helper utilities
+│   ├── FsMysqlDefaultNormalizationTest.php  # MySQL default value normalization
+│   └── LegacyUsageTrackerTest.php  # Legacy static method tracking
 ├── Security/                  # Security component tests
-│   └── PasswordHasherServiceTest.php  # Hash, verify, legacy migration, salt
+│   ├── PasswordHasherServiceTest.php  # Hash, verify, legacy migration, salt
+│   └── CsrfManagerTest.php    # CSRF token generation and validation
 ├── Traits/                    # Trait tests
 │   └── ValidatorTraitTest.php # Attribute validation, ConstraintBuilder
-└── Cache/                     # Cache component tests
-    └── CacheManagerTest.php   # Singleton, set/get/has/delete, callbacks
+├── Cache/                     # Cache component tests
+│   └── CacheManagerTest.php   # Singleton, set/get/has/delete, callbacks
+├── Api/                       # API component tests
+│   └── ChainedAuthAdapterTest.php  # Multi-auth adapter chain
+├── ClientesCore/              # Core plugin model tests
+│   ├── ClienteModelTest.php
+│   ├── DireccionClienteModelTest.php
+│   └── GrupoClientesModelTest.php
+└── Components/                # Core plugin component tests
+    └── CoreUpdaterTest.php
 ```
 
 #### Writing New Tests
@@ -109,6 +121,8 @@ tests/
 |-------|-----|--------|
 | **Base** | `tests/Base/` | Core classes in `base/` (fs_model, fs_core_log, fs_functions, fs_ip_filter, fs_query_builder) |
 | **Components** | `tests/Security/`, `tests/Traits/`, `tests/Cache/` | Symfony-based components in `src/` |
+| **Api** | `tests/Api/` | REST API authentication and routing |
+| **ClientesCore** | `tests/ClientesCore/` | Core plugin models (clientes, direcciones, grupos) |
 
 #### Configuration
 
@@ -225,10 +239,40 @@ Use provided helper functions:
   fs_controller.php           # Main controller base class
   fs_model.php                # Base model class
   fs_db2.php                  # Database abstraction layer
+  fs_dbal.php                 # DBAL wrapper for modern queries
+  fs_dbal_engine.php          # DBAL engine interface
+  fs_db_engine.php           # Database engine interface
+  fs_mysql.php                # MySQL driver
+  fs_postgresql.php           # PostgreSQL driver
   fs_cache.php                # Legacy cache (Memcache)
   fs_app.php                  # Base application class
   fs_login.php                # Authentication utilities
   fs_functions.php            # Global helper functions
+  fs_core_log.php            # Logging system
+  fs_ip_filter.php            # IP filtering/banning
+  fs_query_builder.php       # SQL query builder
+  fs_schema.php               # Database schema operations
+  fs_extended_model.php       # Extended model functionality
+  fs_edit_controller.php      # Edit controller base
+  fs_list_controller.php      # List controller base
+  fs_log_manager.php          # Log management
+  fs_plugin_manager.php       # Plugin management
+  fs_session_manager.php      # Session handling
+  fs_settings.php             # Application settings
+  fs_secret_migrator.php      # Secret migration utility
+  fs_api.php                  # API utilities
+  fs_auth.php                 # Authentication helpers
+  fs_autoload.php             # Autoloader
+  fs_chunked_upload.php        # Chunked file uploads
+  fs_default_items.php        # Default items management
+  fs_excel.php                # Excel export/import
+  fs_file_manager.php         # File management
+  fs_list_decoration.php      # List view decoration
+  fs_list_filter.php          # List filters
+  fs_model_autoloader.php     # Model autoloading
+  fs_model_crud_trait.php     # CRUD trait for models
+  fs_prepared_db.php          # Prepared statements
+  fs_secure_chunked_upload.php # Secure file uploads
 /controller/                   # Main application controllers
   admin_*.php                 # Admin controllers
   login.php                   # Login controller
@@ -239,19 +283,33 @@ Use provided helper functions:
   /*/model/                   # Plugin models
   /*/view/                    # Plugin views
   /*/translations/            # Plugin translations (YAML format)
+  /*/Controller/              # FS2025 controllers (PSR-4)
+  /*/Model/                  # FS2025 models (PSR-4)
 /src/                          # Modern Symfony-based code (PSR-4)
-  /Attribute/                 # PHP 8 Attributes (FSRoute, etc.)
-  /Cache/                     # CacheManager (Symfony Cache)
-  /Controller/                # Modern controllers (BaseController)
-  /Core/                      # Kernel, Router, ThemeManager
-  /DependencyInjection/       # Service Container
-  /Event/                     # Event dispatcher system
-  /Form/                      # FormHelper (Symfony Forms)
-  /Security/                  # CsrfManager, UserAdapter, PasswordHasher
-  /Traits/                    # ValidatorTrait, ResponseTrait
-  /Translation/               # FSTranslator, FS2025JsonLoader
-  /Twig/                      # Twig extensions
   /Api/                       # REST API system
+    /Attribute/              # ApiResource, ApiField, ApiHidden, Operation
+    /Auth/                    # ChainedAuthAdapter, auth contracts
+    /Endpoint/                # ApiEndpoint, ModelResourceEndpoint
+    /Exception/               # ApiException, ValidationException, etc.
+    /Helper/                  # RequestHelper, ResponseHelper
+    /Middleware/              # Auth, Cors, RateLimit middleware
+    /Resource/                # ModelResourceRegistry, ResourceTransformer
+    /Router/                  # ApiRouter, EndpointRegistry
+  /Attribute/                 # PHP 8 Attributes (FSRoute)
+  /Cache/                     # CacheManager (Symfony Cache)
+  /Controller/                # BaseController, PageController
+  /Core/                      # Kernel, Router, ThemeManager, Plugins
+  /Database/                  # DbalConnectionFactory
+  /DependencyInjection/       # Container (Service Locator)
+  /Dinamic/Model/             # Dynamic models (User)
+  /Event/                     # FSEventDispatcher, ModelEvent, ControllerEvent
+  /Form/                      # FormHelper (Symfony Forms)
+  /Security/                  # CsrfManager, UserAdapter, PasswordHasher,
+                              # CookieSigner, SignedUrlService, SessionManager,
+                              # EncryptionService, SafeRedirect, SecretManager
+  /Traits/                    # ValidatorTrait, ResponseTrait
+  /Translation/               # FSTranslator, FS2025JsonLoader, TranslationHelper
+  /Twig/                      # TranslationExtension
 /themes/                       # Theme templates (Twig)
   /AdminLTE/                  # AdminLTE theme (default)
     /view/                    # Template files (.html.twig)
@@ -270,11 +328,19 @@ Use provided helper functions:
 /translations/                 # Core translations (YAML format)
 /tests/                        # Unit tests (PHPUnit)
   /Base/                       # Tests for core classes (base/)
-  /Security/                   # PasswordHasherService tests
+  /Security/                   # PasswordHasherService, CsrfManager tests
   /Traits/                     # ValidatorTrait tests
   /Cache/                      # CacheManager tests
+  /Api/                        # ChainedAuthAdapter tests
+  /ClientesCore/               # Core plugin model tests
+  /Components/                 # Core component tests
   bootstrap.php                # Test bootstrap (constants, no DB)
 /vendor/                       # Composer dependencies
+/docs/                         # Documentation
+  TRANSLATION.md               # i18n system documentation
+  MEJORAS_PROPUESTAS.md        # Proposed improvements
+  /reviews/                    # Review documents
+  /examples/                   # Example code
 ```
 
 ### Imports and Includes
@@ -579,6 +645,66 @@ if ($adapter->hasAccessTo('admin_users')) { ... }
 if ($adapter->canDeleteIn('ventas')) { ... }
 ```
 
+### Additional Security Services
+
+FSFramework provides several security utilities in `src/Security/`:
+
+```php
+use FSFramework\Security\CookieSigner;
+
+// Sign cookies to prevent tampering
+$signer = new CookieSigner($secretKey);
+$signedValue = $signer->sign($value);
+if ($signer->verify($signedValue, $value)) {
+    // Cookie is valid
+}
+```
+
+```php
+use FSFramework\Security\SignedUrlService;
+
+// Generate signed URLs with expiration
+$signedUrl = SignedUrlService::sign('https://example.com/page', '+1 hour');
+
+// Verify signed URL
+if (SignedUrlService::verify($signedUrl)) {
+    // URL is valid and not expired
+}
+```
+
+```php
+use FSFramework\Security\SessionManager;
+
+// Secure session handling
+SessionManager::start();
+SessionManager::regenerate();  // Prevent session fixation
+SessionManager::setSecure($key, $value, true);  // HTTP-only cookies
+```
+
+```php
+use FSFramework\Security\EncryptionService;
+
+// Encrypt/decrypt sensitive data
+$encrypted = EncryptionService::encrypt($plaintext, $key);
+$decrypted = EncryptionService::decrypt($encrypted, $key);
+```
+
+```php
+use FSFramework\Security\SafeRedirect;
+
+// Safe redirects preventing open redirect vulnerabilities
+SafeRedirect::to('https://trusted-domain.com/page');
+SafeRedirect::toIfValid($url, 'https://fallback.com');
+```
+
+```php
+use FSFramework\Security\SecretManager;
+
+// Manage application secrets (API keys, tokens)
+SecretManager::set('my_api_key', $encryptedValue);
+$value = SecretManager::get('my_api_key');
+```
+
 ### Form Helper
 
 Create Symfony Forms with CSRF protection:
@@ -713,7 +839,15 @@ The "Limpiar caché" button in admin_info (`index.php?page=admin_info&clean_cach
 | `symfony/translation` | ^7.4 | Internationalization |
 | `symfony/cache` | ^7.4 | Caching |
 | `symfony/console` | ^7.4 | CLI commands |
+| `symfony/config` | ^7.4 | Configuration handling |
+| `symfony/dotenv` | ^7.4 | Environment variables |
+| `symfony/yaml` | ^7.4 | YAML parsing |
 | `twig/twig` | ^3.0 | Template engine |
+| `doctrine/dbal` | ^4.3 | Database abstraction layer |
+| `firebase/php-jwt` | ^7.0 | JWT token handling |
+| `phpmailer/phpmailer` | ^6.0 | Email sending |
+| `phpoffice/phpspreadsheet` | ^2.0 | Excel/CSV file handling |
+| `zircote/swagger-php` | ^6.0 | OpenAPI/Swagger documentation |
 
 ## PHP 8.2+ Features
 
@@ -781,7 +915,49 @@ class UserAdapter implements UserInterface
 
 ## REST API System
 
-Located in `src/Api/` directory:
+Located in `src/Api/` directory with full middleware, authentication, and routing support:
+
+### Directory Structure
+
+```
+src/Api/
+├── ApiKernel.php              # API entry point and kernel
+├── Attribute/                 # API attributes (ApiResource, ApiField, ApiHidden, Operation)
+├── Auth/                      # Authentication adapters
+│   ├── ChainedAuthAdapter.php # Multi-auth provider chain
+│   └── Contract/              # Auth interfaces
+│       ├── ApiAuthInterface.php
+│       ├── AllowedUserInterface.php
+│       ├── ApiLogInterface.php
+│       ├── RateLimitInterface.php
+│       ├── SecurityEventInterface.php
+│       ├── SecuritySettingInterface.php
+│       └── UserTokenInterface.php
+├── Endpoint/                  # API endpoints
+│   ├── ApiEndpoint.php
+│   └── ModelResourceEndpoint.php
+├── Exception/                 # API exceptions
+│   ├── ApiException.php
+│   ├── ConflictException.php
+│   ├── ForbiddenException.php
+│   ├── NotFoundException.php
+│   ├── UnauthorizedException.php
+│   └── ValidationException.php
+├── Helper/                    # API helpers
+│   ├── RequestHelper.php
+│   └── ResponseHelper.php
+├── Middleware/               # API middleware
+│   ├── AuthMiddleware.php
+│   ├── CorsMiddleware.php
+│   ├── RateLimitMiddleware.php
+│   └── MiddlewareInterface.php
+├── Resource/                 # Resource handling
+│   ├── ModelResourceRegistry.php
+│   └── ResourceTransformer.php
+└── Router/                   # API routing
+    ├── ApiRouter.php
+    └── EndpointRegistry.php
+```
 
 ### API Attributes
 
@@ -1071,6 +1247,54 @@ $result = $this->db->execute($stmt, [$userId]);
 $db = \FSFramework\DependencyInjection\Container::db();
 ```
 
+### Modern DBAL Layer (fs_dbal)
+
+FSFramework includes a modern DBAL layer based on Doctrine DBAL for more complex queries:
+
+```php
+use FSFramework\Database\DbalConnectionFactory;
+use FSFramework\DependencyInjection\Container;
+
+// Get DBAL connection
+$dbal = Container::get(DbalConnectionFactory::class)->getConnection();
+
+// Execute queries with parameters
+$result = $dbal->fetchAllAssociative(
+    "SELECT * FROM users WHERE active = ? AND role = ?",
+    [$active, $role]
+);
+
+// Insert with automatic quoting
+$dbal->insert('users', [
+    'nick' => $nick,
+    'email' => $email,
+    'created_at' => new \DateTime()
+]);
+
+// Update with prepared statement
+$dbal->update('users', ['last_login' => new \DateTime()], ['id' => $userId]);
+
+// Delete
+$dbal->delete('users', ['id' => $id]);
+
+// Use QueryBuilder for complex queries
+$qb = $dbal->createQueryBuilder()
+    ->select('u.*', 'p.name')
+    ->from('users', 'u')
+    ->leftJoin('u', 'profiles', 'p', 'u.profile_id = p.id')
+    ->where('u.active = ?')->setParameter(0, true)
+    ->andWhere('u.created_at > ?')->setParameter(1, $since);
+
+$results = $qb->fetchAllAssociative();
+```
+
+### Database Drivers
+
+| Driver | File | Features |
+|--------|------|----------|
+| MySQL | `fs_mysql.php` | Full support with connection pooling |
+| PostgreSQL | `fs_postgresql.php` | Full support with JSON operators |
+
 ### Schema Definition (XML)
 
 Located in `model/table/*.xml`:
@@ -1135,13 +1359,14 @@ return function(\Symfony\Component\DependencyInjection\ContainerBuilder $contain
 
 ## Documentation References
 
-- [Translation System](docs/TRANSLATION.md) - Complete i18n documentation
-- [Theme System](THEME_SYSTEM.md) - Template and theming guide
+- [Translation System](docs/TRANSLATION.md) - Complete i18n documentation (YAML, JSON, pluralization, fallback)
+- [Proposed Improvements](docs/MEJORAS_PROPUESTAS.md) - Future enhancements and modernization roadmap
+- [Legacy Migration Roadmap](docs/reviews/legacy-migration-roadmap.md) - Migration guide from legacy components
 - Symfony 7.4 Documentation: https://symfony.com/doc/current/
 - Twig Documentation: https://twig.symfony.com/doc/
 
 ---
 
-**Last Updated**: February 2025  
+**Last Updated**: June 2025  
 **Framework Version**: FSFramework with Symfony 7.4  
 **PHP Version**: 8.2+
