@@ -1,0 +1,12 @@
+---
+description: Always use DDEV in this repository
+alwaysApply: true
+---
+
+- This repository uses ddev as the required local development environment.
+- Always run repository commands through ddev when they depend on the project runtime, services, PHP extensions, Composer dependencies, or the database.
+- Always run PHP commands via ddev exec php ....
+- Prefer ddev exec composer ... for Composer operations that must run inside the container.
+- Prefer ddev exec php vendor/bin/phpunit ... for tests.
+- If ddev is not running yet, start it first with ddev start.
+- Do not default to host-level php or composer commands in this repository.

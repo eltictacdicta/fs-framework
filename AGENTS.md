@@ -3,6 +3,14 @@
 ## Overview
 FSFramework is a modernized PHP-based ERP/accounting software fork of FacturaScripts 2017, with Symfony 7.4 integration and PHP 8.2+ features. This guide provides comprehensive instructions for agentic coding agents working in this repository.
 
+## Development Environment
+
+- This project uses `ddev` as the required local development environment.
+- Always run PHP commands through `ddev`, not directly on the host.
+- Prefer `ddev exec php ...` instead of `php ...`.
+- Prefer `ddev exec composer ...` instead of `composer ...` when Composer must run inside the project environment.
+- If the application or tests depend on services, assume `ddev start` must be running first.
+
 ## Build Commands
 
 ### Install Dependencies
