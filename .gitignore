@@ -22,6 +22,8 @@ package-lock.json
 !/plugins/portal/
 !/plugins/hola_mundo/
 !/plugins/clientes_core/
+!/plugins/clientes_catalogo/
+!/plugins/clientes_facturacion
 logs/api_security.log
 
 # Excluir imágenes subidas por la API

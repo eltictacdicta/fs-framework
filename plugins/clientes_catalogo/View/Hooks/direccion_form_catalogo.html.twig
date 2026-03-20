@@ -1,0 +1,12 @@
+{% if clientes_catalogo_paises is defined and clientes_catalogo_paises|length > 0 %}
+<datalist id="clientes-catalogo-paises">
+    {% for pais in clientes_catalogo_paises %}
+    <option value="{{ pais.codpais }}">{{ pais.nombre }}</option>
+    {% endfor %}
+</datalist>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('input[name="codpais"]').attr('list', 'clientes-catalogo-paises');
+    });
+</script>
+{% endif %}

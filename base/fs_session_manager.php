@@ -430,7 +430,9 @@ class fs_session_manager
     public static function csrfField()
     {
         $token = self::getCsrfToken();
-        return '<input type="hidden" name="_token" value="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '">';
+        $safeToken = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
+        return '<input type="hidden" name="_csrf_token" value="' . $safeToken . '">'
+            . '<input type="hidden" name="_token" value="' . $safeToken . '">';
     }
 
     /**

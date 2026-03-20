@@ -59,6 +59,8 @@
             
             // Setup global AJAX settings for CSRF
             this.setupAjaxDefaults();
+            this.setupFormProtection();
+            this.enhanceForms(document);
             
             if (this.config.debug) {
                 console.log('FSAjaxLoader initialized', {
@@ -72,7 +74,7 @@
          */
         setupAjaxDefaults: function() {
             var self = this;
-            
+
             $.ajaxSetup({
                 beforeSend: function(xhr, settings) {
                     // Only add CSRF for same-origin requests
@@ -87,6 +89,56 @@
                     }
                 }
             });
+        },
+
+        setupFormProtection: function() {
+            var self = this;
+
+            $(document)
+                .off('submit.fs-csrf')
+                .on('submit.fs-csrf', 'form', function() {
+                    self.ensureFormCsrf(this);
+                });
+        },
+
+        enhanceForms: function(context) {
+            var self = this;
+            $(context).find('form').each(function() {
+                self.ensureFormCsrf(this);
+            });
+        },
+
+        ensureFormCsrf: function(form) {
+            var $form = $(form);
+            if (!$form.length || !this.config.csrfToken || !this.isProtectedForm($form)) {
+                return;
+            }
+
+            if ($form.find('input[name="' + this.config.csrfFieldName + '"]').length === 0) {
+                $('<input>', {
+                    type: 'hidden',
+                    name: this.config.csrfFieldName,
+                    value: this.config.csrfToken
+                }).prependTo($form);
+            }
+
+            if ($form.find('input[name="_token"]').length === 0) {
+                $('<input>', {
+                    type: 'hidden',
+                    name: '_token',
+                    value: this.config.csrfToken
+                }).prependTo($form);
+            }
+        },
+
+        isProtectedForm: function($form) {
+            var method = ($form.attr('method') || 'get').toUpperCase();
+            if (method !== 'POST') {
+                return false;
+            }
+
+            var action = $form.attr('action') || window.location.href;
+            return this.isSameOrigin(action);
         },
 
         /**
@@ -303,6 +355,7 @@
                     }
                     
                     $container.html(content);
+                    self.enhanceForms($container);
                     
                     // Re-initialize any JS components
                     self.reinitializeComponents($container);

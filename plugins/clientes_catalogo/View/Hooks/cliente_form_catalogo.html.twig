@@ -1,0 +1,17 @@
+{% if clientes_catalogo_divisas is defined and clientes_catalogo_divisas|length > 0 %}
+<div class="row">
+    <div class="col-sm-3">
+        <div class="form-group">
+            <label>{{ trans('divisa-cliente') }}</label>
+            <select name="coddivisa" class="form-control">
+                <option value="">-</option>
+                {% for divisa in clientes_catalogo_divisas %}
+                <option value="{{ divisa.coddivisa }}"{% if cliente.coddivisa == divisa.coddivisa %} selected{% endif %}>
+                    {{ divisa.coddivisa }} - {{ divisa.descripcion }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</div>
+{% endif %}

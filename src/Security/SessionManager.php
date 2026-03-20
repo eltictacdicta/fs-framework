@@ -348,8 +348,9 @@ class SessionManager
 
     public function csrfField(): string
     {
-        return '<input type="hidden" name="_token" value="' . 
-               htmlspecialchars($this->getCsrfToken(), ENT_QUOTES, 'UTF-8') . '">';
+        $safeToken = htmlspecialchars($this->getCsrfToken(), ENT_QUOTES, 'UTF-8');
+        return '<input type="hidden" name="_csrf_token" value="' . $safeToken . '">'
+             . '<input type="hidden" name="_token" value="' . $safeToken . '">';
     }
 
     public function csrfMeta(): string

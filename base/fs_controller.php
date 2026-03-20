@@ -320,7 +320,8 @@ class fs_controller extends fs_app
         $strict = defined('FS_CSRF_STRICT') && FS_CSRF_STRICT;
 
         // Obtener token de POST o header (para AJAX)
-        $token = $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME)
+          $token = $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME)
+              ?? $this->request->request->get('_token')
               ?? $this->request->headers->get(\FSFramework\Security\CsrfManager::HEADER_NAME);
 
         if (empty($token)) {
