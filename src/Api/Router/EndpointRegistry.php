@@ -76,7 +76,7 @@ class EndpointRegistry
 
             $configFile = $pluginsDir . '/' . $dir . '/api_endpoints.php';
             if (file_exists($configFile)) {
-                $config = require $configFile;
+                $config = require_once $configFile;
                 if (is_array($config)) {
                     $this->registerPlugin($dir, $config, $pluginsDir);
                 }

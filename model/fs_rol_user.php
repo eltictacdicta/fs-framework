@@ -46,8 +46,9 @@ class fs_rol_user extends fs_model
 
     protected function install()
     {
-        new fs_rol();
-        new fs_user();
+        $rol = new fs_rol();
+        $user = new fs_user();
+        // Las instancias se crean para asegurar la carga de las clases y sus tablas
 
         return '';
     }

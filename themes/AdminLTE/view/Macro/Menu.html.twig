@@ -13,6 +13,7 @@
  * @param boolean isActive - Whether this item is active
  #}
 {% macro menuItem(page, isActive) %}
+    {# Esta macro debe usarse dentro de un contenedor <ul> o <ol> #}
     <li{% if isActive %} class="active"{% endif %}>
         <a href="{{ page.url() }}">
             {% if page.icon is defined and page.icon %}
@@ -33,6 +34,7 @@
  * @param string icon - Folder icon
  #}
 {% macro treeviewMenu(folder, pages, isActive, icon) %}
+{# Esta macro debe usarse dentro de un contenedor <ul> o <ol> #}
 <li class="treeview{% if isActive %} active{% endif %}">
     <a href="#" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }">
         <i class="fa fa-{{ icon|default('folder') }}" aria-hidden="true"></i>
@@ -65,6 +67,7 @@
  * @param array items - Array of menu items
  #}
 {% macro navbarDropdown(title, icon, items) %}
+{# Esta macro debe usarse dentro de un contenedor <ul> o <ol> #}
 <li class="dropdown">
     <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }">
         {% if icon %}<i class="fa fa-{{ icon }}" aria-hidden="true"></i>{% endif %}

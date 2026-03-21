@@ -264,7 +264,7 @@ class fs_model_autoloader
     private static function loadCache(): void
     {
         if (self::$cacheFile && file_exists(self::$cacheFile)) {
-            $cached = include self::$cacheFile;
+            $cached = include_once self::$cacheFile;
             if (is_array($cached)) {
                 self::$classMap = $cached;
             }

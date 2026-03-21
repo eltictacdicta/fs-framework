@@ -59,7 +59,7 @@ class Tools
                 $message = is_scalar($msg) || (is_object($msg) && method_exists($msg, '__toString'))
                     ? (string) $msg
                     : '';
-                if (empty($params) || !is_iterable($params)) {
+                if (!is_iterable($params)) {
                     return $message;
                 }
                 $replacements = [];

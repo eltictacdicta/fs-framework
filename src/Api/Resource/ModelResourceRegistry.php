@@ -145,7 +145,7 @@ class ModelResourceRegistry
      */
     private function loadApiModelsConfig(string $file, string $plugin): void
     {
-        $config = require $file;
+        $config = require_once $file;
 
         if (!is_array($config)) {
             return;

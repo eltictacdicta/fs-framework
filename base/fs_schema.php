@@ -686,7 +686,8 @@ class fs_schema
             }
 
             try {
-                new $modelClass();
+                $model = new $modelClass();
+                // La instancia se crea para forzar la carga del modelo y posible creación de tabla
 
                 // refrescamos la lista de tablas tras posible creación
                 $tables = $db->list_tables();

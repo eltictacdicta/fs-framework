@@ -47,8 +47,9 @@ class fs_rol_access extends fs_model
 
     protected function install()
     {
-        new fs_rol();
-        new fs_page();
+        $rol = new fs_rol();
+        $page = new fs_page();
+        // Las instancias se crean para asegurar la carga de las clases y sus tablas
 
         return '';
     }

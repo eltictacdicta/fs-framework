@@ -22,7 +22,8 @@ class ChainedAuthAdapterTest extends TestCase
     public function testConstructorRequiresAtLeastOneAdapter(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        new ChainedAuthAdapter([]);
+        $adapter = new ChainedAuthAdapter([]);
+        // La instancia se crea para verificar que el constructor lance una excepción
     }
 
     public function testValidateTokenTriesPrimaryFirst(): void
