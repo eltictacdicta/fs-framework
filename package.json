@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/eltictacdicta/fs-framework",
   "dependencies": {
-    "bootbox": "4.*",
+    "bootbox": "^5.5.3",
     "bootstrap": "^3.4.1",
     "bootswatch": "3.*",
     "font-awesome": "4.*",

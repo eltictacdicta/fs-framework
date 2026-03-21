@@ -2,7 +2,7 @@
 
 composer install
 npm install
-cp node_modules/bootbox/bootbox.min.js view/js/
+cp node_modules/bootbox/dist/bootbox.min.js view/js/
 cp node_modules/bootstrap/dist/css/bootstrap.min.css view/css/
 cp node_modules/bootstrap/dist/fonts/* view/fonts/
 cp node_modules/bootstrap/dist/js/bootstrap.min.js view/js/
