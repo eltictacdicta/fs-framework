@@ -667,7 +667,6 @@ class fs_controller extends fs_app
      */
     private function check_fs_page($name, $title, $folder, $shmenu, $important)
     {
-        /// cargamos los datos de la página o entrada del menú actual
         $this->page = new fs_page(
             array(
                 'name' => $name,
@@ -680,20 +679,29 @@ class fs_controller extends fs_app
             )
         );
 
-        /// ahora debemos comprobar si guardar o no
         if ($name === 'fs_controller') {
             return;
         }
 
         $page = $this->page->get($name);
         if (!$page) {
-            if (defined('FS_DEBUG') && FS_DEBUG) {
-                error_log("Creating new page $name with show_on_menu = " . ($shmenu ? 'TRUE' : 'FALSE'));
-            }
-            $this->page->save();
+            $this->createNewPage($name, $shmenu);
             return;
         }
 
+        $this->updateExistingPage($page, $name, $title, $folder, $shmenu, $important);
+    }
+
+    private function createNewPage($name, $shmenu)
+    {
+        if (defined('FS_DEBUG') && FS_DEBUG) {
+            error_log("Creating new page $name with show_on_menu = " . ($shmenu ? 'TRUE' : 'FALSE'));
+        }
+        $this->page->save();
+    }
+
+    private function updateExistingPage($page, $name, $title, $folder, $shmenu, $important)
+    {
         if ($this->mustUpdatePage($page, $title, $folder, $shmenu, $important)) {
             if (defined('FS_DEBUG') && FS_DEBUG) {
                 error_log("Updating page $name: show_on_menu from " . ($page->show_on_menu ? 'TRUE' : 'FALSE') . " to " . ($shmenu ? 'TRUE' : 'FALSE'));

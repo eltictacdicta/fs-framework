@@ -26,6 +26,8 @@ require_once 'base/fs_file_manager.php';
 class fs_plugin_manager
 {
     private const PLUGINS_PATH = '/plugins/';
+    private const ERR_NO_WRITE_PERMS = 'No tienes permisos de escritura sobre la carpeta plugins/';
+    private const CONTROLLER_PATH = '/controller/';
     private const DOWNLOAD_ZIP_PATH = '/download.zip';
     private const FS_VAR_MODEL = 'model/fs_var.php';
     private const TMP_PLUGIN_UPLOAD_PATH = '/tmp/plugin_upload_temp/';
@@ -384,72 +386,108 @@ class fs_plugin_manager
             return $this->download_list;
         }
 
-        /// buscamos en la cache
-        $this->download_list = $this->cache->get('download_list');
-        if ($this->download_list && is_array($this->download_list)) {
-            $has_complete_cache = true;
-
-            foreach ($this->download_list as $key => $value) {
-                $this->download_list[$key] = $this->normalize_download_item($value, $key);
-
-                if (empty($this->download_list[$key]['version']) || empty($this->download_list[$key]['creador'])) {
-                    $has_complete_cache = false;
-                }
-            }
-
-            if ($has_complete_cache) {
-                return $this->download_list;
-            }
-
-            // Caché antigua o incompleta: forzar recarga
-            $this->cache->delete('download_list');
+        $cached = $this->fetchDownloadsFromCache();
+        if ($cached !== false) {
+            $this->download_list = $cached;
+            return $this->download_list;
         }
 
-        /// lista de plugins de la comunidad, se descarga de Internet.
-        $json = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-cusmtom-plugins/main/custom_plugins.json', 10);
-        if ($json && $json != 'ERROR') {
-            $this->download_list = json_decode($json, true);
-            if (!is_array($this->download_list)) {
-                $this->download_list = [];
-                $this->core_log->new_error('Error al parsear la lista remota de plugins. Verifica el formato del JSON.');
-                return $this->download_list;
-            }
-
-            foreach ($this->download_list as $key => $value) {
-                $item = $this->normalize_download_item($value, $key);
-
-                // Completar metadatos desde fsframework.ini/facturascripts.ini remoto cuando faltan
-                if (empty($item['version']) || empty($item['descripcion']) || empty($item['creador'])) {
-                    $remote_ini_data = $this->get_public_remote_plugin_ini($item);
-                    if ($remote_ini_data) {
-                        if (empty($item['version']) && isset($remote_ini_data['version'])) {
-                            $item['version'] = $remote_ini_data['version'];
-                        }
-
-                        if (empty($item['descripcion']) && isset($remote_ini_data['description'])) {
-                            $item['descripcion'] = $remote_ini_data['description'];
-                        }
-
-                        if (empty($item['creador'])) {
-                            if (isset($remote_ini_data['author'])) {
-                                $item['creador'] = $remote_ini_data['author'];
-                            } elseif (isset($remote_ini_data['author_name'])) {
-                                $item['creador'] = $remote_ini_data['author_name'];
-                            }
-                        }
-                    }
-                }
-
-                $item['instalado'] = file_exists($this->pluginsPath($item['nombre']));
-                $this->download_list[$key] = $item;
-            }
-
+        $remote = $this->fetchDownloadsFromRemote();
+        if ($remote !== false) {
+            $this->download_list = $remote;
             $this->cache->set('download_list', $this->download_list);
             return $this->download_list;
         }
 
         $this->core_log->new_error('Error al descargar la lista de plugins.');
-        $this->download_list = [
+        $this->download_list = $this->buildFallbackDownloadList();
+        return $this->download_list;
+    }
+
+    /**
+     * @return array|false Lista normalizada y completa desde caché, o false si no hay caché válida
+     */
+    private function fetchDownloadsFromCache()
+    {
+        $list = $this->cache->get('download_list');
+        if (!$list || !is_array($list)) {
+            return false;
+        }
+
+        $complete = true;
+        foreach ($list as $key => $value) {
+            $list[$key] = $this->normalize_download_item($value, $key);
+            if (empty($list[$key]['version']) || empty($list[$key]['creador'])) {
+                $complete = false;
+            }
+        }
+
+        if ($complete) {
+            return $list;
+        }
+
+        $this->cache->delete('download_list');
+        return false;
+    }
+
+    /**
+     * @return array|false Lista de plugins enriquecida desde remoto, o false si falla la descarga
+     */
+    private function fetchDownloadsFromRemote()
+    {
+        $json = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-custom-plugins/main/custom_plugins.json', 10);
+        if (!$json || $json === 'ERROR') {
+            return false;
+        }
+
+        $list = json_decode($json, true);
+        if (!is_array($list)) {
+            $this->core_log->new_error('Error al parsear la lista remota de plugins. Verifica el formato del JSON.');
+            return false;
+        }
+
+        foreach ($list as $key => $value) {
+            $item = $this->normalize_download_item($value, $key);
+            $item = $this->enrichDownloadItem($item);
+            $item['instalado'] = file_exists($this->pluginsPath($item['nombre']));
+            $list[$key] = $item;
+        }
+
+        return $list;
+    }
+
+    /**
+     * Completa metadatos faltantes de un item de descarga desde el INI remoto del repositorio.
+     */
+    private function enrichDownloadItem(array $item): array
+    {
+        if (!empty($item['version']) && !empty($item['descripcion']) && !empty($item['creador'])) {
+            return $item;
+        }
+
+        $remote_ini_data = $this->get_public_remote_plugin_ini($item);
+        if (!$remote_ini_data) {
+            return $item;
+        }
+
+        if (empty($item['version']) && isset($remote_ini_data['version'])) {
+            $item['version'] = $remote_ini_data['version'];
+        }
+
+        if (empty($item['descripcion']) && isset($remote_ini_data['description'])) {
+            $item['descripcion'] = $remote_ini_data['description'];
+        }
+
+        if (empty($item['creador'])) {
+            $item['creador'] = $remote_ini_data['author'] ?? $remote_ini_data['author_name'] ?? '';
+        }
+
+        return $item;
+    }
+
+    private function buildFallbackDownloadList(): array
+    {
+        return [
             [
                 'id' => 87,
                 'nick' => "NeoRazorX",
@@ -474,9 +512,24 @@ class fs_plugin_manager
                 'instalado' => file_exists($this->pluginsPath('facturacion_base'))
             ]
         ];
-
-        return $this->download_list;
     }
+
+    private static $downloadFieldAliases = [
+        'nombre' => ['name'],
+        'descripcion' => ['description'],
+        'creador' => ['author', 'autor'],
+        'link' => ['url'],
+        'zip_link' => ['download_url', 'archive_url'],
+        'ultima_modificacion' => ['updated_at', 'updated'],
+    ];
+
+    private static $downloadFieldDefaults = [
+        'estable' => true,
+        'tipo' => 'gratis',
+        'version' => '',
+        'descripcion' => '',
+        'creador' => '',
+    ];
 
     /**
      * Normaliza los campos de un item de descarga para soportar cambios de esquema JSON.
@@ -491,68 +544,36 @@ class fs_plugin_manager
             $item['id'] = $key;
         }
 
-        if (empty($item['nombre']) && !empty($item['name'])) {
-            $item['nombre'] = $item['name'];
-        }
-
-        if (empty($item['descripcion']) && !empty($item['description'])) {
-            $item['descripcion'] = $item['description'];
-        }
-
-        if (empty($item['creador'])) {
-            if (!empty($item['author'])) {
-                $item['creador'] = $item['author'];
-            } elseif (!empty($item['autor'])) {
-                $item['creador'] = $item['autor'];
-            }
-        }
-
-        if (empty($item['link']) && !empty($item['url'])) {
-            $item['link'] = $item['url'];
-        }
+        $item = $this->resolveFieldAliases($item);
 
         if (!empty($item['link'])) {
             $item['link'] = fs_normalize_url($item['link']);
         }
-
-        if (empty($item['zip_link'])) {
-            if (!empty($item['download_url'])) {
-                $item['zip_link'] = $item['download_url'];
-            } elseif (!empty($item['archive_url'])) {
-                $item['zip_link'] = $item['archive_url'];
-            }
-        }
-
         if (!empty($item['zip_link'])) {
             $item['zip_link'] = fs_normalize_url($item['zip_link']);
         }
 
-        if (empty($item['ultima_modificacion'])) {
-            if (!empty($item['updated_at'])) {
-                $item['ultima_modificacion'] = $item['updated_at'];
-            } elseif (!empty($item['updated'])) {
-                $item['ultima_modificacion'] = $item['updated'];
+        foreach (self::$downloadFieldDefaults as $field => $default) {
+            if (!isset($item[$field]) || ($default !== '' && empty($item[$field]))) {
+                $item[$field] = $default;
             }
         }
 
-        if (!isset($item['estable'])) {
-            $item['estable'] = true;
-        }
+        return $item;
+    }
 
-        if (empty($item['tipo'])) {
-            $item['tipo'] = 'gratis';
-        }
-
-        if (!isset($item['version'])) {
-            $item['version'] = '';
-        }
-
-        if (!isset($item['descripcion'])) {
-            $item['descripcion'] = '';
-        }
-
-        if (!isset($item['creador'])) {
-            $item['creador'] = '';
+    private function resolveFieldAliases(array $item)
+    {
+        foreach (self::$downloadFieldAliases as $target => $sources) {
+            if (!empty($item[$target])) {
+                continue;
+            }
+            foreach ($sources as $source) {
+                if (!empty($item[$source])) {
+                    $item[$target] = $item[$source];
+                    break;
+                }
+            }
         }
 
         return $item;
@@ -622,7 +643,7 @@ class fs_plugin_manager
      */
     private function get_public_remote_plugin_ini(array $plugin_data)
     {
-        if (!isset($plugin_data['link']) || empty($plugin_data['link'])) {
+        if (empty($plugin_data['link'])) {
             return false;
         }
 
@@ -631,39 +652,52 @@ class fs_plugin_manager
             return false;
         }
 
-        $user = $repo_parts['user'];
-        $repo = $repo_parts['repo'];
-        $branch = isset($plugin_data['branch']) && !empty($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
+        $branch = !empty($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
 
         foreach (['fsframework.ini', 'facturascripts.ini'] as $ini_file) {
-            $raw_url = "https://raw.githubusercontent.com/{$user}/{$repo}/{$branch}/{$ini_file}";
-            $ini_content = @fs_file_get_contents($raw_url, 10);
-
-            if (!$ini_content || $ini_content === 'ERROR') {
-                continue;
-            }
-
-            $ini_data = @parse_ini_string($ini_content, true);
-            if (!$ini_data || !is_array($ini_data)) {
-                continue;
-            }
-
-            if (isset($ini_data['plugin']) && is_array($ini_data['plugin'])) {
-                return $ini_data['plugin'];
-            }
-
-            if (isset($ini_data['version']) || isset($ini_data['description']) || isset($ini_data['author'])) {
-                return $ini_data;
-            }
-
-            foreach ($ini_data as $values) {
-                if (is_array($values) && (isset($values['version']) || isset($values['description']) || isset($values['author']))) {
-                    return $values;
-                }
+            $raw_url = "https://raw.githubusercontent.com/{$repo_parts['user']}/{$repo_parts['repo']}/{$branch}/{$ini_file}";
+            $result = $this->parseRemoteIniContent(@fs_file_get_contents($raw_url, 10));
+            if ($result !== false) {
+                return $result;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Parsea el contenido de un archivo INI remoto y extrae los datos del plugin.
+     *
+     * @param string|false $ini_content
+     * @param bool $returnRawFallback Si true, devuelve $ini_data completo como fallback
+     * @return array|false
+     */
+    private function parseRemoteIniContent($ini_content, $returnRawFallback = false)
+    {
+        if (!$ini_content || $ini_content === 'ERROR') {
+            return false;
+        }
+
+        $ini_data = @parse_ini_string($ini_content, true);
+        if (!$ini_data || !is_array($ini_data)) {
+            return false;
+        }
+
+        if (isset($ini_data['plugin']) && is_array($ini_data['plugin'])) {
+            return $ini_data['plugin'];
+        }
+
+        if (isset($ini_data['version']) || isset($ini_data['description']) || isset($ini_data['author']) || isset($ini_data['name'])) {
+            return $ini_data;
+        }
+
+        foreach ($ini_data as $values) {
+            if (is_array($values) && (isset($values['version']) || isset($values['description']))) {
+                return $values;
+            }
+        }
+
+        return $returnRawFallback ? $ini_data : false;
     }
 
     /**
@@ -774,81 +808,97 @@ class fs_plugin_manager
             return $this->private_download_list;
         }
 
-        // Verificar si está configurado
         if (!$this->is_private_plugins_enabled()) {
             $this->private_download_list = [];
             return $this->private_download_list;
         }
 
-        // Buscar en la cache (solo si no se fuerza recarga)
         if (!$force_reload) {
-            $cached = $this->cache->get('private_download_list');
-            // Verificar que la caché tenga datos válidos (con versión o descripción)
-            if ($cached !== false && is_array($cached) && !empty($cached)) {
-                // Verificar si al menos el primer plugin tiene datos del INI
-                $first_plugin = reset($cached);
-                if (isset($first_plugin['version']) || isset($first_plugin['descripcion'])) {
-                    $this->private_download_list = $cached;
-                    return $this->private_download_list;
-                }
-                // Si la caché no tiene datos del INI, invalidarla
-                $this->cache->delete('private_download_list');
+            $cached = $this->loadPrivateDownloadsFromCache();
+            if ($cached !== false) {
+                $this->private_download_list = $cached;
+                return $this->private_download_list;
             }
         }
 
         $config = $this->get_private_config();
-
-        // Descargar la lista de plugins privados usando autenticación
-        $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 15);
-
-        if ($json && $json != 'ERROR') {
-            $this->private_download_list = json_decode($json, true);
-
-            if (!is_array($this->private_download_list)) {
-                $this->core_log->new_error('Error al parsear el JSON de plugins privados. Verifica el formato del archivo.');
-                $this->private_download_list = [];
-                return $this->private_download_list;
-            }
-
-            // Marcar cada plugin con el flag de instalado y como privado
-            // Y obtener versión/descripción del fsframework.ini del repositorio
-            foreach ($this->private_download_list as $key => $value) {
-                $this->private_download_list[$key]['instalado'] = file_exists($this->pluginsPath($value['nombre']));
-                $this->private_download_list[$key]['privado'] = true;
-
-                // Asegurar que tiene un ID único (prefijado para evitar colisiones)
-                if (!isset($this->private_download_list[$key]['id'])) {
-                    $this->private_download_list[$key]['id'] = 'priv_' . $key;
-                } else {
-                    $this->private_download_list[$key]['id'] = 'priv_' . $this->private_download_list[$key]['id'];
-                }
-
-                // Obtener datos del fsframework.ini del repositorio remoto
-                $remote_ini_data = $this->get_remote_plugin_ini($value, $config['github_token']);
-                if ($remote_ini_data) {
-                    // Sobrescribir versión y descripción con los datos del ini
-                    if (isset($remote_ini_data['version'])) {
-                        $this->private_download_list[$key]['version'] = $remote_ini_data['version'];
-                    }
-                    if (isset($remote_ini_data['description'])) {
-                        $this->private_download_list[$key]['descripcion'] = $remote_ini_data['description'];
-                    }
-                    if (isset($remote_ini_data['min_version'])) {
-                        $this->private_download_list[$key]['min_version'] = $remote_ini_data['min_version'];
-                    }
-                    if (isset($remote_ini_data['require'])) {
-                        $this->private_download_list[$key]['require'] = $remote_ini_data['require'];
-                    }
-                }
-            }
-
-            $this->cache->set('private_download_list', $this->private_download_list, 3600); // Cache por 1 hora
+        $remote = $this->fetchPrivateDownloadsFromRemote($config);
+        if ($remote !== false) {
+            $this->private_download_list = $remote;
+            $this->cache->set('private_download_list', $this->private_download_list, 3600);
             return $this->private_download_list;
         }
 
         $this->core_log->new_error('Error al descargar la lista de plugins privados. Verifica el token y la URL.');
         $this->private_download_list = [];
         return $this->private_download_list;
+    }
+
+    /**
+     * @return array|false Lista privada desde caché, o false si no hay caché válida
+     */
+    private function loadPrivateDownloadsFromCache()
+    {
+        $cached = $this->cache->get('private_download_list');
+        if ($cached === false || !is_array($cached) || empty($cached)) {
+            return false;
+        }
+
+        $first_plugin = reset($cached);
+        if (!isset($first_plugin['version']) && !isset($first_plugin['descripcion'])) {
+            $this->cache->delete('private_download_list');
+            return false;
+        }
+
+        return $cached;
+    }
+
+    /**
+     * @return array|false Lista de plugins privados desde remoto, o false si falla
+     */
+    private function fetchPrivateDownloadsFromRemote(array $config)
+    {
+        $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 15);
+        if (!$json || $json === 'ERROR') {
+            return false;
+        }
+
+        $list = json_decode($json, true);
+        if (!is_array($list)) {
+            $this->core_log->new_error('Error al parsear el JSON de plugins privados. Verifica el formato del archivo.');
+            return false;
+        }
+
+        foreach ($list as $key => $value) {
+            $list[$key] = $this->decoratePrivatePlugin($value, $key, $config);
+        }
+
+        return $list;
+    }
+
+    /**
+     * Decora un plugin privado con flags, ID prefijado y datos del INI remoto.
+     */
+    private function decoratePrivatePlugin(array $plugin, $key, array $config): array
+    {
+        $plugin['instalado'] = file_exists($this->pluginsPath($plugin['nombre']));
+        $plugin['privado'] = true;
+        $plugin['id'] = 'priv_' . ($plugin['id'] ?? $key);
+
+        $remote_ini_data = $this->get_remote_plugin_ini($plugin, $config['github_token']);
+        if (!$remote_ini_data) {
+            return $plugin;
+        }
+
+        foreach (['version', 'description', 'min_version', 'require'] as $field) {
+            if (!isset($remote_ini_data[$field])) {
+                continue;
+            }
+            $target = ($field === 'description') ? 'descripcion' : $field;
+            $plugin[$target] = $remote_ini_data[$field];
+        }
+
+        return $plugin;
     }
 
     /**
@@ -859,9 +909,7 @@ class fs_plugin_manager
      */
     private function get_remote_plugin_ini($plugin_data, $token)
     {
-        // Construir la URL del fsframework.ini basándose en el link del repositorio
-        // Formato esperado del link: https://github.com/usuario/repo
-        if (!isset($plugin_data['link']) || empty($plugin_data['link'])) {
+        if (empty($plugin_data['link'])) {
             return false;
         }
 
@@ -870,48 +918,13 @@ class fs_plugin_manager
             return false;
         }
 
-        $user = $repo_parts['user'];
-        $repo = $repo_parts['repo'];
+        $branch = $plugin_data['branch'] ?? 'master';
 
-        // Determinar la rama (por defecto master, pero podría ser main)
-        $branch = isset($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
-
-        // Intentar con fsframework.ini primero, luego facturascripts.ini
-        // Usamos la API de GitHub para repositorios privados
-        $ini_files = ['fsframework.ini', 'facturascripts.ini'];
-
-        foreach ($ini_files as $ini_file) {
-            // Usar la API de GitHub para obtener el contenido del archivo
-            $api_url = "https://api.github.com/repos/{$user}/{$repo}/contents/{$ini_file}?ref={$branch}";
-            $ini_content = @fs_file_get_contents_github_api($api_url, $token, 10);
-
-            if ($ini_content && $ini_content != 'ERROR') {
-                // Intentar parsear con secciones primero
-                $ini_data = @parse_ini_string($ini_content, true);
-
-                if ($ini_data && is_array($ini_data)) {
-                    // Caso 1: Tiene la sección [plugin]
-                    if (isset($ini_data['plugin']) && is_array($ini_data['plugin'])) {
-                        return $ini_data['plugin'];
-                    }
-
-                    // Caso 2: Sin secciones - verificar si tiene claves típicas del ini
-                    // (version, description, name, min_version)
-                    if (isset($ini_data['version']) || isset($ini_data['description']) || isset($ini_data['name'])) {
-                        return $ini_data;
-                    }
-
-                    // Caso 3: Puede tener otra sección (ej: [facturascripts])
-                    // Buscar la primera sección que contenga datos del plugin
-                    foreach ($ini_data as $section => $values) {
-                        if (is_array($values) && (isset($values['version']) || isset($values['description']))) {
-                            return $values;
-                        }
-                    }
-
-                    // Si no encontramos sección específica, devolver los datos tal cual
-                    return $ini_data;
-                }
+        foreach (['fsframework.ini', 'facturascripts.ini'] as $ini_file) {
+            $api_url = "https://api.github.com/repos/{$repo_parts['user']}/{$repo_parts['repo']}/contents/{$ini_file}?ref={$branch}";
+            $result = $this->parseRemoteIniContent(@fs_file_get_contents_github_api($api_url, $token, 10), true);
+            if ($result !== false) {
+                return $result;
             }
         }
 
@@ -1037,7 +1050,6 @@ class fs_plugin_manager
             'plugins' => []
         ];
 
-        // Forzar recarga de la lista (sin cache)
         $this->cache->delete('private_download_list');
         $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 10);
 
@@ -1056,43 +1068,42 @@ class fs_plugin_manager
             if ($plugin_name && $plugin['nombre'] !== $plugin_name) {
                 continue;
             }
-
-            $plugin_debug = [
-                'nombre' => $plugin['nombre'],
-                'link' => isset($plugin['link']) ? $plugin['link'] : 'NO DEFINIDO',
-                'branch' => isset($plugin['branch']) ? $plugin['branch'] : 'master (default)',
-            ];
-
-            // Construir URL de la API
-            if (isset($plugin['link'])) {
-                $repo_parts = $this->extract_repo_parts($plugin['link']);
-                if (false === $repo_parts) {
-                    $plugin_debug['ini_response'] = 'Link inválido o malformado';
-                    $result['plugins'][] = $plugin_debug;
-                    continue;
-                }
-
-                $user = $repo_parts['user'];
-                $repo = $repo_parts['repo'];
-                $branch = isset($plugin['branch']) ? $plugin['branch'] : 'master';
-
-                $api_url = "https://api.github.com/repos/{$user}/{$repo}/contents/fsframework.ini?ref={$branch}";
-                $plugin_debug['api_url'] = $api_url;
-
-                // Intentar obtener el contenido
-                $ini_content = @fs_file_get_contents_github_api($api_url, $config['github_token'], 10);
-                $plugin_debug['ini_response'] = ($ini_content && $ini_content != 'ERROR') ? substr($ini_content, 0, 200) : 'ERROR o vacío';
-
-                if ($ini_content && $ini_content != 'ERROR') {
-                    $ini_data = @parse_ini_string($ini_content, true);
-                    $plugin_debug['ini_parsed'] = $ini_data;
-                }
-            }
-
-            $result['plugins'][] = $plugin_debug;
+            $result['plugins'][] = $this->debugSinglePlugin($plugin, $config);
         }
 
         return $result;
+    }
+
+    private function debugSinglePlugin(array $plugin, array $config)
+    {
+        $plugin_debug = [
+            'nombre' => $plugin['nombre'],
+            'link' => $plugin['link'] ?? 'NO DEFINIDO',
+            'branch' => $plugin['branch'] ?? 'master (default)',
+        ];
+
+        if (!isset($plugin['link'])) {
+            return $plugin_debug;
+        }
+
+        $repo_parts = $this->extract_repo_parts($plugin['link']);
+        if (false === $repo_parts) {
+            $plugin_debug['ini_response'] = 'Link inválido o malformado';
+            return $plugin_debug;
+        }
+
+        $branch = $plugin['branch'] ?? 'master';
+        $api_url = "https://api.github.com/repos/{$repo_parts['user']}/{$repo_parts['repo']}/contents/fsframework.ini?ref={$branch}";
+        $plugin_debug['api_url'] = $api_url;
+
+        $ini_content = @fs_file_get_contents_github_api($api_url, $config['github_token'], 10);
+        $plugin_debug['ini_response'] = ($ini_content && $ini_content != 'ERROR') ? substr($ini_content, 0, 200) : 'ERROR o vacío';
+
+        if ($ini_content && $ini_content != 'ERROR') {
+            $plugin_debug['ini_parsed'] = @parse_ini_string($ini_content, true);
+        }
+
+        return $plugin_debug;
     }
 
     /**
@@ -1219,7 +1230,7 @@ class fs_plugin_manager
         $plugin_name = $this->rename_plugin($plugin_folder_name);
 
         // Si el plugin ya existe y se solicita backup, crearlo
-        if ($create_backup && file_exists(FS_FOLDER . '/plugins/' . $plugin_name)) {
+        if ($create_backup && file_exists(FS_FOLDER . self::PLUGINS_PATH . $plugin_name)) {
             if (!$this->create_backup($plugin_name)) {
                 fs_file_manager::del_tree($temp_dir);
                 return false;
@@ -1228,7 +1239,7 @@ class fs_plugin_manager
 
         // Mover el plugin de la carpeta temporal a plugins/
         $source = $temp_dir . $plugin_folder_name;
-        $destination = FS_FOLDER . '/plugins/' . $plugin_name;
+        $destination = FS_FOLDER . self::PLUGINS_PATH . $plugin_name;
 
         // Si existe, eliminarlo primero
         if (file_exists($destination)) {
@@ -1258,7 +1269,7 @@ class fs_plugin_manager
         foreach (fs_file_manager::scan_folder(FS_FOLDER . '/plugins') as $file_name) {
             // Filtrar carpetas que terminen en _back
             if (
-                !is_dir(FS_FOLDER . '/plugins/' . $file_name) ||
+                !is_dir(FS_FOLDER . self::PLUGINS_PATH . $file_name) ||
                 in_array($file_name, $disabled) ||
                 substr($file_name, -5) === '_back'
             ) {
@@ -1281,12 +1292,12 @@ class fs_plugin_manager
             return false;
         }
 
-        if (!is_writable(FS_FOLDER . '/plugins/' . $plugin_name)) {
-            $this->core_log->new_error('No tienes permisos de escritura sobre la carpeta plugins/' . $plugin_name);
+        if (!is_writable(FS_FOLDER . self::PLUGINS_PATH . $plugin_name)) {
+            $this->core_log->new_error(self::ERR_NO_WRITE_PERMS . $plugin_name);
             return false;
         }
 
-        if (fs_file_manager::del_tree(FS_FOLDER . '/plugins/' . $plugin_name)) {
+        if (fs_file_manager::del_tree(FS_FOLDER . self::PLUGINS_PATH . $plugin_name)) {
             $this->core_log->new_message('Plugin ' . $plugin_name . ' eliminado correctamente.');
             $this->core_log->save('Plugin ' . $plugin_name . ' eliminado correctamente.');
             $this->clean_cache();
@@ -1306,7 +1317,7 @@ class fs_plugin_manager
     private function existsPageInEnabledPlugins($pageName)
     {
         foreach ($this->enabled() as $plugin) {
-            if (file_exists($this->pluginsPath($plugin . '/controller/' . $pageName . '.php'))) {
+            if (file_exists($this->pluginsPath($plugin . self::CONTROLLER_PATH . $pageName . '.php'))) {
                 return true;
             }
         }
@@ -1319,7 +1330,7 @@ class fs_plugin_manager
         $eliminadas = [];
         $page_model = new fs_page();
         foreach ($page_model->all() as $page) {
-            if (file_exists(FS_FOLDER . '/controller/' . $page->name . '.php')) {
+            if (file_exists(FS_FOLDER . self::CONTROLLER_PATH . $page->name . '.php')) {
                 continue;
             }
 
@@ -1383,7 +1394,7 @@ class fs_plugin_manager
 
         foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/controller'), 'php') as $f) {
             $page_name = substr($f, 0, -4);
-            require_once 'plugins/' . $plugin_name . '/controller/' . $f;
+            require_once 'plugins/' . $plugin_name . self::CONTROLLER_PATH . $f;
 
             if (!class_exists($page_name)) {
                 continue;
@@ -1628,7 +1639,7 @@ class fs_plugin_manager
         if (strpos($name, '-master') !== FALSE) {
             /// renombramos el directorio
             $new_name = substr($name, 0, strpos($name, '-master'));
-            if (!rename(FS_FOLDER . '/plugins/' . $name, FS_FOLDER . '/plugins/' . $new_name)) {
+            if (!rename(FS_FOLDER . self::PLUGINS_PATH . $name, FS_FOLDER . self::PLUGINS_PATH . $new_name)) {
                 $this->core_log->new_error('Error al renombrar el plugin.');
             }
         }
@@ -1658,8 +1669,8 @@ class fs_plugin_manager
      */
     public function has_backup($plugin_name)
     {
-        return file_exists(FS_FOLDER . '/plugins/' . $plugin_name . '_back') &&
-            is_dir(FS_FOLDER . '/plugins/' . $plugin_name . '_back');
+        return file_exists(FS_FOLDER . self::PLUGINS_PATH . $plugin_name . '_back') &&
+            is_dir(FS_FOLDER . self::PLUGINS_PATH . $plugin_name . '_back');
     }
 
     /**
@@ -1670,16 +1681,16 @@ class fs_plugin_manager
      */
     public function create_backup($plugin_name)
     {
-        $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
-        $backup_path = FS_FOLDER . '/plugins/' . $plugin_name . '_back';
+        $plugin_path = FS_FOLDER . self::PLUGINS_PATH . $plugin_name;
+        $backup_path = FS_FOLDER . self::PLUGINS_PATH . $plugin_name . '_back';
 
         if (!file_exists($plugin_path) || !is_dir($plugin_path)) {
             $this->core_log->new_error('El plugin ' . $plugin_name . ' no existe.');
             return false;
         }
 
-        if (!is_writable(FS_FOLDER . '/plugins/')) {
-            $this->core_log->new_error('No tienes permisos de escritura sobre la carpeta plugins/');
+        if (!is_writable(FS_FOLDER . self::PLUGINS_PATH)) {
+            $this->core_log->new_error(self::ERR_NO_WRITE_PERMS);
             return false;
         }
 
@@ -1709,16 +1720,16 @@ class fs_plugin_manager
      */
     public function restore_backup($plugin_name)
     {
-        $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
-        $backup_path = FS_FOLDER . '/plugins/' . $plugin_name . '_back';
+        $plugin_path = FS_FOLDER . self::PLUGINS_PATH . $plugin_name;
+        $backup_path = FS_FOLDER . self::PLUGINS_PATH . $plugin_name . '_back';
 
         if (!$this->has_backup($plugin_name)) {
             $this->core_log->new_error('No existe backup para el plugin ' . $plugin_name);
             return false;
         }
 
-        if (!is_writable(FS_FOLDER . '/plugins/')) {
-            $this->core_log->new_error('No tienes permisos de escritura sobre la carpeta plugins/');
+        if (!is_writable(FS_FOLDER . self::PLUGINS_PATH)) {
+            $this->core_log->new_error(self::ERR_NO_WRITE_PERMS);
             return false;
         }
 
@@ -1749,7 +1760,7 @@ class fs_plugin_manager
      */
     public function check_plugin_exists($plugin_name)
     {
-        $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
+        $plugin_path = FS_FOLDER . self::PLUGINS_PATH . $plugin_name;
 
         if (!file_exists($plugin_path) || !is_dir($plugin_path)) {
             return false;

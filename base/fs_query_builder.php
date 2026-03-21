@@ -30,6 +30,8 @@ class fs_query_builder
     private const OP_IS_NULL = 'IS NULL';
     private const OP_IS_NOT_NULL = 'IS NOT NULL';
     private const OP_NOT_IN = 'NOT IN';
+    private const OP_BETWEEN = 'BETWEEN';
+    private const OP_NOT_BETWEEN = 'NOT BETWEEN';
 
     /**
      * @var string
@@ -190,7 +192,7 @@ class fs_query_builder
     public function where($column, $operator = '=', $value = null)
     {
         // Si solo se pasan 2 argumentos, el segundo es el valor
-        if ($value === null && $operator !== '=' && !in_array(strtoupper($operator), [self::OP_IS_NULL, self::OP_IS_NOT_NULL, '=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE', 'IN', self::OP_NOT_IN, 'BETWEEN', 'NOT BETWEEN'])) {
+        if ($value === null && $operator !== '=' && !in_array(strtoupper($operator), [self::OP_IS_NULL, self::OP_IS_NOT_NULL, '=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE', 'IN', self::OP_NOT_IN, self::OP_BETWEEN, self::OP_NOT_BETWEEN])) {
             $value = $operator;
             $operator = '=';
         }
@@ -215,7 +217,7 @@ class fs_query_builder
      */
     public function orWhere($column, $operator = '=', $value = null)
     {
-        if ($value === null && $operator !== '=' && !in_array(strtoupper($operator), [self::OP_IS_NULL, self::OP_IS_NOT_NULL, '=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE', 'IN', self::OP_NOT_IN, 'BETWEEN', 'NOT BETWEEN'])) {
+        if ($value === null && $operator !== '=' && !in_array(strtoupper($operator), [self::OP_IS_NULL, self::OP_IS_NOT_NULL, '=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE', 'IN', self::OP_NOT_IN, self::OP_BETWEEN, self::OP_NOT_BETWEEN])) {
             $value = $operator;
             $operator = '=';
         }
@@ -286,7 +288,7 @@ class fs_query_builder
      */
     public function whereBetween($column, $value1, $value2)
     {
-        return $this->where($column, 'BETWEEN', [$value1, $value2]);
+        return $this->where($column, self::OP_BETWEEN, [$value1, $value2]);
     }
 
     /**
@@ -812,32 +814,35 @@ class fs_query_builder
 
     private function buildWhereCondition($prefix, $column, $operator, $originalOperator, $value)
     {
-        if ($operator === self::OP_IS_NULL || $operator === self::OP_IS_NOT_NULL) {
-            return $prefix . $column . ' ' . $operator;
+        return match ($operator) {
+            self::OP_IS_NULL, self::OP_IS_NOT_NULL
+                => $prefix . $column . ' ' . $operator,
+            'IN', self::OP_NOT_IN
+                => $this->buildInCondition($prefix, $column, $operator, $value),
+            self::OP_BETWEEN, self::OP_NOT_BETWEEN
+                => $this->buildBetweenCondition($prefix, $column, $operator, $value),
+            default
+                => $prefix . $column . ' ' . $originalOperator . ' ' . $this->escapeValue($value),
+        };
+    }
+
+    private function buildInCondition($prefix, $column, $operator, $value)
+    {
+        $values = (array) $value;
+        if (empty($values)) {
+            return $operator === self::OP_NOT_IN ? $prefix . '(1=1)' : $prefix . '(0=1)';
         }
 
-        if ($operator === 'IN' || $operator === self::OP_NOT_IN) {
-            $values = (array) $value;
-            if (empty($values)) {
-                return $operator === self::OP_NOT_IN
-                    ? $prefix . '(1=1)'
-                    : $prefix . '(0=1)';
-            }
+        return $prefix . $column . ' ' . $operator . ' (' . implode(', ', $this->escapeArrayValues($values)) . ')';
+    }
 
-            return $prefix . $column . ' ' . $operator . ' (' . implode(', ', $this->escapeArrayValues($values)) . ')';
+    private function buildBetweenCondition($prefix, $column, $operator, $value)
+    {
+        if (!is_array($value) || !array_key_exists(0, $value) || !array_key_exists(1, $value)) {
+            return $operator === self::OP_NOT_BETWEEN ? $prefix . '(1=1)' : $prefix . '(0=1)';
         }
 
-        if ($operator === 'BETWEEN' || $operator === 'NOT BETWEEN') {
-            if (!is_array($value) || !array_key_exists(0, $value) || !array_key_exists(1, $value)) {
-                return $operator === 'NOT BETWEEN'
-                    ? $prefix . '(1=1)'
-                    : $prefix . '(0=1)';
-            }
-
-            return $prefix . $column . ' ' . $operator . ' ' . $this->escapeValue($value[0]) . ' AND ' . $this->escapeValue($value[1]);
-        }
-
-        return $prefix . $column . ' ' . $originalOperator . ' ' . $this->escapeValue($value);
+        return $prefix . $column . ' ' . $operator . ' ' . $this->escapeValue($value[0]) . ' AND ' . $this->escapeValue($value[1]);
     }
 
     private function escapeArrayValues(array $values)

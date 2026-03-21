@@ -642,7 +642,7 @@ class fs_core_log
         // Añadir información de contexto
         $context['controller'] = self::$controller_name;
         $context['user'] = self::$user_nick;
-        $context['timestamp'] = date('Y-m-d H:i:s');
+        $context['timestamp'] = date(self::LOG_DATETIME_FORMAT);
 
         // Delegar a logger externo si existe
         if (self::$externalLogger !== null) {
@@ -691,7 +691,7 @@ class fs_core_log
 
         $line = sprintf(
             "[%s] %s.%s: %s%s\n",
-            date('Y-m-d H:i:s'),
+            date(self::LOG_DATETIME_FORMAT),
             'fsframework',
             $level,
             $message,

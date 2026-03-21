@@ -26,6 +26,10 @@ require_once 'base/fs_db_engine.php';
  */
 class fs_mysql extends fs_db_engine
 {
+    private const SQL_MODIFY_COL = ' MODIFY `';
+    private const IDENTIFIER_REGEX = '/^[a-z0-9_]+$/i';
+    private const CURRENT_TIMESTAMP_FUNC = 'CURRENT_TIMESTAMP()';
+    private const NOW_FUNC = 'NOW()';
 
     /**
      * El último error ocurrido.
@@ -105,81 +109,94 @@ class fs_mysql extends fs_db_engine
     public function compare_columns($table_name, $xml_cols, $db_cols)
     {
         $sql = '';
-
-        // Obtener columnas con FK para evitar ALTERs innecesarios
         $fk_columns = $this->get_fk_column_names($table_name);
 
         foreach ($xml_cols as $xml_col) {
             $xml_col['tipo'] = $this->convert_pg_type($xml_col['tipo']);
-            $xmlType = $xml_col['tipo'];
-
             if (strtolower($xml_col['tipo']) == 'integer') {
                 $xml_col['tipo'] = FS_DB_INTEGER;
-                $xmlType = $xml_col['tipo'];
             }
-
+            $xmlType = $xml_col['tipo'];
             $xmlDefault = $this->normalize_mysql_default($xml_col['defecto'], $xmlType);
 
             $db_col = $this->search_in_array($db_cols, 'name', $xml_col['nombre']);
             if (empty($db_col)) {
-                /// columna no encontrada en $db_cols. La creamos
-                $sql .= 'ALTER TABLE ' . $table_name . ' ADD `' . $xml_col['nombre'] . '` ';
-                if ($xml_col['tipo'] == 'serial') {
-                    $sql .= '`' . $xml_col['nombre'] . '` ' . FS_DB_INTEGER . ' NOT NULL AUTO_INCREMENT;';
-                    continue;
-                }
-
-                $sql .= $xmlType;
-                $sql .= ($xml_col['nulo'] == 'NO') ? " NOT NULL" : " NULL";
-
-                if ($xmlDefault !== NULL) {
-                    $sql .= " DEFAULT " . $xmlDefault . ";";
-                } else if ($xml_col['nulo'] == 'YES') {
-                    $sql .= " DEFAULT NULL;";
-                } else {
-                    $sql .= ';';
-                }
+                $sql .= $this->buildAddColumnSql($table_name, $xml_col, $xmlType, $xmlDefault);
                 continue;
             }
 
-            /// columna ya presente en db_cols. La modificamos
-            if (!$this->compare_data_types($db_col['type'], $xmlType)) {
-                // Si la columna tiene FK, comprobar si realmente necesita cambio
-                if (in_array($xml_col['nombre'], $fk_columns)) {
-                    // Solo emitir ALTER si los tamaños realmente difieren
-                    if ($this->column_type_really_differs($db_col['type'], $xmlType)) {
-                        $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ';';
-                    }
-                } else {
-                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ';';
-                }
-            }
-
-            if ($db_col['is_nullable'] == $xml_col['nulo']) {
-                /// do nothing
-            } elseif (!in_array($xml_col['nombre'], $fk_columns) || $this->column_type_really_differs($db_col['type'], $xmlType)) {
-                if ($xml_col['nulo'] == 'YES') {
-                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ' NULL;';
-                } else {
-                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType . ' NOT NULL;';
-                }
-            }
-
-            if ($this->compare_defaults($db_col['default'], $xmlDefault)) {
-                /// do nothing
-            } elseif (is_null($xmlDefault)) {
-                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` DROP DEFAULT;';
-            } elseif (strtolower(substr($xmlDefault, 0, 9)) == "nextval('") { /// nextval es para postgresql
-                if ($db_col['extra'] != 'auto_increment') {
-                    $sql .= 'ALTER TABLE ' . $table_name . ' MODIFY `' . $xml_col['nombre'] . '` ' . $xmlType;
-                    $sql .= ($xml_col['nulo'] == 'YES') ? ' NULL AUTO_INCREMENT;' : ' NOT NULL AUTO_INCREMENT;';
-                }
-            } else {
-                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` SET DEFAULT ' . $xmlDefault . ";";
-            }
+            $sql .= $this->buildTypeChangeSql($table_name, $xml_col, $xmlType, $db_col, $fk_columns);
+            $sql .= $this->buildNullableChangeSql($table_name, $xml_col, $xmlType, $db_col, $fk_columns);
+            $sql .= $this->buildDefaultChangeSql($table_name, $xml_col, $xmlType, $xmlDefault, $db_col);
         }
 
         return $this->fix_postgresql($sql);
+    }
+
+    private function buildAddColumnSql($table_name, $xml_col, $xmlType, $xmlDefault)
+    {
+        $sql = 'ALTER TABLE ' . $table_name . ' ADD `' . $xml_col['nombre'] . '` ';
+
+        if ($xml_col['tipo'] == 'serial') {
+            return $sql . FS_DB_INTEGER . ' NOT NULL AUTO_INCREMENT;';
+        }
+
+        $sql .= $xmlType;
+        $sql .= ($xml_col['nulo'] == 'NO') ? " NOT NULL" : " NULL";
+
+        if ($xmlDefault !== NULL) {
+            return $sql . " DEFAULT " . $xmlDefault . ";";
+        }
+
+        return $sql . (($xml_col['nulo'] == 'YES') ? " DEFAULT NULL;" : ";");
+    }
+
+    private function buildTypeChangeSql($table_name, $xml_col, $xmlType, $db_col, $fk_columns)
+    {
+        if ($this->compare_data_types($db_col['type'], $xmlType)) {
+            return '';
+        }
+
+        if (in_array($xml_col['nombre'], $fk_columns) && !$this->column_type_really_differs($db_col['type'], $xmlType)) {
+            return '';
+        }
+
+        return 'ALTER TABLE ' . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . ';';
+    }
+
+    private function buildNullableChangeSql($table_name, $xml_col, $xmlType, $db_col, $fk_columns)
+    {
+        if ($db_col['is_nullable'] == $xml_col['nulo']) {
+            return '';
+        }
+
+        if (in_array($xml_col['nombre'], $fk_columns) && !$this->column_type_really_differs($db_col['type'], $xmlType)) {
+            return '';
+        }
+
+        $nullable = ($xml_col['nulo'] == 'YES') ? ' NULL;' : ' NOT NULL;';
+        return 'ALTER TABLE ' . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . $nullable;
+    }
+
+    private function buildDefaultChangeSql($table_name, $xml_col, $xmlType, $xmlDefault, $db_col)
+    {
+        if ($this->compare_defaults($db_col['default'], $xmlDefault)) {
+            return '';
+        }
+
+        if (is_null($xmlDefault)) {
+            return 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` DROP DEFAULT;';
+        }
+
+        if (strtolower(substr($xmlDefault, 0, 9)) == "nextval('") {
+            if ($db_col['extra'] == 'auto_increment') {
+                return '';
+            }
+            $nullable = ($xml_col['nulo'] == 'YES') ? ' NULL AUTO_INCREMENT;' : ' NOT NULL AUTO_INCREMENT;';
+            return 'ALTER TABLE ' . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . $nullable;
+        }
+
+        return 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` SET DEFAULT ' . $xmlDefault . ";";
     }
 
     /**
@@ -261,40 +278,46 @@ class fs_mysql extends fs_db_engine
      */
     public function connect()
     {
-        $connected = FALSE;
-
         if (self::$link) {
-            $connected = TRUE;
-        } else if (class_exists('mysqli')) {
-            self::$link = @new mysqli(FS_DB_HOST, FS_DB_USER, FS_DB_PASS, FS_DB_NAME, intval(FS_DB_PORT));
-
-            if (self::$link->connect_error) {
-                $error_msg = 'Error de conexión MySQL (' . self::$link->connect_errno . ') ' . self::$link->connect_error;
-                self::$core_log->new_error($error_msg);
-                if (defined('FS_DEBUG') && FS_DEBUG) {
-                    error_log("FS_DEBUG: " . $error_msg);
-                }
-                self::$link = NULL;
-            } else {
-                self::$link->set_charset('utf8');
-                $connected = TRUE;
-                if (defined('FS_DEBUG') && FS_DEBUG) {
-                    error_log("FS_DEBUG: Connected to database " . FS_DB_NAME . " on " . FS_DB_HOST);
-                }
-
-                if (!FS_FOREIGN_KEYS) {
-                    /// desactivamos las claves ajenas
-                    $this->exec("SET foreign_key_checks = 0;");
-                }
-
-                /// desactivamos el autocommit
-                self::$link->autocommit(FALSE);
-            }
-        } else {
-            self::$core_log->new_error('No tienes instalada la extensión de PHP para MySQL.');
+            return TRUE;
         }
 
-        return $connected;
+        if (!class_exists('mysqli')) {
+            self::$core_log->new_error('No tienes instalada la extensión de PHP para MySQL.');
+            return FALSE;
+        }
+
+        return $this->initializeConnection();
+    }
+
+    private function initializeConnection()
+    {
+        self::$link = @new mysqli(FS_DB_HOST, FS_DB_USER, FS_DB_PASS, FS_DB_NAME, intval(FS_DB_PORT));
+
+        if (self::$link->connect_error) {
+            $error_msg = 'Error de conexión MySQL (' . self::$link->connect_errno . ') ' . self::$link->connect_error;
+            self::$core_log->new_error($error_msg);
+            self::logDebug($error_msg);
+            self::$link = NULL;
+            return FALSE;
+        }
+
+        self::$link->set_charset('utf8');
+        self::logDebug('Connected to database ' . FS_DB_NAME . ' on ' . FS_DB_HOST);
+
+        if (!FS_FOREIGN_KEYS) {
+            $this->exec("SET foreign_key_checks = 0;");
+        }
+
+        self::$link->autocommit(FALSE);
+        return TRUE;
+    }
+
+    private static function logDebug(string $message): void
+    {
+        if (defined('FS_DEBUG') && FS_DEBUG) {
+            error_log('FS_DEBUG: ' . $message);
+        }
     }
 
     /**
@@ -545,44 +568,54 @@ class fs_mysql extends fs_db_engine
         }
 
         foreach ($xml_cons as $cons) {
-            if (empty($cons['consulta']) || stripos($cons['consulta'], 'FOREIGN KEY') === false) {
+            $parsed = $this->parse_fk_collation($cons);
+            if ($parsed === null) {
                 continue;
             }
 
-            if (!preg_match('/FOREIGN\s+KEY\s*\(\s*`?([a-zA-Z0-9_]+)`?\s*\)\s*REFERENCES\s*`?([a-zA-Z0-9_]+)`?\s*\(\s*`?([a-zA-Z0-9_]+)`?\s*\)/i', $cons['consulta'], $matches)) {
-                continue;
-            }
-
-            $localColumn = $matches[1];
-            $refTable = $matches[2];
-            $refColumn = $matches[3];
-
-            $sql = "SELECT character_set_name AS charset_name, collation_name AS collation_name"
-                . " FROM information_schema.columns"
-                . " WHERE table_schema = DATABASE()"
-                . " AND table_name = '" . $refTable . "'"
-                . " AND column_name = '" . $refColumn . "'"
-                . " LIMIT 1;";
-
-            $data = $this->select($sql);
-            if (empty($data)) {
-                continue;
-            }
-
-            $charset = isset($data[0]['charset_name']) ? strtolower($data[0]['charset_name']) : '';
-            $collation = isset($data[0]['collation_name']) ? strtolower($data[0]['collation_name']) : '';
-
-            if (!preg_match('/^[a-z0-9_]+$/i', $charset) || !preg_match('/^[a-z0-9_]+$/i', $collation)) {
-                continue;
-            }
-
-            $result[$localColumn] = [
-                'charset' => $charset,
-                'collation' => $collation,
+            $result[$parsed['localColumn']] = [
+                'charset' => $parsed['charset'],
+                'collation' => $parsed['collation'],
             ];
         }
 
         return $result;
+    }
+
+    private function parse_fk_collation(array $cons): ?array
+    {
+        if (empty($cons['consulta']) || stripos($cons['consulta'], 'FOREIGN KEY') === false) {
+            return null;
+        }
+
+        if (!preg_match('/FOREIGN\s+KEY\s*\(\s*`?([a-zA-Z0-9_]+)`?\s*\)\s*REFERENCES\s*`?([a-zA-Z0-9_]+)`?\s*\(\s*`?([a-zA-Z0-9_]+)`?\s*\)/i', $cons['consulta'], $matches)) {
+            return null;
+        }
+
+        $sql = "SELECT character_set_name AS charset_name, collation_name AS collation_name"
+            . " FROM information_schema.columns"
+            . " WHERE table_schema = DATABASE()"
+            . " AND table_name = " . $this->var2str($matches[2])
+            . " AND column_name = " . $this->var2str($matches[3])
+            . " LIMIT 1;";
+
+        $data = $this->select($sql);
+        if (empty($data)) {
+            return null;
+        }
+
+        $charset = isset($data[0]['charset_name']) ? strtolower($data[0]['charset_name']) : '';
+        $collation = isset($data[0]['collation_name']) ? strtolower($data[0]['collation_name']) : '';
+
+        if (!preg_match(self::IDENTIFIER_REGEX, $charset) || !preg_match(self::IDENTIFIER_REGEX, $collation)) {
+            return null;
+        }
+
+        return [
+            'localColumn' => $matches[1],
+            'charset' => $charset,
+            'collation' => $collation,
+        ];
     }
 
     /**
@@ -616,11 +649,11 @@ class fs_mysql extends fs_db_engine
             $dbCharset = isset($dbConf[0]['db_charset']) ? $dbConf[0]['db_charset'] : '';
             $dbCollation = isset($dbConf[0]['db_collation']) ? $dbConf[0]['db_collation'] : '';
 
-            if (preg_match('/^[a-z0-9_]+$/i', $dbCharset)) {
+            if (preg_match(self::IDENTIFIER_REGEX, $dbCharset)) {
                 $charset = strtolower($dbCharset);
             }
 
-            if (preg_match('/^[a-z0-9_]+$/i', $dbCollation)) {
+            if (preg_match(self::IDENTIFIER_REGEX, $dbCollation)) {
                 $collation = strtolower($dbCollation);
             }
         }
@@ -857,48 +890,49 @@ class fs_mysql extends fs_db_engine
             $this->connect();
         }
 
-        $result = FALSE;
-        if (self::$link) {
-            /// añadimos la consulta sql al historial
-            self::$core_log->new_sql($sql);
-
-            try {
-                if (!empty($params) && method_exists(self::$link, 'execute_query')) {
-                    $aux = self::$link->execute_query($sql, $params);
-                } else {
-                    $aux = self::$link->query($sql);
-                }
-            } catch (mysqli_sql_exception $e) {
-                self::$last_error = $e->getMessage();
-                if (defined('FS_DEBUG') && FS_DEBUG) {
-                    error_log("FS_DEBUG: Query EXCEPTION: $sql Error: " . self::$last_error);
-                }
-                $aux = FALSE;
-            }
-
-            if ($aux) {
-                $result = [];
-                while ($row = $aux->fetch_array(MYSQLI_ASSOC)) {
-                    $result[] = $row;
-                }
-                if (is_object($aux)) {
-                    $aux->free();
-                }
-            } else {
-                self::$last_error = self::$link->error;
-                if (defined('FS_DEBUG') && FS_DEBUG) {
-                    error_log("FS_DEBUG: Query FAILED: $sql Error: " . self::$last_error);
-                }
-                /// añadimos el error a la lista de errores
-                self::$core_log->new_error(self::$last_error);
-                self::$core_log->save(self::$last_error);
-            }
-
-            /// aumentamos el contador de selects realizados
-            self::$t_selects++;
+        if (!self::$link) {
+            return FALSE;
         }
 
-        return $result;
+        self::$core_log->new_sql($sql);
+        $aux = $this->executeSelectQuery($sql, $params);
+        self::$t_selects++;
+
+        return $this->processSelectResult($aux, $sql);
+    }
+
+    private function executeSelectQuery($sql, $params)
+    {
+        try {
+            if (!empty($params) && method_exists(self::$link, 'execute_query')) {
+                return self::$link->execute_query($sql, $params);
+            }
+            return self::$link->query($sql);
+        } catch (mysqli_sql_exception $e) {
+            self::$last_error = $e->getMessage();
+            self::logDebug("Query EXCEPTION: $sql Error: " . self::$last_error);
+            return FALSE;
+        }
+    }
+
+    private function processSelectResult($aux, $sql)
+    {
+        if ($aux) {
+            $result = [];
+            while ($row = $aux->fetch_array(MYSQLI_ASSOC)) {
+                $result[] = $row;
+            }
+            if (is_object($aux)) {
+                $aux->free();
+            }
+            return $result;
+        }
+
+        self::$last_error = self::$link->error;
+        self::logDebug("Query FAILED: $sql Error: " . self::$last_error);
+        self::$core_log->new_error(self::$last_error);
+        self::$core_log->save(self::$last_error);
+        return FALSE;
     }
 
     /**
@@ -1089,38 +1123,64 @@ class fs_mysql extends fs_db_engine
     {
         if ($db_default == $xml_default) {
             return TRUE;
-        } else if (in_array($db_default, array('0', 'false', 'FALSE'))) {
-            return in_array($xml_default, array('0', 'false', 'FALSE'));
-        } else if (in_array($db_default, array('1', 'true', 'TRUE'))) {
-            return in_array($xml_default, array('1', 'true', 'TRUE'));
-        } else if (
-            in_array(strtoupper((string) $db_default), array('CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))
-            && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))
-        ) {
-            return TRUE;
-        } else if (
-            in_array(strtoupper((string) $db_default), array('CURRENT_TIME', 'CURRENT_TIME()'))
-            && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_TIME', 'CURRENT_TIME()'))
-        ) {
-            return TRUE;
-        } else if (
-            in_array(strtoupper((string) $db_default), array('CURRENT_DATE', 'CURRENT_DATE()'))
-            && in_array(strtoupper((string) $xml_default), array('NOW()', 'CURRENT_DATE', 'CURRENT_DATE()'))
-        ) {
-            return TRUE;
-        } else if ($db_default == '00:00:00' && $xml_default == 'now()') {
-            return TRUE;
-        } else if ($db_default == date('Y-m-d') . ' 00:00:00' && $xml_default == 'CURRENT_TIMESTAMP') {
-            return TRUE;
-        } else if ($db_default == 'CURRENT_DATE' && $xml_default == date("'Y-m-d'")) {
-            return TRUE;
-        } else if (substr($xml_default ?? '', 0, 8) == 'nextval(') {
+        }
+
+        if (in_array($db_default, ['0', 'false', 'FALSE'])) {
+            return in_array($xml_default, ['0', 'false', 'FALSE']);
+        }
+
+        if (in_array($db_default, ['1', 'true', 'TRUE'])) {
+            return in_array($xml_default, ['1', 'true', 'TRUE']);
+        }
+
+        if ($this->areDateTimeDefaultsEquivalent($db_default, $xml_default)) {
             return TRUE;
         }
 
-        $db_default = str_replace(array('::character varying', "'"), array('', ''), $db_default ?? '');
-        $xml_default = str_replace(array('::character varying', "'"), array('', ''), $xml_default ?? '');
+        if (substr($xml_default ?? '', 0, 8) == 'nextval(') {
+            return TRUE;
+        }
+
+        $db_default = str_replace(['::character varying', "'"], ['', ''], $db_default ?? '');
+        $xml_default = str_replace(['::character varying', "'"], ['', ''], $xml_default ?? '');
         return ($db_default == $xml_default);
+    }
+
+    private function areDateTimeDefaultsEquivalent($db_default, $xml_default): bool
+    {
+        $upperDb = strtoupper((string) $db_default);
+        $upperXml = strtoupper((string) $xml_default);
+
+        if (
+            in_array($upperDb, ['CURRENT_TIMESTAMP', self::CURRENT_TIMESTAMP_FUNC])
+            && in_array($upperXml, [self::NOW_FUNC, 'CURRENT_TIMESTAMP', self::CURRENT_TIMESTAMP_FUNC])
+        ) {
+            return true;
+        }
+
+        if (
+            in_array($upperDb, ['CURRENT_TIME', 'CURRENT_TIME()'])
+            && in_array($upperXml, [self::NOW_FUNC, 'CURRENT_TIME', 'CURRENT_TIME()'])
+        ) {
+            return true;
+        }
+
+        if (
+            in_array($upperDb, ['CURRENT_DATE', 'CURRENT_DATE()'])
+            && in_array($upperXml, [self::NOW_FUNC, 'CURRENT_DATE', 'CURRENT_DATE()'])
+        ) {
+            return true;
+        }
+
+        if ($db_default === '00:00:00' && $xml_default === 'now()') {
+            return true;
+        }
+
+        if ($db_default === date('Y-m-d') . ' 00:00:00' && $xml_default === 'CURRENT_TIMESTAMP') {
+            return true;
+        }
+
+        return $db_default === 'CURRENT_DATE' && $xml_default === date("'Y-m-d'");
     }
 
     /**
@@ -1145,21 +1205,14 @@ class fs_mysql extends fs_db_engine
         $type = preg_replace('/\(.*/', '', $type);
         $type = preg_replace('/\s+without\s+time\s+zone$/i', '', $type);
 
-        // Remove PostgreSQL style casts from XML defaults before adapting them to MySQL.
         $default = preg_replace('/::[a-z_][a-z0-9_ ]*/i', '', $default);
         $default = trim((string) $default);
 
         $upperDefault = strtoupper($default);
-        if (in_array($upperDefault, array('NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP()'))) {
-            if ($type === 'time') {
-                return 'CURRENT_TIME';
-            }
 
-            if ($type === 'date') {
-                return 'CURRENT_DATE';
-            }
-
-            return 'CURRENT_TIMESTAMP';
+        $timestampResult = $this->normalizeTimestampDefault($upperDefault, $type);
+        if ($timestampResult !== null) {
+            return $timestampResult;
         }
 
         if (stripos($default, 'nextval(') === 0) {
@@ -1170,12 +1223,12 @@ class fs_mysql extends fs_db_engine
             return 'NULL';
         }
 
-        if (in_array($type, array('bool', 'boolean', 'tinyint'))) {
-            if (in_array($upperDefault, array('TRUE', '1'))) {
+        if (in_array($type, ['bool', 'boolean', 'tinyint'])) {
+            if (in_array($upperDefault, ['TRUE', '1'])) {
                 return '1';
             }
 
-            if (in_array($upperDefault, array('FALSE', '0'))) {
+            if (in_array($upperDefault, ['FALSE', '0'])) {
                 return '0';
             }
         }
@@ -1192,7 +1245,20 @@ class fs_mysql extends fs_db_engine
             $default = substr($default, 1, -1);
         }
 
-        return "'" . str_replace(array('\\', "'"), array('\\\\', "\\'"), $default) . "'";
+        return "'" . str_replace(['\\', "'"], ['\\\\', "\\'"], $default) . "'";
+    }
+
+    private function normalizeTimestampDefault(string $upperDefault, string $type): ?string
+    {
+        if (!in_array($upperDefault, [self::NOW_FUNC, 'CURRENT_TIMESTAMP', self::CURRENT_TIMESTAMP_FUNC])) {
+            return null;
+        }
+
+        return match ($type) {
+            'time' => 'CURRENT_TIME',
+            'date' => 'CURRENT_DATE',
+            default => 'CURRENT_TIMESTAMP',
+        };
     }
 
     /**

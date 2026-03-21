@@ -30,6 +30,7 @@
 class fs_schema
 {
     private const SQL_LINE_SEPARATOR = ",\n  ";
+    private const SQL_DEFAULT = ' DEFAULT ';
     private const CORE_TABLE_FILES = [
         'fs_pages.xml',
         'fs_users.xml',
@@ -270,42 +271,42 @@ class fs_schema
         $nullable = !isset($col->nulo) || strtoupper((string) $col->nulo) !== 'NO';
         $default = isset($col->defecto) ? (string) $col->defecto : null;
 
-        // Convertir tipo de datos
         $sqlType = self::convertType($type, $isMySQL);
         $normalizedDefault = self::normalizeDefault($default, $sqlType, $isMySQL);
 
-        // Construir definición
         $quote = $isMySQL ? '`' : '"';
         $def = "{$quote}{$name}{$quote} {$sqlType}";
-        
+
         if (!$nullable) {
             $def .= " NOT NULL";
         }
-        
-        if ($normalizedDefault !== null && $normalizedDefault !== '') {
-            if ($normalizedDefault === 'true' || $normalizedDefault === 'false') {
-                if ($isMySQL) {
-                    $def .= " DEFAULT " . ($normalizedDefault === 'true' ? '1' : '0');
-                } else {
-                    $def .= " DEFAULT " . strtoupper($normalizedDefault);
-                }
-            } elseif (is_numeric($normalizedDefault)) {
-                $def .= " DEFAULT {$normalizedDefault}";
-            } elseif (
-                strtoupper($normalizedDefault) === 'CURRENT_TIMESTAMP'
-                || strtoupper($normalizedDefault) === 'NOW()'
-                || strtoupper($normalizedDefault) === 'CURRENT_TIME'
-                || strtoupper($normalizedDefault) === 'CURRENT_DATE'
-            ) {
-                $def .= " DEFAULT " . strtoupper($normalizedDefault);
-            } elseif (strtoupper($normalizedDefault) === 'NULL') {
-                $def .= " DEFAULT NULL";
-            } else {
-                $def .= " DEFAULT '{$normalizedDefault}'";
-            }
+
+        return $def . self::buildDefaultClause($normalizedDefault, $isMySQL);
+    }
+
+    private static function buildDefaultClause($normalizedDefault, $isMySQL)
+    {
+        if ($normalizedDefault === null || $normalizedDefault === '') {
+            return '';
         }
 
-        return $def;
+        $upper = strtoupper($normalizedDefault);
+
+        if ($normalizedDefault === 'true' || $normalizedDefault === 'false') {
+            $val = $isMySQL ? ($normalizedDefault === 'true' ? '1' : '0') : $upper;
+            return self::SQL_DEFAULT . $val;
+        }
+
+        if (is_numeric($normalizedDefault)) {
+            return self::SQL_DEFAULT . $normalizedDefault;
+        }
+
+        if (in_array($upper, ['CURRENT_TIMESTAMP', 'NOW()', 'CURRENT_TIME', 'CURRENT_DATE', 'NULL'])) {
+            return self::SQL_DEFAULT . $upper;
+        }
+
+        $escaped = str_replace("'", "''", $normalizedDefault);
+        return self::SQL_DEFAULT . "'{$escaped}'";
     }
 
     /**
@@ -400,35 +401,46 @@ class fs_schema
     {
         $quote = $isMySQL ? '`' : '"';
         $constraintSql = "CONSTRAINT {$quote}{$name}{$quote} " . $query;
+
         if (!$validateFks) {
             $constraints[] = $constraintSql;
             return;
         }
 
-        $matches = [];
-        // Accept unquoted, backticked or double-quoted identifiers, allow schema-qualified names
-        if (preg_match('/REFERENCES\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_\.]+))/i', $query, $matches)) {
-            $refTable = $matches[1] ?: $matches[2] ?: $matches[3] ?: '';
-            // If schema-qualified (schema.table), take the last segment
-            if (strpos($refTable, '.') !== false) {
-                $parts = explode('.', $refTable);
-                $refTable = end($parts);
-            }
-            $refTable = trim($refTable, '"`');
+        $refTable = self::extractReferencedTable($query);
 
-            if ($refTable === '') {
-                error_log("Advertencia: Foreign key '{$name}' omitida - nombre de tabla referenciada vacío. Query: {$query}");
-                return;
-            }
-
-            if ($db && $db->table_exists($refTable)) {
-                $constraints[] = $constraintSql;
-            } else {
-                error_log("Advertencia: Foreign key '{$name}' omitida - tabla referenciada '{$refTable}' no existe. Query: {$query}");
-            }
-        } else {
+        if ($refTable === null) {
             error_log("Advertencia: Foreign key '{$name}' omitida - patrón REFERENCES no coincide. Query: {$query}");
+            return;
         }
+
+        if ($refTable === '') {
+            error_log("Advertencia: Foreign key '{$name}' omitida - nombre de tabla referenciada vacío. Query: {$query}");
+            return;
+        }
+
+        if (!$db || !$db->table_exists($refTable)) {
+            error_log("Advertencia: Foreign key '{$name}' omitida - tabla referenciada '{$refTable}' no existe. Query: {$query}");
+            return;
+        }
+
+        $constraints[] = $constraintSql;
+    }
+
+    private static function extractReferencedTable(string $query): ?string
+    {
+        if (!preg_match('/REFERENCES\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_\.]+))/i', $query, $matches)) {
+            return null;
+        }
+
+        $refTable = ($matches[1] ?? '') ?: ($matches[2] ?? '') ?: ($matches[3] ?? '');
+
+        if (strpos($refTable, '.') !== false) {
+            $parts = explode('.', $refTable);
+            $refTable = end($parts);
+        }
+
+        return trim($refTable, '"`');
     }
 
     /**
@@ -630,22 +642,10 @@ class fs_schema
             'errors' => [],
         ];
 
-        if (!class_exists('fs_model', false)) {
-            require_once 'base/fs_model.php';
-        }
-
-        if (!class_exists('fs_model_autoloader', false) && file_exists('base/fs_model_autoloader.php')) {
-            require_once 'base/fs_model_autoloader.php';
-        }
-
-        if (class_exists('fs_model_autoloader', false)) {
-            fs_model_autoloader::register(false);
-        }
+        self::loadModelDependencies();
 
         $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
-        if ($tableDir === null) {
-            $tableDir = $folder . '/model/table';
-        }
+        $tableDir = $tableDir ?? $folder . '/model/table';
 
         if (!is_dir($tableDir)) {
             $results['errors'][] = 'Directorio de tablas no encontrado: ' . $tableDir;
@@ -667,41 +667,59 @@ class fs_schema
                 continue;
             }
 
-            if (!isset(self::CORE_MODEL_MAP[$tableName])) {
-                $results['errors'][] = 'No hay mapeo de modelo para tabla: ' . $tableName;
-                continue;
-            }
-
-            $modelInfo = self::CORE_MODEL_MAP[$tableName];
-            $modelPath = $folder . '/' . $modelInfo['file'];
-            $modelClass = $modelInfo['class'];
-
-            if (!class_exists($modelClass, false)) {
-                if (!file_exists($modelPath)) {
-                    $results['errors'][] = 'Modelo no encontrado: ' . $modelPath;
-                    continue;
-                }
-
-                require_once $modelPath;
-            }
-
-            try {
-                $model = new $modelClass();
-                // La instancia se crea para forzar la carga del modelo y posible creación de tabla
-
-                // refrescamos la lista de tablas tras posible creación
-                $tables = $db->list_tables();
-                if ($tables !== false && $db->table_exists($tableName, $tables)) {
-                    $results['created'][] = $tableName;
-                } else {
-                    $results['errors'][] = 'La tabla ' . $tableName . ' no se pudo crear mediante el modelo ' . $modelClass;
-                }
-            } catch (\Throwable $e) {
-                $results['errors'][] = $tableName . ': ' . $e->getMessage();
-            }
+            self::healCoreTable($tableName, $folder, $db, $tables, $results);
         }
 
         return $results;
+    }
+
+    private static function loadModelDependencies()
+    {
+        $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
+
+        if (!class_exists('fs_model', false)) {
+            require_once $folder . '/base/fs_model.php';
+        }
+
+        if (!class_exists('fs_model_autoloader', false) && file_exists($folder . '/base/fs_model_autoloader.php')) {
+            require_once $folder . '/base/fs_model_autoloader.php';
+        }
+
+        if (class_exists('fs_model_autoloader', false)) {
+            fs_model_autoloader::register(false);
+        }
+    }
+
+    private static function healCoreTable($tableName, $folder, $db, &$tables, array &$results)
+    {
+        if (!isset(self::CORE_MODEL_MAP[$tableName])) {
+            $results['errors'][] = 'No hay mapeo de modelo para tabla: ' . $tableName;
+            return;
+        }
+
+        $modelInfo = self::CORE_MODEL_MAP[$tableName];
+        $modelPath = $folder . '/' . $modelInfo['file'];
+        $modelClass = $modelInfo['class'];
+
+        if (!class_exists($modelClass, false)) {
+            if (!file_exists($modelPath)) {
+                $results['errors'][] = 'Modelo no encontrado: ' . $modelPath;
+                return;
+            }
+            require_once $modelPath;
+        }
+
+        try {
+            new $modelClass();
+            $tables = $db->list_tables();
+            if ($tables !== false && $db->table_exists($tableName, $tables)) {
+                $results['created'][] = $tableName;
+            } else {
+                $results['errors'][] = 'La tabla ' . $tableName . ' no se pudo crear mediante el modelo ' . $modelClass;
+            }
+        } catch (\Throwable $e) {
+            $results['errors'][] = $tableName . ': ' . $e->getMessage();
+        }
     }
 
     /**

@@ -21,6 +21,9 @@ class Html
 {
     private static ?Environment $twig = null;
 
+    private const VIEW_DIR = '/view';
+    private const PLUGINS_DIR = '/plugins/';
+
     /** @var float Start time for execution time tracking */
     private static float $startTime = 0;
 
@@ -115,362 +118,326 @@ class Html
     }
 
     /**
-     * Initialize and configure Twig environment
+     * Lazily initialize Twig, resolve the template, and render.
      */
     private static function renderTwig(string $template, array $params): string
     {
         if (self::$twig === null) {
-            // Create standard FilesystemLoader
-            $paths = [];
-            if (is_dir(FS_FOLDER . '/view')) {
-                $paths[] = FS_FOLDER . '/view';
-            }
-            $loader = new FilesystemLoader($paths);
-
-            // Add theme view path with highest priority (theme overrides everything)
-            $themeManager = \FSFramework\Core\ThemeManager::getInstance();
-            $themeViewPath = $themeManager->getThemeViewPath();
-            if ($themeViewPath !== null) {
-                $loader->prependPath($themeViewPath);
-                $loader->addPath($themeViewPath, 'Theme');
-            }
-
-            // Add plugin view paths - plugins can override core views
-            // Process plugins in reverse order so first plugin in list has highest priority
-            $plugins = array_reverse($GLOBALS['plugins'] ?? []);
-            foreach ($plugins as $plugin) {
-                // Legacy plugins use lowercase 'view' folder
-                $pluginPath = FS_FOLDER . '/plugins/' . $plugin . '/view';
-                if (is_dir($pluginPath)) {
-                    $loader->addPath($pluginPath, $plugin); // Namespaced access: @PluginName/template
-                    $loader->prependPath($pluginPath); // Prepend to default namespace for override
-                }
-
-                // FS2025 plugins use PascalCase 'View' folder
-                $pluginViewPath = FS_FOLDER . '/plugins/' . $plugin . '/View';
-                if (is_dir($pluginViewPath)) {
-                    $loader->addPath($pluginViewPath, $plugin); // Namespaced access: @PluginName/template
-                    $loader->prependPath($pluginViewPath); // Prepend to default namespace for override
-                }
-            }
-
-            // Re-prepend theme path to ensure it has highest priority after plugins are added
-            if ($themeViewPath !== null) {
-                $loader->prependPath($themeViewPath);
-            }
-
-            // Dispatch event to allow plugins to wrap/modify the loader
-            // The legacy_support plugin uses this to inject RainTPL translation
-            $dispatcher = \FSFramework\Event\FSEventDispatcher::getInstance();
-            $event = new \FSFramework\Event\TwigLoaderEvent($loader);
-            $dispatcher->dispatch($event, \FSFramework\Event\TwigLoaderEvent::NAME);
-            $loader = $event->getLoader();
-
-            // Determine if we're in debug mode
-            $isDebug = defined('FS_DEBUG') && FS_DEBUG;
-
-            self::$twig = new Environment($loader, [
-                'cache' => FS_FOLDER . '/tmp/twig_cache',
-                'debug' => $isDebug,
-                'auto_reload' => true, // Ensure templates are reloaded when they change
-            ]);
-
-            // Initialize the translation system and register Twig extension
-            FSTranslator::initialize(FS_FOLDER);
-            FSTranslator::loadAllPluginTranslations();
-            self::$twig->addExtension(new TranslationExtension());
-
-            // Register base64_encode filter for templates
-            self::$twig->addFilter(new \Twig\TwigFilter('base64_encode', 'base64_encode'));
-
-            // Register CSRF protection functions (core functionality)
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'csrf_token',
-                [CsrfManager::class, 'generateToken']
-            ));
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'csrf_field',
-                [CsrfManager::class, 'field'],
-                ['is_safe' => ['html']]
-            ));
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'csrf_meta',
-                [CsrfManager::class, 'metaTag'],
-                ['is_safe' => ['html']]
-            ));
-
-            // formToken function (alias/utility for CSRF)
-            // formToken() returns field HTML, formToken(false) returns just the token value
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'formToken',
-                function ($asField = true) {
-                    if ($asField) {
-                        return CsrfManager::field();
-                    }
-                    return CsrfManager::generateToken();
-                },
-                ['is_safe' => ['html']]
-            ));
-
-            // Dispatch TwigInitEvent to allow plugins to register functions
-            // facturascripts_support uses this to register PHP functions for FS2025 templates
-            // legacy_support can also use this for additional functions
-            $twigInitEvent = new \FSFramework\Event\TwigInitEvent(self::$twig);
-            $dispatcher->dispatch($twigInitEvent, \FSFramework\Event\TwigInitEvent::NAME);
-
-            // Theme manager function for accessing theme information
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'theme_manager',
-                fn() => \FSFramework\Core\ThemeManager::getInstance()
-            ));
-
-            // Add theme_path global variable for templates
-            // This allows templates to dynamically use the active theme's assets path
-            $themeAssetsPath = $themeManager->getThemeAssetsPath();
-            self::$twig->addGlobal('theme_path', $themeAssetsPath);
-
-            // AdminLTE helper functions - load from theme if available
-            $themeManager = \FSFramework\Core\ThemeManager::getInstance();
-            $themeFunctionsPath = FS_FOLDER . '/themes/' . $themeManager->getActiveTheme() . '/functions.php';
-            if (is_file($themeFunctionsPath)) {
-                require_once $themeFunctionsPath;
-            }
-
-            // Register get_gravatar if available and not already registered
-            if (function_exists('get_gravatar')) {
-                try {
-                    self::$twig->addFunction(new \Twig\TwigFunction('get_gravatar', 'get_gravatar'));
-                } catch (\LogicException $e) {
-                    // Function already registered by plugin
-                }
-            }
-
-            // Register adminlte_menu_icon if available and not already registered
-            if (function_exists('adminlte_menu_icon')) {
-                try {
-                    self::$twig->addFunction(new \Twig\TwigFunction('adminlte_menu_icon', 'adminlte_menu_icon'));
-                } catch (\LogicException $e) {
-                    // Function already registered by plugin
-                }
-            }
-
-            // Register adminlte_page_icon if available and not already registered
-            if (function_exists('adminlte_page_icon')) {
-                try {
-                    self::$twig->addFunction(new \Twig\TwigFunction('adminlte_page_icon', 'adminlte_page_icon'));
-                } catch (\LogicException $e) {
-                    // Function already registered by plugin
-                }
-            }
-
-            // bytes() - Format file sizes in human readable format
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'bytes',
-                function ($bytes, $precision = 2) {
-                    $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-                    $bytes = max($bytes, 0);
-                    $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-                    $pow = min($pow, count($units) - 1);
-                    $bytes /= pow(1024, $pow);
-                    return round($bytes, $precision) . ' ' . $units[$pow];
-                }
-            ));
-
-            // asset() - Generate asset URL with cache busting
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'asset',
-                function ($path) {
-                    $fullPath = FS_FOLDER . '/' . ltrim($path, '/');
-                    $version = file_exists($fullPath) ? filemtime($fullPath) : time();
-                    return $path . '?v=' . $version;
-                }
-            ));
-
-            // settings() - Get system settings (stub for FS2025 compatibility)
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'settings',
-                function ($group = null, $key = null, $default = null) {
-                    // Simple mapping to FSFramework config
-                    if ($group === 'default' && $key === 'homepage') {
-                        return defined('FS_HOMEPAGE') ? FS_HOMEPAGE : 'admin_home';
-                    }
-                    return $default;
-                }
-
-
-            ));
-
-            // Register standard PHP functions for Twig templates
-            // These are essential for core templates and legacy compatibility
-            $coreFunctions = [
-                'file_exists',
-                'constant',
-                'count',
-                'is_array',
-                'in_array',
-                'nl2br',
-                'json_encode',
-                'json_decode',
-                'time',
-                'date',
-                'number_format',
-                'sprintf',
-                'str_replace',
-                'ceil',
-                'floor',
-                'round',
-                'class_exists',
-                'mt_rand',
-                'rand',
-                'substr',
-                'mb_substr',
-                'urlencode'
-            ];
-
-            foreach ($coreFunctions as $func) {
-                if (function_exists($func)) {
-                    try {
-                        self::$twig->addFunction(new \Twig\TwigFunction($func, $func));
-                    } catch (\LogicException $e) {
-                        // Already registered
-                    }
-                }
-            }
-
-            // Inject config2 global for legacy compatibility
-            if (isset($GLOBALS['config2'])) {
-                self::$twig->addGlobal('config2', $GLOBALS['config2']);
-            }
-
-            // resolve_template() - Handle legacy template names without extension
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'resolve_template',
-                function ($template) {
-                    if (empty($template)) {
-                        return $template;
-                    }
-
-                    // If already has extension, return as is
-                    if (strpos($template, '.') !== false) {
-                        return $template;
-                    }
-
-                    return self::resolveTemplate($template);
-                }
-            ));
-
-
-            // Load plugin functions.php files and register custom functions
-            foreach ($GLOBALS['plugins'] ?? [] as $plugin) {
-                $functionsFile = FS_FOLDER . '/plugins/' . $plugin . '/functions.php';
-                if (file_exists($functionsFile)) {
-                    require_once $functionsFile;
-                }
-            }
-
-            // Register plugin-specific functions (AdminLTE, facturacion_base, and others)
-            $pluginFunctions = [
-                // AdminLTE functions
-                'get_gravatar',
-                'adminlte_menu_icon',
-                'adminlte_page_icon',
-                // facturacion_base functions
-                'plantilla_email',
-                'fs_tipos_id_fiscal',
-                // Other plugin functions
-                'fs_honest_orig',
-                'fs_fake_msg',
-            ];
-            foreach ($pluginFunctions as $func) {
-                if (function_exists($func)) {
-                    try {
-                        self::$twig->addFunction(new \Twig\TwigFunction($func, $func));
-                    } catch (\LogicException $e) {
-                        // Function already registered
-                    }
-                }
-            }
-
-            // executionTime() - Get execution time for footer display
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'executionTime',
-                [self::class, 'executionTime']
-            ));
-
-            // getIncludeViews() - For FS2025 extension points (stub for now)
-            // Returns an empty array; plugins can override this behavior
-            self::$twig->addFunction(new \Twig\TwigFunction(
-                'getIncludeViews',
-                function ($template = null, $position = null) {
-                    // Stub implementation - returns empty array
-                    // In FS2025, this would return views registered by plugins for extension points
-                    return [];
-                }
-            ));
-
-            // debugBarRender - Stub for FS2025 debug bar compatibility
-            self::$twig->addGlobal('debugBarRender', new class {
-                public function render(): string
-                {
-                    return '';
-                }
-                public function renderHead(): string
-                {
-                    return '';
-                }
-            });
-
-            // assetManager - Stub for FS2025 asset manager compatibility
-            self::$twig->addGlobal('assetManager', new class {
-                public function get(string $type): array
-                {
-                    return [];
-                }
-            });
-
-            // menuManager - Stub for FS2025 menu manager compatibility
-            // Uses fsc.folders() and fsc.pages() instead in FSFramework
-            self::$twig->addGlobal('menuManager', new class {
-                public function getMenu(): array
-                {
-                    return [];
-                }
-            });
-
-            // log - Stub for FS2025 log compatibility
-            self::$twig->addGlobal('log', []);
-
-            // template - Current template name
-            self::$twig->addGlobal('template', '');
-
-            // app - Symfony-like app global with request object
-            self::$twig->addGlobal('app', new class {
-                public $request;
-
-                public function __construct()
-                {
-                    $this->request = new class {
-                        public function get(string $key, $default = null)
-                        {
-                            return $_GET[$key] ?? $_POST[$key] ?? $_REQUEST[$key] ?? $default;
-                        }
-                        public function getMethod(): string
-                        {
-                            return $_SERVER['REQUEST_METHOD'] ?? 'GET';
-                        }
-                    };
-                }
-            });
+            self::$twig = self::createTwigEnvironment();
         }
 
-
-        // Resolve template name with extension
         $template = self::resolveTemplate($template);
-
-        // Update template global for FS2025 compatibility
         self::$twig->addGlobal('template', $template);
 
         return self::$twig->render($template, $params);
+    }
+
+    /**
+     * Create and fully configure the Twig Environment singleton.
+     */
+    private static function createTwigEnvironment(): Environment
+    {
+        $loader = self::buildFilesystemLoader();
+
+        $twig = new Environment($loader, [
+            'cache' => FS_FOLDER . '/tmp/twig_cache',
+            'debug' => defined('FS_DEBUG') && FS_DEBUG,
+            'auto_reload' => true,
+        ]);
+
+        self::registerExtensions($twig);
+        self::registerFilters($twig);
+        self::registerFunctions($twig);
+        self::registerGlobals($twig);
+
+        return $twig;
+    }
+
+    /**
+     * Build the FilesystemLoader with core, theme, and plugin view paths.
+     */
+    private static function buildFilesystemLoader(): \Twig\Loader\LoaderInterface
+    {
+        $paths = [];
+        if (is_dir(FS_FOLDER . self::VIEW_DIR)) {
+            $paths[] = FS_FOLDER . self::VIEW_DIR;
+        }
+        $loader = new FilesystemLoader($paths);
+
+        $themeViewPath = ThemeManager::getInstance()->getThemeViewPath();
+        if ($themeViewPath !== null) {
+            $loader->prependPath($themeViewPath);
+            $loader->addPath($themeViewPath, 'Theme');
+        }
+
+        self::addPluginViewPaths($loader);
+
+        // Re-prepend theme path to ensure highest priority after plugins
+        if ($themeViewPath !== null) {
+            $loader->prependPath($themeViewPath);
+        }
+
+        // Allow plugins to wrap/modify the loader (e.g. legacy_support injects RainTPL translation)
+        $dispatcher = \FSFramework\Event\FSEventDispatcher::getInstance();
+        $event = new \FSFramework\Event\TwigLoaderEvent($loader);
+        $dispatcher->dispatch($event, \FSFramework\Event\TwigLoaderEvent::NAME);
+
+        return $event->getLoader();
+    }
+
+    /**
+     * Add legacy 'view' and FS2025 'View' paths from each plugin to the loader.
+     */
+    private static function addPluginViewPaths(FilesystemLoader $loader): void
+    {
+        $plugins = array_reverse($GLOBALS['plugins'] ?? []);
+        foreach ($plugins as $plugin) {
+            $pluginBase = FS_FOLDER . self::PLUGINS_DIR . $plugin;
+
+            $legacyPath = $pluginBase . self::VIEW_DIR;
+            if (is_dir($legacyPath)) {
+                $loader->addPath($legacyPath, $plugin);
+                $loader->prependPath($legacyPath);
+            }
+
+            $modernPath = $pluginBase . '/View';
+            if (is_dir($modernPath)) {
+                $loader->addPath($modernPath, $plugin);
+                $loader->prependPath($modernPath);
+            }
+        }
+    }
+
+    /**
+     * Register Twig extensions (translation, plugin-provided via TwigInitEvent).
+     */
+    private static function registerExtensions(Environment $twig): void
+    {
+        FSTranslator::initialize(FS_FOLDER);
+        FSTranslator::loadAllPluginTranslations();
+        $twig->addExtension(new TranslationExtension());
+
+        $dispatcher = \FSFramework\Event\FSEventDispatcher::getInstance();
+        $twigInitEvent = new \FSFramework\Event\TwigInitEvent($twig);
+        $dispatcher->dispatch($twigInitEvent, \FSFramework\Event\TwigInitEvent::NAME);
+    }
+
+    /**
+     * Register custom Twig filters.
+     */
+    private static function registerFilters(Environment $twig): void
+    {
+        $twig->addFilter(new \Twig\TwigFilter('base64_encode', 'base64_encode'));
+    }
+
+    /**
+     * Register all custom Twig functions.
+     */
+    private static function registerFunctions(Environment $twig): void
+    {
+        self::registerCsrfFunctions($twig);
+        self::registerUtilityFunctions($twig);
+        self::registerCorePHPFunctions($twig);
+        self::loadThemeFunctions($twig);
+        self::loadPluginFunctions($twig);
+    }
+
+    private static function registerCsrfFunctions(Environment $twig): void
+    {
+        $twig->addFunction(new \Twig\TwigFunction(
+            'csrf_token',
+            [CsrfManager::class, 'generateToken']
+        ));
+        $twig->addFunction(new \Twig\TwigFunction(
+            'csrf_field',
+            [CsrfManager::class, 'field'],
+            ['is_safe' => ['html']]
+        ));
+        $twig->addFunction(new \Twig\TwigFunction(
+            'csrf_meta',
+            [CsrfManager::class, 'metaTag'],
+            ['is_safe' => ['html']]
+        ));
+        $twig->addFunction(new \Twig\TwigFunction(
+            'formToken',
+            function ($asField = true) {
+                return $asField ? CsrfManager::field() : CsrfManager::generateToken();
+            },
+            ['is_safe' => ['html']]
+        ));
+    }
+
+    private static function registerUtilityFunctions(Environment $twig): void
+    {
+        $twig->addFunction(new \Twig\TwigFunction(
+            'theme_manager',
+            fn() => ThemeManager::getInstance()
+        ));
+
+        $twig->addFunction(new \Twig\TwigFunction(
+            'bytes',
+            function ($bytes, $precision = 2) {
+                $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+                $bytes = max($bytes, 0);
+                $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+                $pow = min($pow, count($units) - 1);
+                $bytes /= pow(1024, $pow);
+                return round($bytes, $precision) . ' ' . $units[$pow];
+            }
+        ));
+
+        $twig->addFunction(new \Twig\TwigFunction(
+            'asset',
+            function ($path) {
+                $fullPath = FS_FOLDER . '/' . ltrim($path, '/');
+                $version = file_exists($fullPath) ? filemtime($fullPath) : time();
+                return $path . '?v=' . $version;
+            }
+        ));
+
+        $twig->addFunction(new \Twig\TwigFunction(
+            'settings',
+            function ($group = null, $key = null, $default = null) {
+                if ($group === 'default' && $key === 'homepage') {
+                    return defined('FS_HOMEPAGE') ? FS_HOMEPAGE : 'admin_home';
+                }
+                return $default;
+            }
+        ));
+
+        $twig->addFunction(new \Twig\TwigFunction(
+            'resolve_template',
+            function ($template) {
+                if (empty($template) || strpos($template, '.') !== false) {
+                    return $template;
+                }
+                return self::resolveTemplate($template);
+            }
+        ));
+
+        $twig->addFunction(new \Twig\TwigFunction(
+            'executionTime',
+            [self::class, 'executionTime']
+        ));
+
+        $twig->addFunction(new \Twig\TwigFunction(
+            'getIncludeViews',
+            function ($template = null, $position = null) {
+                return [];
+            }
+        ));
+    }
+
+    private static function registerCorePHPFunctions(Environment $twig): void
+    {
+        $coreFunctions = [
+            'file_exists', 'constant', 'count', 'is_array', 'in_array',
+            'nl2br', 'json_encode', 'json_decode', 'time', 'date',
+            'number_format', 'sprintf', 'str_replace', 'ceil', 'floor',
+            'round', 'class_exists', 'mt_rand', 'rand', 'substr',
+            'mb_substr', 'urlencode',
+        ];
+
+        foreach ($coreFunctions as $func) {
+            self::tryAddFunction($twig, $func);
+        }
+    }
+
+    /**
+     * Load and register functions from the active theme's functions.php.
+     */
+    private static function loadThemeFunctions(Environment $twig): void
+    {
+        $themeManager = ThemeManager::getInstance();
+        $path = FS_FOLDER . '/themes/' . $themeManager->getActiveTheme() . '/functions.php';
+        if (is_file($path)) {
+            require_once $path;
+        }
+
+        foreach (['get_gravatar', 'adminlte_menu_icon', 'adminlte_page_icon'] as $func) {
+            self::tryAddFunction($twig, $func);
+        }
+    }
+
+    /**
+     * Load plugin functions.php files and register known plugin functions.
+     */
+    private static function loadPluginFunctions(Environment $twig): void
+    {
+        foreach ($GLOBALS['plugins'] ?? [] as $plugin) {
+            $path = FS_FOLDER . self::PLUGINS_DIR . $plugin . '/functions.php';
+            if (file_exists($path)) {
+                require_once $path;
+            }
+        }
+
+        $pluginFunctions = [
+            'get_gravatar', 'adminlte_menu_icon', 'adminlte_page_icon',
+            'plantilla_email', 'fs_tipos_id_fiscal',
+            'fs_honest_orig', 'fs_fake_msg',
+        ];
+        foreach ($pluginFunctions as $func) {
+            self::tryAddFunction($twig, $func);
+        }
+    }
+
+    /**
+     * Try to register a PHP function in Twig, silently ignoring duplicates.
+     */
+    private static function tryAddFunction(Environment $twig, string $name): void
+    {
+        if (!function_exists($name)) {
+            return;
+        }
+        try {
+            $twig->addFunction(new \Twig\TwigFunction($name, $name));
+        } catch (\LogicException) {
+        }
+    }
+
+    /**
+     * Register Twig globals (theme path, FS2025 compatibility stubs, etc.).
+     */
+    private static function registerGlobals(Environment $twig): void
+    {
+        $twig->addGlobal('theme_path', ThemeManager::getInstance()->getThemeAssetsPath());
+
+        if (isset($GLOBALS['config2'])) {
+            $twig->addGlobal('config2', $GLOBALS['config2']);
+        }
+
+        $twig->addGlobal('debugBarRender', new class {
+            public function render(): string { return ''; }
+            public function renderHead(): string { return ''; }
+        });
+
+        $twig->addGlobal('assetManager', new class {
+            public function get(string $type): array { return []; }
+        });
+
+        $twig->addGlobal('menuManager', new class {
+            public function getMenu(): array { return []; }
+        });
+
+        $twig->addGlobal('log', []);
+        $twig->addGlobal('template', '');
+
+        $twig->addGlobal('app', new class {
+            public $request;
+            public function __construct()
+            {
+                $this->request = new class {
+                    public function get(string $key, $default = null)
+                    {
+                        return $_GET[$key] ?? $_POST[$key] ?? $_REQUEST[$key] ?? $default;
+                    }
+                    public function getMethod(): string
+                    {
+                        return $_SERVER['REQUEST_METHOD'] ?? 'GET';
+                    }
+                };
+            }
+        });
     }
 
     /**

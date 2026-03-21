@@ -82,38 +82,42 @@ class Router
      */
     private function loadRoutesFromAttributes(RouteCollection $collection): void
     {
-        // Cargar controladores del núcleo (src/Controller)
         $coreControllerDir = $this->rootFolder . '/src/Controller';
         if (is_dir($coreControllerDir)) {
             $this->loadAttributeRoutesFromDirectory($collection, $coreControllerDir, 'FSFramework\\Controller\\');
         }
 
-        // Cargar controladores legacy (controller/)
         $legacyControllerDir = $this->rootFolder . '/controller';
         if (is_dir($legacyControllerDir)) {
-            $legacyRoutes = $this->loadLegacyControllerRoutes($legacyControllerDir);
-            $collection->addCollection($legacyRoutes);
+            $collection->addCollection($this->loadLegacyControllerRoutes($legacyControllerDir));
         }
 
-        // Cargar controladores de plugins
-        $pluginsDir = $this->rootFolder . '/plugins';
-        if (is_dir($pluginsDir) && isset($GLOBALS['plugins'])) {
-            foreach ($GLOBALS['plugins'] as $plugin) {
-                $pluginControllerDir = $pluginsDir . '/' . $plugin . '/controller';
-                if (is_dir($pluginControllerDir)) {
-                    $pluginRoutes = $this->loadLegacyControllerRoutes($pluginControllerDir);
-                    $collection->addCollection($pluginRoutes);
-                }
+        $this->loadPluginRoutes($collection);
+    }
 
-                $pluginModernControllerDir = $pluginsDir . '/' . $plugin . '/Controller';
-                if (is_dir($pluginModernControllerDir)) {
-                    try {
-                        $namespace = 'FSFramework\\Plugins\\' . $plugin . '\\Controller\\';
-                        $this->loadAttributeRoutesFromDirectory($collection, $pluginModernControllerDir, $namespace);
-                    } catch (\Exception $e) {
-                        error_log("Error loading plugin routes: " . $e->getMessage());
-                    }
-                }
+    private function loadPluginRoutes(RouteCollection $collection): void
+    {
+        $pluginsDir = $this->rootFolder . '/plugins';
+        if (!is_dir($pluginsDir) || !isset($GLOBALS['plugins'])) {
+            return;
+        }
+
+        foreach ($GLOBALS['plugins'] as $plugin) {
+            $pluginControllerDir = $pluginsDir . '/' . $plugin . '/controller';
+            if (is_dir($pluginControllerDir)) {
+                $collection->addCollection($this->loadLegacyControllerRoutes($pluginControllerDir));
+            }
+
+            $pluginModernControllerDir = $pluginsDir . '/' . $plugin . '/Controller';
+            if (!is_dir($pluginModernControllerDir)) {
+                continue;
+            }
+
+            try {
+                $namespace = 'FSFramework\\Plugins\\' . $plugin . '\\Controller\\';
+                $this->loadAttributeRoutesFromDirectory($collection, $pluginModernControllerDir, $namespace);
+            } catch (\Exception $e) {
+                error_log("Error loading plugin routes: " . $e->getMessage());
             }
         }
     }
@@ -151,17 +155,29 @@ class Router
     private function loadAttributeRoutesFromClass(RouteCollection $collection, string $className): void
     {
         $reflectionClass = new \ReflectionClass($className);
+        $classConfig = $this->extractClassRouteConfig($reflectionClass);
 
-        // Obtener prefijo de ruta a nivel de clase (si existe)
-        $classPrefix = '';
-        $classNamePrefix = '';
-        $classDefaults = [];
-        $classMethods = [];
-        $classRequirements = [];
-        $classHost = '';
-        $classSchemes = [];
+        foreach ($reflectionClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+            if ($method->class !== $className || str_starts_with($method->getName(), '__')) {
+                continue;
+            }
 
-        // Buscar atributos Route y FSRoute a nivel de clase
+            $this->loadMethodRoutes($collection, $method, $classConfig, $className);
+        }
+    }
+
+    private function extractClassRouteConfig(\ReflectionClass $reflectionClass): array
+    {
+        $config = [
+            'prefix' => '',
+            'namePrefix' => '',
+            'defaults' => [],
+            'methods' => [],
+            'requirements' => [],
+            'host' => '',
+            'schemes' => [],
+        ];
+
         $classAttributes = array_merge(
             $reflectionClass->getAttributes(RouteAttribute::class, \ReflectionAttribute::IS_INSTANCEOF),
             $reflectionClass->getAttributes(\FSFramework\Attribute\FSRoute::class, \ReflectionAttribute::IS_INSTANCEOF)
@@ -169,70 +185,69 @@ class Router
 
         foreach ($classAttributes as $attribute) {
             $routeAttr = $attribute->newInstance();
-            $classPrefix = $routeAttr->getPath() ?? $classPrefix;
-            $classNamePrefix = $routeAttr->getName() ?? $classNamePrefix;
-            $classDefaults = array_merge($classDefaults, $routeAttr->getDefaults());
-            $classMethods = $routeAttr->getMethods() ?: $classMethods;
-            $classRequirements = array_merge($classRequirements, $routeAttr->getRequirements());
-            $classHost = $routeAttr->getHost() ?? $classHost;
-            $classSchemes = $routeAttr->getSchemes() ?: $classSchemes;
+            $config['prefix'] = $routeAttr->getPath() ?? $config['prefix'];
+            $config['namePrefix'] = $routeAttr->getName() ?? $config['namePrefix'];
+            $config['defaults'] = array_merge($config['defaults'], $routeAttr->getDefaults());
+            $config['methods'] = $routeAttr->getMethods() ?: $config['methods'];
+            $config['requirements'] = array_merge($config['requirements'], $routeAttr->getRequirements());
+            $config['host'] = $routeAttr->getHost() ?? $config['host'];
+            $config['schemes'] = $routeAttr->getSchemes() ?: $config['schemes'];
         }
 
-        // Procesar métodos de la clase
-        foreach ($reflectionClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-            // Ignorar métodos heredados de clases padre o métodos mágicos
-            if ($method->class !== $className || str_starts_with($method->getName(), '__')) {
-                continue;
-            }
+        return $config;
+    }
 
-            // Buscar atributos Route y FSRoute en los métodos
-            $methodAttributes = array_merge(
-                $method->getAttributes(RouteAttribute::class, \ReflectionAttribute::IS_INSTANCEOF),
-                $method->getAttributes(\FSFramework\Attribute\FSRoute::class, \ReflectionAttribute::IS_INSTANCEOF)
-            );
+    private function loadMethodRoutes(RouteCollection $collection, \ReflectionMethod $method, array $classConfig, string $className): void
+    {
+        $methodAttributes = array_merge(
+            $method->getAttributes(RouteAttribute::class, \ReflectionAttribute::IS_INSTANCEOF),
+            $method->getAttributes(\FSFramework\Attribute\FSRoute::class, \ReflectionAttribute::IS_INSTANCEOF)
+        );
 
-            foreach ($methodAttributes as $attribute) {
-                $routeAttr = $attribute->newInstance();
-
-                // Construir path completo (prefijo de clase + path del método)
-                $methodPath = $routeAttr->getPath() ?? '';
-                $path = $classPrefix . $methodPath;
-
-                // Construir nombre de ruta (prefijo de clase + nombre del método)
-                $methodName = $routeAttr->getName();
-                if ($classNamePrefix && $methodName) {
-                    $routeName = $classNamePrefix . $methodName;
-                } elseif ($methodName) {
-                    $routeName = $methodName;
-                } else {
-                    $routeName = $this->generateRouteName($className, $method->getName());
-                }
-
-                $defaults = array_merge($classDefaults, $routeAttr->getDefaults(), [
-                    '_controller' => $className . '::' . $method->getName()
-                ]);
-
-                $requirements = array_merge($classRequirements, $routeAttr->getRequirements());
-                $options = $routeAttr->getOptions();
-                $host = $routeAttr->getHost() ?? $classHost;
-                $schemes = $routeAttr->getSchemes() ?: $classSchemes;
-                $methods = $routeAttr->getMethods() ?: $classMethods ?: [];
-                $condition = $routeAttr->getCondition() ?? '';
-
-                $route = new Route(
-                    $path,
-                    $defaults,
-                    $requirements,
-                    $options,
-                    $host ?: '',
-                    $schemes,
-                    $methods,
-                    $condition
-                );
-
-                $collection->add($routeName, $route);
-            }
+        foreach ($methodAttributes as $attribute) {
+            $this->addRouteFromAttribute($collection, $attribute, $classConfig, $className, $method->getName());
         }
+    }
+
+    private function addRouteFromAttribute(
+        RouteCollection $collection,
+        \ReflectionAttribute $attribute,
+        array $classConfig,
+        string $className,
+        string $methodName
+    ): void {
+        $routeAttr = $attribute->newInstance();
+
+        $path = $classConfig['prefix'] . ($routeAttr->getPath() ?? '');
+        $routeName = $this->resolveRouteName($routeAttr, $classConfig, $className, $methodName);
+
+        $defaults = array_merge($classConfig['defaults'], $routeAttr->getDefaults(), [
+            '_controller' => $className . '::' . $methodName,
+        ]);
+
+        $route = new Route(
+            $path,
+            $defaults,
+            array_merge($classConfig['requirements'], $routeAttr->getRequirements()),
+            $routeAttr->getOptions(),
+            $routeAttr->getHost() ?? $classConfig['host'] ?: '',
+            $routeAttr->getSchemes() ?: $classConfig['schemes'],
+            $routeAttr->getMethods() ?: $classConfig['methods'] ?: [],
+            $routeAttr->getCondition() ?? ''
+        );
+
+        $collection->add($routeName, $route);
+    }
+
+    private function resolveRouteName(mixed $routeAttr, array $classConfig, string $className, string $methodName): string
+    {
+        $attrName = $routeAttr->getName();
+
+        if ($classConfig['namePrefix'] && $attrName) {
+            return $classConfig['namePrefix'] . $attrName;
+        }
+
+        return $attrName ?: $this->generateRouteName($className, $methodName);
     }
 
     /**
@@ -280,46 +295,54 @@ class Router
         $matcher = new UrlMatcher($this->routes, $this->context);
 
         try {
-            $pathInfo = $request->getPathInfo();
-            $parameters = $matcher->match($pathInfo);
+            $parameters = $matcher->match($request->getPathInfo());
             $controller = $parameters['_controller'];
-            $routeName = $parameters['_route'];
             unset($parameters['_controller'], $parameters['_route']);
 
-            // Manejo de controladores legacy
-            if (is_string($controller) && class_exists($controller)) {
-                // Si es un controlador legacy (hereda de fs_controller)
-                if (is_subclass_of($controller, 'fs_controller')) {
-                    if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
-                        \FSFramework\Plugins\legacy_support\LegacyUsageTracker::incrementLegacyRoute($controller, 'legacy_controller');
-                    }
-                    return null; // Dejar que el index.php legacy lo maneje
-                }
-
-                // Controlador moderno
-                $instance = new $controller();
-                if (method_exists($instance, 'handle')) {
-                    return $instance->handle($request, ...array_values($parameters));
-                } elseif (method_exists($instance, 'run')) {
-                    $instance->run();
-                    if (method_exists($instance, 'response') && $instance->response() instanceof Response) {
-                        return $instance->response();
-                    }
-                    return null;
-                }
-            }
-
-            if (is_callable($controller)) {
-                return $controller($request, ...array_values($parameters));
-            }
-
-        } catch (ResourceNotFoundException $e) {
+            return $this->dispatchController($controller, $request, $parameters);
+        } catch (ResourceNotFoundException) {
             return null;
-        } catch (MethodNotAllowedException $e) {
+        } catch (MethodNotAllowedException) {
             return new Response('Method Not Allowed', 405);
         } catch (\Throwable $e) {
             error_log('Router Error: ' . $e->getMessage());
             return new Response('Internal Server Error', 500);
+        }
+    }
+
+    private function dispatchController(mixed $controller, Request $request, array $parameters): ?Response
+    {
+        if (is_string($controller) && class_exists($controller)) {
+            return $this->dispatchClassController($controller, $request, $parameters);
+        }
+
+        if (is_callable($controller)) {
+            return $controller($request, ...array_values($parameters));
+        }
+
+        return null;
+    }
+
+    private function dispatchClassController(string $controller, Request $request, array $parameters): ?Response
+    {
+        if (is_subclass_of($controller, 'fs_controller')) {
+            if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
+                \FSFramework\Plugins\legacy_support\LegacyUsageTracker::incrementLegacyRoute($controller, 'legacy_controller');
+            }
+            return null;
+        }
+
+        $instance = new $controller();
+
+        if (method_exists($instance, 'handle')) {
+            return $instance->handle($request, ...array_values($parameters));
+        }
+
+        if (method_exists($instance, 'run')) {
+            $instance->run();
+            return (method_exists($instance, 'response') && $instance->response() instanceof Response)
+                ? $instance->response()
+                : null;
         }
 
         return null;

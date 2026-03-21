@@ -46,48 +46,53 @@ class ResourceTransformer
         $metadata = $this->getMetadata(get_class($model));
         $result = [];
 
-        // Obtener propiedades públicas del modelo
         $reflection = new ReflectionClass($model);
         $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
 
         foreach ($properties as $property) {
             $name = $property->getName();
 
-            // Saltar campos ocultos
-            if (in_array($name, $metadata['hidden'], true) || in_array($name, $hiddenFields, true)) {
+            if (!$this->shouldIncludeProperty($name, $metadata, $hiddenFields)) {
                 continue;
             }
 
-            // Verificar ApiField
-            if (isset($metadata['fields'][$name])) {
-                $fieldAttr = $metadata['fields'][$name];
-                if (!$fieldAttr->readable) {
-                    continue;
-                }
-                // Usar nombre alternativo si se especificó
-                $outputName = $fieldAttr->name ?? $name;
-            } else {
-                $outputName = $name;
-            }
+            $outputName = isset($metadata['fields'][$name])
+                ? ($metadata['fields'][$name]->name ?? $name)
+                : $name;
 
-            // Obtener valor
-            $value = $property->getValue($model);
-
-            // Transformar valor según tipo
-            $result[$outputName] = $this->transformValue($value);
+            $result[$outputName] = $this->transformValue($property->getValue($model));
         }
 
-        // Si el modelo tiene método toArray(), combinar resultados
-        if (method_exists($model, 'toArray')) {
-            $modelArray = $model->toArray();
-            foreach ($modelArray as $key => $value) {
-                if (!in_array($key, $metadata['hidden'], true) && !isset($result[$key])) {
-                    $result[$key] = $this->transformValue($value);
-                }
-            }
-        }
+        $this->mergeModelArray($model, $metadata, $result, $hiddenFields);
 
         return $result;
+    }
+
+    private function shouldIncludeProperty(string $name, array $metadata, array $hiddenFields): bool
+    {
+        if (in_array($name, $metadata['hidden'], true) || in_array($name, $hiddenFields, true)) {
+            return false;
+        }
+
+        if (isset($metadata['fields'][$name]) && !$metadata['fields'][$name]->readable) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function mergeModelArray(object $model, array $metadata, array &$result, array $hiddenFields = []): void
+    {
+        if (!method_exists($model, 'toArray')) {
+            return;
+        }
+
+        foreach ($model->toArray() as $key => $value) {
+            if (!$this->shouldIncludeProperty($key, $metadata, $hiddenFields) || isset($result[$key])) {
+                continue;
+            }
+            $result[$key] = $this->transformValue($value);
+        }
     }
 
     /**

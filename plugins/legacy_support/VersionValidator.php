@@ -81,43 +81,44 @@ class VersionValidator
      */
     public static function getDependentPlugins(): array
     {
-        $dependents = [];
         $pluginsDir = FS_FOLDER . '/plugins';
-
         if (!is_dir($pluginsDir)) {
-            return $dependents;
+            return [];
         }
 
+        $dependents = [];
         foreach (scandir($pluginsDir) as $pluginName) {
-            if ($pluginName === '.' || $pluginName === '..' || $pluginName === 'legacy_support') {
-                continue;
-            }
-
-            $pluginPath = $pluginsDir . '/' . $pluginName;
-            if (!is_dir($pluginPath)) {
-                continue;
-            }
-
-            // Check if it's a FS2017 plugin (has facturascripts.ini with min_version < 2025)
-            $fsIni = $pluginPath . '/facturascripts.ini';
-            $fsfIni = $pluginPath . '/fsframework.ini';
-
-            // Skip if it has fsframework.ini (native FSFramework plugin)
-            if (file_exists($fsfIni)) {
-                continue;
-            }
-
-            if (file_exists($fsIni)) {
-                $iniData = parse_ini_file($fsIni);
-                $minVersion = isset($iniData['min_version']) ? (float) $iniData['min_version'] : 0;
-
-                // FS2017 plugins have min_version < 2025
-                if ($minVersion > 0 && $minVersion < 2025) {
-                    $dependents[] = $pluginName;
-                }
+            if (self::isFs2017Dependent($pluginsDir, $pluginName)) {
+                $dependents[] = $pluginName;
             }
         }
 
         return $dependents;
+    }
+
+    private static function isFs2017Dependent(string $pluginsDir, string $pluginName): bool
+    {
+        if ($pluginName === '.' || $pluginName === '..' || $pluginName === 'legacy_support') {
+            return false;
+        }
+
+        $pluginPath = $pluginsDir . '/' . $pluginName;
+        if (!is_dir($pluginPath)) {
+            return false;
+        }
+
+        if (file_exists($pluginPath . '/fsframework.ini')) {
+            return false;
+        }
+
+        $fsIni = $pluginPath . '/facturascripts.ini';
+        if (!file_exists($fsIni)) {
+            return false;
+        }
+
+        $iniData = parse_ini_file($fsIni);
+        $minVersion = isset($iniData['min_version']) ? (float) $iniData['min_version'] : 0;
+
+        return $minVersion > 0 && $minVersion < 2025;
     }
 }

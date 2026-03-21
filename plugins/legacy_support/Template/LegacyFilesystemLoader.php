@@ -32,6 +32,10 @@ class LegacyFilesystemLoader extends FilesystemLoader
      * This provides backward compatibility when templates are renamed or consolidated.
      * Format: 'legacy_name' => 'current_name' (without extension)
      */
+    private const EXT_HTML = '.html';
+    private const EXT_TWIG = '.html.twig';
+    private const VIEW_PATH = '/view/';
+
     private const TEMPLATE_ALIASES = [
         'footer2' => 'footer',
         'footer2.html' => 'footer.html.twig',
@@ -68,10 +72,10 @@ class LegacyFilesystemLoader extends FilesystemLoader
         }
 
         // Check without extension for .html files
-        if (str_ends_with($name, '.html') && !str_ends_with($name, '.html.twig')) {
+        if (str_ends_with($name, self::EXT_HTML) && !str_ends_with($name, self::EXT_TWIG)) {
             $baseName = substr($name, 0, -5); // Remove .html
             if (isset(self::TEMPLATE_ALIASES[$baseName])) {
-                return self::TEMPLATE_ALIASES[$baseName] . '.html.twig';
+                return self::TEMPLATE_ALIASES[$baseName] . self::EXT_TWIG;
             }
         }
 
@@ -86,32 +90,48 @@ class LegacyFilesystemLoader extends FilesystemLoader
      */
     private function resolveTemplateName(string $name): string
     {
-        // 0. Apply legacy template aliases
         $name = $this->resolveTemplateAlias($name);
 
-        // 1. HTML -> Twig Fallback
-        if (str_ends_with($name, '.html') && !str_ends_with($name, '.html.twig')) {
-            if (!$this->innerLoader->exists($name)) {
-                $twigName = $name . '.twig';
-                if ($this->innerLoader->exists($twigName)) {
-                    return $twigName;
-                }
-            }
+        if ($this->isLegacyHtml($name)) {
+            return $this->resolveHtmlToTwig($name);
         }
 
-        // 2. Twig -> HTML Fallback (Core cleanup support)
-        if (str_ends_with($name, '.html.twig')) {
-            if (!$this->innerLoader->exists($name)) {
-                $htmlName = substr($name, 0, -5); // remove .twig
-                if ($this->innerLoader->exists($htmlName)) {
-                    return $htmlName;
-                }
+        if (str_ends_with($name, self::EXT_TWIG)) {
+            return $this->resolveTwigToHtml($name);
+        }
 
-                // Fallback for root views (some environments fail innerLoader check)
-                if (defined('FS_FOLDER') && file_exists(FS_FOLDER . '/view/' . $htmlName)) {
-                    return $htmlName;
-                }
-            }
+        return $name;
+    }
+
+    private function isLegacyHtml(string $name): bool
+    {
+        return str_ends_with($name, self::EXT_HTML) && !str_ends_with($name, self::EXT_TWIG);
+    }
+
+    private function resolveHtmlToTwig(string $name): string
+    {
+        if ($this->innerLoader->exists($name)) {
+            return $name;
+        }
+
+        $twigName = $name . '.twig';
+        return $this->innerLoader->exists($twigName) ? $twigName : $name;
+    }
+
+    private function resolveTwigToHtml(string $name): string
+    {
+        if ($this->innerLoader->exists($name)) {
+            return $name;
+        }
+
+        $htmlName = substr($name, 0, -5);
+
+        if ($this->innerLoader->exists($htmlName)) {
+            return $htmlName;
+        }
+
+        if (defined('FS_FOLDER') && file_exists(FS_FOLDER . self::VIEW_PATH . $htmlName)) {
+            return $htmlName;
         }
 
         return $name;
@@ -125,8 +145,8 @@ class LegacyFilesystemLoader extends FilesystemLoader
             $context = $this->innerLoader->getSourceContext($resolvedName);
         } catch (\Twig\Error\LoaderError $e) {
             // Fail-safe for root views if inner loader fails
-            if (str_ends_with($resolvedName, '.html') && defined('FS_FOLDER')) {
-                $path = FS_FOLDER . '/view/' . $resolvedName;
+            if (str_ends_with($resolvedName, self::EXT_HTML) && defined('FS_FOLDER')) {
+                $path = FS_FOLDER . self::VIEW_PATH . $resolvedName;
                 if (file_exists($path)) {
                     return new Source(
                         RainToTwig::translate(file_get_contents($path)),
@@ -140,7 +160,7 @@ class LegacyFilesystemLoader extends FilesystemLoader
 
         // Only translate legacy .html files (RainTPL syntax)
         // Native .html.twig files are used as-is
-        if (str_ends_with($resolvedName, '.html') && !str_ends_with($resolvedName, '.html.twig')) {
+        if (str_ends_with($resolvedName, self::EXT_HTML) && !str_ends_with($resolvedName, self::EXT_TWIG)) {
             LegacyUsageTracker::incrementLegacyComponent('legacy.template_translation', $resolvedName);
             return new Source(
                 RainToTwig::translate($context->getCode()),
@@ -157,15 +177,15 @@ class LegacyFilesystemLoader extends FilesystemLoader
         $resolvedName = $this->resolveTemplateName($name);
 
         // Fail-safe for root views
-        if (str_ends_with($resolvedName, '.html') && defined('FS_FOLDER')) {
-            $path = FS_FOLDER . '/view/' . $resolvedName;
+        if (str_ends_with($resolvedName, self::EXT_HTML) && defined('FS_FOLDER')) {
+            $path = FS_FOLDER . self::VIEW_PATH . $resolvedName;
             if (file_exists($path)) {
                 return 'legacy_root_' . $path;
             }
         }
 
         // Prefix cache key with 'legacy_' for translated templates
-        if (str_ends_with($resolvedName, '.html') && !str_ends_with($resolvedName, '.html.twig')) {
+        if (str_ends_with($resolvedName, self::EXT_HTML) && !str_ends_with($resolvedName, self::EXT_TWIG)) {
             LegacyUsageTracker::incrementLegacyComponent('legacy.template_translation', $resolvedName);
             return 'legacy_' . $this->innerLoader->getCacheKey($resolvedName);
         }
@@ -177,8 +197,8 @@ class LegacyFilesystemLoader extends FilesystemLoader
         $resolvedName = $this->resolveTemplateName($name);
 
         // Fail-safe for root views
-        if (str_ends_with($resolvedName, '.html') && defined('FS_FOLDER')) {
-            $path = FS_FOLDER . '/view/' . $resolvedName;
+        if (str_ends_with($resolvedName, self::EXT_HTML) && defined('FS_FOLDER')) {
+            $path = FS_FOLDER . self::VIEW_PATH . $resolvedName;
             if (file_exists($path)) {
                 return filemtime($path) <= $time;
             }
@@ -198,19 +218,19 @@ class LegacyFilesystemLoader extends FilesystemLoader
         }
 
         // If it's a .html file, try .html.twig fallback
-        if (str_ends_with($resolvedName, '.html') && !str_ends_with($resolvedName, '.html.twig')) {
+        if (str_ends_with($resolvedName, self::EXT_HTML) && !str_ends_with($resolvedName, self::EXT_TWIG)) {
             LegacyUsageTracker::incrementLegacyComponent('legacy.template_translation', $resolvedName);
             return $this->innerLoader->exists($resolvedName . '.twig');
         }
 
         // If it's a .html.twig file, try .html fallback (Core request)
-        if (str_ends_with($resolvedName, '.html.twig')) {
+        if (str_ends_with($resolvedName, self::EXT_TWIG)) {
             $htmlName = substr($resolvedName, 0, -5);
             if ($this->innerLoader->exists($htmlName)) {
                 return true;
             }
             // Fail-safe for root views
-            return defined('FS_FOLDER') && file_exists(FS_FOLDER . '/view/' . $htmlName);
+            return defined('FS_FOLDER') && file_exists(FS_FOLDER . self::VIEW_PATH . $htmlName);
         }
 
         return false;

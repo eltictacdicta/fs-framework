@@ -28,25 +28,39 @@ class RainToTwig
      */
     public static function translate(string $content): string
     {
-        // 0. Normalize HTML entities inside RainTPL tags
-        // Some templates use &quot; instead of " inside RainTPL syntax
-        $content = preg_replace_callback('/\{([a-z]+)=&quot;(.+?)&quot;\}/', function ($matches) {
+        $content = self::normalizeEntities($content);
+        $content = self::translateComments($content);
+        $content = self::translateIncludes($content);
+        $content = self::translateLoops($content);
+        $content = self::translateConditionals($content);
+        $content = self::translateVariables($content);
+        $content = self::translateFunctionTags($content);
+        $content = self::translateConstants($content);
+
+        return $content;
+    }
+
+    private static function normalizeEntities(string $content): string
+    {
+        return preg_replace_callback('/\{([a-z]+)=&quot;(.+?)&quot;\}/', function ($matches) {
             $tag = $matches[1];
             $value = html_entity_decode($matches[2], ENT_QUOTES, 'UTF-8');
             return '{' . $tag . '="' . $value . '"}';
         }, $content);
-        
-        // 1. Comments
+    }
+
+    private static function translateComments(string $content): string
+    {
         $content = preg_replace('/{\*(.*?)\*}/s', '{# $1 #}', $content);
-        $content = preg_replace('/{ignore}(.*? ){\/ignore}/s', '{# $1 #}', $content);
+        $content = preg_replace('/{ignore}(.*?){\/ignore}/s', '{# $1 #}', $content);
+        $content = preg_replace('/{noparse}(.*?){\/noparse}/s', '{% verbatim %}$1{% endverbatim %}', $content);
 
-        // 2. Noparse (verbatim)
-        $content = preg_replace('/{noparse}(.*? ){\/noparse}/s', '{% verbatim %}$1{% endverbatim %}', $content);
+        return $content;
+    }
 
-        // 3. Includes
-        // {include="header"} -> {{ include('header.html') }}
-        // {include="$var"} -> {{ include(var) }}
-        $content = preg_replace_callback('/{include="([^"]+)"}/', function ($matches) {
+    private static function translateIncludes(string $content): string
+    {
+        return preg_replace_callback('/{include="([^"]+)"}/', function ($matches) {
             $file = $matches[1];
             if (str_starts_with($file, '$')) {
                 $expr = self::translateExpression($file);
@@ -58,70 +72,73 @@ class RainToTwig
             }
             return "{{ include('$file') }}";
         }, $content);
+    }
 
-        // 4. Loops
-        // We need to track nesting level to support legacy variable naming (value1, value2, etc.)
+    private static function translateLoops(string $content): string
+    {
         $loopLevel = 0;
         $content = preg_replace_callback(
             '/(?:{loop="(?<variable>\${0,1}[^"]*)"(?: as (?<key>\$.*?)(?: => (?<value>\$.*?)){0,1}){0,1}})|(?<close>{\/loop})/',
             function ($matches) use (&$loopLevel) {
-                // Formatting helper
                 if (!empty($matches['close'])) {
                     $loopLevel--;
                     return "{% endfor %}";
                 }
 
-                // It's a loop start
                 $loopLevel++;
                 $var = $matches['variable'];
-                
-                // Check for C-style for loop: {loop="$i=1;$i<=N;$i++"}
-                // Pattern: $var=start;$var<=end;$var++ or $var<end
-                // Example: $page_num=1;$page_num<=$fsc->total_pages;$page_num++
-                if (preg_match('/^\$(\w+)\s*=\s*(\d+)\s*;\s*\$\1\s*(<=?)\s*([^;]+)\s*;\s*\$\1\+\+$/', $var, $forMatch)) {
-                    $loopVar = $forMatch[1];
-                    $start = $forMatch[2];
-                    $operator = $forMatch[3];
-                    $endExpr = self::translateExpression(trim($forMatch[4]));
-                    
-                    // For <= we use the value directly, for < we subtract 1
-                    if ($operator === '<=') {
-                        return "{% for $loopVar in range($start, $endExpr) %}";
-                    } else {
-                        // < means we need end - 1
-                        return "{% for $loopVar in range($start, $endExpr - 1) %}";
-                    }
+
+                $cStyleResult = self::tryCStyleLoop($var);
+                if ($cStyleResult !== null) {
+                    return $cStyleResult;
                 }
-                
+
                 $var = self::translateExpression($var);
 
-                // Explicit syntax: {loop="$list" as $key => $val}
                 if (!empty($matches['key']) && !empty($matches['value'])) {
                     $key = str_replace('$', '', $matches['key']);
                     $val = str_replace('$', '', $matches['value']);
                     return "{% for $key, $val in $var %}";
-                } elseif (!empty($matches['key'])) {
-                    // Explicit syntax: {loop="$list" as $val}
+                }
+
+                if (!empty($matches['key'])) {
                     $val = str_replace('$', '', $matches['key']);
                     return "{% for $val in $var %}";
                 }
 
-                // Implicit syntax: {loop="$list"}
-                // Generate legacy variable names based on depth: value1, value2...
                 $val = "value" . $loopLevel;
                 $key = "key" . $loopLevel;
-
-                // We define BOTH the numbered variables (value1) AND the standard ones (value)
                 return "{% for $key, $val in $var %}{% set value = $val %}{% set key = $key %}";
             },
             $content
         );
 
-        $content = str_replace('{break}', '{% break %}', $content); // Requires Twig Switch/Break extension usually
+        $content = str_replace('{break}', '{% break %}', $content);
         $content = str_replace('{continue}', '{% continue %}', $content);
 
-        // 5. Conditions
-        // {if="$a == 1"} -> {% if a == 1 %}
+        return $content;
+    }
+
+    private static function tryCStyleLoop(string $var): ?string
+    {
+        if (!preg_match('/^\$(\w+)\s*=\s*(\d+)\s*;\s*\$\1\s*(<=?)\s*([^;]+)\s*;\s*\$\1\+\+$/', $var, $forMatch)) {
+            return null;
+        }
+
+        $loopVar = $forMatch[1];
+        $start = $forMatch[2];
+        $operator = $forMatch[3];
+        $endExpr = self::translateExpression(trim($forMatch[4]));
+
+        if ($operator === '<=') {
+            return "{% for $loopVar in range($start, $endExpr) %}";
+        }
+
+        return "{% for $loopVar in range($start, $endExpr - 1) %}";
+    }
+
+    private static function translateConditionals(string $content): string
+    {
         $content = preg_replace_callback('/{if(?: condition)?="([^"]*)"}/', function ($matches) {
             $cond = self::translateExpression($matches[1]);
             return "{% if $cond %}";
@@ -133,122 +150,92 @@ class RainToTwig
         $content = str_replace('{else}', '{% else %}', $content);
         $content = str_replace('{/if}', '{% endif %}', $content);
 
-        // 6. Variables and Functions
-        // {$var} -> {{ var }}
-        // {$fsc->url()} -> {{ fsc.url() }}
-        // {function="name(args)"} -> {{ name(args) }}
-        // {$var=$val} -> {% set var = val %}
-        // {$var+=$val} -> {% set var = var + val %}
-        // {$var|filter} -> {{ var|filter }} (with filter translation)
-        $content = preg_replace_callback('/{\$([a-zA-Z_][^{}]*)}/', function ($matches) {
+        return $content;
+    }
+
+    private static function translateVariables(string $content): string
+    {
+        return preg_replace_callback('/{\$([a-zA-Z_][^{}]*)}/', function ($matches) {
             $expr = self::translateExpression('$' . $matches[1]);
 
-            // Check for compound assignment: var += value, var -= value, etc.
-            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*\+=\s*(.*)$/', $expr, $compoundMatch)) {
-                $var = $compoundMatch[1];
-                $val = $compoundMatch[2];
-                return "{% set $var = $var + $val %}";
-            }
-            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*-=\s*(.*)$/', $expr, $compoundMatch)) {
-                $var = $compoundMatch[1];
-                $val = $compoundMatch[2];
-                return "{% set $var = $var - $val %}";
-            }
-            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*\*=\s*(.*)$/', $expr, $compoundMatch)) {
-                $var = $compoundMatch[1];
-                $val = $compoundMatch[2];
-                return "{% set $var = $var * $val %}";
-            }
-            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*\/=\s*(.*)$/', $expr, $compoundMatch)) {
-                $var = $compoundMatch[1];
-                $val = $compoundMatch[2];
-                return "{% set $var = $var / $val %}";
-            }
-            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*\.=\s*(.*)$/', $expr, $compoundMatch)) {
-                // .= is string concatenation in PHP, use ~ in Twig
-                $var = $compoundMatch[1];
-                $val = $compoundMatch[2];
-                return "{% set $var = $var ~ $val %}";
+            $assignment = self::tryCompoundAssignment($expr);
+            if ($assignment !== null) {
+                return $assignment;
             }
 
-            // Check for simple assignment: var = value
             if (preg_match('/^([a-zA-Z0-9_\.]+)\s*=\s*(.*)$/', $expr, $assignMatch)) {
-                $var = $assignMatch[1];
-                $val = $assignMatch[2];
-                return "{% set $var = $val %}";
+                return "{% set {$assignMatch[1]} = {$assignMatch[2]} %}";
             }
 
-            // Translate RainTPL filters to Twig filters
             $expr = self::translateFilters($expr);
-
             return "{{ $expr|raw }}";
         }, $content);
+    }
 
-        // Handle {function="..."} - supports both plain functions and method calls
-        // Pattern 1: {function="funcName(args)"} - plain function
-        // Pattern 2: {function="$obj->method(args)"} - method call on object
-        $content = preg_replace_callback('/{function="([^"]+)"}/', function ($matches) {
+    private static function tryCompoundAssignment(string $expr): ?string
+    {
+        $operators = [
+            '+=' => '+',
+            '-=' => '-',
+            '*=' => '*',
+            '/=' => '/',
+            '.=' => '~',
+        ];
+
+        foreach ($operators as $compound => $twig) {
+            $escaped = preg_quote($compound, '/');
+            if (preg_match('/^([a-zA-Z0-9_\.]+)\s*' . $escaped . '\s*(.*)$/', $expr, $m)) {
+                return "{% set {$m[1]} = {$m[1]} $twig {$m[2]} %}";
+            }
+        }
+
+        return null;
+    }
+
+    private static function translateFunctionTags(string $content): string
+    {
+        return preg_replace_callback('/{function="([^"]+)"}/', function ($matches) {
             $expr = $matches[1];
-            
-            // Check if it's a method call: $obj->method(args)
+
             if (preg_match('/^\$([a-zA-Z_][a-zA-Z_0-9]*)((?:->[a-zA-Z_][a-zA-Z_0-9]*)+)\s*\(([^)]*)\)$/', $expr, $methodMatch)) {
                 $obj = $methodMatch[1];
                 $methodChain = str_replace('->', '.', $methodMatch[2]);
                 $args = self::translateExpression($methodMatch[3]);
                 return "{{ {$obj}{$methodChain}({$args})|raw }}";
             }
-            
-            // Plain function call: funcName(args)
+
             if (preg_match('/^([a-zA-Z_][a-zA-Z_0-9]*)\s*\(([^)]*)\)$/', $expr, $funcMatch)) {
-                $func = $funcMatch[1];
-                $args = $funcMatch[2];
-                $translatedArgs = self::translateExpression($args);
-                
-                // Special handling for PHP functions that have Twig equivalents
-                // addslashes() -> escape('js') filter (escapes for JavaScript strings)
-                if ($func === 'addslashes') {
-                    return "{{ {$translatedArgs}|escape('js') }}";
-                }
-                
-                // htmlspecialchars() -> escape filter
-                if ($func === 'htmlspecialchars') {
-                    return "{{ {$translatedArgs}|escape }}";
-                }
-                
-                // strip_tags() -> striptags filter
-                if ($func === 'strip_tags') {
-                    return "{{ {$translatedArgs}|striptags }}";
-                }
-                
-                // nl2br() -> nl2br filter
-                if ($func === 'nl2br') {
-                    return "{{ {$translatedArgs}|nl2br }}";
-                }
-                
-                // json_encode() -> json_encode filter
-                if ($func === 'json_encode') {
-                    return "{{ {$translatedArgs}|json_encode|raw }}";
-                }
-                
-                // urlencode() -> url_encode filter
-                if ($func === 'urlencode') {
-                    return "{{ {$translatedArgs}|url_encode }}";
-                }
-                
-                // Default: call function as-is
-                return "{{ {$func}({$translatedArgs})|raw }}";
+                return self::translatePhpFunction($funcMatch[1], $funcMatch[2]);
             }
-            
-            // Fallback: translate the entire expression as-is
+
             $translatedExpr = self::translateExpression($expr);
             return "{{ ({$translatedExpr})|raw }}";
         }, $content);
+    }
 
-        // 7. Constants
-        // {#CONST#} -> {{ constant('CONST') }}
-        $content = preg_replace('/{#([a-zA-Z_][a-zA-Z0-9_]*)#{0,1}}/', "{{ constant('$1') }}", $content);
+    private static function translatePhpFunction(string $func, string $rawArgs): string
+    {
+        $translatedArgs = self::translateExpression($rawArgs);
 
-        return $content;
+        $filterMap = [
+            'addslashes'       => "{{ {ARG}|escape('js') }}",
+            'htmlspecialchars' => "{{ {ARG}|escape }}",
+            'strip_tags'       => "{{ {ARG}|striptags }}",
+            'nl2br'            => "{{ {ARG}|nl2br }}",
+            'json_encode'      => "{{ {ARG}|json_encode|raw }}",
+            'urlencode'        => "{{ {ARG}|url_encode }}",
+        ];
+
+        if (isset($filterMap[$func])) {
+            return str_replace('{ARG}', $translatedArgs, $filterMap[$func]);
+        }
+
+        return "{{ {$func}({$translatedArgs})|raw }}";
+    }
+
+    private static function translateConstants(string $content): string
+    {
+        return preg_replace('/{#([a-zA-Z_][a-zA-Z0-9_]*)#{0,1}}/', "{{ constant('$1') }}", $content);
     }
 
     /**

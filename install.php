@@ -310,11 +310,12 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
     <link rel="stylesheet" href="view/css/font-awesome.min.css" />
     <?php
     // Cargar estilos de AdminLTE si está disponible (tema por defecto)
+    $nl = "\n        ";
     if (file_exists('themes/AdminLTE/css/AdminLTE.min.css')) {
-        echo '<link rel="stylesheet" href="themes/AdminLTE/css/AdminLTE.min.css" />' . "\n        ";
+        echo '<link rel="stylesheet" href="themes/AdminLTE/css/AdminLTE.min.css" />' . $nl;
     }
     if (file_exists('themes/AdminLTE/css/skins/skin-blue.min.css')) {
-        echo '<link rel="stylesheet" href="themes/AdminLTE/css/skins/skin-blue.min.css" />' . "\n        ";
+        echo '<link rel="stylesheet" href="themes/AdminLTE/css/skins/skin-blue.min.css" />' . $nl;
     }
     ?>
     <link rel="stylesheet" href="view/css/datepicker.css" />
@@ -322,7 +323,7 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
     <?php
     // Estilos adicionales de AdminLTE
     if (file_exists('themes/AdminLTE/css/estilo.css')) {
-        echo '<link rel="stylesheet" href="themes/AdminLTE/css/estilo.css" />' . "\n        ";
+        echo '<link rel="stylesheet" href="themes/AdminLTE/css/estilo.css" />' . $nl;
     }
     ?>
     <!-- Scripts JavaScript -->
@@ -333,10 +334,10 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
     <?php
     // Scripts de AdminLTE si están disponibles
     if (file_exists('themes/AdminLTE/js/jquery.slimscroll.min.js')) {
-        echo '<script type="text/javascript" src="themes/AdminLTE/js/jquery.slimscroll.min.js"></script>' . "\n        ";
+        echo '<script type="text/javascript" src="themes/AdminLTE/js/jquery.slimscroll.min.js"></script>' . $nl;
     }
     if (file_exists('themes/AdminLTE/js/adminlte.min.js')) {
-        echo '<script type="text/javascript" src="themes/AdminLTE/js/adminlte.min.js"></script>' . "\n        ";
+        echo '<script type="text/javascript" src="themes/AdminLTE/js/adminlte.min.js"></script>' . $nl;
     }
     ?>
     <script type="text/javascript" src="view/js/base.js"></script>

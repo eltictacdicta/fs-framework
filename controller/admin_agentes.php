@@ -53,82 +53,81 @@ class admin_agentes extends fs_controller
 
     private function save_agente()
     {
-        $agente_data = array(
-            'codagente' => filter_input(INPUT_POST, 'codagente'),
-            'nombre' => filter_input(INPUT_POST, 'nombre'),
-            'apellidos' => filter_input(INPUT_POST, 'apellidos'),
-            'dnicif' => filter_input(INPUT_POST, 'dnicif'),
-            'email' => filter_input(INPUT_POST, 'email'),
-            'telefono' => filter_input(INPUT_POST, 'telefono'),
-            'codpostal' => filter_input(INPUT_POST, 'codpostal'),
-            'provincia' => filter_input(INPUT_POST, 'provincia'),
-            'ciudad' => filter_input(INPUT_POST, 'ciudad'),
-            'direccion' => filter_input(INPUT_POST, 'direccion'),
-            'seg_social' => filter_input(INPUT_POST, 'seg_social'),
-            'cargo' => filter_input(INPUT_POST, 'cargo'),
-            'banco' => filter_input(INPUT_POST, 'banco'),
-            'f_nacimiento' => filter_input(INPUT_POST, 'f_nacimiento'),
-            'f_alta' => filter_input(INPUT_POST, 'f_alta'),
-            'f_baja' => filter_input(INPUT_POST, 'f_baja'),
-            'porcomision' => floatval(filter_input(INPUT_POST, 'porcomision'))
-        );
+        $data = $this->collectAgentFormData();
 
         if (filter_input(INPUT_POST, 'codagente') == '') {
-            /// Nuevo agente
-            $agente_obj = new agente();
-            $agente_obj->nombre = $agente_data['nombre'];
-            $agente_obj->apellidos = $agente_data['apellidos'];
-            $agente_obj->dnicif = $agente_data['dnicif'];
-            $agente_obj->email = $agente_data['email'];
-            $agente_obj->telefono = $agente_data['telefono'];
-            $agente_obj->codpostal = $agente_data['codpostal'];
-            $agente_obj->provincia = $agente_data['provincia'];
-            $agente_obj->ciudad = $agente_data['ciudad'];
-            $agente_obj->direccion = $agente_data['direccion'];
-            $agente_obj->seg_social = $agente_data['seg_social'];
-            $agente_obj->cargo = $agente_data['cargo'];
-            $agente_obj->banco = $agente_data['banco'];
-            $agente_obj->f_nacimiento = ($agente_data['f_nacimiento'] != '') ? $agente_data['f_nacimiento'] : NULL;
-            $agente_obj->f_alta = ($agente_data['f_alta'] != '') ? $agente_data['f_alta'] : NULL;
-            $agente_obj->f_baja = ($agente_data['f_baja'] != '') ? $agente_data['f_baja'] : NULL;
-            $agente_obj->porcomision = $agente_data['porcomision'];
+            $this->createAgente($data);
+            return;
+        }
 
-            if ($agente_obj->save()) {
-                $this->new_message('Agente ' . $agente_obj->codagente . ' creado correctamente.');
-                header('Location: ' . $agente_obj->url());
-            } else {
-                $this->new_error_msg('Error al crear el agente.');
-            }
+        $this->updateAgente($data);
+    }
+
+    private function collectAgentFormData(): array
+    {
+        $fields = [
+            'codagente', 'nombre', 'apellidos', 'dnicif', 'email', 'telefono',
+            'codpostal', 'provincia', 'ciudad', 'direccion', 'seg_social',
+            'cargo', 'banco', 'f_nacimiento', 'f_alta', 'f_baja',
+        ];
+        $data = [];
+        foreach ($fields as $field) {
+            $data[$field] = fs_filter_input_req($field, '');
+        }
+        $data['porcomision'] = floatval(fs_filter_input_req('porcomision', '0'));
+        return $data;
+    }
+
+    private function applyAgentData(object $agente_obj, array $data): void
+    {
+        $agente_obj->nombre = $data['nombre'];
+        $agente_obj->apellidos = $data['apellidos'];
+        $agente_obj->dnicif = $data['dnicif'];
+        $agente_obj->email = $data['email'];
+        $agente_obj->telefono = $data['telefono'];
+        $agente_obj->codpostal = $data['codpostal'];
+        $agente_obj->provincia = $data['provincia'];
+        $agente_obj->ciudad = $data['ciudad'];
+        $agente_obj->direccion = $data['direccion'];
+        $agente_obj->seg_social = $data['seg_social'];
+        $agente_obj->cargo = $data['cargo'];
+        $agente_obj->banco = $data['banco'];
+        $agente_obj->f_nacimiento = ($data['f_nacimiento'] != '') ? $data['f_nacimiento'] : NULL;
+        $agente_obj->f_alta = ($data['f_alta'] != '') ? $data['f_alta'] : NULL;
+        $agente_obj->f_baja = ($data['f_baja'] != '') ? $data['f_baja'] : NULL;
+        $agente_obj->porcomision = $data['porcomision'];
+    }
+
+    private function createAgente(array $data): void
+    {
+        $agente_obj = new agente();
+        $this->applyAgentData($agente_obj, $data);
+
+        if ($agente_obj->save()) {
+            $this->new_message('Agente ' . $this->no_html($agente_obj->codagente) . ' creado correctamente.');
+            $this->redirect($agente_obj->url());
+            return;
         } else {
-            /// Modificar agente
-            $agente_obj = $this->agente->get($agente_data['codagente']);
-            if ($agente_obj) {
-                $agente_obj->nombre = $agente_data['nombre'];
-                $agente_obj->apellidos = $agente_data['apellidos'];
-                $agente_obj->dnicif = $agente_data['dnicif'];
-                $agente_obj->email = $agente_data['email'];
-                $agente_obj->telefono = $agente_data['telefono'];
-                $agente_obj->codpostal = $agente_data['codpostal'];
-                $agente_obj->provincia = $agente_data['provincia'];
-                $agente_obj->ciudad = $agente_data['ciudad'];
-                $agente_obj->direccion = $agente_data['direccion'];
-                $agente_obj->seg_social = $agente_data['seg_social'];
-                $agente_obj->cargo = $agente_data['cargo'];
-                $agente_obj->banco = $agente_data['banco'];
-                $agente_obj->f_nacimiento = ($agente_data['f_nacimiento'] != '') ? $agente_data['f_nacimiento'] : NULL;
-                $agente_obj->f_alta = ($agente_data['f_alta'] != '') ? $agente_data['f_alta'] : NULL;
-                $agente_obj->f_baja = ($agente_data['f_baja'] != '') ? $agente_data['f_baja'] : NULL;
-                $agente_obj->porcomision = $agente_data['porcomision'];
+            $this->new_error_msg('Error al crear el agente.');
+        }
+    }
 
-                if ($agente_obj->save()) {
-                    $this->new_message('Agente ' . $agente_obj->codagente . ' modificado correctamente.');
-                    header('Location: ' . $agente_obj->url());
-                } else {
-                    $this->new_error_msg('Error al modificar el agente.');
-                }
-            } else {
-                $this->new_error_msg('Agente no encontrado.');
-            }
+    private function updateAgente(array $data): void
+    {
+        $agente_obj = $this->agente->get($data['codagente']);
+        if (!$agente_obj) {
+            $this->new_error_msg('Agente no encontrado.');
+            return;
+        }
+
+        $this->applyAgentData($agente_obj, $data);
+
+        if ($agente_obj->save()) {
+            $this->new_message('Agente ' . $this->no_html($agente_obj->codagente) . ' modificado correctamente.');
+            $this->redirect($agente_obj->url());
+            return;
+        } else {
+            $this->new_error_msg('Error al modificar el agente.');
         }
     }
 
@@ -166,62 +165,73 @@ class admin_agentes extends fs_controller
 
     public function all_pages()
     {
-        $returnlist = [];
+        $returnlist = $this->initPageList();
+        $users = $this->getSortedUsers();
+        $this->applyUserPermissions($returnlist, $users);
 
-        /// Obtenemos la lista de páginas. Todas
+        usort($returnlist, fn($a, $b) => strcmp($a->name, $b->name));
+
+        return $returnlist;
+    }
+
+    private function initPageList(): array
+    {
+        $returnlist = [];
         foreach ($this->menu as $m) {
             $m->enabled = FALSE;
             $m->allow_delete = FALSE;
             $m->users = [];
             $returnlist[] = $m;
         }
+        return $returnlist;
+    }
 
+    private function getSortedUsers(): array
+    {
         $users = $this->user->all();
-        /// colocamos a los administradores primero
-        usort($users, function($a, $b) {
+        usort($users, function ($a, $b) {
             if ($a->admin) {
                 return -1;
             } else if ($b->admin) {
                 return 1;
             }
-
             return 0;
         });
+        return $users;
+    }
 
-        /// completamos con los permisos de los usuarios
+    private function applyUserPermissions(array &$returnlist, array $users): void
+    {
         foreach ($users as $user) {
             if ($user->admin) {
-                foreach ($returnlist as $i => $value) {
-                    $returnlist[$i]->users[$user->nick] = array(
-                        'modify' => TRUE,
-                        'delete' => TRUE,
-                    );
-                }
+                $this->applyAdminPermissions($returnlist, $user);
             } else {
-                foreach ($returnlist as $i => $value) {
-                    $returnlist[$i]->users[$user->nick] = array(
-                        'modify' => FALSE,
-                        'delete' => FALSE,
-                    );
-                }
+                $this->applyRegularUserPermissions($returnlist, $user);
+            }
+        }
+    }
 
-                foreach ($user->get_accesses() as $a) {
-                    foreach ($returnlist as $i => $value) {
-                        if ($a->fs_page == $value->name) {
-                            $returnlist[$i]->users[$user->nick]['modify'] = TRUE;
-                            $returnlist[$i]->users[$user->nick]['delete'] = $a->allow_delete;
-                            break;
-                        }
-                    }
+    private function applyAdminPermissions(array &$returnlist, $user): void
+    {
+        foreach ($returnlist as $i => $value) {
+            $returnlist[$i]->users[$user->nick] = ['modify' => TRUE, 'delete' => TRUE];
+        }
+    }
+
+    private function applyRegularUserPermissions(array &$returnlist, $user): void
+    {
+        foreach ($returnlist as $i => $value) {
+            $returnlist[$i]->users[$user->nick] = ['modify' => FALSE, 'delete' => FALSE];
+        }
+
+        foreach ($user->get_accesses() as $a) {
+            foreach ($returnlist as $i => $value) {
+                if ($a->fs_page == $value->name) {
+                    $returnlist[$i]->users[$user->nick]['modify'] = TRUE;
+                    $returnlist[$i]->users[$user->nick]['delete'] = $a->allow_delete;
+                    break;
                 }
             }
         }
-
-        /// ordenamos por nombre
-        usort($returnlist, function($a, $b) {
-            return strcmp($a->name, $b->name);
-        });
-
-        return $returnlist;
     }
 }

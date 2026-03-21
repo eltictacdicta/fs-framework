@@ -144,41 +144,51 @@ class fs_user extends \fs_model
     {
         parent::__construct('fs_users');
         if ($data) {
-            $this->nick = $data['nick'];
-            $this->password = $data['password'];
-            $this->email = $data['email'];
-            $this->log_key = $data['log_key'];
-            $this->codagente = isset($data['codagente']) ? $data['codagente'] : NULL;
-            $this->admin = $this->str2bool($data['admin']);
-            $this->last_login = $data['last_login'] ? Date('d-m-Y', strtotime($data['last_login'])) : NULL;
-            $this->last_login_time = $data['last_login_time'] ? $data['last_login_time'] : NULL;
-            $this->last_ip = $data['last_ip'];
-            $this->last_browser = $data['last_browser'];
-            $this->fs_page = $data['fs_page'];
-            $this->css = isset($data['css']) ? $data['css'] : 'view/css/bootstrap-yeti.min.css';
-            $this->enabled = isset($data['enabled']) ? $this->str2bool($data['enabled']) : TRUE;
-            $this->reset_token = isset($data['reset_token']) ? $data['reset_token'] : NULL;
-            $this->reset_token_expires = isset($data['reset_token_expires']) ? $data['reset_token_expires'] : NULL;
+            $this->hydrateFromRow($data);
         } else {
-            $this->nick = NULL;
-            $this->password = NULL;
-            $this->email = NULL;
-            $this->log_key = NULL;
-            $this->codagente = NULL;
-            $this->admin = FALSE;
-            $this->enabled = TRUE;
-            $this->last_login = NULL;
-            $this->last_login_time = NULL;
-            $this->last_ip = NULL;
-            $this->last_browser = NULL;
-            $this->fs_page = NULL;
-            $this->css = 'view/css/bootstrap-yeti.min.css';
-            $this->reset_token = NULL;
-            $this->reset_token_expires = NULL;
+            $this->setDefaults();
         }
 
         $this->logged_on = FALSE;
         $this->agente = NULL;
+    }
+
+    private function hydrateFromRow(array $data): void
+    {
+        $this->nick = $data['nick'];
+        $this->password = $data['password'];
+        $this->email = $data['email'];
+        $this->log_key = $data['log_key'];
+        $this->codagente = $data['codagente'] ?? NULL;
+        $this->admin = $this->str2bool($data['admin']);
+        $this->last_login = $data['last_login'] ? Date('d-m-Y', strtotime($data['last_login'])) : NULL;
+        $this->last_login_time = $data['last_login_time'] ?: NULL;
+        $this->last_ip = $data['last_ip'];
+        $this->last_browser = $data['last_browser'];
+        $this->fs_page = $data['fs_page'];
+        $this->css = $data['css'] ?? 'view/css/bootstrap-yeti.min.css';
+        $this->enabled = isset($data['enabled']) ? $this->str2bool($data['enabled']) : TRUE;
+        $this->reset_token = $data['reset_token'] ?? NULL;
+        $this->reset_token_expires = $data['reset_token_expires'] ?? NULL;
+    }
+
+    private function setDefaults(): void
+    {
+        $this->nick = NULL;
+        $this->password = NULL;
+        $this->email = NULL;
+        $this->log_key = NULL;
+        $this->codagente = NULL;
+        $this->admin = FALSE;
+        $this->enabled = TRUE;
+        $this->last_login = NULL;
+        $this->last_login_time = NULL;
+        $this->last_ip = NULL;
+        $this->last_browser = NULL;
+        $this->fs_page = NULL;
+        $this->css = 'view/css/bootstrap-yeti.min.css';
+        $this->reset_token = NULL;
+        $this->reset_token_expires = NULL;
     }
 
     /**

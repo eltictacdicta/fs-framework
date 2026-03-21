@@ -32,6 +32,9 @@ require_once 'base/fs_default_items.php';
 #[AllowDynamicProperties]
 abstract class fs_model
 {
+    private const ERR_CHECK_TABLE = 'Error al comprobar la tabla ';
+    private const SQL_LABEL = ' [SQL: ';
+    private const ERROR_LABEL = '] [Error: ';
 
     /**
      * Directorio donde se encuentra el directorio table con
@@ -274,7 +277,6 @@ abstract class fs_model
      */
     protected function check_table($table_name)
     {
-        $sql = '';
         $xml_cols = [];
         $xml_cons = [];
 
@@ -284,80 +286,85 @@ abstract class fs_model
         }
 
         if ($this->db->table_exists($table_name)) {
-            if (!$this->db->check_table_aux($table_name)) {
-                $this->new_error_msg('Error al convertir la tabla a InnoDB.');
-            }
-
-            $this->pre_migrate_data($table_name, $xml_cons);
-
-            /**
-             * Si hay que hacer cambios en las restricciones, eliminamos todas las restricciones,
-             * luego añadiremos las correctas. Lo hacemos así porque evita problemas en MySQL.
-             */
-            $db_cons = $this->db->get_constraints($table_name);
-            $sql2 = $this->db->compare_constraints($table_name, $xml_cons, $db_cons, TRUE);
-            if ($sql2 != '') {
-                if (!$this->db->exec($sql2)) {
-                    $this->new_error_msg('Error al comprobar la tabla ' . $table_name);
-                }
-
-                /// leemos de nuevo las restricciones
-                $db_cons = $this->db->get_constraints($table_name);
-            }
-
-            /// comparamos las columnas
-            $db_cols = $this->db->get_columns($table_name);
-            $sql .= $this->db->compare_columns($table_name, $xml_cols, $db_cols);
-
-            /// comparamos las restricciones
-            $sql .= $this->db->compare_constraints($table_name, $xml_cons, $db_cons);
+            $sql = $this->buildExistingTableSql($table_name, $xml_cols, $xml_cons);
         } else {
-            /// generamos el sql para crear la tabla
-            $sql .= $this->db->generate_table($table_name, $xml_cols, $xml_cons);
-            $sql .= $this->install();
+            $sql = $this->db->generate_table($table_name, $xml_cols, $xml_cons) . $this->install();
         }
 
-        if ($sql != '' && !$this->db->exec($sql)) {
-            $initial_error = $this->db->get_error_msg();
-
-            /**
-             * En instalaciones parciales o reintentos puede ocurrir que la tabla ya exista
-             * aunque no se haya detectado inicialmente. Si es así, recalculamos el SQL como
-             * si la tabla existiese y reintentamos sin ejecutar install().
-             */
-            if ($this->db->table_exists($table_name)) {
-                $retry_sql = '';
-
-                $this->pre_migrate_data($table_name, $xml_cons);
-
-                $db_cons = $this->db->get_constraints($table_name);
-                $sql2 = $this->db->compare_constraints($table_name, $xml_cons, $db_cons, TRUE);
-                if ($sql2 != '' && !$this->db->exec($sql2)) {
-                    $msg = 'Error al comprobar la tabla ' . $table_name . ' [SQL: ' . $sql2 . '] [Error: ' . $this->db->get_error_msg() . ']';
-                    $this->new_error_msg($msg);
-                    return FALSE;
-                }
-
-                $db_cons = $this->db->get_constraints($table_name);
-                $db_cols = $this->db->get_columns($table_name);
-                $retry_sql .= $this->db->compare_columns($table_name, $xml_cols, $db_cols);
-                $retry_sql .= $this->db->compare_constraints($table_name, $xml_cons, $db_cons);
-
-                if ($retry_sql != '' && !$this->db->exec($retry_sql)) {
-                    $msg = 'Error al comprobar la tabla ' . $table_name . ' [SQL: ' . $retry_sql . '] [Error: ' . $this->db->get_error_msg() . ']';
-                    $this->new_error_msg($msg);
-                    return FALSE;
-                }
-
-                $this->clear_error_msg($initial_error);
-                return TRUE;
-            }
-
-            $msg = 'Error al comprobar la tabla ' . $table_name . ' [SQL: ' . $sql . '] [Error: ' . $this->db->get_error_msg() . ']';
-            $this->new_error_msg($msg);
+        if ($sql === false) {
             return FALSE;
         }
 
+        if ($sql === '' || $this->db->exec($sql)) {
+            return TRUE;
+        }
+
+        return $this->retryTableCheck($table_name, $xml_cols, $xml_cons, $sql);
+    }
+
+    /**
+     * Genera el SQL necesario para sincronizar una tabla existente con su definición XML.
+     * Ejecuta migraciones previas y elimina restricciones obsoletas como efecto secundario.
+     */
+    private function buildExistingTableSql($table_name, $xml_cols, $xml_cons)
+    {
+        if (!$this->db->check_table_aux($table_name)) {
+            $this->new_error_msg('Error al convertir la tabla a InnoDB.');
+            return false;
+        }
+
+        $this->pre_migrate_data($table_name, $xml_cons);
+
+        $db_cons = $this->db->get_constraints($table_name);
+        $sql2 = $this->db->compare_constraints($table_name, $xml_cons, $db_cons, TRUE);
+        if ($sql2 != '') {
+            if (!$this->db->exec($sql2)) {
+                $this->new_error_msg(self::ERR_CHECK_TABLE . $table_name);
+                return false;
+            }
+            $db_cons = $this->db->get_constraints($table_name);
+        }
+
+        $db_cols = $this->db->get_columns($table_name);
+        $sql = $this->db->compare_columns($table_name, $xml_cols, $db_cols);
+        $sql .= $this->db->compare_constraints($table_name, $xml_cons, $db_cons);
+
+        return $sql;
+    }
+
+    /**
+     * Reintenta la sincronización de tabla cuando el SQL inicial falla.
+     * En instalaciones parciales la tabla puede aparecer entre intentos.
+     */
+    private function retryTableCheck($table_name, $xml_cols, $xml_cons, $original_sql)
+    {
+        $initial_error = $this->db->get_error_msg();
+
+        if (!$this->db->table_exists($table_name)) {
+            $this->new_error_msg(self::ERR_CHECK_TABLE . $table_name . self::SQL_LABEL . $original_sql . self::ERROR_LABEL . $initial_error . ']');
+            return FALSE;
+        }
+
+        $this->pre_migrate_data($table_name, $xml_cons);
+
+        $db_cons = $this->db->get_constraints($table_name);
+        $sql2 = $this->db->compare_constraints($table_name, $xml_cons, $db_cons, TRUE);
+        if ($sql2 != '' && !$this->db->exec($sql2)) {
+            $this->new_error_msg(self::ERR_CHECK_TABLE . $table_name . self::SQL_LABEL . $sql2 . self::ERROR_LABEL . $this->db->get_error_msg() . ']');
+            return FALSE;
+        }
+
+        $db_cons = $this->db->get_constraints($table_name);
+        $db_cols = $this->db->get_columns($table_name);
+        $retry_sql = $this->db->compare_columns($table_name, $xml_cols, $db_cols);
+        $retry_sql .= $this->db->compare_constraints($table_name, $xml_cons, $db_cons);
+
+        if ($retry_sql != '' && !$this->db->exec($retry_sql)) {
+            $this->new_error_msg(self::ERR_CHECK_TABLE . $table_name . self::SQL_LABEL . $retry_sql . self::ERROR_LABEL . $this->db->get_error_msg() . ']');
+            return FALSE;
+        }
+
+        $this->clear_error_msg($initial_error);
         return TRUE;
     }
 

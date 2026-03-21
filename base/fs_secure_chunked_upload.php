@@ -107,35 +107,11 @@ class fs_secure_chunked_upload
         $user_nick = 'system'
     ) {
         if (is_array($upload_dir)) {
-            $config = $upload_dir;
-            $upload_dir = isset($config['upload_dir']) ? $config['upload_dir'] : '';
-
-            if (isset($config['allowed_extensions']) && is_array($config['allowed_extensions'])) {
-                $allowed_extensions = $config['allowed_extensions'];
-            }
-
-            if (isset($config['max_file_size_mb'])) {
-                $max_file_size_mb = (int) $config['max_file_size_mb'];
-            } elseif (isset($config['max_file_size'])) {
-                $max_file_size_bytes = (int) $config['max_file_size'];
-                if ($max_file_size_bytes > 0) {
-                    $max_file_size_mb = (int) ceil($max_file_size_bytes / 1024 / 1024);
-                }
-            }
-
-            if (isset($config['context_id'])) {
-                $context_id = $config['context_id'];
-            }
-
-            if (isset($config['user_nick'])) {
-                $user_nick = $config['user_nick'];
-            }
+            [$upload_dir, $allowed_extensions, $max_file_size_mb, $context_id, $user_nick] =
+                self::parseConfigArray($upload_dir, $allowed_extensions, $max_file_size_mb, $context_id, $user_nick);
         }
 
-        // Obtener request de Symfony
         $this->request = \FSFramework\Core\Kernel::request();
-
-        // Guardar configuración
         $this->context_id = preg_replace(self::SAFE_TOKEN_REGEX, '', (string) $context_id);
         $this->user_nick = preg_replace(self::SAFE_TOKEN_REGEX, '', (string) $user_nick);
         $this->upload_dir = $this->sanitize_path($upload_dir);
@@ -144,17 +120,58 @@ class fs_secure_chunked_upload
         $this->last_error = '';
         $this->on_complete_callback = null;
 
-        // Directorio temporal aislado por contexto
-        $this->temp_dir = $this->get_temp_dir();
+        $this->initializeDirectories();
 
-        // Crear directorios si no existen
-        $this->ensure_directory($this->upload_dir);
-        $this->ensure_directory($this->temp_dir);
-
-        // Limpiar chunks huérfanos automáticamente (1% de probabilidad)
         if (mt_rand(1, 100) === 1) {
             $this->cleanup_orphan_chunks(24);
         }
+    }
+
+    private static function parseConfigArray(
+        array $config,
+        array $allowed_extensions,
+        int $max_file_size_mb,
+        string $context_id,
+        string $user_nick
+    ): array {
+        $upload_dir = $config['upload_dir'] ?? '';
+
+        if (isset($config['allowed_extensions']) && is_array($config['allowed_extensions'])) {
+            $allowed_extensions = $config['allowed_extensions'];
+        }
+
+        $max_file_size_mb = self::parseMaxFileSize($config, $max_file_size_mb);
+
+        return [
+            $upload_dir,
+            $allowed_extensions,
+            $max_file_size_mb,
+            $config['context_id'] ?? $context_id,
+            $config['user_nick'] ?? $user_nick,
+        ];
+    }
+
+    private static function parseMaxFileSize(array $config, int $default): int
+    {
+        if (isset($config['max_file_size_mb'])) {
+            return (int) $config['max_file_size_mb'];
+        }
+
+        if (isset($config['max_file_size'])) {
+            $bytes = (int) $config['max_file_size'];
+            if ($bytes > 0) {
+                return (int) ceil($bytes / 1024 / 1024);
+            }
+        }
+
+        return $default;
+    }
+
+    private function initializeDirectories(): void
+    {
+        $this->temp_dir = $this->get_temp_dir();
+        $this->ensure_directory($this->upload_dir);
+        $this->ensure_directory($this->temp_dir);
     }
 
     /**

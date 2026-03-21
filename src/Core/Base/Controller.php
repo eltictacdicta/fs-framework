@@ -376,7 +376,7 @@ class Controller
     public function duration()
     {
         $tiempo = explode(" ", microtime());
-        return (number_format($tiempo[1] + $tiempo[0] - $this->uptime, 3) . ' s');
+        return number_format($tiempo[1] + $tiempo[0] - $this->uptime, 3) . ' s';
     }
 
     public function get_db_history()

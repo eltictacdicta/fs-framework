@@ -200,39 +200,61 @@ class fs_db2
 
         if (is_null($val)) {
             return 'NULL';
-        } elseif (is_bool($val)) {
+        }
+
+        if (is_bool($val)) {
             return $val ? 'TRUE' : 'FALSE';
-        } elseif (preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4})$/i', $val, $matches)) {
-            $normalized = sprintf('%02d-%02d-%04d', $matches[1], $matches[2], $matches[3]);
-            $date = DateTime::createFromFormat('!d-m-Y', $normalized);
-            $errors = DateTime::getLastErrors();
-            if ($date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
-                && $date->format('d-m-Y') === $normalized) {
-                return "'" . $date->format($this->date_style()) . "'";
-            }
+        }
 
-            return 'NULL';
-        } elseif (preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4}) ([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2})$/i', $val, $matches)) {
-            $normalized = sprintf(
-                '%02d-%02d-%04d %02d:%02d:%02d',
-                $matches[1],
-                $matches[2],
-                $matches[3],
-                $matches[4],
-                $matches[5],
-                $matches[6]
-            );
-            $date = DateTime::createFromFormat('!d-m-Y H:i:s', $normalized);
-            $errors = DateTime::getLastErrors();
-            if ($date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
-                && $date->format('d-m-Y H:i:s') === $normalized) {
-                return "'" . $date->format($this->date_style() . ' H:i:s') . "'";
-            }
+        if (preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4})$/i', $val, $matches)) {
+            return $this->parseDateValue($matches);
+        }
 
-            return 'NULL';
+        if (preg_match('/^([0-9]{1,2})-([0-9]{1,2})-([0-9]{4}) ([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2})$/i', $val, $matches)) {
+            return $this->parseDateTimeValue($matches);
         }
 
         return "'" . $this->escape_string($val) . "'";
+    }
+
+    private function parseDateValue(array $matches): string
+    {
+        $normalized = sprintf('%02d-%02d-%04d', $matches[1], $matches[2], $matches[3]);
+        $date = DateTime::createFromFormat('!d-m-Y', $normalized);
+        $errors = DateTime::getLastErrors();
+
+        if ($date !== false
+            && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
+            && $date->format('d-m-Y') === $normalized
+        ) {
+            return "'" . $date->format($this->date_style()) . "'";
+        }
+
+        return 'NULL';
+    }
+
+    private function parseDateTimeValue(array $matches): string
+    {
+        $normalized = sprintf(
+            '%02d-%02d-%04d %02d:%02d:%02d',
+            $matches[1],
+            $matches[2],
+            $matches[3],
+            $matches[4],
+            $matches[5],
+            $matches[6]
+        );
+        $date = DateTime::createFromFormat('!d-m-Y H:i:s', $normalized);
+        $errors = DateTime::getLastErrors();
+
+        if ($date !== false
+            && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
+            && $date->format('d-m-Y H:i:s') === $normalized
+        ) {
+            return "'" . $date->format($this->date_style() . ' H:i:s') . "'";
+        }
+
+        return 'NULL';
     }
 
     /**

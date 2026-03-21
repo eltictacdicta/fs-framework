@@ -147,7 +147,7 @@ trait fs_model_crud_trait
         }
 
         $sql = "SELECT 1 FROM " . $this->table_name . 
-               " WHERE " . $pk . " = " . $this->var2str($value) . " LIMIT 1";
+               self::SQL_WHERE . $pk . " = " . $this->var2str($value) . " LIMIT 1";
         
         return (bool) $this->db->select($sql);
     }
@@ -169,7 +169,7 @@ trait fs_model_crud_trait
         $this->clean_cache();
         
         $sql = "DELETE FROM " . $this->table_name . 
-               " WHERE " . $pk . " = " . $this->var2str($value);
+               self::SQL_WHERE . $pk . " = " . $this->var2str($value);
         
         return (bool) $this->db->exec($sql);
     }
@@ -278,7 +278,7 @@ trait fs_model_crud_trait
 
         $sql = "UPDATE " . $this->table_name . 
                " SET " . implode(', ', $sets) . 
-               " WHERE " . $pk . " = " . $this->var2str($this->primaryValue());
+               self::SQL_WHERE . $pk . " = " . $this->var2str($this->primaryValue());
 
         return (bool) $this->db->exec($sql);
     }

@@ -27,6 +27,7 @@
 class fs_autoload
 {
     private const PLUGINS_PATH = '/plugins/';
+    private const MODEL_PATH = '/model/';
 
     /**
      * @var bool
@@ -99,58 +100,69 @@ class fs_autoload
     private static function findClassFile($class)
     {
         $folder = self::$baseFolder;
-        $file = self::findNamespacedClassFile($folder, $class);
-        if ($file !== null) {
-            return $file;
-        }
 
-        // 6. Clases legacy sin namespace (fs_user, fs_model, etc.)
+        return self::findNamespacedClassFile($folder, $class)
+            ?? self::findLegacyClassFile($folder, $class)
+            ?? self::findBaseClassFile($folder, $class)
+            ?? self::findPluginClassFile($folder, $class)
+            ?? self::findModelClassFile($folder, $class);
+    }
+
+    private static function findLegacyClassFile(string $folder, string $class): ?string
+    {
         $legacyClasses = self::getLegacyClassMap();
-        if (isset($legacyClasses[$class])) {
-            $file = $folder . $legacyClasses[$class];
+        if (!isset($legacyClasses[$class])) {
+            return null;
+        }
+
+        $file = $folder . $legacyClasses[$class];
+        return file_exists($file) ? $file : null;
+    }
+
+    private static function findBaseClassFile(string $folder, string $class): ?string
+    {
+        if (strpos($class, 'fs_') !== 0) {
+            return null;
+        }
+
+        $file = $folder . '/base/' . $class . '.php';
+        return file_exists($file) ? $file : null;
+    }
+
+    private static function findPluginClassFile(string $folder, string $class): ?string
+    {
+        if (!isset($GLOBALS['plugins']) || !is_array($GLOBALS['plugins'])) {
+            return null;
+        }
+
+        foreach ($GLOBALS['plugins'] as $plugin) {
+            if (!is_string($plugin) || !preg_match('/^[A-Za-z0-9_\-]+$/', $plugin)) {
+                continue;
+            }
+
+            $file = $folder . self::PLUGINS_PATH . $plugin . self::MODEL_PATH . $class . '.php';
+            if (file_exists($file)) {
+                return $file;
+            }
+
+            $file = $folder . self::PLUGINS_PATH . $plugin . '/Model/' . $class . '.php';
             if (file_exists($file)) {
                 return $file;
             }
         }
 
-        // 7. Buscar en directorio base/ (clases fs_*)
-        if (strpos($class, 'fs_') === 0) {
-            $file = $folder . '/base/' . $class . '.php';
-            if (file_exists($file)) {
-                return $file;
-            }
-        }
+        return null;
+    }
 
-        // 8. Buscar modelos en plugins activos
-        if (isset($GLOBALS['plugins']) && is_array($GLOBALS['plugins'])) {
-            foreach ($GLOBALS['plugins'] as $plugin) {
-                // Legacy models (model/)
-                $file = $folder . self::PLUGINS_PATH . $plugin . '/model/' . $class . '.php';
-                if (file_exists($file)) {
-                    return $file;
-                }
-                
-                // FS2025 models (Model/)
-                $file = $folder . self::PLUGINS_PATH . $plugin . '/Model/' . $class . '.php';
-                if (file_exists($file)) {
-                    return $file;
-                }
-            }
-        }
-
-        // 9. Buscar en model/core
+    private static function findModelClassFile(string $folder, string $class): ?string
+    {
         $file = $folder . '/model/core/' . $class . '.php';
         if (file_exists($file)) {
             return $file;
         }
 
-        // 10. Buscar en model/
-        $file = $folder . '/model/' . $class . '.php';
-        if (file_exists($file)) {
-            return $file;
-        }
-
-        return null;
+        $file = $folder . self::MODEL_PATH . $class . '.php';
+        return file_exists($file) ? $file : null;
     }
 
     private static function findNamespacedClassFile($folder, $class)
@@ -179,16 +191,25 @@ class fs_autoload
             }
         }
 
-        // Buscar modelos con namespace FSFramework\model\ en plugins activos
-        if (strpos($class, 'FSFramework\\model\\') === 0) {
-            $className = substr($class, strlen('FSFramework\\model\\'));
-            if (isset($GLOBALS['plugins']) && is_array($GLOBALS['plugins'])) {
-                foreach ($GLOBALS['plugins'] as $plugin) {
-                    $file = $folder . self::PLUGINS_PATH . $plugin . '/model/' . $className . '.php';
-                    if (file_exists($file)) {
-                        return $file;
-                    }
-                }
+        return self::findNamespacedModelInPlugins($folder, $class);
+    }
+
+    private static function findNamespacedModelInPlugins(string $folder, string $class): ?string
+    {
+        $prefix = 'FSFramework\\Model\\';
+        if (strpos($class, $prefix) !== 0) {
+            return null;
+        }
+
+        if (!isset($GLOBALS['plugins']) || !is_array($GLOBALS['plugins'])) {
+            return null;
+        }
+
+        $className = substr($class, strlen($prefix));
+        foreach ($GLOBALS['plugins'] as $plugin) {
+            $file = $folder . self::PLUGINS_PATH . $plugin . self::MODEL_PATH . $className . '.php';
+            if (file_exists($file)) {
+                return $file;
             }
         }
 

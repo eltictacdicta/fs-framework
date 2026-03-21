@@ -5,6 +5,9 @@ const FS_PLUGIN_MODERN_CONTROLLER_PATH = '/Controller/';
 const FS_HTTP_SEPARATOR = "\r\n\r\n";
 const FS_GITHUB_ACCEPT_HEADER = 'Accept: application/vnd.github.v3.raw';
 const FS_GITHUB_AUTH_HEADER_PREFIX = 'Authorization: token ';
+if (!defined('FS_PLUGINS_PREFIX')) {
+    define('FS_PLUGINS_PREFIX', 'plugins/');
+}
 /**
  * This file is part of FSFramework originally based on Facturascript 2017
  * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
@@ -82,12 +85,12 @@ function fatal_handler()
 function find_controller($name)
 {
     foreach ($GLOBALS['plugins'] as $plugin) {
-        $legacyPath = 'plugins/' . $plugin . FS_PLUGIN_LEGACY_CONTROLLER_PATH . $name . '.php';
+        $legacyPath = FS_PLUGINS_PREFIX . $plugin . FS_PLUGIN_LEGACY_CONTROLLER_PATH . $name . '.php';
         if (file_exists(FS_FOLDER . '/' . $legacyPath)) {
             return $legacyPath;
         }
 
-        $modernPath = 'plugins/' . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $name . '.php';
+        $modernPath = FS_PLUGINS_PREFIX . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $name . '.php';
         if (file_exists(FS_FOLDER . '/' . $modernPath)) {
             $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$name}";
             if (fs_is_modern_page_controller($fullClass)) {
@@ -116,40 +119,50 @@ function find_controller($name)
 function find_modern_controller($pageName)
 {
     foreach ($GLOBALS['plugins'] as $plugin) {
-        $modernDir = FS_FOLDER . '/plugins/' . $plugin . '/Controller';
-        if (!is_dir($modernDir)) {
+        $result = fs_find_modern_controller_in_plugin($plugin, $pageName);
+        if ($result !== false) {
+            return $result;
+        }
+    }
+
+    return false;
+}
+
+function fs_find_modern_controller_in_plugin(string $plugin, string $pageName): array|false
+{
+    $modernDir = FS_FOLDER . '/' . FS_PLUGINS_PREFIX . $plugin . '/Controller';
+    if (!is_dir($modernDir)) {
+        return false;
+    }
+
+    $entries = scandir($modernDir);
+    if (!is_array($entries)) {
+        return false;
+    }
+
+    foreach ($entries as $file) {
+        if (substr($file, -4) !== '.php') {
             continue;
         }
 
-        $entries = scandir($modernDir);
-        if (!is_array($entries)) {
+        $className = substr($file, 0, -4);
+        $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$className}";
+
+        if (!class_exists($fullClass)) {
             continue;
         }
 
-        foreach ($entries as $file) {
-            if (substr($file, -4) !== '.php') {
-                continue;
-            }
-
-            $className = substr($file, 0, -4);
-            $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$className}";
-
-            if (!class_exists($fullClass)) {
-                continue;
-            }
-
-            $detectedName = fs_detect_controller_page_name($fullClass, $className);
-            if ($detectedName === null || $detectedName !== $pageName) {
-                continue;
-            }
-
-            return [
-                'plugin' => $plugin,
-                'class' => $fullClass,
-                'className' => $className,
-                'file' => $modernDir . '/' . $file
-            ];
+        $detectedName = fs_detect_controller_page_name($fullClass, $className);
+        if ($detectedName !== $pageName) {
+            continue;
         }
+
+        return [
+            'plugin' => $plugin,
+            'class' => $fullClass,
+            'className' => $className,
+            'file' => $modernDir . '/' . $file
+        ];
     }
 
     return false;
@@ -443,6 +456,26 @@ function fs_normalize_url($url)
  * @param integer $timeout
  * @return string
  */
+function fs_build_curl_options($ch, string $url, int $timeout): void
+{
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+
+    if (empty(ini_get('open_basedir'))) {
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    }
+
+    fs_curl_set_ssl($ch);
+
+    if (defined('FS_PROXY_TYPE')) {
+        curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
+        curl_setopt($ch, CURLOPT_PROXY, FS_PROXY_HOST);
+        curl_setopt($ch, CURLOPT_PROXYPORT, FS_PROXY_PORT);
+    }
+}
+
 function fs_file_get_contents($url, $timeout = 10)
 {
     $url = fs_normalize_url($url);
@@ -450,52 +483,47 @@ function fs_file_get_contents($url, $timeout = 10)
         return 'ERROR';
     }
 
-    if (function_exists('curl_init')) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        if (ini_get('open_basedir') === NULL) {
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    if (!function_exists('curl_init')) {
+        $ctx = stream_context_create([
+            'http' => ['timeout' => $timeout],
+            'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+        ]);
+        $caInfo = fs_curl_ca_info();
+        if ($caInfo) {
+            stream_context_set_option($ctx, 'ssl', 'cafile', $caInfo);
         }
-
-        // Verificación SSL con auto-detección de CA bundle
-        fs_curl_set_ssl($ch);
-
-        if (defined('FS_PROXY_TYPE')) {
-            curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
-            curl_setopt($ch, CURLOPT_PROXY, FS_PROXY_HOST);
-            curl_setopt($ch, CURLOPT_PROXYPORT, FS_PROXY_PORT);
-        }
-        $data = curl_exec($ch);
-        $info = curl_getinfo($ch);
-
-        if ($info['http_code'] == 200) {
-            curl_close($ch);
-            return $data;
-        } elseif ($info['http_code'] == 301 || $info['http_code'] == 302) {
-            $redirs = 0;
-            return fs_curl_redirect_exec($ch, $redirs);
-        }
-
-        /// guardamos en el log
-        if (class_exists('fs_core_log') && $info['http_code'] != 404) {
-            $error = curl_error($ch);
-            if ($error == '') {
-                $error = 'ERROR ' . $info['http_code'];
-            }
-
-            $core_log = new fs_core_log();
-            $core_log->new_error($error);
-            $core_log->save($url . ' - ' . $error);
-        }
-
-        curl_close($ch);
-        return 'ERROR';
+        $result = @file_get_contents($url, false, $ctx);
+        return $result !== false ? $result : 'ERROR';
     }
 
-    return file_get_contents($url);
+    $ch = curl_init();
+    fs_build_curl_options($ch, $url, $timeout);
+    $data = curl_exec($ch);
+    $info = curl_getinfo($ch);
+
+    if ($info['http_code'] == 200) {
+        curl_close($ch);
+        return $data;
+    }
+
+    if ($info['http_code'] == 301 || $info['http_code'] == 302) {
+        $redirs = 0;
+        return fs_curl_redirect_exec($ch, $redirs);
+    }
+
+    if (class_exists('fs_core_log') && $info['http_code'] != 404) {
+        $error = curl_error($ch);
+        if ($error == '') {
+            $error = 'ERROR ' . $info['http_code'];
+        }
+
+        $core_log = new fs_core_log();
+        $core_log->new_error($error);
+        $core_log->save($url . ' - ' . $error);
+    }
+
+    curl_close($ch);
+    return 'ERROR';
 }
 
 function fs_filter_input_post($name, $default = false)
@@ -616,13 +644,13 @@ function require_all_models()
     }
 
     foreach ($GLOBALS['plugins'] as $plugin) {
-        if (!file_exists('plugins/' . $plugin . '/model')) {
+        if (!file_exists(FS_PLUGINS_PREFIX . $plugin . '/model')) {
             continue;
         }
 
-        foreach (scandir('plugins/' . $plugin . '/model') as $file_name) {
+        foreach (scandir(FS_PLUGINS_PREFIX . $plugin . '/model') as $file_name) {
             if ($file_name != '.' && $file_name != '..' && substr($file_name, -4) == '.php' && !in_array($file_name, $GLOBALS['models'])) {
-                require_once 'plugins/' . $plugin . '/model/' . $file_name;
+                require_once FS_PLUGINS_PREFIX . $plugin . '/model/' . $file_name;
                 $GLOBALS['models'][] = $file_name;
             }
         }
@@ -657,6 +685,27 @@ function require_model($name)
  * @param integer $timeout
  * @return string
  */
+function fs_build_auth_curl_options($ch, string $url, string $token, int $timeout): void
+{
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Plugin-Manager');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, fs_github_headers($token));
+
+    if (empty(ini_get('open_basedir'))) {
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    }
+
+    fs_curl_set_ssl($ch);
+
+    if (defined('FS_PROXY_TYPE')) {
+        curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
+        curl_setopt($ch, CURLOPT_PROXY, FS_PROXY_HOST);
+        curl_setopt($ch, CURLOPT_PROXYPORT, FS_PROXY_PORT);
+    }
+}
+
 function fs_file_get_contents_auth($url, $token, $timeout = 10)
 {
     $url = fs_normalize_url($url);
@@ -673,25 +722,7 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
     }
 
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-Plugin-Manager');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-
-    curl_setopt($ch, CURLOPT_HTTPHEADER, fs_github_headers($token));
-
-    if (ini_get('open_basedir') === NULL) {
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-    }
-
-    // Verificación SSL con auto-detección de CA bundle
-    fs_curl_set_ssl($ch);
-
-    if (defined('FS_PROXY_TYPE')) {
-        curl_setopt($ch, CURLOPT_PROXYTYPE, FS_PROXY_TYPE);
-        curl_setopt($ch, CURLOPT_PROXY, FS_PROXY_HOST);
-        curl_setopt($ch, CURLOPT_PROXYPORT, FS_PROXY_PORT);
-    }
+    fs_build_auth_curl_options($ch, $url, $token, $timeout);
 
     $data = curl_exec($ch);
     $info = curl_getinfo($ch);
@@ -699,12 +730,13 @@ function fs_file_get_contents_auth($url, $token, $timeout = 10)
     if ($info['http_code'] == 200) {
         curl_close($ch);
         return $data;
-    } elseif ($info['http_code'] == 301 || $info['http_code'] == 302) {
+    }
+
+    if ($info['http_code'] == 301 || $info['http_code'] == 302) {
         $redirs = 0;
         return fs_curl_redirect_exec_auth($ch, $redirs, $token);
     }
 
-    // Log de errores
     if (class_exists('fs_core_log') && $info['http_code'] != 404) {
         $error = curl_error($ch);
         if ($error == '') {
@@ -800,7 +832,7 @@ function fs_find_controller_by_page_data($plugin, $name)
 
         $detectedName = fs_detect_controller_page_name($fullClass, $className);
         if ($detectedName === $name) {
-            return 'plugins/' . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $file;
+            return FS_PLUGINS_PREFIX . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $file;
         }
     }
 
@@ -968,7 +1000,7 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
     ];
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-    if (ini_get('open_basedir') === NULL) {
+    if (empty(ini_get('open_basedir'))) {
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
     }
 
