@@ -59,16 +59,23 @@ class Tools
                 $message = is_scalar($msg) || (is_object($msg) && method_exists($msg, '__toString'))
                     ? (string) $msg
                     : '';
-                if (!is_iterable($params)) {
-                    return $message;
-                }
+                
+                // Ensure params is an initialized, iterable array
+                $params = is_iterable($params) ? $params : [];
+                
                 $replacements = [];
                 foreach ($params as $key => $val) {
-                    // Ensure value is a string for strtr
-                    $replacements[$key] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
+                    // Ensure key and value are valid for strtr
+                    $validKey = is_scalar($key) ? (string) $key : '';
+                    $validVal = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
                         ? (string) $val
                         : '';
+                        
+                    if ($validKey !== '') {
+                        $replacements[$validKey] = $validVal;
+                    }
                 }
+                
                 return strtr($message, $replacements);
             }
         };
