@@ -595,8 +595,8 @@ class fs_mysql extends fs_db_engine
         $sql = "SELECT character_set_name AS charset_name, collation_name AS collation_name"
             . " FROM information_schema.columns"
             . " WHERE table_schema = DATABASE()"
-            . " AND table_name = " . $this->var2str($matches[2])
-            . " AND column_name = " . $this->var2str($matches[3])
+            . " AND table_name = '" . $this->escape_string($matches[2]) . "'"
+            . " AND column_name = '" . $this->escape_string($matches[3]) . "'"
             . " LIMIT 1;";
 
         $data = $this->select($sql);

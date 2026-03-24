@@ -312,6 +312,14 @@ class Router
 
     private function dispatchController(mixed $controller, Request $request, array $parameters): ?Response
     {
+        if (is_string($controller) && str_contains($controller, '::')) {
+            [$className, $method] = explode('::', $controller, 2);
+            if (class_exists($className)) {
+                $instance = new $className();
+                return $instance->$method($request, ...array_values($parameters));
+            }
+        }
+
         if (is_string($controller) && class_exists($controller)) {
             return $this->dispatchClassController($controller, $request, $parameters);
         }
