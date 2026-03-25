@@ -289,21 +289,21 @@ if (!class_exists('PHPMailer')) {
 
         /**
          * SMTP auth type.
-         * Options are CRAM-MD5, LOGIN, PLAIN, NTLM, XOAUTH2, attempted in that order if not specified
+         * Options are CRAM-MD5, LOGIN, PLAIN, XOAUTH2, attempted in that order if not specified
          * @var string
          */
         public $AuthType = '';
 
         /**
          * SMTP realm.
-         * Used for NTLM auth
+         * Legacy property kept for compatibility
          * @var string
          */
         public $Realm = '';
 
         /**
          * SMTP workstation.
-         * Used for NTLM auth
+         * Legacy property kept for compatibility
          * @var string
          */
         public $Workstation = '';
