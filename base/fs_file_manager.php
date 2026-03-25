@@ -46,8 +46,9 @@ class fs_file_manager
      */
     public static function clear_raintpl_cache()
     {
+        $baseDir = FS_FOLDER . '/tmp/' . FS_TMP_NAME;
         foreach (self::scan_files(FS_FOLDER . '/tmp/' . FS_TMP_NAME, 'php') as $file_name) {
-            unlink(FS_FOLDER . '/tmp/' . FS_TMP_NAME . $file_name);
+            static::safe_unlink($baseDir . $file_name, $baseDir);
         }
     }
 
@@ -81,14 +82,23 @@ class fs_file_manager
      */
     public static function del_tree($folder)
     {
+        $folder = static::normalize_path($folder);
+        if (!static::is_removal_target_safe($folder)) {
+            return false;
+        }
+
         if (!file_exists($folder)) {
             return true;
         }
 
         $files = is_dir($folder) ? static::scan_folder($folder) : [];
         foreach ($files as $file) {
-            $path = $folder . DIRECTORY_SEPARATOR . $file;
-            is_dir($path) ? static::del_tree($path) : unlink($path);
+            $path = static::normalize_path($folder . DIRECTORY_SEPARATOR . $file);
+            if (!static::is_path_within_base($path, $folder)) {
+                continue;
+            }
+
+            is_dir($path) ? static::del_tree($path) : static::safe_unlink($path, $folder);
         }
 
         return is_dir($folder) ? rmdir($folder) : unlink($folder);
@@ -235,5 +245,37 @@ class fs_file_manager
         $res = $zip->extractTo($destination);
         $zip->close();
         return $res;
+    }
+
+    private static function normalize_path($path)
+    {
+        if (!is_scalar($path)) {
+            return '';
+        }
+
+        $path = str_replace('\\', '/', (string) $path);
+        $path = preg_replace('#/+#', '/', $path);
+        return rtrim($path, '/');
+    }
+
+    private static function is_path_within_base($path, $base)
+    {
+        $path = static::normalize_path($path);
+        $base = rtrim(static::normalize_path($base), '/') . '/';
+        return $path !== '' && strpos($path . '/', $base) === 0;
+    }
+
+    private static function is_removal_target_safe($path)
+    {
+        return $path !== '' && $path !== '/' && !preg_match('#^[A-Za-z]:$#', $path);
+    }
+
+    private static function safe_unlink($path, $base)
+    {
+        if (!static::is_path_within_base($path, $base) || !is_file($path)) {
+            return false;
+        }
+
+        return @unlink($path);
     }
 }

@@ -1,0 +1,527 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * Admin Stealth Mode - Configuration & Homepage Editor
+ */
+#}
+{{ include('header.html.twig') }}
+
+{# Summernote WYSIWYG - compatible con Bootstrap 3 + jQuery ya cargados #}
+<link href="https://cdn.jsdelivr.net/npm/summernote@0.9.1/dist/summernote.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.9.1/dist/summernote.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.9.1/dist/lang/summernote-es-ES.min.js"></script>
+
+<style>
+    .stealth-url-box {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 12px 16px;
+        font-family: monospace;
+        font-size: 13px;
+        word-break: break-all;
+        position: relative;
+    }
+    .stealth-url-box .btn-copy {
+        position: absolute;
+        right: 8px;
+        top: 8px;
+    }
+    .stealth-status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-left: 10px;
+    }
+    .stealth-status.active { background: #d4edda; color: #155724; }
+    .stealth-status.inactive { background: #f8d7da; color: #721c24; }
+    .note-editor { border-radius: 4px !important; }
+    .preview-frame {
+        width: 100%;
+        height: 500px;
+        border: 2px solid #ddd;
+        border-radius: 4px;
+        background: #fff;
+    }
+</style>
+
+<section class="content-header">
+    <h1>
+        <i class="fa fa-eye-slash"></i> Modo Stealth
+        <small>Configuración del acceso privado al panel</small>
+    </h1>
+</section>
+
+<section class="content">
+
+    {% if fsc.get_errors() %}
+    <div class="alert alert-danger alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <ul class="list-unstyled" style="margin:0;">
+            {% for err in fsc.get_errors() %}<li><i class="fa fa-exclamation-triangle"></i> {{ err|e }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if fsc.get_messages() %}
+    <div class="alert alert-success alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <ul class="list-unstyled" style="margin:0;">
+            {% for msg in fsc.get_messages() %}<li><i class="fa fa-check"></i> {{ msg|e }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="nav-tabs-custom">
+        <ul class="nav nav-tabs" id="stealth_tabs">
+            <li class="active">
+                <a href="#tab_config" data-toggle="tab">
+                    <i class="fa fa-cog"></i> Configuración
+                </a>
+            </li>
+            <li>
+                <a href="#tab_editor" data-toggle="tab">
+                    <i class="fa fa-paint-brush"></i> Editor Homepage
+                </a>
+            </li>
+            <li>
+                <a href="#tab_preview" data-toggle="tab">
+                    <i class="fa fa-eye"></i> Vista previa
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+
+            {# ── Pestaña: Configuración ── #}
+            <div class="tab-pane active" id="tab_config">
+                <div class="row">
+                    <div class="col-md-6">
+                        <form method="post" action="{{ fsc.url()|raw }}">
+                            <input type="hidden" name="action" value="save_settings"/>
+                            {{ csrf_field() }}
+
+                            <div class="box box-primary">
+                                <div class="box-header with-border">
+                                    <h3 class="box-title"><i class="fa fa-toggle-on"></i> Estado del modo stealth</h3>
+                                </div>
+                                <div class="box-body">
+                                    <div class="form-group">
+                                        <label>Activar modo stealth</label>
+                                        <div>
+                                            <label class="radio-inline">
+                                                <input type="radio" name="stealth_enabled" value="1"
+                                                       {{ fsc.stealth_enabled ? 'checked' : '' }}/>
+                                                <span class="text-success"><i class="fa fa-check-circle"></i> Activado</span>
+                                            </label>
+                                            <label class="radio-inline">
+                                                <input type="radio" name="stealth_enabled" value="0"
+                                                       {{ not fsc.stealth_enabled ? 'checked' : '' }}/>
+                                                <span class="text-danger"><i class="fa fa-times-circle"></i> Desactivado</span>
+                                            </label>
+                                        </div>
+                                        <p class="help-block">
+                                            Cuando está activado, <code>index.php</code> muestra la homepage pública.
+                                            El panel de administración solo es accesible mediante la URL secreta.
+                                        </p>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="stealth_param_name">Nombre del parámetro</label>
+                                        <input type="text" class="form-control" id="stealth_param_name"
+                                               name="stealth_param_name"
+                                               value="{{ fsc.stealth_param_name }}"
+                                               pattern="[a-zA-Z0-9_]+"
+                                               placeholder="adminpanel"/>
+                                        <p class="help-block">
+                                            Solo letras, números y guiones bajos. Ej: <code>adminpanel</code>, <code>backend</code>, <code>manage</code>
+                                        </p>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="stealth_page_title">Título de la página pública</label>
+                                        <input type="text" class="form-control" id="stealth_page_title"
+                                               name="stealth_page_title"
+                                               value="{{ fsc.stealth_page_title }}"
+                                               placeholder="Bienvenido"/>
+                                        <p class="help-block">
+                                            Aparece en la pestaña del navegador al visitar la homepage pública.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="box-footer">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fa fa-save"></i> Guardar configuración
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="box box-warning">
+                            <div class="box-header with-border">
+                                <h3 class="box-title"><i class="fa fa-key"></i> Token secreto de acceso</h3>
+                                <span class="stealth-status {{ fsc.stealth_enabled ? 'active' : 'inactive' }}">
+                                    {{ fsc.stealth_enabled ? 'ACTIVO' : 'INACTIVO' }}
+                                </span>
+                            </div>
+                            <div class="box-body">
+                                <label>URL de acceso al panel:</label>
+                                <div class="stealth-url-box" id="access_url_box">
+                                    <span id="access_url_text">{{ fsc.stealth_access_url }}</span>
+                                    <button type="button" class="btn btn-xs btn-default btn-copy"
+                                            onclick="copyAccessUrl()" title="Copiar URL">
+                                        <i class="fa fa-clipboard"></i>
+                                    </button>
+                                </div>
+                                <br/>
+                                <p class="text-muted">
+                                    <i class="fa fa-info-circle"></i>
+                                    Usa esta URL para acceder al login cuando el modo stealth está activo.
+                                    Solo necesitas usarla <strong>una vez por sesión</strong>; después puedes
+                                    navegar normalmente.
+                                </p>
+
+                                <div class="form-group">
+                                    <label>Token actual:</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" readonly
+                                               value="{{ fsc.stealth_param_value }}" id="token_display"/>
+                                        <span class="input-group-btn">
+                                            <button type="submit" form="form_regenerate_secret" class="btn btn-warning"
+                                                    onclick="return confirm('¿Regenerar el token? La URL de acceso actual dejará de funcionar.')">
+                                                <i class="fa fa-refresh"></i> Regenerar
+                                            </button>
+                                        </span>
+                                    </div>
+                                    <form method="post" action="{{ fsc.url()|raw }}" id="form_regenerate_secret">
+                                        <input type="hidden" name="action" value="regenerate_secret"/>
+                                        {{ csrf_field() }}
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Pestaña: Editor Homepage ── #}
+            <div class="tab-pane" id="tab_editor">
+                <form method="post" action="{{ fsc.url()|raw }}" id="form_homepage">
+                    <input type="hidden" name="action" value="save_homepage"/>
+                    {{ csrf_field() }}
+
+                    <div class="box box-success">
+                        <div class="box-header with-border">
+                            <h3 class="box-title">
+                                <i class="fa fa-code"></i> Editor de Homepage Pública
+                            </h3>
+                            <div class="box-tools pull-right">
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="fa fa-save"></i> Guardar homepage
+                                </button>
+                            </div>
+                        </div>
+                        <div class="box-body" style="padding: 0;">
+                            <textarea id="homepage_editor" name="stealth_homepage_html">{{ fsc.stealth_homepage_html|e('html_attr') }}</textarea>
+                        </div>
+                        <div class="box-footer">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fa fa-save"></i> Guardar homepage
+                            </button>
+                            <button type="button" class="btn btn-default" id="btn_load_default">
+                                <i class="fa fa-file-text-o"></i> Cargar plantilla por defecto
+                            </button>
+                            <button type="button" class="btn btn-info" id="btn_edit_code">
+                                <i class="fa fa-code"></i> Editar código HTML
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="box box-default">
+                        <div class="box-header with-border">
+                            <h3 class="box-title">
+                                <i class="fa fa-css3"></i> CSS personalizado <small>(opcional)</small>
+                            </h3>
+                        </div>
+                        <div class="box-body">
+                            <p class="text-muted">
+                                <i class="fa fa-info-circle"></i>
+                                La homepage pública ya incluye <strong>Bootstrap 5</strong> y la fuente <strong>Inter</strong>.
+                                Aquí puedes añadir estilos CSS adicionales. Se inyectan dentro de <code>&lt;style&gt;</code> en el <code>&lt;head&gt;</code>.
+                            </p>
+                            <textarea id="custom_css_editor" name="stealth_custom_css"
+                                      class="form-control" rows="8"
+                                      style="font-family: monospace; font-size: 13px;"
+                                      placeholder="/* Ejemplo: */&#10;.hero { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); }&#10;footer { background: #2d3436; }">{{ fsc.stealth_custom_css }}</textarea>
+                        </div>
+                        <div class="box-footer">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fa fa-save"></i> Guardar todo
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            {# ── Pestaña: Vista previa ── #}
+            <div class="tab-pane" id="tab_preview">
+                <div class="box box-info">
+                    <div class="box-header with-border">
+                        <h3 class="box-title"><i class="fa fa-eye"></i> Vista previa de la homepage pública</h3>
+                        <div class="box-tools pull-right">
+                            <button type="button" class="btn btn-sm btn-info" id="btn_refresh_preview">
+                                <i class="fa fa-refresh"></i> Actualizar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="box-body" style="padding: 0;">
+                        <iframe id="preview_frame" class="preview-frame" sandbox="allow-same-origin"></iframe>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</section>
+
+<script>
+$(function() {
+
+    // ── Inicializar Summernote ──
+    var $editor = $('#homepage_editor');
+
+    $editor.summernote({
+        height: 500,
+        lang: 'es-ES',
+        toolbar: [
+            ['style', ['style']],
+            ['font', ['bold', 'italic', 'underline', 'strikethrough', 'clear']],
+            ['fontname', ['fontname']],
+            ['fontsize', ['fontsize']],
+            ['color', ['color']],
+            ['para', ['ul', 'ol', 'paragraph']],
+            ['table', ['table']],
+            ['insert', ['link', 'picture', 'video', 'hr']],
+            ['view', ['fullscreen', 'codeview', 'help']]
+        ],
+        fontNames: [
+            'Arial', 'Arial Black', 'Comic Sans MS', 'Courier New',
+            'Helvetica Neue', 'Helvetica', 'Impact', 'Lucida Grande',
+            'Tahoma', 'Times New Roman', 'Verdana', 'Georgia',
+            'Roboto', 'Open Sans', 'Lato', 'Montserrat'
+        ],
+        callbacks: {
+            onChange: function(contents) {
+                $editor.val(contents);
+            }
+        }
+    });
+
+    // ── Copiar URL ──
+    function updateCopyButton(state, message) {
+        var $btn = $('.btn-copy');
+        var originalHtml = $btn.data('original-html');
+
+        if (!originalHtml) {
+            originalHtml = $btn.html();
+            $btn.data('original-html', originalHtml);
+        }
+
+        if (state === 'success') {
+            $btn.removeClass('btn-danger').addClass('btn-success');
+            $btn.html('<i class="fa fa-check"></i>');
+            $btn.attr('title', message);
+        } else if (state === 'error') {
+            $btn.removeClass('btn-success').addClass('btn-danger');
+            $btn.html('<i class="fa fa-times"></i>');
+            $btn.attr('title', message);
+        } else {
+            $btn.removeClass('btn-success btn-danger').html(originalHtml).attr('title', 'Copiar URL');
+        }
+
+        if (state !== 'idle') {
+            setTimeout(function() {
+                updateCopyButton('idle');
+            }, 1800);
+        }
+    }
+
+    function fallbackCopyAccessUrl() {
+        var accessText = document.getElementById('access_url_text');
+        var value = accessText ? accessText.textContent : '';
+        var textarea = document.createElement('textarea');
+
+        textarea.value = value;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+            if (document.execCommand('copy')) {
+                updateCopyButton('success', 'URL copiada');
+                document.body.removeChild(textarea);
+                return true;
+            }
+        } catch (error) {
+        }
+
+        document.body.removeChild(textarea);
+        updateCopyButton('error', 'No se pudo copiar la URL');
+        return false;
+    }
+
+    window.copyAccessUrl = function() {
+        var accessText = document.getElementById('access_url_text');
+        var url = accessText ? accessText.textContent : '';
+
+        if (!url) {
+            updateCopyButton('error', 'No hay URL para copiar');
+            return;
+        }
+
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+            fallbackCopyAccessUrl();
+            return;
+        }
+
+        navigator.clipboard.writeText(url).then(function() {
+            updateCopyButton('success', 'URL copiada');
+        }).catch(function() {
+            fallbackCopyAccessUrl();
+        });
+    };
+
+    // ── Refresh preview (envuelve en Bootstrap 5 como lo hará la homepage real) ──
+    function refreshPreview() {
+        var bodyContent = $editor.summernote('code');
+        if (!bodyContent || $.trim(bodyContent) === '' || $.trim(bodyContent) === '<p><br></p>') {
+            bodyContent = '<div style="text-align:center;padding:60px;color:#999;font-family:sans-serif;">'
+                    + '<h2>Sin contenido</h2>'
+                    + '<p>Edita la homepage en la pestaña "Editor Homepage".</p></div>';
+        }
+        var customCss = $('#custom_css_editor').val() || '';
+        var fullHtml = '<!DOCTYPE html><html lang="es"><head>'
+            + '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">'
+            + '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
+            + '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">'
+            + '<style>'
+            + ':root{--brand-primary:#2DBCB6;--brand-dark:#1a2332;--brand-darker:#111927;--brand-accent:#24d4ad;--brand-light:#f0fdfb}'
+            + 'body{font-family:"Inter",sans-serif;margin:0;color:#333}'
+            + '.st-navbar{background:var(--brand-dark);padding:.8rem 0}'
+            + '.st-navbar .navbar-brand{color:var(--brand-primary);font-weight:700;font-size:1.4rem}'
+            + '.st-hero{background:linear-gradient(135deg,var(--brand-dark) 0%,#1e3a4f 50%,#1a4a45 100%);color:#fff;padding:100px 20px 80px;text-align:center;position:relative;overflow:hidden}'
+            + '.st-hero h1{font-size:2.8rem;font-weight:700;margin-bottom:.75rem}'
+            + '.st-hero p.lead{font-size:1.2rem;opacity:.85;max-width:550px;margin:0 auto 2rem;font-weight:300}'
+            + '.st-btn-primary{background:var(--brand-primary);border:none;color:#fff;padding:.7rem 2rem;border-radius:8px;font-weight:600;transition:all .2s}'
+            + '.st-btn-primary:hover{background:var(--brand-accent);color:#fff;transform:translateY(-1px);box-shadow:0 6px 20px rgba(45,188,182,.3)}'
+            + '.st-btn-outline{background:transparent;border:2px solid rgba(255,255,255,.3);color:#fff;padding:.65rem 2rem;border-radius:8px;font-weight:500;transition:all .2s}'
+            + '.st-btn-outline:hover{border-color:var(--brand-primary);color:var(--brand-primary)}'
+            + '.st-section{padding:80px 0}'
+            + '.st-section-title{font-weight:700;font-size:2rem;margin-bottom:.5rem;color:var(--brand-dark)}'
+            + '.st-section-subtitle{color:#6c757d;font-size:1.1rem;margin-bottom:3rem}'
+            + '.st-card{background:#fff;border:1px solid #e8f4f3;border-radius:16px;padding:2rem;height:100%;transition:all .25s}'
+            + '.st-card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(45,188,182,.1);border-color:var(--brand-primary)}'
+            + '.st-card-icon{width:56px;height:56px;border-radius:12px;background:var(--brand-light);display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:1.2rem;color:var(--brand-primary)}'
+            + '.st-card h4{font-weight:600;font-size:1.15rem;margin-bottom:.5rem;color:var(--brand-dark)}'
+            + '.st-card p{color:#6c757d;font-size:.95rem;line-height:1.6;margin:0}'
+            + '.st-cta{background:linear-gradient(135deg,var(--brand-dark) 0%,#1e3a4f 100%);color:#fff;padding:60px 0;text-align:center}'
+            + '.st-cta h3{font-weight:700;font-size:1.8rem;margin-bottom:.5rem}'
+            + '.st-cta p{opacity:.8;margin-bottom:1.5rem;font-size:1.05rem}'
+            + '.st-footer{background:var(--brand-darker);color:rgba(255,255,255,.5);padding:2rem 0;font-size:.85rem}'
+            + '</style>'
+            + (customCss ? '<style>' + customCss + '</style>' : '')
+            + '</head><body>'
+            + bodyContent
+            + '</body></html>';
+        var frame = document.getElementById('preview_frame');
+        var doc = frame.contentDocument || frame.contentWindow.document;
+        doc.open();
+        doc.write(fullHtml);
+        doc.close();
+    }
+
+    $('#btn_refresh_preview').click(refreshPreview);
+    $('a[href="#tab_preview"]').on('shown.bs.tab', refreshPreview);
+
+    // ── Editar código HTML ──
+    $('#btn_edit_code').click(function() {
+        $editor.summernote('codeview.toggle');
+    });
+
+    // ── Cargar plantilla por defecto ──
+    $('#btn_load_default').click(function() {
+        if (!confirm('¿Cargar la plantilla por defecto? El contenido actual del editor será reemplazado.')) {
+            return;
+        }
+
+        var y = new Date().getFullYear();
+        var tpl = ''
+            + '<nav class="navbar navbar-expand-lg st-navbar">'
+            + '<div class="container">'
+            + '<a class="navbar-brand" href="#">Tu Empresa</a>'
+            + '</div>'
+            + '</nav>'
+            + '<section class="st-hero">'
+            + '<div class="container">'
+            + '<div class="brand-logo"></div>'
+            + '<h1>Bienvenido a nuestra plataforma</h1>'
+            + '<p class="lead">Soluciones integrales para la gesti&oacute;n empresarial moderna, r&aacute;pida y segura.</p>'
+            + '<a href="#servicios" class="btn st-btn-primary me-2">Descubrir m&aacute;s</a>'
+            + '<a href="#contacto" class="btn st-btn-outline">Contacto</a>'
+            + '</div>'
+            + '</section>'
+            + '<section id="servicios" class="st-section">'
+            + '<div class="container">'
+            + '<div class="text-center">'
+            + '<h2 class="st-section-title">Nuestros Servicios</h2>'
+            + '<p class="st-section-subtitle">Todo lo que necesitas en un solo lugar</p>'
+            + '</div>'
+            + '<div class="row g-4">'
+            + '<div class="col-md-4"><div class="st-card">'
+            + '<div class="st-card-icon">&#9889;</div>'
+            + '<h4>R&aacute;pido</h4>'
+            + '<p>Rendimiento optimizado para que tu negocio opere sin esperas ni interrupciones.</p>'
+            + '</div></div>'
+            + '<div class="col-md-4"><div class="st-card">'
+            + '<div class="st-card-icon">&#128274;</div>'
+            + '<h4>Seguro</h4>'
+            + '<p>Tus datos protegidos con los m&aacute;s altos est&aacute;ndares de encriptaci&oacute;n y privacidad.</p>'
+            + '</div></div>'
+            + '<div class="col-md-4"><div class="st-card">'
+            + '<div class="st-card-icon">&#10024;</div>'
+            + '<h4>Intuitivo</h4>'
+            + '<p>Interfaz sencilla y moderna dise&ntilde;ada para que empieces a trabajar desde el primer d&iacute;a.</p>'
+            + '</div></div>'
+            + '</div>'
+            + '</div>'
+            + '</section>'
+            + '<section class="st-cta" id="contacto">'
+            + '<div class="container">'
+            + '<h3>&iquest;Listo para empezar?</h3>'
+            + '<p>Cont&aacute;ctanos y descubre c&oacute;mo podemos ayudarte</p>'
+            + '<a href="mailto:info@tuempresa.com" class="btn st-btn-primary">Contactar</a>'
+            + '</div>'
+            + '</section>'
+            + '<footer class="st-footer">'
+            + '<div class="container text-center">'
+            + '<p class="mb-0">&copy; ' + y + ' Tu Empresa &mdash; Todos los derechos reservados.</p>'
+            + '</div>'
+            + '</footer>';
+
+        $editor.summernote('code', tpl);
+    });
+
+});
+</script>
+
+{{ include('footer.html.twig') }}

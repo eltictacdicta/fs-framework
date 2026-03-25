@@ -861,7 +861,12 @@ function fs_detect_controller_page_name($fullClass, $default)
 
 function fs_is_modern_page_controller($fullClass)
 {
-    if (!class_exists($fullClass)) {
+    try {
+        if (!class_exists($fullClass)) {
+            return false;
+        }
+    } catch (\Throwable $e) {
+        error_log("fs_is_modern_page_controller: cannot load {$fullClass} - " . $e->getMessage());
         return false;
     }
 
@@ -877,7 +882,12 @@ function fs_is_modern_page_controller($fullClass)
  */
 function fs_is_route_controller($fullClass)
 {
-    if (!class_exists($fullClass)) {
+    try {
+        if (!class_exists($fullClass)) {
+            return false;
+        }
+    } catch (\Throwable $e) {
+        error_log("fs_is_route_controller: cannot load {$fullClass} - " . $e->getMessage());
         return false;
     }
 

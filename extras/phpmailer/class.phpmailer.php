@@ -3865,14 +3865,14 @@ if (!class_exists('PHPMailer')) {
          */
         public function DKIM_BodyC($body)
         {
-            if ($body == '') {
+            if ($body === '') {
                 return "\r\n";
             }
             // stabilize line endings
             $body = str_replace("\r\n", "\n", $body);
             $body = str_replace("\n", "\r\n", $body);
             // END stabilize line endings
-            while (substr($body, strlen($body) - 4, 4) == "\r\n\r\n") {
+            while (substr($body, strlen($body) - 4, 4) === "\r\n\r\n") {
                 $body = substr($body, 0, strlen($body) - 2);
             }
             return $body;

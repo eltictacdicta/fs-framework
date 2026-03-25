@@ -116,8 +116,8 @@ class Router
             try {
                 $namespace = 'FSFramework\\Plugins\\' . $plugin . '\\Controller\\';
                 $this->loadAttributeRoutesFromDirectory($collection, $pluginModernControllerDir, $namespace);
-            } catch (\Exception $e) {
-                error_log("Error loading plugin routes: " . $e->getMessage());
+            } catch (\Throwable $e) {
+                error_log("Error loading plugin routes for {$plugin}: " . $e->getMessage());
             }
         }
     }
@@ -133,18 +133,17 @@ class Router
         foreach ($files as $file) {
             $className = $namespace . basename($file, '.php');
 
-            if (!class_exists($className)) {
-                // Intentar incluir el archivo si la clase no está cargada (include_once para evitar errores fatales)
-                include_once $file;
-                if (!class_exists($className)) {
-                    continue;
-                }
-            }
-
             try {
+                if (!class_exists($className, false)) {
+                    include_once $file;
+                    if (!class_exists($className, false)) {
+                        continue;
+                    }
+                }
+
                 $this->loadAttributeRoutesFromClass($collection, $className);
-            } catch (\Exception $e) {
-                error_log("Error loading routes from class {$className}: " . $e->getMessage());
+            } catch (\Throwable $e) {
+                error_log("Error loading routes from {$className}: " . $e->getMessage());
             }
         }
     }

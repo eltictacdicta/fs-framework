@@ -105,7 +105,7 @@ class admin_agentes extends fs_controller
 
         if ($agente_obj->save()) {
             $this->new_message('Agente ' . $this->no_html($agente_obj->codagente) . ' creado correctamente.');
-            $this->redirect($agente_obj->url());
+            \FSFramework\Security\SafeRedirect::redirect($agente_obj->url(), 'index.php?page=admin_agentes');
             return;
         } else {
             $this->new_error_msg('Error al crear el agente.');
@@ -124,7 +124,7 @@ class admin_agentes extends fs_controller
 
         if ($agente_obj->save()) {
             $this->new_message('Agente ' . $this->no_html($agente_obj->codagente) . ' modificado correctamente.');
-            $this->redirect($agente_obj->url());
+            \FSFramework\Security\SafeRedirect::redirect($agente_obj->url(), 'index.php?page=admin_agentes');
             return;
         } else {
             $this->new_error_msg('Error al modificar el agente.');

@@ -68,8 +68,6 @@ class ntlm_sasl_client_class
         $unicode = $this->ASCIIToUnicode($password);
         $md4 = mhash(MHASH_MD4, $unicode);
         $padded = $md4 . str_repeat(chr(0), 21 - strlen($md4));
-        $iv_size = mcrypt_get_iv_size(MCRYPT_DES, MCRYPT_MODE_ECB);
-        $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
         for ($response = "", $third = 0; $third < 21; $third += 7) {
             for ($packed = "", $p = $third; $p < $third + 7; $p++) {
                 $packed .= str_pad(decbin(ord(substr($padded, $p, 1))), 8, "0", STR_PAD_LEFT);
@@ -79,7 +77,10 @@ class ntlm_sasl_client_class
                 $b = $s . ((substr_count($s, "1") % 2) ? "0" : "1");
                 $key .= chr(bindec($b));
             }
-            $ciphertext = mcrypt_encrypt(MCRYPT_DES, $key, $challenge, MCRYPT_MODE_ECB, $iv);
+            $ciphertext = openssl_encrypt($challenge, 'DES-ECB', $key, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING);
+            if ($ciphertext === false) {
+                return '';
+            }
             $response .= $ciphertext;
         }
         return $response;

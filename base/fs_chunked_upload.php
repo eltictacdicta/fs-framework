@@ -14,6 +14,8 @@
  */
 class fs_chunked_upload
 {
+    private const SAFE_TOKEN_REGEX = '/[^a-zA-Z0-9_-]/';
+
     /**
      * Directorio destino para los archivos
      * @var string
@@ -151,9 +153,9 @@ class fs_chunked_upload
 
         // Sanitizar el nombre del archivo para evitar Path Traversal
         if ($custom_filename) {
-            $custom_filename = basename($custom_filename);
+            $custom_filename = $this->sanitize_filename($custom_filename);
         }
-        $resumable_filename = basename($resumable_filename);
+        $resumable_filename = $this->sanitize_filename($resumable_filename);
 
         // Manejar petición GET (verificar si chunk existe)
         if ($this->request->isMethod('GET')) {
@@ -300,7 +302,7 @@ class fs_chunked_upload
             $chunk_data = file_get_contents($chunk_file);
             if ($chunk_data === false) {
                 fclose($fp);
-                @unlink($final_path);
+                $this->safe_unlink($final_path, $this->upload_dir);
                 $this->last_error = "No se pudo leer el chunk {$i}";
                 return false;
             }
@@ -321,7 +323,7 @@ class fs_chunked_upload
         if (is_dir($chunk_dir)) {
             $files = glob($chunk_dir . '*');
             foreach ($files as $file) {
-                @unlink($file);
+                $this->safe_unlink($file, $chunk_dir);
             }
             @rmdir($chunk_dir);
         }
@@ -341,7 +343,52 @@ class fs_chunked_upload
      */
     private function sanitize_identifier($identifier)
     {
-        return preg_replace('/[^a-zA-Z0-9_-]/', '', $identifier);
+        return preg_replace(self::SAFE_TOKEN_REGEX, '', (string) $identifier);
+    }
+
+    /**
+     * Sanitizar nombre de archivo.
+     */
+    private function sanitize_filename($filename)
+    {
+        $filename = basename((string) $filename);
+        $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
+
+        $parts = explode('.', $filename);
+        if (count($parts) > 2) {
+            $ext = array_pop($parts);
+            $filename = implode('_', $parts) . '.' . $ext;
+        }
+
+        return $filename;
+    }
+
+    /**
+     * Eliminar archivos solo dentro del directorio esperado.
+     */
+    private function safe_unlink($path, $base_dir)
+    {
+        $path = $this->normalize_path($path);
+        $base_dir = rtrim($this->normalize_path($base_dir), '/') . '/';
+        if ($path === '' || strpos($path . '/', $base_dir) !== 0 || !is_file($path)) {
+            return false;
+        }
+
+        return @unlink($path);
+    }
+
+    /**
+     * Normalizar rutas para validaciones internas.
+     */
+    private function normalize_path($path)
+    {
+        if (!is_scalar($path)) {
+            return '';
+        }
+
+        $path = str_replace('\\', '/', (string) $path);
+        $path = preg_replace('#/+#', '/', $path);
+        return rtrim($path, '/');
     }
 
     /**

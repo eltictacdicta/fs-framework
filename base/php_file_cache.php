@@ -75,10 +75,30 @@ class php_file_cache
     {
         if (!$this->file_expired($file = $this->get_route($key), $custom_time)) {
             $content = file_get_contents($file);
-            return $raw ? $content : unserialize($content);
+            return $raw ? $content : $this->decode_cache_content($content);
         }
 
         return NULL;
+    }
+
+    /**
+     * Decode cache content without allowing object instantiation.
+     *
+     * @param string|false $content
+     * @return mixed
+     */
+    private function decode_cache_content($content)
+    {
+        if (!is_string($content)) {
+            return null;
+        }
+
+        $data = @unserialize($content, ['allowed_classes' => false]);
+        if ($data === false && $content !== 'b:0;') {
+            return null;
+        }
+
+        return $data;
     }
 
     /**

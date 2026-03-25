@@ -1,3 +1,4 @@
+function g(a){return a&&!isNaN(a.getTime())}function h(b,c){function d(a){return a.charAt(0).toLowerCase()+a.slice(1)}var e,f=a(b).data(),g={},h=c.toLowerCase();for(var i in f)0===i.toLowerCase().indexOf(h)&&(e=i.slice(h.length),e&&(g[d(e)]=f[i]));return g}function i(b){var c={};if(q[b]||(b=b.split("-")[0],q[b])){var d=q[b];return a.each(p,function(a,b){b in d&&(c[b]=d[b])}),c}}var j=function(){
 /*!
  * Datepicker for Bootstrap v1.9.0 (https://github.com/uxsolutions/bootstrap-datepicker)
  *

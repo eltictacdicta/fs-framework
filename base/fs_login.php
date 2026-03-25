@@ -387,7 +387,7 @@ class fs_login
             $password_verified = true;
         }
         // Para compatibilidad con versiones anteriores (SHA1)
-        elseif ($user->password == sha1($password) || $user->password == sha1(mb_strtolower($password, 'UTF8'))) {
+        elseif ($user->password === sha1($password) || $user->password === sha1(mb_strtolower($password, 'UTF8'))) {
             $password_verified = true;
             // Si la contraseña coincide con SHA1, actualizar el hash a Argon2ID para mayor seguridad
             $user->set_password($password);

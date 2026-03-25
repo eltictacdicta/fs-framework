@@ -76,6 +76,16 @@ try {
 /// Boot del Kernel moderno (inicializa plugins de FS2025)
 \FSFramework\Core\Kernel::boot();
 
+/// --- Stealth Mode Gate ---
+/// Si el modo stealth está activo y la petición no tiene acceso,
+/// se muestra la homepage pública y se detiene la ejecución.
+require_once FS_FOLDER . '/src/Core/StealthMode.php';
+$_stealth = new \FSFramework\Core\StealthMode();
+if ($_stealth->isEnabled() && !$_stealth->isExemptRoute() && !$_stealth->hasAccess()) {
+    $_stealth->renderPublicHomepage();
+}
+unset($_stealth);
+
 /// --- Symfony Routing Bridge ---
 try {
     $response = \FSFramework\Core\Kernel::handleRequest();

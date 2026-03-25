@@ -51,8 +51,10 @@ function parse_number(str, dec_point, thousands_sep) {
         return str;
     }
     
-    str = str.toString().replace(new RegExp('\\' + thousands_sep, 'g'), '');
-    str = str.replace(new RegExp('\\' + dec_point), '.');
+    str = str.toString().split(thousands_sep).join('');
+    if (dec_point !== '.') {
+        str = str.replace(dec_point, '.');
+    }
     
     return parseFloat(str) || 0;
 }
