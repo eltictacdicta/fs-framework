@@ -6,6 +6,12 @@ alwaysApply: true
 
 # DDEV — Entorno de Desarrollo FSFramework
 
+## Relación con la línea base compartida
+
+- Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- Amplia el detalle operativo de DDEV, pero no debe contradecir la línea base compartida de `.github/copilot-instructions.md` ni `AGENTS.md`.
+- Si aqui cambia una directriz general sobre el entorno de desarrollo, reflejar el mismo cambio en `.github/copilot-instructions.md` y `AGENTS.md` dentro de la misma tarea.
+
 ## Configuración Base `.ddev/config.yaml`
 
 > **Nota**: Este es un ejemplo de referencia. Consultar siempre `.ddev/config.yaml` del proyecto actual para los valores reales (nombre, webserver, tipo de BD, variables de entorno, etc.).

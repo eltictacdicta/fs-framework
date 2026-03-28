@@ -1,6 +1,6 @@
 ---
 description: Reglas generales para fs-framework - PHP 8.3, Symfony 7.4, DDEV
-globs: ["**/*.php", "**/*.twig", "composer.json", ".ddev/**"]
+globs: ["**/*.php", "**/*.twig", "composer.json", ".ddev/**", "AGENTS.md", ".github/copilot-instructions.md", ".cursor/rules/**/*.mdc"]
 alwaysApply: true
 ---
 
@@ -62,3 +62,10 @@ alwaysApply: true
 4. **Twig para todas las vistas nuevas** — nunca PHP puro en templates
 5. **Symfony Validator** para validaciones de modelos
 6. **Eventos** para desacoplar lógica de negocio
+
+## Sincronización de Instrucciones Entre IDEs
+
+- Mantener alineadas las reglas base compartidas entre `.github/copilot-instructions.md`, `AGENTS.md` y `.cursor/rules/*.mdc`.
+- Si una tarea modifica una directriz general o permanente, aplicar el cambio equivalente en los otros archivos de instrucciones durante la misma tarea.
+- `copilot-instructions.md` debe conservar el resumen corto, `AGENTS.md` la guía extensa y las reglas de Cursor el detalle operativo por contexto.
+- Para cambios centrados en archivos de instrucciones, aplicar también la regla específica `fs-framework-ai-instructions.mdc`.

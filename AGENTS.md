@@ -3,6 +3,22 @@
 ## Overview
 FSFramework is a modernized PHP-based ERP/accounting software fork of FacturaScripts 2017, with Symfony 7.4 integration and PHP 8.2+ features. This guide provides comprehensive instructions for agentic coding agents working in this repository.
 
+## Shared Baseline Summary
+
+- Mandatory environment: `ddev` for PHP, Composer and PHPUnit commands.
+- Stack baseline: PHP 8.2+ with preference for 8.3, Symfony 7.4, Twig 3 and PHPUnit 11.
+- Preserve the architectural split between legacy code in `base/`, `controller/`, `model/` and modern PSR-4 code in `src/`.
+- Keep the common safety baseline: safe SQL, escaped output, CSRF in mutating flows, secure password handling and safe file handling.
+- Add or update tests for business logic changes, especially reusable logic in `src/` and plugins.
+
+## Document Roles
+
+- `.github/copilot-instructions.md`: concise shared baseline for VS Code / Copilot.
+- `AGENTS.md`: detailed repository reference with examples, architecture and operational guidance.
+- `.cursor/rules/fs-framework-general.mdc`: shared baseline for Cursor.
+- Other `.cursor/rules/*.mdc`: specialized operational guidance by area such as DDEV, security, Symfony, testing, Twig or plugins.
+- Detailed sections below extend the baseline; they should refine it, not contradict it.
+
 ## Development Environment
 
 - This project uses `ddev` as the required local development environment.
@@ -11,12 +27,20 @@ FSFramework is a modernized PHP-based ERP/accounting software fork of FacturaScr
 - Prefer `ddev exec composer ...` instead of `composer ...` when Composer must run inside the project environment.
 - If the application or tests depend on services, assume `ddev start` must be running first.
 
+## Instruction Parity Across IDEs
+
+- Keep the shared baseline synchronized across `.github/copilot-instructions.md`, `AGENTS.md`, and `.cursor/rules/*.mdc`.
+- If a task changes common agent guidance in any one of those places, update the equivalent guidance in the other two within the same task.
+- Use `.github/copilot-instructions.md` for the concise baseline, `AGENTS.md` for the detailed reference, and `.cursor/rules/*.mdc` for operational and file-pattern-specific behavior.
+- Shared rules that must not drift include at least: mandatory `ddev`, PHP/Composer/PHPUnit execution through `ddev`, stack baseline, security baseline, testing expectations, legacy vs modern architecture conventions, and plugin development constraints.
+- If a change only affects a specialized area, update the corresponding Cursor rule file as the source of operational detail and mirror it in the shared documents only when it changes the common baseline.
+
 ## Build Commands
 
 ### Install Dependencies
 ```bash
 # Install PHP dependencies
-composer install
+ddev exec composer install
 
 # Install frontend dependencies and build assets
 ./build.sh
@@ -56,9 +80,6 @@ ddev exec php vendor/bin/phpunit --testsuite Components
 
 # Run a specific test file
 ddev exec php vendor/bin/phpunit tests/Base/FsModelMethodsTest.php
-
-# Run without ddev (if PHP is available locally)
-php vendor/bin/phpunit
 ```
 
 #### Test Structure

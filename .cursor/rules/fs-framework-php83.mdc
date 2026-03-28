@@ -6,6 +6,12 @@ alwaysApply: false
 
 # PHP 8.3 — Características Modernas en FSFramework
 
+## Relación con la línea base compartida
+
+- Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- Amplia criterios de implementacion para PHP moderno, pero no sustituye ni contradice la línea base compartida de `.github/copilot-instructions.md` y `AGENTS.md`.
+- Si una recomendacion aqui pasa a ser regla general del repositorio, actualizar también `.github/copilot-instructions.md` y `AGENTS.md` en la misma tarea.
+
 ## Tipos Estrictos — SIEMPRE declarar
 
 ```php

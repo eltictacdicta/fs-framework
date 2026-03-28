@@ -6,6 +6,12 @@ alwaysApply: false
 
 # Symfony 7.4 — Componentes en FSFramework
 
+## Relación con la línea base compartida
+
+- Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- Amplia el uso operativo de Symfony 7.4 y no debe contradecir la línea base compartida de `.github/copilot-instructions.md` y `AGENTS.md`.
+- Si aqui cambia una directriz comun sobre servicios, arquitectura, formularios, cache o seguridad, reflejarla también en `.github/copilot-instructions.md` y `AGENTS.md`.
+
 ## Contenedor de Dependencias — Siempre usar Container
 
 ```php

@@ -6,6 +6,12 @@ alwaysApply: false
 
 # Plugins — Desarrollo Seguro y Optimizado
 
+## Relación con la línea base compartida
+
+- Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- Amplia las convenciones de plugins y no debe contradecir la línea base compartida definida en `.github/copilot-instructions.md` y `AGENTS.md`.
+- Si aqui se modifica una norma comun sobre arquitectura, seguridad, testing o dependencias de plugins, reflejarla también en `.github/copilot-instructions.md` y `AGENTS.md`.
+
 ## Estructura de un Plugin
 
 ```

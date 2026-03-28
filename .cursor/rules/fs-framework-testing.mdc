@@ -6,6 +6,12 @@ alwaysApply: false
 
 # PHPUnit 11 — Testing en FSFramework
 
+## Relación con la línea base compartida
+
+- Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- Amplía el detalle de testing, pero no sustituye la línea base compartida de `.github/copilot-instructions.md` y `AGENTS.md`.
+- Si una expectativa de testing aquí pasa a ser obligatoria para todo el repositorio, actualizar también `.github/copilot-instructions.md` y `AGENTS.md` en la misma tarea.
+
 ## Ejecutar Tests
 
 ```bash

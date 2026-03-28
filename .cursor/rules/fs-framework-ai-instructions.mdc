@@ -1,0 +1,37 @@
+---
+description: Mantener sincronizadas las instrucciones compartidas entre Cursor, Copilot y AGENTS al editar archivos de reglas o guias de agentes
+globs: ["AGENTS.md", ".github/copilot-instructions.md", ".cursor/rules/**/*.mdc"]
+alwaysApply: true
+---
+
+# Sincronizacion de instrucciones entre IDEs
+
+## Regla de paridad
+
+- Si actualizas `.github/copilot-instructions.md`, revisa y actualiza el equivalente en `AGENTS.md` y en la regla o reglas de `.cursor/rules/` afectadas.
+- Si actualizas `AGENTS.md`, refleja la misma base en `.github/copilot-instructions.md` y en las reglas de Cursor correspondientes.
+- Si actualizas una regla de `.cursor/rules/*.mdc` que cambie directrices compartidas, actualiza también `.github/copilot-instructions.md` y `AGENTS.md`.
+- No dejar cambios de instrucciones pendientes para otra tarea cuando afecten a la linea base comun.
+
+## Reparto de responsabilidades
+
+- `.github/copilot-instructions.md`: resumen corto, siempre vigente, con las reglas basicas compartidas.
+- `AGENTS.md`: guia extensa con contexto, ejemplos y convenciones detalladas del repositorio.
+- `.cursor/rules/fs-framework-general.mdc`: linea base comun para Cursor.
+- Resto de `.cursor/rules/*.mdc`: detalle operativo especializado por area, como seguridad, testing, Twig, Symfony o plugins.
+
+## Mínimo que debe mantenerse sincronizado
+
+- Uso obligatorio de `ddev` para PHP, Composer y PHPUnit.
+- Suposición de `ddev start` cuando la tarea dependa de servicios locales.
+- Stack base del proyecto: PHP 8.2+ con preferencia por 8.3, Symfony 7.4, Twig y PHPUnit 11.
+- Separacion entre codigo legacy (`base/`, `controller/`, `model/`) y moderno (`src/`).
+- Reglas de seguridad base: SQL seguro, escape de salida, CSRF y manejo seguro de contraseñas/archivos.
+- Expectativa de tests para logica nueva o modificada.
+- Convenciones principales de plugins y uso del framework.
+
+## Criterio de actualización
+
+- Si el cambio es global o permanente, sincronizar los tres frentes.
+- Si el cambio es especializado, actualizar la regla `.mdc` concreta y reflejarlo en los documentos compartidos solo si cambia la base comun.
+- Evitar contradicciones: la version detallada puede ampliar la regla comun, pero no contradecirla.
