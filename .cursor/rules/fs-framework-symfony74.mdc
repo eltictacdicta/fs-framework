@@ -1,0 +1,366 @@
+---
+description: Uso correcto de componentes Symfony 7.4 en fs-framework
+globs: ["src/**/*.php", "config/**/*.yaml", "config/**/*.php"]
+alwaysApply: false
+---
+
+# Symfony 7.4 — Componentes en FSFramework
+
+## Contenedor de Dependencias — Siempre usar Container
+
+```php
+use FSFramework\DependencyInjection\Container;
+
+// ✅ Obtener servicios a través del contenedor
+$db      = Container::db();
+$request = Container::request();
+$cache   = Container::cache();
+$hasher  = Container::passwordHasher();
+
+// ❌ No instanciar servicios directamente
+$cache = new \Symfony\Component\Cache\Adapter\FilesystemAdapter(); // Evitar
+```
+
+## HTTP Foundation — Request y Response
+
+```php
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+
+// ✅ Leer parámetros de forma segura
+$request = Container::request();
+
+// GET con valor por defecto y tipo
+$pagina  = $request->query->getInt('pagina', 1);
+$buscar  = $request->query->getString('buscar', '');
+$activo  = $request->query->getBoolean('activo', true);
+
+// POST
+$nombre  = $request->request->getString('nombre', '');
+$email   = $request->request->getString('email', '');
+
+// Archivos
+$archivo = $request->files->get('documento');
+
+// Headers
+$accept  = $request->headers->get('Accept', 'text/html');
+
+// ✅ Respuesta JSON para API endpoints
+class api_usuario extends fs_controller
+{
+    protected function private_core(): void
+    {
+        $datos = $this->getUsuarios();
+
+        $response = new JsonResponse([
+            'data'    => $datos,
+            'total'   => count($datos),
+            'success' => true,
+        ]);
+        $response->send();
+        exit;
+    }
+}
+
+// ✅ Redirección
+$response = new RedirectResponse($this->url('ListClientes'));
+$response->send();
+exit;
+```
+
+## Routing con Atributos PHP 8
+
+```php
+use FSFramework\Attribute\FSRoute;
+
+// ✅ Rutas con atributos modernos
+#[FSRoute('/api/clientes', methods: ['GET'])]
+class api_clientes extends fs_controller
+{
+    protected function private_core(): void { /* ... */ }
+}
+
+#[FSRoute('/api/clientes/{id}', methods: ['GET', 'PUT'], requirements: ['id' => '\d+'])]
+class api_cliente extends fs_controller
+{
+    protected function private_core(): void
+    {
+        $id = (int) $this->request->attributes->get('id');
+        // ...
+    }
+}
+
+// ✅ Rutas con nombre para generar URLs
+#[FSRoute('/clientes/nuevo', methods: ['GET', 'POST'], name: 'cliente_nuevo')]
+class EditCliente extends fs_controller { /* ... */ }
+```
+
+## Sistema de Eventos
+
+```php
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Event\ModelEvent;
+
+// ✅ Registrar listener (en bootstrap o ServiceProvider)
+$dispatcher = FSEventDispatcher::getInstance();
+
+$dispatcher->addListener(
+    eventName: ModelEvent::BEFORE_SAVE,
+    listener: function(ModelEvent $event): void {
+        $model = $event->getModel();
+
+        // Validar antes de guardar
+        if (empty($model->nombre)) {
+            $event->cancel('El nombre es requerido');
+        }
+    }
+);
+
+$dispatcher->addListener(
+    eventName: ModelEvent::AFTER_SAVE,
+    listener: function(ModelEvent $event): void {
+        // Limpiar caché relacionada
+        Container::cache()->invalidateTags(['clientes']);
+    }
+);
+
+// ✅ Disparar evento personalizado
+$dispatcher->dispatch(new ModelEvent($modelo, ModelEvent::BEFORE_SAVE));
+```
+
+## Validación con Symfony Validator
+
+```php
+use FSFramework\Traits\ValidatorTrait;
+use Symfony\Component\Validator\Constraints as Assert;
+
+class Proveedor extends fs_model
+{
+    use ValidatorTrait;
+
+    #[Assert\NotBlank(message: 'El nombre es obligatorio')]
+    #[Assert\Length(min: 2, max: 150, minMessage: 'Mínimo {{ limit }} caracteres')]
+    public string $nombre = '';
+
+    #[Assert\NotBlank]
+    #[Assert\Email(message: 'El email "{{ value }}" no es válido')]
+    public string $email = '';
+
+    #[Assert\Regex(
+        pattern: '/^[A-Z]{1}[0-9]{7}[A-Z0-9]{1}$/',
+        message: 'CIF/NIF con formato incorrecto'
+    )]
+    public string $cifnif = '';
+
+    #[Assert\PositiveOrZero(message: 'El crédito no puede ser negativo')]
+    public float $credito = 0.0;
+
+    #[Assert\Choice(choices: ['activo', 'inactivo', 'bloqueado'])]
+    public string $estado = 'activo';
+
+    public function test(): bool
+    {
+        // Llama al ValidatorTrait que usa Symfony Validator internamente
+        return $this->validate();
+    }
+}
+```
+
+## Protección CSRF
+
+```php
+// ✅ En formularios Twig — función helper global
+{# view/Proveedor/EditProveedor.html.twig #}
+<form method="post" action="{{ fsc.url() }}">
+    {{ csrf_field() }}
+    <input type="text" name="nombre" value="{{ fsc.proveedor.nombre }}">
+    <button type="submit" class="btn btn-primary">Guardar</button>
+</form>
+
+// ✅ Validar en el controlador
+use FSFramework\Security\CSRFProtection;
+
+protected function execAction(string $action): bool
+{
+    if ($this->request->isMethod('POST')) {
+        if (!CSRFProtection::validate($this->request->get('_token'))) {
+            $this->miniLog->alert($this->i18n->trans('invalid-csrf-token'));
+            return false;
+        }
+    }
+    return parent::execAction($action);
+}
+```
+
+## Caché con CacheManager
+
+```php
+use FSFramework\Cache\CacheManager;
+
+$cache = CacheManager::getInstance();
+
+// ✅ Get con callback — genera si no existe (patrón cache-aside)
+$clientes = $cache->get(
+    key: 'clientes_activos',
+    callback: fn() => $this->db->select("SELECT * FROM fs_clientes WHERE activo = 1"),
+    ttl: 3600, // 1 hora
+);
+
+// ✅ Invalidar por tags
+$cache->invalidateTags(['clientes', 'dashboard']);
+
+// ✅ Limpiar todo (Symfony Cache + Twig + legacy)
+$cache->clearAll();
+
+// ✅ Patrón para datos que cambian frecuentemente
+$stats = $cache->get('stats_ventas_hoy', function() {
+    return $this->calcularEstadisticas();
+}, ttl: 300); // 5 minutos
+```
+
+## Traducciones (i18n)
+
+```php
+use FSFramework\Translation\FSTranslator;
+
+// ✅ En PHP
+$mensaje = FSTranslator::trans('welcome-message', ['%name%' => $usuario->nick]);
+$error   = FSTranslator::trans('record-not-found');
+
+// ✅ En Twig
+{{ trans('welcome-message', {'%name%': fsc.user.nick}) }}
+{{ 'save'|trans }}
+{{ 'cancel'|trans }}
+
+// ✅ Formato de archivos de traducción (translations/messages.es.yaml)
+# translations/messages.es.yaml
+welcome-message: 'Bienvenido, %name%'
+record-not-found: 'Registro no encontrado'
+invalid-csrf-token: 'Token de seguridad inválido. Recarga la página.'
+save: 'Guardar'
+cancel: 'Cancelar'
+```
+
+## FormHelper para Formularios
+
+```php
+use FSFramework\Form\FormHelper;
+
+// ✅ Crear formularios con el helper
+$formHelper = new FormHelper();
+
+$form = $formHelper->create([
+    'nombre'  => ['type' => 'text', 'required' => true, 'max_length' => 150],
+    'email'   => ['type' => 'email', 'required' => true],
+    'activo'  => ['type' => 'checkbox', 'default' => true],
+    'cifnif'  => ['type' => 'text', 'pattern' => '^[A-Z]{1}[0-9]{7}[A-Z0-9]{1}$'],
+]);
+
+if ($this->request->isMethod('POST')) {
+    $data = $formHelper->handleRequest($this->request);
+    if ($formHelper->isValid()) {
+        // Procesar datos válidos
+    }
+}
+```
+
+## Security Component — Password Hasher
+
+```php
+use FSFramework\DependencyInjection\Container;
+
+// ✅ SIEMPRE usar el hasher del contenedor
+$hasher = Container::passwordHasher();
+
+// Hash de nueva contraseña
+$hash = $hasher->hash($plainPassword);
+
+// Verificar contraseña en login
+if (!$hasher->verify($storedHash, $inputPassword)) {
+    $this->miniLog->alert('Contraseña incorrecta');
+    return false;
+}
+
+// Verificar si necesita rehash (cuando cambia el algoritmo)
+if ($hasher->needsRehash($storedHash)) {
+    $newHash = $hasher->hash($plainPassword);
+    $user->updatePassword($newHash);
+}
+```
+
+## Estructura de un Controlador Moderno
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use FSFramework\Attribute\FSRoute;
+use FSFramework\DependencyInjection\Container;
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Security\CSRFProtection;
+use Symfony\Component\HttpFoundation\JsonResponse;
+
+#[FSRoute('/api/v1/productos', methods: ['GET', 'POST'])]
+class api_productos extends fs_controller
+{
+    protected function private_core(): void
+    {
+        $method = $this->request->getMethod();
+
+        match($method) {
+            'GET'  => $this->handleGet(),
+            'POST' => $this->handlePost(),
+            default => $this->notFound(),
+        };
+    }
+
+    private function handleGet(): void
+    {
+        $cache = Container::cache();
+        $productos = $cache->get('productos_lista', fn() =>
+            $this->db->select("SELECT * FROM fs_productos WHERE activo = 1")
+        );
+
+        (new JsonResponse(['data' => $productos, 'success' => true]))->send();
+        exit;
+    }
+
+    private function handlePost(): void
+    {
+        // 1. Validar CSRF
+        if (!CSRFProtection::validate($this->request->get('_token'))) {
+            (new JsonResponse(['error' => 'Token inválido'], 403))->send();
+            exit;
+        }
+
+        // 2. Validar y sanitizar input
+        $nombre = filter_var(
+            $this->request->request->getString('nombre'),
+            FILTER_SANITIZE_SPECIAL_CHARS
+        );
+
+        if (empty($nombre)) {
+            (new JsonResponse(['error' => 'Nombre requerido'], 422))->send();
+            exit;
+        }
+
+        // 3. Lógica de negocio
+        $producto = new producto();
+        $producto->nombre = $nombre;
+
+        if (!$producto->save()) {
+            (new JsonResponse(['error' => 'Error al guardar'], 500))->send();
+            exit;
+        }
+
+        // 4. Limpiar caché
+        Container::cache()->invalidateTags(['productos']);
+
+        (new JsonResponse(['data' => $producto, 'success' => true], 201))->send();
+        exit;
+    }
+}
+```

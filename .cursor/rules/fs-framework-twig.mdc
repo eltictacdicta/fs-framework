@@ -1,0 +1,202 @@
+---
+description: Plantillas Twig 3.x en FSFramework — herencia, macros, filtros, seguridad
+globs: ["**/*.twig"]
+alwaysApply: false
+---
+
+# Twig 3.x — Plantillas en FSFramework
+
+## Ubicación de Templates
+
+Los temas se encuentran en `/themes/`. El tema por defecto es **AdminLTE**:
+
+```
+themes/AdminLTE/view/
+├── master/              # Templates base (Base, MenuTemplate, MenuBghTemplate)
+├── Macro/               # Macros reutilizables (Menu, Utils)
+├── block/               # Bloques parciales
+├── tab/                 # Pestañas
+├── login/               # Login page
+├── header.html.twig
+└── footer.html.twig
+```
+
+Los plugins pueden extender el tema en `plugins/MiPlugin/themes/AdminLTE/view/`.
+
+## Herencia de Templates
+
+```twig
+{# view/Clientes/ListClientes.html.twig #}
+{% extends "Master/MenuTemplate.html.twig" %}
+
+{% block title %}Lista de Clientes{% endblock %}
+
+{% block body %}
+<div class="content-wrapper">
+    <section class="content-header">
+        <h1>{{ trans('clients') }}</h1>
+    </section>
+    <section class="content">
+        {% block content %}{% endblock %}
+    </section>
+</div>
+{% endblock %}
+```
+
+## Macros Reutilizables
+
+```twig
+{# view/Macro/Forms.html.twig #}
+{% macro input(name, label, value='', type='text', required=false) %}
+    <div class="form-group">
+        <label for="{{ name }}">
+            {{ label }}
+            {% if required %}<span class="text-danger">*</span>{% endif %}
+        </label>
+        <input
+            type="{{ type }}"
+            id="{{ name }}"
+            name="{{ name }}"
+            value="{{ value|e }}"
+            class="form-control"
+            {% if required %}required{% endif %}
+        />
+    </div>
+{% endmacro %}
+
+{% macro select(name, label, options, selected='') %}
+    <div class="form-group">
+        <label for="{{ name }}">{{ label }}</label>
+        <select id="{{ name }}" name="{{ name }}" class="form-control">
+            {% for value, text in options %}
+                <option value="{{ value }}" {% if value == selected %}selected{% endif %}>
+                    {{ text }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+{% endmacro %}
+```
+
+```twig
+{# Uso de macros #}
+{% import "Macro/Forms.html.twig" as forms %}
+
+<form method="post">
+    {{ csrf_field() }}
+    {{ forms.input('nombre', trans('name'), fsc.cliente.nombre, 'text', true) }}
+    {{ forms.input('email', trans('email'), fsc.cliente.email, 'email', true) }}
+    {{ forms.select('estado', trans('status'), estados, fsc.cliente.estado) }}
+    <button type="submit" class="btn btn-primary">{{ trans('save') }}</button>
+</form>
+```
+
+## Seguridad en Templates
+
+```twig
+{# ✅ Twig escapa automáticamente con {{ }} — SIEMPRE usarlo #}
+{{ user.nombre }}
+
+{# ⚠️ Solo raw cuando el HTML viene de fuentes de confianza controladas #}
+{{ contenido_html|raw }}
+
+{# ✅ CSRF obligatorio en todo formulario POST #}
+<form method="post" action="{{ fsc.url() }}">
+    {{ csrf_field() }}
+    {# campos del formulario #}
+</form>
+
+{# ✅ Para AJAX, incluir meta tag en <head> #}
+{{ csrf_meta() }}
+```
+
+## Filtros y Funciones
+
+```twig
+{# Formato de moneda #}
+{{ precio|number_format(2, ',', '.') }} €
+
+{# Fechas #}
+{{ fecha|date('d/m/Y') }}
+{{ fecha|date('d/m/Y H:i') }}
+
+{# Truncar texto #}
+{{ descripcion|truncate(100, '...') }}
+
+{# Traducciones #}
+{{ trans('key') }}
+{{ 'key'|trans }}
+{{ trans('key', {'%param%': valor}) }}
+
+{# URLs del framework #}
+{{ fsc.url() }}
+{{ fsc.url('ListClientes') }}
+```
+
+## Variables Disponibles
+
+- `fsc` — Instancia del controlador
+- `app` — Info de la aplicación
+- `user` — Usuario actual
+- `menu` — Items del menú
+- `path` — Ruta actual
+
+## Funciones Globales
+
+- `trans(key, params)` — Traducir texto
+- `csrf_field()` — Campo CSRF para formularios
+- `csrf_meta()` — Meta tag CSRF para AJAX
+- `path(route, params)` — Generar URL
+- `getLocale()` — Locale actual
+- `getAvailableLanguages()` — Idiomas disponibles
+
+## Paginación
+
+```twig
+{% if fsc.paginator.totalPages > 1 %}
+<nav aria-label="Paginación">
+    <ul class="pagination">
+        {% if fsc.paginator.currentPage > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="?pagina={{ fsc.paginator.currentPage - 1 }}">
+                    &laquo; {{ trans('previous') }}
+                </a>
+            </li>
+        {% endif %}
+
+        {% for page in fsc.paginator.pages %}
+            <li class="page-item {% if page == fsc.paginator.currentPage %}active{% endif %}">
+                <a class="page-link" href="?pagina={{ page }}">{{ page }}</a>
+            </li>
+        {% endfor %}
+
+        {% if fsc.paginator.currentPage < fsc.paginator.totalPages %}
+            <li class="page-item">
+                <a class="page-link" href="?pagina={{ fsc.paginator.currentPage + 1 }}">
+                    {{ trans('next') }} &raquo;
+                </a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+```
+
+## Mensajes Flash / MiniLog
+
+```twig
+{# En el layout base — Master/Base.html.twig #}
+{% for level, messages in app.flashes %}
+    {% for message in messages %}
+        <div class="alert alert-{{ level }} alert-dismissible">
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endfor %}
+
+{# MiniLog del framework #}
+{% for msg in fsc.miniLog.read() %}
+    <div class="alert alert-{{ msg.level }}">{{ msg.message }}</div>
+{% endfor %}
+```

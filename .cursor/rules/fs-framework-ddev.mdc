@@ -1,0 +1,317 @@
+---
+description: Entorno de desarrollo DDEV para fs-framework
+globs: [".ddev/**", "docker-compose*.yml", "Makefile"]
+alwaysApply: true
+---
+
+# DDEV — Entorno de Desarrollo FSFramework
+
+## Configuración Base `.ddev/config.yaml`
+
+> **Nota**: Este es un ejemplo de referencia. Consultar siempre `.ddev/config.yaml` del proyecto actual para los valores reales (nombre, webserver, tipo de BD, variables de entorno, etc.).
+
+```yaml
+# Ejemplo genérico — los valores reales varían por proyecto
+name: mi-proyecto
+type: php
+docroot: ""
+php_version: "8.3"
+webserver_type: nginx-fpm        # o apache-fpm según proyecto
+xdebug_enabled: false
+database:
+  type: mariadb                  # o mysql según proyecto
+  version: "10.11"               # o "8.0" para MySQL
+composer_version: "2"
+web_environment:                 # puede estar vacío si se usan .env
+  - APP_ENV=development
+  - FS_DEBUG=true
+```
+
+## Comandos DDEV del Día a Día
+
+```bash
+# ── Ciclo de vida ──────────────────────────────
+ddev start              # Iniciar el entorno
+ddev stop               # Detener
+ddev restart            # Reiniciar
+ddev delete             # Eliminar contenedores (¡borra la BD!)
+
+# ── Acceso ─────────────────────────────────────
+ddev ssh                # Shell en el contenedor web
+ddev describe           # Ver URLs, puertos y estado
+
+# ── Composer ───────────────────────────────────
+ddev composer install
+ddev composer update
+ddev composer require vendor/paquete
+ddev composer require --dev vendor/paquete-dev
+
+# ── Base de datos ──────────────────────────────
+ddev mysql              # CLI de MySQL
+ddev import-db --file=dump.sql.gz
+ddev export-db --file=backup.sql.gz
+ddev snapshot           # Snapshot de la BD
+ddev snapshot restore   # Restaurar snapshot
+
+# ── Tests ──────────────────────────────────────
+ddev exec php vendor/bin/phpunit
+ddev exec php vendor/bin/phpunit --testsuite Base
+ddev exec php vendor/bin/phpunit --testsuite Components
+ddev exec php vendor/bin/phpunit --filter NombreDelTest
+
+# ── Logs ───────────────────────────────────────
+ddev logs               # Logs del servidor web
+ddev logs -f            # Follow logs en tiempo real
+ddev logs --service db  # Logs de la BD
+
+# ── Xdebug ─────────────────────────────────────
+ddev xdebug on          # Activar Xdebug (ralentiza)
+ddev xdebug off         # Desactivar Xdebug
+
+# ── Caché ──────────────────────────────────────
+ddev exec php -r "
+  require 'vendor/autoload.php';
+  FSFramework\Cache\CacheManager::getInstance()->clearAll();
+  echo 'Caché limpiada' . PHP_EOL;
+"
+
+# ── Twig ───────────────────────────────────────
+ddev exec php -r "
+  require 'vendor/autoload.php';
+  // Función helper para limpieza recursiva de directorios
+  \$clearCacheDir = function(string \$dir): void {
+    if (!is_dir(\$dir)) {
+      return;
+    }
+    \$items = glob(\$dir . '/*');
+    if (\$items === false) {
+      error_log('glob() falló para: ' . \$dir);
+      return;
+    }
+    foreach (\$items as \$item) {
+      if (is_file(\$item)) {
+        if (!unlink(\$item)) {
+          error_log('No se pudo eliminar: ' . \$item);
+        }
+      } elseif (is_dir(\$item)) {
+        \$clearCacheDir(\$item); // Recursivo para subdirectorios
+        rmdir(\$item);
+      }
+    }
+  };
+  // Usar __DIR__ como base fiable (directorio del proyecto)
+  \$baseDir = dirname(__DIR__);
+  \$cacheDir = \$baseDir . '/MyFiles/Cache/twig';
+  \$clearCacheDir(\$cacheDir);
+  echo 'Caché Twig limpiada' . PHP_EOL;
+"
+
+# ── PHP ────────────────────────────────────────
+ddev exec php -v          # Ver versión de PHP
+ddev exec php -m          # Módulos instalados
+ddev exec php -i          # phpinfo() completo
+```
+
+## Servicios Adicionales
+
+### MailHog (capturar emails en desarrollo)
+
+DDEV incluye MailHog integrado. Para configurar PHP para usarlo:
+
+```yaml
+# .ddev/config.yaml
+# DDEV v1.21+ usa MailHog en el puerto 8025 (no 1025)
+hooks:
+  post-start:
+    - exec: "echo 'Configurando PHP para MailHog...'"
+```
+
+```yaml
+# .ddev/php/mailhog.ini (crear este archivo)
+[PHP]
+; Configurar sendmail para usar mhsendmail
+sendmail_path = /usr/local/bin/mhsendmail --smtp-addr 127.0.0.1:1025
+```
+
+> **Nota técnica**: DDEV proporciona MailHog automáticamente en el puerto 8025 (no 1025). El puerto 1025 es interno para la comunicación entre PHP y mhsendmail.
+
+### Acceder a MailHog
+```
+http://fs-framework.ddev.site:8026
+```
+
+### Verificar configuración
+
+```bash
+ddev exec php -i | grep sendmail_path
+```
+
+### Redis (para caché en producción)
+
+```yaml
+# .ddev/docker-compose.redis.yaml
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379"
+```
+
+## Variables de Entorno
+
+En DDEV, configurar en `.ddev/config.yaml`:
+
+```yaml
+web_environment:
+  - APP_ENV=development
+  - FS_DEBUG=true
+  - FS_LANG=es_ES
+  - MAILER_DSN=smtp://localhost:1025
+```
+
+En el código, acceder con:
+
+```php
+// ✅ Usar getenv() con valor por defecto
+$debug = filter_var(getenv('FS_DEBUG') ?: 'false', FILTER_VALIDATE_BOOLEAN);
+$lang  = getenv('FS_LANG') ?: 'es_ES';
+```
+
+## Xdebug con VS Code / Cursor
+
+### Configuración `.vscode/launch.json`
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Listen for Xdebug (DDEV)",
+      "type": "php",
+      "request": "launch",
+      "port": 9003,
+      "pathMappings": {
+        "/var/www/html": "${workspaceFolder}"
+      },
+      "log": false
+    }
+  ]
+}
+```
+
+### Activar debug session
+
+```bash
+# 1. Activar Xdebug
+ddev xdebug on
+
+# 2. En Cursor/VS Code: Run > Start Debugging (F5)
+
+# 3. Hacer la petición HTTP (se pausará en breakpoints)
+
+# 4. Al terminar
+ddev xdebug off
+```
+
+## Makefile para Tareas Comunes
+
+Crear `Makefile` en la raíz del proyecto:
+
+```makefile
+.PHONY: start stop test test-base test-security test-traits test-cache cache-clear db-import install
+
+start:
+	ddev start
+
+stop:
+	ddev stop
+
+install:
+	ddev start
+	ddev composer install
+
+test:
+	ddev exec php vendor/bin/phpunit
+
+test-base:
+	ddev exec php vendor/bin/phpunit --testsuite Base
+
+test-security:
+	ddev exec php vendor/bin/phpunit --testsuite Security
+
+test-traits:
+	ddev exec php vendor/bin/phpunit --testsuite Traits
+
+test-cache:
+	ddev exec php vendor/bin/phpunit --testsuite Cache
+
+test-coverage:
+	ddev exec php vendor/bin/phpunit --coverage-html coverage/
+
+cache-clear:
+	ddev exec php -r "require 'vendor/autoload.php'; FSFramework\Cache\CacheManager::getInstance()->clearAll();"
+
+db-import:
+	ddev import-db --file=$(FILE)
+
+db-snapshot:
+	ddev snapshot
+
+lint:
+	ddev exec php vendor/bin/phpcs --standard=PSR12 src/
+
+fix:
+	ddev exec php vendor/bin/phpcbf --standard=PSR12 src/
+```
+
+## Workflow de Desarrollo Recomendado
+
+```bash
+# 1. Clonar y arrancar
+git clone https://github.com/eltictacdicta/fs-framework.git
+cd fs-framework
+make install
+
+# 2. Antes de trabajar en una feature
+git checkout -b feature/nombre-feature
+ddev start
+
+# 3. Desarrollar con tests
+# - Escribir test primero (TDD)
+ddev exec php vendor/bin/phpunit --filter NuevoTest
+# - Implementar código
+# - Verificar que tests pasan
+
+# 4. Antes de commit
+make test          # Todos los tests
+make lint          # Estilo de código
+
+# 5. Comprobar en el navegador
+# URL: https://fs-framework.ddev.site
+```
+
+## Problemas Comunes
+
+### Puerto ocupado
+```bash
+ddev stop --all    # Detener todos los proyectos DDEV
+ddev start
+```
+
+### Caché de Twig rota
+```bash
+ddev exec rm -rf MyFiles/Cache/twig/*
+ddev restart
+```
+
+### Composer memory limit
+```bash
+ddev exec php -d memory_limit=-1 vendor/bin/composer update
+```
+
+### Reset completo
+```bash
+ddev delete --omit-snapshot
+ddev start
+ddev composer install
+```

@@ -1,0 +1,278 @@
+---
+description: Uso correcto de características modernas de PHP 8.3 en fs-framework
+globs: ["src/**/*.php", "base/**/*.php", "controller/**/*.php", "model/**/*.php"]
+alwaysApply: false
+---
+
+# PHP 8.3 — Características Modernas en FSFramework
+
+## Tipos Estrictos — SIEMPRE declarar
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace FSFramework\Cache;
+```
+
+`declare(strict_types=1)` es **obligatorio** en todo archivo nuevo bajo `src/`.
+
+## Tipos en Propiedades, Parámetros y Retornos
+
+```php
+// ✅ PHP 8.3 — tipos completos
+class ClienteModel extends fs_model
+{
+    public string $nombre = '';
+    public string $email = '';
+    public float $credito = 0.0;
+    public bool $activo = true;
+    public ?string $telefono = null;
+    public \DateTimeImmutable $createdAt;
+
+    // ✅ Constructor promotion (PHP 8.x)
+    public function __construct(
+        private readonly string $tableName,
+        private readonly \PDO $db,
+    ) {}
+
+    // ✅ Union types
+    public function find(int|string $id): static|null
+    {
+        // ...
+    }
+
+    // ✅ Tipo de retorno never para métodos que lanzan excepción o redirigen
+    public function abort(string $message): never
+    {
+        throw new \RuntimeException($message);
+    }
+}
+```
+
+## Atributos PHP 8 (Annotations modernas)
+
+```php
+// ✅ Usar atributos nativos en lugar de docblocks para routing
+use FSFramework\Attribute\FSRoute;
+
+#[FSRoute('/api/clientes/{id}', methods: ['GET'], requirements: ['id' => '\d+'])]
+class api_cliente extends fs_controller
+{
+    protected function private_core(): void
+    {
+        $id = (int) $this->request->get('id');
+        // ...
+    }
+}
+
+// ✅ Atributos de validación Symfony
+use Symfony\Component\Validator\Constraints as Assert;
+
+#[Assert\NotBlank]
+#[Assert\Length(min: 3, max: 100)]
+public string $nombre = '';
+```
+
+## Enums (PHP 8.1+)
+
+```php
+// ✅ Usar enums para estados y constantes relacionadas
+enum EstadoPedido: string
+{
+    case Pendiente = 'pendiente';
+    case Procesando = 'procesando';
+    case Completado = 'completado';
+    case Cancelado = 'cancelado';
+
+    public function label(): string
+    {
+        return match($this) {
+            self::Pendiente   => 'Pendiente de pago',
+            self::Procesando  => 'En proceso',
+            self::Completado  => 'Completado',
+            self::Cancelado   => 'Cancelado',
+        };
+    }
+
+    public function esFinal(): bool
+    {
+        return in_array($this, [self::Completado, self::Cancelado]);
+    }
+}
+
+// Uso
+$estado = EstadoPedido::Pendiente;
+echo $estado->label(); // "Pendiente de pago"
+```
+
+## Readonly Properties y Classes (PHP 8.2/8.3)
+
+```php
+// ✅ Readonly para DTOs y Value Objects
+readonly class DireccionDTO
+{
+    public function __construct(
+        public string $calle,
+        public string $ciudad,
+        public string $codigoPostal,
+        public string $pais = 'ES',
+    ) {}
+}
+
+// ✅ Readonly properties individuales
+class ConfiguracionApp
+{
+    public readonly string $version;
+    public readonly string $entorno;
+
+    public function __construct()
+    {
+        $this->version = file_get_contents(FS_FOLDER . '/VERSION');
+        $this->entorno = FS_DEBUG ? 'development' : 'production';
+    }
+}
+```
+
+## Match Expression (PHP 8.0+)
+
+```php
+// ✅ Usar match en lugar de switch para comparaciones estrictas
+$mensaje = match($codigoError) {
+    404     => 'Recurso no encontrado',
+    403     => 'Acceso denegado',
+    401     => 'No autenticado',
+    500     => 'Error interno del servidor',
+    default => 'Error desconocido',
+};
+
+// ✅ Match con condiciones complejas
+$descuento = match(true) {
+    $cantidad >= 100 => 0.20,
+    $cantidad >= 50  => 0.10,
+    $cantidad >= 10  => 0.05,
+    default          => 0.0,
+};
+```
+
+## Nullsafe Operator (PHP 8.0+)
+
+```php
+// ✅ Encadenamiento seguro con nullable
+$ciudad = $cliente?->getDireccion()?->getCiudad() ?? 'Sin ciudad';
+
+// En lugar del antiguo:
+$ciudad = $cliente !== null && $cliente->getDireccion() !== null
+    ? $cliente->getDireccion()->getCiudad()
+    : 'Sin ciudad';
+```
+
+## Named Arguments (PHP 8.0+)
+
+```php
+// ✅ Named arguments para mayor claridad
+$stmt = $this->db->prepare(
+    query: 'SELECT * FROM fs_users WHERE nick = :nick',
+);
+
+array_slice(
+    array: $items,
+    offset: 0,
+    length: 10,
+    preserve_keys: true,
+);
+```
+
+## Fibers (PHP 8.1+) — Para tareas asíncronas
+
+```php
+// ✅ Para operaciones largas en cron tasks
+$fiber = new \Fiber(function() use ($items): void {
+    foreach ($items as $item) {
+        $this->procesarItem($item);
+        \Fiber::suspend(); // Ceder control
+    }
+});
+
+$fiber->start();
+while (!$fiber->isTerminated()) {
+    $fiber->resume();
+}
+```
+
+## Constantes en Clases Tipadas (PHP 8.3)
+
+```php
+// ✅ PHP 8.3 — typed class constants
+class FSConfig
+{
+    const string VERSION = '2025.1';
+    const int MAX_LOGIN_ATTEMPTS = 5;
+    const float SESSION_TIMEOUT = 3600.0;
+    const bool DEBUG_DEFAULT = false;
+}
+```
+
+## Intersection Types (PHP 8.1+)
+
+```php
+// ✅ Cuando un parámetro debe implementar múltiples interfaces
+interface Cacheable {}
+interface Serializable {}
+
+function cacheAndStore(Cacheable&Serializable $objeto): void
+{
+    // $objeto implementa ambas interfaces
+}
+```
+
+## Gestión de Errores Moderna
+
+```php
+// ✅ Usar excepciones tipadas
+class FSFrameworkException extends \RuntimeException {}
+class ModelNotFoundException extends FSFrameworkException {}
+class ValidationException extends FSFrameworkException
+{
+    public function __construct(
+        private readonly array $errors,
+        string $message = 'Error de validación',
+    ) {
+        parent::__construct($message);
+    }
+
+    public function getErrors(): array
+    {
+        return $this->errors;
+    }
+}
+
+// ✅ En lugar de return false, lanzar excepción
+public function findOrFail(int $id): static
+{
+    if (!$this->loadFromCode($id)) {
+        throw new ModelNotFoundException("Registro {$id} no encontrado en {$this->tableName}");
+    }
+    return $this;
+}
+```
+
+## Anti-Patterns a Evitar
+
+```php
+// ❌ Evitar variables variables
+$$varName = 'valor';
+
+// ❌ Evitar extract() con datos de usuario
+extract($_POST); // PELIGROSO
+
+// ❌ Evitar eval()
+eval($userCode); // NUNCA
+
+// ❌ No suprimir errores con @
+$result = @file_get_contents($url); // Usar try/catch
+
+// ❌ No usar funciones deprecadas
+$hash = crypt($password); // Usar password_hash()
+```

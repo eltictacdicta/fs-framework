@@ -1,0 +1,465 @@
+---
+description: Desarrollo de plugins seguros y optimizados para FSFramework
+globs: ["plugins/**/*.php", "plugins/**/*.twig", "plugins/**/fsframework.ini", "plugins/**/facturascripts.ini"]
+alwaysApply: false
+---
+
+# Plugins — Desarrollo Seguro y Optimizado
+
+## Estructura de un Plugin
+
+```
+plugins/MiPlugin/
+├── fsframework.ini            # Metadatos del plugin (obligatorio)
+├── facturascripts.ini         # Compatibilidad legacy (opcional)
+├── Init.php                   # Clase de inicialización (opcional)
+├── controller/                # Controladores legacy (snake_case)
+├── Controller/                # Controladores modernos (PSR-4, PascalCase)
+├── model/                     # Modelos legacy
+│   ├── core/                  # Clases de modelo
+│   └── table/                 # Schemas XML de tablas
+├── Model/                     # Modelos modernos (PSR-4)
+├── view/                      # Vistas legacy (snake_case)
+├── View/                      # Vistas modernas (PascalCase)
+├── themes/
+│   └── AdminLTE/view/         # Override/extensión de templates del tema
+├── src/                       # Código adicional con namespace
+├── config/
+│   └── services.php           # Registro de servicios DI
+├── translations/              # Traducciones YAML (preferido)
+│   ├── messages.es.yaml
+│   └── messages.en.yaml
+├── Translation/               # Traducciones JSON (compatibilidad FS2025)
+│   ├── es.json
+│   └── en.json
+└── description                # Texto breve de descripción
+```
+
+## Configuración del Plugin
+
+### fsframework.ini (obligatorio)
+
+```ini
+version = 1
+description = "Descripción clara del plugin"
+min_version = "0.4"
+author = "Nombre del Autor"
+author_url = "https://ejemplo.com"
+require = ""
+```
+
+El campo `require` lista dependencias de otros plugins separadas por coma (ej: `require = "business_data, catalogo_core"`).
+
+### facturascripts.ini (compatibilidad legacy, opcional)
+
+```ini
+name = 'mi_plugin'
+version = 1
+min_version = 2017.901
+description = 'Descripción del plugin'
+require = ""
+```
+
+## Clase Init — Inicialización del Plugin
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace FSFramework\Plugins\mi_plugin;
+
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Event\ModelEvent;
+
+class Init
+{
+    public function init(): void
+    {
+        $dispatcher = FSEventDispatcher::getInstance();
+
+        // Capturar $this para acceder a métodos de la clase
+        $dispatcher->addListener(ModelEvent::BEFORE_SAVE, function (ModelEvent $event) use ($this) {
+            $model = $event->getModel();
+            if ($model instanceof \cliente) {
+                $this->validarCliente($model, $event);
+            }
+        });
+    }
+
+    private function validarCliente(\cliente $cliente, ModelEvent $event): void
+    {
+        if (empty($cliente->email)) {
+            $event->cancel('El email del cliente es obligatorio');
+        }
+    }
+}
+```
+
+## Seguridad en Plugins
+
+### SQL — Siempre sentencias preparadas
+
+```php
+// ✅ Con var2str del framework
+$results = $this->db->select(
+    "SELECT * FROM " . $this->table_name . " WHERE codcliente = " . $this->db->var2str($cod)
+);
+
+// ✅ Con PDO preparado
+$stmt = $this->db->prepare("SELECT * FROM clientes WHERE email = :email");
+$stmt->bindParam(':email', $email, \PDO::PARAM_STR);
+$stmt->execute();
+
+// ❌ NUNCA concatenar variables de usuario
+$this->db->select("SELECT * FROM clientes WHERE email = '$email'");
+```
+
+### XSS — Escapado en Templates
+
+```twig
+{# ✅ Twig escapa automáticamente #}
+{{ cliente.nombre }}
+
+{# ❌ NUNCA usar raw con datos de usuario #}
+{{ cliente.nombre|raw }}
+```
+
+### CSRF — Obligatorio en Formularios POST
+
+```twig
+<form method="post" action="{{ fsc.url() }}">
+    {{ csrf_field() }}
+    {# campos del formulario #}
+    <button type="submit">{{ trans('save') }}</button>
+</form>
+```
+
+```php
+// ✅ Validar en el controlador
+if (!$this->isCsrfValid()) {
+    $this->new_error_msg('Token CSRF inválido');
+    return;
+}
+```
+
+### Validación de Inputs
+
+```php
+// ✅ Sanitizar SIEMPRE los inputs del usuario
+$nombre = $this->no_html($this->request->request->getString('nombre', ''));
+$email  = filter_var($this->request->request->getString('email', ''), FILTER_VALIDATE_EMAIL);
+$id     = $this->request->query->getInt('id', 0);
+
+if ($email === false) {
+    $this->new_error_msg('Email inválido');
+    return;
+}
+```
+
+## Rendimiento
+
+### Usar CacheManager para datos frecuentes
+
+```php
+use FSFramework\Cache\CacheManager;
+
+$cache = CacheManager::getInstance();
+
+$clientes = $cache->get('plugin_clientes_activos', function () {
+    return $this->db->select("SELECT * FROM clientes WHERE activo = 1");
+}, 300);
+```
+
+### Evitar N+1 Queries
+
+```php
+// ❌ N+1 — una query por cada cliente
+foreach ($clientes as $cliente) {
+    $direcciones = $this->db->select(
+        "SELECT * FROM dirclientes WHERE codcliente = " . $this->db->var2str($cliente['codcliente'])
+    );
+}
+
+// ✅ Una sola query con IN
+$codigos = array_map(fn($c) => $this->db->var2str($c['codcliente']), $clientes);
+$direcciones = $this->db->select(
+    "SELECT * FROM dirclientes WHERE codcliente IN (" . implode(',', $codigos) . ")"
+);
+```
+
+### Lazy Loading de Modelos
+
+```php
+// ✅ Solo instanciar modelos cuando se necesiten
+public function private_core(): void
+{
+    if ($this->request->query->has('id')) {
+        $modelo = new mi_modelo();
+        $this->item = $modelo->get($this->request->query->getInt('id'));
+    }
+}
+```
+
+## Modelos del Plugin
+
+### Modelo Legacy (controller/, model/)
+
+```php
+class mi_modelo extends \fs_model
+{
+    public string $id = '';
+    public string $nombre = '';
+
+    public function __construct($data = false)
+    {
+        parent::__construct('mi_tabla');
+        if ($data) {
+            $this->id     = $data['id'] ?? '';
+            $this->nombre = $data['nombre'] ?? '';
+        }
+    }
+
+    public function test(): bool
+    {
+        $this->nombre = $this->no_html($this->nombre);
+        return !empty($this->nombre);
+    }
+
+    public function save(): bool
+    {
+        if (!$this->test()) {
+            return false;
+        }
+        // insert/update con var2str
+        return true;
+    }
+
+    public function delete(): bool { /* ... */ return true; }
+    public function exists(): bool { /* ... */ return false; }
+}
+```
+
+### Modelo Moderno (Model/ con PSR-4 y validación)
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace FSFramework\Plugins\mi_plugin\Model;
+
+use FSFramework\Traits\ValidatorTrait;
+use Symfony\Component\Validator\Constraints as Assert;
+
+class MiModelo extends \fs_model
+{
+    use ValidatorTrait;
+
+    #[Assert\NotBlank(message: 'El nombre es obligatorio')]
+    #[Assert\Length(max: 150)]
+    public string $nombre = '';
+
+    #[Assert\Email(message: 'Email inválido')]
+    public string $email = '';
+
+    public function test(): bool
+    {
+        $this->nombre = $this->no_html($this->nombre);
+        return $this->validate();
+    }
+}
+```
+
+## Controladores del Plugin
+
+```php
+class ventas_mi_modulo extends \fs_controller
+{
+    public array $items = [];
+
+    public function __construct()
+    {
+        parent::__construct(__CLASS__, 'Mi Módulo', 'ventas', false, true);
+    }
+
+    protected function private_core(): void
+    {
+        $request = $this->getRequest();
+
+        if ($request->request->has('save')) {
+            $this->guardar();
+        }
+
+        $modelo = new \mi_modelo();
+        $this->items = $modelo->all();
+    }
+
+    private function guardar(): void
+    {
+        if (!$this->isCsrfValid()) {
+            $this->new_error_msg('Token CSRF inválido');
+            return;
+        }
+
+        $nombre = $this->no_html($this->getRequest()->request->getString('nombre', ''));
+
+        $modelo = new \mi_modelo();
+        $modelo->nombre = $nombre;
+
+        if ($modelo->save()) {
+            $this->new_message('Guardado correctamente');
+        } else {
+            $this->new_error_msg('Error al guardar');
+        }
+    }
+}
+```
+
+## Extender el Core con Eventos
+
+```php
+// ✅ Usar eventos en lugar de modificar clases core
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Event\ModelEvent;
+
+$dispatcher = FSEventDispatcher::getInstance();
+
+// Ejecutar lógica después de guardar un modelo
+// Nota: capturar $this con 'use ($this)' o usar callable
+$dispatcher->addListener(ModelEvent::AFTER_SAVE, function (ModelEvent $event) use ($this) {
+    $model = $event->getModel();
+    if ($model instanceof \factura_cliente) {
+        $this->actualizarEstadisticas($model);
+    }
+});
+
+// Cancelar una eliminación bajo ciertas condiciones
+$dispatcher->addListener(ModelEvent::BEFORE_DELETE, function (ModelEvent $event) {
+    $model = $event->getModel();
+    if ($model instanceof \cliente && $model->tieneFacturas()) {
+        $event->cancel('No se puede eliminar un cliente con facturas');
+    }
+});
+```
+
+## Registro de Servicios
+
+```php
+// plugins/MiPlugin/config/services.php
+return function (\Symfony\Component\DependencyInjection\ContainerBuilder $container) {
+    $container->register('mi_plugin.servicio', MiServicio::class)
+        ->setPublic(true)
+        ->setAutowired(true);
+};
+```
+
+## Traducciones
+
+Formato preferido: YAML en `translations/`
+
+```yaml
+# plugins/MiPlugin/translations/messages.es.yaml
+mi-plugin-title: "Mi Plugin"
+mi-plugin-guardar: "Guardar registro"
+mi-plugin-error-nombre: "El nombre es obligatorio"
+```
+
+```yaml
+# plugins/MiPlugin/translations/messages.en.yaml
+mi-plugin-title: "My Plugin"
+mi-plugin-guardar: "Save record"
+mi-plugin-error-nombre: "Name is required"
+```
+
+Usar prefijo con el nombre del plugin para evitar colisiones de claves.
+
+## Extender Templates del Tema
+
+Colocar overrides en `plugins/MiPlugin/themes/AdminLTE/view/`:
+
+```twig
+{# plugins/MiPlugin/themes/AdminLTE/view/Macro/mi_plugin_macros.html.twig #}
+{% macro badge_estado(estado) %}
+    {% set color = estado == 'activo' ? 'success' : 'danger' %}
+    <span class="label label-{{ color }}">{{ trans('mi-plugin-estado-' ~ estado) }}</span>
+{% endmacro %}
+```
+
+## Schema XML de Tablas
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<tabla>
+    <columna>
+        <nombre>id</nombre>
+        <tipo>serial</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>nombre</nombre>
+        <tipo>character varying(150)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>email</nombre>
+        <tipo>character varying(200)</tipo>
+        <nulo>YES</nulo>
+    </columna>
+    <restriccion>
+        <nombre>mi_tabla_pkey</nombre>
+        <consulta>PRIMARY KEY (id)</consulta>
+    </restriccion>
+</tabla>
+```
+
+## Portal Sections — Contenido Público
+
+Los plugins pueden registrar secciones en el portal público creando `portal_section.php`:
+
+```php
+// plugins/mi_plugin/portal_section.php
+function mi_plugin_portal_section() {
+    return [
+        'titulo'    => 'Mi Sección',
+        'contenido' => '<div class="mi-seccion"><p>Contenido HTML</p></div>',
+        'orden'     => 50,
+    ];
+}
+```
+
+- El nombre de la función DEBE seguir el patrón `{nombre_plugin}_portal_section()`
+- `orden` controla la posición: menor = aparece primero
+- El contenido HTML se renderiza directamente — sanitizar si incluye datos dinámicos
+- Ver `plugins/hola_mundo/` como ejemplo mínimo funcional
+
+## Checklist de Calidad antes de Publicar
+
+### Seguridad
+- [ ] No hay variables de usuario concatenadas en SQL
+- [ ] Todos los outputs en Twig usan `{{ }}` (nunca `|raw` con datos de usuario)
+- [ ] Formularios POST incluyen `{{ csrf_field() }}`
+- [ ] Controladores validan CSRF antes de procesar datos
+- [ ] Inputs sanitizados con `no_html()`, `filter_var()` o Request typecasting
+- [ ] Uploads validan MIME type real y generan nombre aleatorio
+
+### Rendimiento
+- [ ] Queries frecuentes usan CacheManager
+- [ ] No hay N+1 queries (usar JOINs o queries batch con IN)
+- [ ] Modelos se instancian solo cuando se necesitan
+
+### Compatibilidad
+- [ ] `fsframework.ini` tiene `min_version` correcta
+- [ ] Funciona con PHP 8.2 y 8.3
+- [ ] Dependencias de otros plugins declaradas en `require`
+
+### Código
+- [ ] `declare(strict_types=1)` en archivos bajo `Model/`, `Controller/`, `src/`
+- [ ] Modelos implementan `test()`, `save()`, `delete()`, `exists()`
+- [ ] Traducciones con prefijo del plugin para evitar colisiones
+- [ ] Tests creados en `tests/NombrePlugin/`
+
+### Estructura
+- [ ] Schema XML para cada tabla nueva en `model/table/`
+- [ ] Vista Twig para cada controlador
+- [ ] `description` o README.md con propósito del plugin

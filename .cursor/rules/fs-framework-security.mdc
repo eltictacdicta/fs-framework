@@ -1,0 +1,236 @@
+---
+description: Buenas prácticas de seguridad PHP 8.3 para fs-framework
+globs: ["**/*.php"]
+alwaysApply: true
+---
+
+# Seguridad PHP 8.3 en FSFramework
+
+## 🔴 CRÍTICO — SQL Injection
+
+**SIEMPRE usar sentencias preparadas (PDO)**. Nunca concatenar variables en SQL.
+
+```php
+// ✅ CORRECTO — Sentencia preparada
+$stmt = $this->db->prepare('SELECT * FROM fs_users WHERE nick = :nick');
+$stmt->bindParam(':nick', $nick, PDO::PARAM_STR);
+$stmt->execute();
+
+// ✅ CORRECTO — QueryBuilder del framework
+$results = $this->db->select(
+    "SELECT * FROM fs_users WHERE nick = " . $this->db->var2str($nick)
+);
+
+// ❌ INCORRECTO — Nunca hacer esto
+$results = $this->db->select("SELECT * FROM fs_users WHERE nick = '$nick'");
+```
+
+Usar `$this->db->var2str()` del framework para escapar valores cuando se use el query builder legacy.
+
+## 🔴 CRÍTICO — XSS (Cross-Site Scripting)
+
+**Escapar SIEMPRE los outputs**. Twig escapa automáticamente con `{{ }}`.
+
+```twig
+{# ✅ CORRECTO — Twig escapa automáticamente #}
+{{ user.nombre }}
+
+{# ⚠️ Solo usar raw cuando el HTML viene de fuentes de confianza controladas #}
+{{ contenido_html|raw }}
+```
+
+```php
+// ✅ CORRECTO — En PHP puro (legacy)
+echo htmlspecialchars($variable, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+// ❌ INCORRECTO
+echo $variable;
+```
+
+Validar inputs con `filter_var()`:
+
+```php
+$email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
+if ($email === false) {
+    // Input inválido
+}
+
+$id = filter_var($_GET['id'], FILTER_VALIDATE_INT);
+```
+
+## 🔴 CRÍTICO — CSRF
+
+**Siempre usar CSRF en formularios POST** que modifiquen datos.
+
+```twig
+{# ✅ En formularios Twig — usar helper del framework #}
+<form method="post" action="{{ fsc.url() }}">
+    {{ csrf_field() }}
+    <input type="text" name="campo" />
+    <button type="submit">Guardar</button>
+</form>
+```
+
+```php
+// ✅ Validar CSRF en el controlador antes de procesar
+use FSFramework\Security\CSRFProtection;
+
+if (!CSRFProtection::validate($this->request->get('_token'))) {
+    $this->miniLog->alert('Token CSRF inválido');
+    return false;
+}
+```
+
+## 🔴 CRÍTICO — Gestión de Sesiones
+
+```php
+// ✅ Regenerar ID de sesión tras login
+session_regenerate_id(true);
+
+// ✅ Configuración segura de cookies de sesión (en config.php o php.ini)
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_secure', 1);       // Solo HTTPS
+ini_set('session.use_only_cookies', 1);    // No IDs en URL
+ini_set('session.cookie_samesite', 'Strict');
+```
+
+## 🔴 CRÍTICO — Hash de Contraseñas
+
+**NUNCA** usar MD5, SHA1 o cualquier hash sin coste computacional para contraseñas.
+
+```php
+// ✅ CORRECTO — Usar el PasswordHasher del framework
+use FSFramework\DependencyInjection\Container;
+
+$hasher = Container::passwordHasher();
+$hash = $hasher->hash($plainPassword);
+
+// Verificar
+if ($hasher->verify($hash, $plainPassword)) {
+    // Login correcto
+}
+
+// ❌ INCORRECTO — Nunca hacer esto
+$hash = md5($password);
+$hash = sha1($password);
+```
+
+## 🟡 IMPORTANTE — Subida de Ficheros
+
+```php
+// ✅ Validar MIME type real, no solo la extensión
+$allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+$finfo = new finfo(FILEINFO_MIME_TYPE);
+$mimeType = $finfo->file($_FILES['file']['tmp_name']);
+
+if (!in_array($mimeType, $allowedMimes, true)) {
+    throw new \RuntimeException('Tipo de archivo no permitido');
+}
+
+// ✅ Generar nombre único — nunca usar el nombre del usuario
+$extension = pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION);
+$safeName = bin2hex(random_bytes(16)) . '.' . strtolower($extension);
+
+// ✅ Guardar FUERA del directorio web público
+$uploadPath = dirname(__DIR__) . '/storage/uploads/' . $safeName;
+
+// ✅ Revocar permisos de ejecución
+chmod($uploadPath, 0644);
+
+// ✅ Limitar tamaño
+if ($_FILES['file']['size'] > 5 * 1024 * 1024) { // 5MB
+    throw new \RuntimeException('Archivo demasiado grande');
+}
+```
+
+## 🟡 IMPORTANTE — Inyección de Comandos
+
+```php
+// ✅ Mejor: usar listas blancas (allowlist) para comandos
+$allowedCommands = ['convert', 'identify'];
+if (!in_array($command, $allowedCommands, true)) {
+    throw new \RuntimeException('Comando no permitido');
+}
+
+// ✅ Escapar SOLO los argumentos del usuario, nunca el comando
+$safeArg = escapeshellarg($userInput);
+exec($command . ' ' . $safeArg);
+
+// ❌ NUNCA hacer esto: escapar el comando completo
+// $safeCmd = escapeshellcmd($command); // Peligroso - rompe comandos válidos
+```
+
+## 🟡 IMPORTANTE — Headers HTTP de Seguridad
+
+Añadir en el controlador base o middleware:
+
+```php
+// ✅ Generar nonce para scripts y styles inline
+$csp_nonce = base64_encode(random_bytes(16));
+
+// ✅ Headers de seguridad recomendados
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
+// CSP con nonce - permite inline scripts/styles de forma segura
+// ⚠️ NOTA TÉCNICA: Los templates deben usar el nonce: <script nonce="<?= $csp_nonce ?>">...
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-" . $csp_nonce . "'; style-src 'self' 'nonce-" . $csp_nonce . "'");
+
+// ✅ Alternativa: si hay código legacy que no puede usar nonces (técnical debt)
+// Documentar y crear ticket para migrar a nonces/hashes
+// header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"); // TEMPORAL - migrar a nonces
+```
+
+## 🟡 IMPORTANTE — Errores en Producción
+
+```php
+// ✅ En producción: nunca mostrar errores al usuario
+// config.php o bootstrap
+if (FS_DEBUG === false) {
+    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+}
+```
+
+## 🟢 BUENA PRÁCTICA — Validación con Symfony Validator
+
+```php
+use FSFramework\Traits\ValidatorTrait;
+use Symfony\Component\Validator\Constraints as Assert;
+
+class Cliente extends fs_model
+{
+    use ValidatorTrait;
+
+    #[Assert\NotBlank(message: 'El nombre es obligatorio')]
+    #[Assert\Length(max: 100)]
+    public string $nombre = '';
+
+    #[Assert\Email(message: 'Email inválido')]
+    #[Assert\NotBlank]
+    public string $email = '';
+
+    #[Assert\Regex(pattern: '/^\+?[0-9\s\-]{7,15}$/', message: 'Teléfono inválido')]
+    public string $telefono = '';
+
+    public function test(): bool
+    {
+        return $this->validate();
+    }
+}
+```
+
+## Checklist de Seguridad por PR
+
+Antes de hacer commit, verificar:
+
+- [ ] No hay variables de usuario concatenadas en SQL
+- [ ] Todos los outputs en Twig usan `{{ }}` (usar `|raw` solo cuando sea necesario y con fuentes confiables)
+- [ ] Los formularios POST tienen `{{ csrf_field() }}`
+- [ ] Las contraseñas usan `Container::passwordHasher()`
+- [ ] Los uploads validan MIME type y generan nombre aleatorio
+- [ ] Los errores no muestran stack traces en producción
+- [ ] Las cookies nuevas tienen `httponly` y `secure`

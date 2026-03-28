@@ -1,0 +1,333 @@
+---
+description: Testing con PHPUnit 11 en FSFramework — estructura, patrones, mocking, DDEV
+globs: ["tests/**/*.php", "phpunit.xml"]
+alwaysApply: false
+---
+
+# PHPUnit 11 — Testing en FSFramework
+
+## Ejecutar Tests
+
+```bash
+# Todos los tests
+ddev exec php vendor/bin/phpunit
+
+# Por suite
+ddev exec php vendor/bin/phpunit --testsuite Base
+ddev exec php vendor/bin/phpunit --testsuite Security
+ddev exec php vendor/bin/phpunit --testsuite Traits
+ddev exec php vendor/bin/phpunit --testsuite Cache
+ddev exec php vendor/bin/phpunit --testsuite Api
+ddev exec php vendor/bin/phpunit --testsuite ClientesCore
+
+# Un test específico
+ddev exec php vendor/bin/phpunit --filter NombreDelTest
+
+# Con cobertura
+ddev exec php vendor/bin/phpunit --coverage-html coverage/
+```
+
+## Estructura Real de Tests
+
+```
+tests/
+├── bootstrap.php              # Constantes mínimas (sin DB)
+├── Api/
+│   └── ChainedAuthAdapterTest.php
+├── Base/                      # Tests para clases en base/
+│   ├── FsCoreLogTest.php
+│   ├── FsDbalHelperTest.php
+│   ├── FsFunctionsTest.php
+│   ├── FsIpFilterTest.php
+│   ├── FsModelMethodsTest.php
+│   ├── FsMysqlDefaultNormalizationTest.php
+│   ├── FsQueryBuilderTest.php
+│   └── LegacyUsageTrackerTest.php
+├── Cache/
+│   └── CacheManagerTest.php
+├── ClientesCore/
+│   ├── ClienteModelTest.php
+│   ├── DireccionClienteModelTest.php
+│   └── GrupoClientesModelTest.php
+├── Components/
+│   ├── CoreUpdaterTest.php
+│   └── StealthModeTest.php
+├── Security/
+│   ├── CsrfManagerTest.php
+│   └── PasswordHasherServiceTest.php
+└── Traits/
+    └── ValidatorTraitTest.php
+```
+
+## Test Suites (phpunit.xml)
+
+| Suite | Directorio(s) | Cubre |
+|-------|---------------|-------|
+| **Base** | `tests/Base/` | Clases core en `base/` (fs_model, fs_core_log, fs_functions, etc.) |
+| **Security** | `tests/Security/` | Componentes de seguridad (PasswordHasher, CsrfManager) |
+| **Traits** | `tests/Traits/` | Traits de Symfony (ValidatorTrait) |
+| **Cache** | `tests/Cache/` | Sistema de caché (CacheManager) |
+| **Api** | `tests/Api/` | Autenticación y routing REST API |
+| **ClientesCore** | `tests/ClientesCore/` | Modelos del plugin core de clientes |
+
+## Convenciones Obligatorias
+
+### Namespace y Autoload
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Base;
+
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\CoversClass;
+```
+
+- Namespace raíz: `Tests\` (PSR-4 via `autoload-dev` en composer.json)
+- Clases en `base/` no autoloaded: usar `require_once`
+
+### Atributos PHPUnit 11 (preferidos sobre prefijo test)
+
+```php
+#[CoversClass(\fs_model::class)]
+class FsModelTest extends TestCase
+{
+    #[Test]
+    public function varStrEscapesCorrectly(): void
+    {
+        // ...
+    }
+
+    #[Test]
+    #[DataProvider('provideEmails')]
+    public function validatesEmail(string $email, bool $expected): void
+    {
+        // ...
+    }
+
+    public static function provideEmails(): array
+    {
+        return [
+            'valid'   => ['user@example.com', true],
+            'invalid' => ['not-an-email', false],
+        ];
+    }
+}
+```
+
+## Patrones de Mocking
+
+### fs_model sin DB (anonymous subclass)
+
+```php
+$model = new class() extends \fs_model {
+    public function __construct() {}
+    public function delete() { return false; }
+    public function exists() { return false; }
+    public function save() { return false; }
+};
+```
+
+### Query Builder con mock de fs_db2
+
+```php
+$mockDb = new class {
+    public function escape_string(string $str): string {
+        return addslashes($str);
+    }
+};
+$qb = new \fs_query_builder($mockDb);
+```
+
+### Resetear estado estático (fs_core_log, etc.)
+
+```php
+protected function setUp(): void
+{
+    parent::setUp();
+
+    $ref = new \ReflectionClass('fs_core_log');
+    $prop = $ref->getProperty('data_log');
+    $prop->setAccessible(true);
+    $prop->setValue(null, null);
+}
+```
+
+### Resetear Singletons (CacheManager, etc.)
+
+```php
+protected function setUp(): void
+{
+    parent::setUp();
+    \FSFramework\Cache\CacheManager::reset();
+}
+```
+
+## Regla de Oro: Cobertura Mínima
+
+Todo código nuevo en `src/` DEBE tener tests que cubran:
+
+1. **Caso feliz** — el flujo normal funciona
+2. **Caso de error** — inputs inválidos, excepciones, edge cases
+3. **Valores límite** — null, string vacío, 0, arrays vacíos, máximos
+
+## Ejemplo Completo: Test de Seguridad
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Security;
+
+use FSFramework\Security\PasswordHasherService;
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
+class PasswordHasherServiceTest extends TestCase
+{
+    private PasswordHasherService $hasher;
+
+    protected function setUp(): void
+    {
+        $this->hasher = new PasswordHasherService();
+    }
+
+    #[Test]
+    public function hashIsNotPlaintext(): void
+    {
+        $plain = 'mi-contraseña-segura';
+        $hash  = $this->hasher->hash($plain);
+
+        $this->assertNotEquals($plain, $hash);
+    }
+
+    #[Test]
+    public function verifyCorrectPassword(): void
+    {
+        $plain = 'mi-contraseña-segura';
+        $hash  = $this->hasher->hash($plain);
+
+        $this->assertTrue($this->hasher->verify($hash, $plain));
+    }
+
+    #[Test]
+    public function verifyWrongPasswordFails(): void
+    {
+        $hash = $this->hasher->hash('correcta');
+
+        $this->assertFalse($this->hasher->verify($hash, 'incorrecta'));
+    }
+
+    #[Test]
+    public function sameInputProducesDifferentHashes(): void
+    {
+        $plain = 'misma-contraseña';
+        $hash1 = $this->hasher->hash($plain);
+        $hash2 = $this->hasher->hash($plain);
+
+        $this->assertNotEquals($hash1, $hash2);
+        $this->assertTrue($this->hasher->verify($hash1, $plain));
+        $this->assertTrue($this->hasher->verify($hash2, $plain));
+    }
+}
+```
+
+## Ejemplo: Test de Validación con Trait
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Traits;
+
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+use FSFramework\Traits\ValidatorTrait;
+use Symfony\Component\Validator\Constraints as Assert;
+
+class ModeloTest
+{
+    use ValidatorTrait;
+
+    #[Assert\NotBlank]
+    #[Assert\Email]
+    public string $email = '';
+
+    #[Assert\NotBlank]
+    #[Assert\Length(min: 2)]
+    public string $nombre = '';
+}
+
+class ValidatorTraitTest extends TestCase
+{
+    #[Test]
+    public function validModelPasses(): void
+    {
+        $model = new ModeloTest();
+        $model->email  = 'test@example.com';
+        $model->nombre = 'Juan García';
+
+        $this->assertTrue($model->validate());
+    }
+
+    #[Test]
+    public function invalidEmailFails(): void
+    {
+        $model = new ModeloTest();
+        $model->email  = 'no-es-un-email';
+        $model->nombre = 'Juan';
+
+        $this->assertFalse($model->validate());
+    }
+
+    #[Test]
+    public function emptyRequiredFieldFails(): void
+    {
+        $model = new ModeloTest();
+        $model->email  = 'test@example.com';
+        $model->nombre = '';
+
+        $this->assertFalse($model->validate());
+    }
+}
+```
+
+## Tests para Plugins
+
+Los tests de plugins se ubican en `tests/NombrePlugin/`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\ClientesCore;
+
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
+require_once __DIR__ . '/../../plugins/clientes_core/model/core/cliente.php';
+
+#[CoversClass(\cliente::class)]
+class ClienteModelTest extends TestCase
+{
+    #[Test]
+    public function testMethodReturnsExpected(): void
+    {
+        // Usar anonymous subclass si el constructor requiere DB
+        // o crear instancia directa si el método es puro
+    }
+}
+```
+
+## Configuración
+
+- **phpunit.xml** en la raíz del proyecto
+- **bootstrap**: `tests/bootstrap.php` — define `FS_FOLDER`, `FS_DB_TYPE`, `FS_TMP_NAME`
+- **Deprecations**: `SYMFONY_DEPRECATIONS_HELPER=weak` — loguea deprecaciones sin fallar

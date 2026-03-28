@@ -1,0 +1,64 @@
+---
+description: Reglas generales para fs-framework - PHP 8.3, Symfony 7.4, DDEV
+globs: ["**/*.php", "**/*.twig", "composer.json", ".ddev/**"]
+alwaysApply: true
+---
+
+# FSFramework — Guía General de Desarrollo
+
+## Stack Tecnológico
+
+- **PHP 8.3** (mínimo 8.2 según composer.json, preferir 8.3)
+- **Symfony 7.4** (componentes: http-foundation, routing, security-csrf, event-dispatcher, validator, dependency-injection, form, translation, cache)
+- **Twig 3.x** como motor de plantillas
+- **DDEV** como entorno de desarrollo local
+- **PHPUnit 11** para tests
+- **MySQL / PostgreSQL** como bases de datos
+
+## Estructura del Proyecto
+
+```
+/
+├── base/          # Clases core legacy (fs_model, fs_controller, fs_core_log…)
+├── src/           # Código moderno con namespaces (PSR-4)
+│   ├── Attribute/ # Atributos PHP 8 (FSRoute)
+│   ├── Cache/     # CacheManager (Symfony Cache)
+│   ├── Controller/
+│   ├── Core/      # Kernel y Router
+│   ├── DependencyInjection/
+│   ├── Event/     # FSEventDispatcher, ModelEvent
+│   ├── Form/      # FormHelper
+│   ├── Security/  # CSRF, PasswordHasher, UserAdapter
+│   ├── Traits/    # ResponseTrait, ValidatorTrait
+│   └── Translation/
+├── controller/    # Controladores legacy (snake_case)
+├── model/         # Modelos legacy + XML schemas
+├── view/          # Plantillas Twig + assets
+├── plugins/       # Plugins (business_data, clientes_core…)
+├── tests/         # PHPUnit — siempre crear tests
+└── translations/  # YAML (nuevo) + JSON FS2025 (compatibilidad)
+```
+
+## Convenciones de Nomenclatura
+
+### Clases modernas (`src/`)
+- **PascalCase** para clases: `CacheManager`, `FSEventDispatcher`
+- **Namespaces** obligatorios: `FSFramework\Cache\CacheManager`
+- Un archivo = una clase
+
+### Código legacy (`base/`, `controller/`, `model/`)
+- **snake_case** para nombres de archivo y clase: `fs_model`, `api_user`
+- Mantener compatibilidad con FacturaScripts 2017 y 2025
+
+### Plantillas
+- Nuevas: `NombreVista.html.twig` (PascalCase)
+- Legacy: `nombre_vista.html` (snake_case, se traducen automáticamente)
+
+## Principios de Desarrollo
+
+1. **Nunca duplicar lógica** entre `base/` y `src/` — usar bridges/adapters
+2. **Siempre escribir tests** para código nuevo en `src/`
+3. **Usar el contenedor de dependencias** en lugar de instanciación directa
+4. **Twig para todas las vistas nuevas** — nunca PHP puro en templates
+5. **Symfony Validator** para validaciones de modelos
+6. **Eventos** para desacoplar lógica de negocio

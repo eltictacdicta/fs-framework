@@ -89,11 +89,34 @@ $valid = $session->verifyCsrfToken($token);
 
 **Después**: Solo existe en `src/FacturaScripts/Core/Base/Controller.php`
 
+### 5. Extracción del dominio de clientes (`clientes_core`)
+
+**Antes**: Modelos de cliente, dirección y grupo embebidos en `facturacion_base`
+**Después**: Plugin independiente `clientes_core` con:
+- Modelos: `cliente`, `direccion_cliente`, `grupo_clientes` con wrappers y core classes
+- Schemas XML en `model/table/`
+- Traducciones YAML nativas (`translations/messages.es.yaml`, `messages.en.yaml`)
+- Vistas Twig en `themes/AdminLTE/view/terceros/`
+- Macros reutilizables, extensión Twig (`src/Twig/TercerosExtension.php`)
+- Sin dependencia de `legacy_support`
+
+**Beneficios**:
+- `facturacion_base` y `presupuestos_y_pedidos` consumen clientes como dependencia
+- Dominio de terceros aislado de integraciones contables
+- Plugin modernizado desde el inicio (Twig nativo, YAML, sin RainTPL)
+
+### 6. Sistema de Backup de Plugins
+
+Backup automático al sobrescribir plugins con restore desde el admin:
+- `fs_plugin_manager`: `has_backup()`, `create_backup()`, `restore_backup()`
+- Convención `_back` para directorios de backup
+- Modal de confirmación al sobrescribir plugins existentes
+
 ---
 
 ## 🟡 MEJORAS PROPUESTAS (Pendientes)
 
-### 5. Migrar Modelos a usar el Trait CRUD
+### 7. Migrar Modelos a usar el Trait CRUD
 
 **Esfuerzo**: Medio
 **Impacto**: Alto
@@ -125,7 +148,7 @@ class empresa extends fs_model {
 }
 ```
 
-### 6. Unificar fs_session_manager con SessionManager
+### 8. Unificar fs_session_manager con SessionManager
 
 **Esfuerzo**: Bajo
 **Impacto**: Medio
@@ -142,12 +165,13 @@ class fs_session_manager {
 }
 ```
 
-### 7. Integrar Symfony Validator en Modelos
+### 9. Integrar Symfony Validator en Modelos
 
+**Estado**: IMPLEMENTADO
 **Esfuerzo**: Alto
 **Impacto**: Alto
 
-Usar atributos de validación de Symfony en lugar de `test()` manual:
+Implementado en `src/Traits/ValidatorTrait.php` con tests en `tests/Traits/ValidatorTraitTest.php`. Usar atributos de validación de Symfony en lugar de `test()` manual:
 
 ```php
 use Symfony\Component\Validator\Constraints as Assert;
@@ -167,7 +191,7 @@ class cliente extends fs_model {
 }
 ```
 
-### 8. Query Builder Integrado con Modelos
+### 10. Query Builder Integrado con Modelos
 
 **Esfuerzo**: Medio
 **Impacto**: Alto
@@ -189,12 +213,13 @@ $clientes = cliente::query()
     ->get();
 ```
 
-### 9. Event Dispatcher para Hooks de Modelo
+### 11. Event Dispatcher para Hooks de Modelo
 
+**Estado**: IMPLEMENTADO
 **Esfuerzo**: Medio
-**Impacto**: Medio
+**Impacto**: Alto
 
-Usar Symfony EventDispatcher para hooks before/after save:
+Implementado en `src/Event/FSEventDispatcher.php` y `src/Event/ModelEvent.php`. Eventos disponibles: `model.before_save`, `model.after_save`, `model.before_delete`, `model.after_delete`, `controller.before_action`, `controller.after_action`. Usar Symfony EventDispatcher para hooks before/after save:
 
 ```php
 // En el modelo
@@ -231,11 +256,13 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 | Trait CRUD | ✅ Hecho | Alto | Bajo | - |
 | SessionManager Symfony | ✅ Hecho | Medio | Bajo | - |
 | Eliminar duplicados | ✅ Hecho | Bajo | Bajo | - |
+| Extracción clientes_core | ✅ Hecho | Alto | Bajo | - |
+| Backup de plugins | ✅ Hecho | Medio | Bajo | - |
 | Migrar modelos a trait | Medio | Alto | Bajo | 🔴 Alta |
 | Unificar session managers | Bajo | Medio | Bajo | 🔴 Alta |
-| Symfony Validator | Alto | Alto | Medio | 🟡 Media |
+| Symfony Validator | ✅ Hecho | Alto | Bajo | - |
 | Query Builder en modelos | Medio | Alto | Bajo | 🟡 Media |
-| Event Dispatcher hooks | Medio | Medio | Bajo | 🟢 Baja |
+| Event Dispatcher hooks | ✅ Hecho | Alto | Bajo | - |
 
 ---
 
@@ -254,9 +281,9 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 3. Documentar patrón de migración
 
 ### Fase 3: Validación Moderna (1 semana)
-1. Integrar Symfony Validator
-2. Crear atributos de validación comunes
-3. Migrar validaciones de test() a atributos
+1. ✅ Integrar Symfony Validator (`ValidatorTrait`)
+2. ✅ Crear atributos de validación comunes (Assert constraints)
+3. Migrar validaciones de test() a atributos en modelos existentes
 
 ### Fase 4: Query Builder Avanzado (3-5 días)
 1. Integrar query() estático en modelos
@@ -282,7 +309,7 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 
 ## 🚀 MEJORAS DE PERFORMANCE IMPLEMENTADAS
 
-### 8. Prepared Statements con Cache (`base/fs_prepared_db.php`)
+### 12. Prepared Statements con Cache (`base/fs_prepared_db.php`)
 
 Nueva clase que proporciona prepared statements con cache para mejor seguridad y performance:
 
@@ -322,7 +349,7 @@ $stats = fs_prepared_db::getStats();
 - Fallback automático a fs_db2 para PostgreSQL
 - Estadísticas de rendimiento
 
-### 9. Container con nuevos servicios
+### 13. Container con nuevos servicios
 
 Añadidos al Service Container:
 

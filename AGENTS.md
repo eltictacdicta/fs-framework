@@ -89,7 +89,8 @@ tests/
 │   ├── DireccionClienteModelTest.php
 │   └── GrupoClientesModelTest.php
 └── Components/                # Core plugin component tests
-    └── CoreUpdaterTest.php
+    ├── CoreUpdaterTest.php
+    └── StealthModeTest.php
 ```
 
 #### Writing New Tests
@@ -286,7 +287,7 @@ Use provided helper functions:
   login.php                   # Login controller
 /model/                        # Core models
   /table/                     # XML schema definitions
-/plugins/                      # Plugins (business_data, adminlte, etc.)
+/plugins/                      # Plugins (business_data, clientes_core, etc.)
   /*/controller/              # Plugin controllers
   /*/model/                   # Plugin models
   /*/view/                    # Plugin views
@@ -378,7 +379,7 @@ require_once 'base/fs_db2.php';
 ### Important Notes
 - This is a **fork** of FacturaScripts with some components removed
 - Not 100% compatible with base FacturaScripts
-- Plugins in `/plugins/*/` (except adminlte, business_data) are gitignored
+- Plugins in `/plugins/*/` (except core plugins like business_data, clientes_core) are gitignored. AdminLTE is a **theme** (`/themes/AdminLTE/`), not a plugin
 - Never commit `config.php`, `package-lock.json`, or `node_modules/`
 - The framework uses `$GLOBALS['plugins']` for plugin discovery
 
@@ -839,14 +840,12 @@ The "Limpiar caché" button in admin_info (`index.php?page=admin_info&clean_cach
 | `symfony/http-foundation` | ^7.4 | Request/Response handling |
 | `symfony/routing` | ^7.4 | Modern routing with attributes |
 | `symfony/security-csrf` | ^7.4 | CSRF token protection |
-| `symfony/security-core` | ^7.4 | User authentication, password hashing |
 | `symfony/event-dispatcher` | ^7.4 | Event system |
 | `symfony/validator` | ^7.4 | Model validation |
 | `symfony/dependency-injection` | ^7.4 | Service container |
 | `symfony/form` | ^7.4 | Form handling |
 | `symfony/translation` | ^7.4 | Internationalization |
 | `symfony/cache` | ^7.4 | Caching |
-| `symfony/console` | ^7.4 | CLI commands |
 | `symfony/config` | ^7.4 | Configuration handling |
 | `symfony/dotenv` | ^7.4 | Environment variables |
 | `symfony/yaml` | ^7.4 | YAML parsing |
@@ -1205,10 +1204,10 @@ class mi_modelo extends \fs_model
 
 1. **This is a fork** of FacturaScripts with significant modifications and modern architecture
 2. **Not 100% compatible** with base FacturaScripts plugins
-3. **Plugins** in `/plugins/*/` (except adminlte, business_data) are gitignored
+3. **Plugins** in `/plugins/*/` (except core plugins like business_data, clientes_core) are gitignored. AdminLTE is a **theme** in `/themes/AdminLTE/`, not a plugin
 4. **Never commit**: `config.php`, `package-lock.json`, `node_modules/`
 5. **PHP 8.2+ features**: Attributes, typed properties, union types, match expressions, named arguments
-6. **Twig is primary** template engine located in `/themes/AdminLTE/view/`, RainTPL supported for compatibility
+6. **Twig is primary** template engine. Default theme is **AdminLTE** in `/themes/AdminLTE/view/`, RainTPL supported for compatibility
 7. **Lazy loading** for models available via `FS_LAZY_MODELS` constant
 8. **Symfony 7.4** components are fully integrated and available
 9. **API system** available via attributes - no manual route registration needed
@@ -1332,27 +1331,48 @@ Located in `model/table/*.xml`:
 ### Plugin Structure
 ```
 plugins/MyPlugin/
+├── fsframework.ini          # Plugin metadata (required)
+├── facturascripts.ini       # Legacy compatibility (optional)
+├── Init.php                 # Initialization class (optional)
 ├── controller/              # Controllers (legacy)
 ├── Controller/              # Controllers (FS2025 style)
 ├── model/                   # Models (legacy)
-├── Model/                   # Models (FS2025 style)
+│   ├── core/                # Model classes
+│   └── table/               # XML schema definitions
+├── Model/                   # Models (FS2025 style, PSR-4)
 ├── view/                    # Views (legacy - lowercase)
 ├── View/                    # Views (FS2025 - PascalCase)
-├── translations/            # Translations (YAML format)
+├── themes/
+│   └── AdminLTE/view/       # Theme template overrides/extensions
+├── src/                     # Additional namespaced code
+├── translations/            # Translations (YAML format, preferred)
 ├── Translation/             # Translations (FS2025 - JSON format)
 ├── config/
-│   └── services.php        # DI container services
-├── facturascripts.ini      # Plugin metadata
-└── description             # Plugin description
+│   └── services.php         # DI container services
+└── description              # Plugin description text
 ```
 
 ### Plugin Configuration
+
+**fsframework.ini** (obligatorio para plugins FSFramework):
+```ini
+; fsframework.ini
+version = 1
+description = "My awesome plugin"
+min_version = "0.4"
+author = "Author Name"
+author_url = "https://example.com"
+require = ""
+```
+
+**facturascripts.ini** (opcional, para compatibilidad legacy):
 ```ini
 ; facturascripts.ini
-name = MyPlugin
-description = My awesome plugin
-version = 1.0
-min_version = 2017.000
+name = 'my_plugin'
+version = 1
+min_version = 2017.901
+description = 'My awesome plugin'
+require = ""
 ```
 
 ### Registering Plugin Services
@@ -1365,6 +1385,162 @@ return function(\Symfony\Component\DependencyInjection\ContainerBuilder $contain
 };
 ```
 
+### Plugin Dependencies
+
+The `require` field in `fsframework.ini` declares dependencies on other plugins (comma-separated):
+
+```ini
+; fsframework.ini
+version = 1
+description = "Invoice module"
+min_version = "0.4"
+require = "business_data, clientes_core"
+```
+
+Current dependency graph of core plugins:
+
+```
+business_data          (no dependencies — base data: empresa, ejercicio, serie, divisa)
+catalogo_core          (no dependencies — catalogo: articulo, familia, fabricante, impuesto)
+clientes_core          (depends on: catalogo_core, business_data)
+facturacion_base       (depends on: clientes_core, catalogo_core, business_data)
+presupuestos_y_pedidos (depends on: clientes_core, catalogo_core, business_data)
+```
+
+When extracting a shared domain (e.g., clients, products) into its own plugin:
+
+1. Move the models, XML schemas, and translations together as a unit
+2. The new plugin should NOT depend on higher-level plugins (e.g., `clientes_core` must not depend on `facturacion_base`)
+3. Keep domain models focused — avoid mixing external integrations (accounting, cross-plugin relations) into core domain models
+4. Consumers (`facturacion_base`, etc.) become dependents of the shared plugin, not the other way around
+
+### Plugin Backup System
+
+`fs_plugin_manager` provides automatic backup and restore when plugins are overwritten:
+
+**API methods:**
+- `has_backup($plugin_name)` — checks if a `{name}_back` directory exists
+- `create_backup($plugin_name)` — copies plugin to `{name}_back`
+- `restore_backup($plugin_name)` — replaces current plugin with backup
+- `check_plugin_exists($plugin_name)` — returns plugin info if installed
+- `detect_plugin_from_zip($zip_path)` — extracts name and version from a ZIP file
+
+**Conventions:**
+- Backup directories use the `_back` suffix (e.g., `plugins/mi_plugin_back/`)
+- Plugins ending in `_back` are hidden from the plugin listing and cannot be activated
+- Only one backup per plugin is kept; creating a new backup removes the previous one
+
+**Installation flow with overwrite:**
+1. User uploads a ZIP or clicks download
+2. System detects if plugin already exists via `check_plugin_exists()`
+3. If exists: plugin info is stored in `$_SESSION['pending_plugin']` and a confirmation modal is shown
+4. On confirm: `create_backup()` is called, then the new version is installed
+5. On cancel: temp file is cleaned up and session is cleared
+
+### Portal Sections (Public Content)
+
+Plugins can register public content sections in the portal via a `portal_section.php` file:
+
+```php
+// plugins/my_plugin/portal_section.php
+function my_plugin_portal_section() {
+    return [
+        'titulo'    => 'My Section Title',
+        'contenido' => '<p>HTML content for the public portal</p>',
+        'orden'     => 50,  // Lower = appears first
+    ];
+}
+```
+
+The portal controller scans active plugins for `portal_section.php`, calls `{plugin_name}_portal_section()`, and renders the returned sections ordered by `orden`.
+
+Portal configuration is stored in `tmp/portal_config.json` (no database dependency). Administrators can edit before/after content through the admin interface.
+
+See `plugins/hola_mundo/` for a minimal working example.
+
+## Plugin Development Best Practices
+
+### Security Checklist for Plugins
+
+Every plugin MUST follow these security rules:
+
+1. **SQL Injection Prevention**: Always use `$this->db->var2str()` or prepared statements. Never concatenate user input into SQL queries.
+2. **XSS Prevention**: Use Twig `{{ }}` for all outputs. Never use `|raw` with user-provided data.
+3. **CSRF Protection**: All POST forms must include `{{ csrf_field() }}` and controllers must validate with `$this->isCsrfValid()`.
+4. **Input Sanitization**: Use `$this->no_html()` for text, `filter_var()` for emails/integers, and Symfony Request typecasting (`getInt()`, `getString()`, `getBoolean()`).
+5. **File Uploads**: Validate MIME type (not just extension), generate random filenames, store outside webroot.
+
+### Performance Guidelines for Plugins
+
+1. **Use CacheManager** for frequently queried data:
+```php
+$cache = \FSFramework\Cache\CacheManager::getInstance();
+$data = $cache->get('my_plugin_data', fn() => $this->loadExpensiveData(), 300);
+```
+
+2. **Avoid N+1 queries**: Use JOINs or batch queries with `IN (...)` instead of looping queries.
+
+3. **Lazy instantiation**: Only create model instances when actually needed, not in controller constructors.
+
+4. **Invalidate cache on write**: After save/delete operations, clear related cache keys.
+
+### Plugin Init Class Pattern
+
+Plugins can register event listeners and Twig extensions via an `Init.php` class:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace FSFramework\Plugins\my_plugin;
+
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Event\ModelEvent;
+
+class Init
+{
+    public function init(): void
+    {
+        $dispatcher = FSEventDispatcher::getInstance();
+        
+        // Extend core behavior via events — never modify core files
+        $dispatcher->addListener(ModelEvent::BEFORE_SAVE, function (ModelEvent $event) {
+            $model = $event->getModel();
+            if ($model instanceof \cliente) {
+                // Plugin-specific validation or enrichment
+            }
+        });
+    }
+}
+```
+
+### Plugin Translation Convention
+
+Use a plugin-specific prefix for all translation keys to avoid collisions:
+
+```yaml
+# plugins/MyPlugin/translations/messages.es.yaml
+my-plugin-title: "Mi Plugin"
+my-plugin-save: "Guardar"
+my-plugin-error-required: "Campo obligatorio"
+```
+
+### Plugin Quality Checklist
+
+Before publishing a plugin, verify:
+
+- [ ] `fsframework.ini` has correct `min_version` and `require` dependencies
+- [ ] All SQL uses prepared statements or `var2str()`
+- [ ] All Twig outputs use `{{ }}` (no `|raw` with user data)
+- [ ] All POST forms include `{{ csrf_field() }}`
+- [ ] Models implement `test()`, `save()`, `delete()`, `exists()`
+- [ ] `declare(strict_types=1)` in all modern PHP files (`Model/`, `Controller/`, `src/`)
+- [ ] Translation keys have plugin-specific prefix
+- [ ] Tests exist in `tests/PluginName/` for model logic
+- [ ] XML schema defined for each new database table in `model/table/`
+- [ ] Works on PHP 8.2 and 8.3
+
 ## Documentation References
 
 - [Translation System](docs/TRANSLATION.md) - Complete i18n documentation (YAML, JSON, pluralization, fallback)
@@ -1375,6 +1551,6 @@ return function(\Symfony\Component\DependencyInjection\ContainerBuilder $contain
 
 ---
 
-**Last Updated**: June 2025  
+**Last Updated**: March 2026  
 **Framework Version**: FSFramework with Symfony 7.4  
 **PHP Version**: 8.2+
