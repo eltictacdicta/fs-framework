@@ -431,7 +431,7 @@ class fs_user extends \fs_model
     public function new_logkey()
     {
         if (is_null($this->log_key) || !FS_DEMO) {
-            $this->log_key = sha1(strval(rand()));
+            $this->log_key = bin2hex(random_bytes(32));
         }
 
         $this->logged_on = TRUE;

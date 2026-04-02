@@ -59,6 +59,10 @@ if (!defined('FS_NF0')) {
     define('FS_NF0', 2);
 }
 
+if (!defined('FS_DEMO')) {
+    define('FS_DEMO', false);
+}
+
 // Asegurar que el directorio tmp existe para tests que lo necesiten
 $tmpDir = FS_FOLDER . '/tmp';
 if (!is_dir($tmpDir)) {
