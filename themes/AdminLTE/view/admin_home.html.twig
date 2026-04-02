@@ -37,18 +37,6 @@
             }
         });
     }
-    function descargar_plugin_inestable(id) {
-        bootbox.confirm({
-            message: 'Este plugin está marcado como inestable. Significa que <b>no se recomienda su uso</b>,\n\
- que todavía está en desarrollo y puede contener errores. ¿Estas seguro de que quieres descargarlo?',
-            title: '<b>Atención</b>',
-            callback: function (result) {
-                if (result) {
-                    window.location.href = '{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&download=' + id + '#plugins';
-                }
-            }
-        });
-    }
     function mostrar_modal_plugin() {
         console.log('Intentando mostrar modal de plugin...');
         var modal = $('#modal_add_plugin');
@@ -120,12 +108,6 @@
         $('#modal_confirm_overwrite_install').modal('show');
         {% endif %}
 
-        {% if fsc.pending_download %}
-        $('#plugin_name_download').text('{{ fsc.pending_download.name }}');
-        $('#current_version_download').text('{{ fsc.pending_download.current_version }}');
-        $('#link_confirm_download').attr('href', '{{ fsc.url()|raw }}&download={{ fsc.pending_download.plugin_id }}&confirm_download=1#plugins');
-        $('#modal_confirm_overwrite_download').modal('show');
-        {% endif %}
     }
 
     $(document).ready(function () {
@@ -137,28 +119,14 @@
             {% endif %}
         });
 
-        $('#modal_confirm_overwrite_download').on('hidden.bs.modal', function () {
-            {% if fsc.pending_download %}
-            $.post('{{ fsc.url()|raw }}', { cancel_pending_download: '1' });
-            {% endif %}
-        });
-        
         {% if fsc.step == '1' %}
-        $('#tab_panel_control a[href="#t_publicos"]').tab('show');
+        $('#tab_panel_control a[href="#t_plugins"]').tab('show');
         {% endif %}
 
         if (window.location.hash.substring(1) == 'paginas') {
             $('#tab_panel_control a[href="#t_paginas"]').tab('show');
         } else if (window.location.hash.substring(1) == 'plugins') {
             $('#tab_panel_control a[href="#t_plugins"]').tab('show');
-        } else if (window.location.hash.substring(1) == 'descargas' || window.location.hash.substring(1) == 'publicos') {
-            {% if system_updater_enabled %}
-            $('#tab_panel_control a[href="#t_publicos"]').tab('show');
-            {% endif %}
-        } else if (window.location.hash.substring(1) == 'privados') {
-            {% if system_updater_enabled %}
-            $('#tab_panel_control a[href="#t_privados"]').tab('show');
-            {% endif %}
         } else if (window.location.hash.substring(1) == 'avanzado') {
             $('#tab_panel_control a[href="#t_avanzado"]').tab('show');
         }
@@ -221,8 +189,8 @@
     <p class="help-block">
         El núcleo solamente se encarga de la gestión de usuarios, plugins y páginas.
         Para todo lo demás tienes los plugins.
-        En la pestaña <b>plugins públicos</b> encontrarás la tienda de plugins públicos,
-        con los complementos principales listos para instalar.
+        La tienda de plugins públicos se gestiona desde <b>system_updater</b>,
+        donde tienes el catálogo mantenido fuera del núcleo.
         <br/>
         Los plugins instalados los tienes en la pestaña <b>plugins</b>. Puedes añadir
         plugins manualmente, si lo deseas, y también puedes activar o desactivar,
@@ -232,11 +200,7 @@
         instala el plugin <b>system_updater</b>. Desde ahí tendrás acceso a esas
         herramientas y al flujo recomendado de mantenimiento.
     </p>
-    {% if system_updater_enabled %}
-    <a href="updater.php" class="btn btn-sm btn-primary">
-        <span class="glyphicon glyphicon-ok"></span>&nbsp; Abrir system_updater
-    </a>
-    {% elseif file_exists('plugins/system_updater') %}
+    {% if file_exists('plugins/system_updater') %}
     <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&enable=system_updater#plugins" class="btn btn-sm btn-primary">
         <span class="glyphicon glyphicon-ok"></span>&nbsp; Activar system update
     </a>
@@ -245,7 +209,7 @@
         <span class="glyphicon glyphicon-download-alt"></span>&nbsp; Instalar system_updater
     </a>
     {% endif %}
-    <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&skip=TRUE#publicos" class="btn btn-sm btn-warning">
+    <a href="{{ fsc.url()|raw }}&caca={{ fsc.random_string(4)|raw }}&skip=TRUE#plugins" class="btn btn-sm btn-warning">
         <span class="glyphicon glyphicon-remove"></span>&nbsp; No, gracias
     </a>
 </div>
@@ -308,21 +272,6 @@
                 <span class="hidden-xs">&nbsp;{{ 'plugins'|trans }}</span>
             </a>
         </li>
-        {% if system_updater_enabled %}
-        <li role="presentation">
-            <a href="#t_publicos" aria-controls="t_publicos" role="tab" data-toggle="tab">
-                <i class="fa fa-download"></i>
-                <span class="hidden-xs">&nbsp;Plugins públicos</span>
-            </a>
-        </li>
-        <li role="presentation">
-            <a href="#t_privados" aria-controls="t_privados" role="tab" data-toggle="tab">
-                <i class="fa fa-lock"></i>
-                <span class="hidden-xs">&nbsp;Plugins privados</span>
-            </a>
-        </li>
-        {% endif %}
-
         <li role="presentation">
             <a href="#t_temas" aria-controls="t_temas" role="tab" data-toggle="tab">
                 <i class="fa fa-paint-brush"></i>
@@ -344,15 +293,6 @@
         <div role="tabpanel" class="tab-pane" id="t_plugins">
             {{ include('tab/admin_home_plugins.html.twig') }}
         </div>
-        {% if system_updater_enabled %}
-        <div role="tabpanel" class="tab-pane" id="t_publicos">
-            {{ include('tab/admin_home_downloads.html.twig') }}
-        </div>
-        <div role="tabpanel" class="tab-pane" id="t_privados">
-            {{ include('tab/admin_home_private_downloads.html.twig') }}
-        </div>
-        {% endif %}
-
         <div role="tabpanel" class="tab-pane" id="t_temas">
             {{ include('tab/admin_home_themes.html.twig') }}
         </div>
@@ -433,33 +373,4 @@
 </div>
 
 <!-- Modal de confirmación para sobrescribir plugin en descarga -->
-<div class="modal fade" id="modal_confirm_overwrite_download" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-                <h4 class="modal-title">
-                    <i class="fa fa-exclamation-triangle"></i>&nbsp; Plugin ya existe
-                </h4>
-            </div>
-            <div class="modal-body">
-                <p>Hay otro plugin con este nombre: <b><span id="plugin_name_download"></span></b></p>
-                <p>Versión actual: <b><span id="current_version_download"></span></b></p>
-                <p class="help-block">
-                    Si continúa, el plugin actual se guardará como backup (nombre_plugin_back) 
-                    y se descargará e instalará la nueva versión.
-                </p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
-                <a href="#" id="link_confirm_download" class="btn btn-primary">
-                    <span class="glyphicon glyphicon-ok"></span>&nbsp; Sí, sobrescribir
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
 
-{{ include('footer.html.twig') }}

@@ -42,6 +42,8 @@ advanced: 'Avanzado'
 themes: 'Temas'
 add_plugin: 'Añadir plugin'
 updater: 'Actualizador'
+private_plugins_managed_in_updater: 'La gestión de plugins privados ya no forma parte del núcleo. Se administra desde el plugin %plugin%.'
+open_private_store: 'Abrir tienda privada'
 
 # Themes
 theme_name: 'Nombre del tema'

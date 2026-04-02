@@ -69,24 +69,6 @@ class admin_home extends fs_controller
     public $pending_plugin;
 
     /**
-     * Plugin pendiente de descarga
-     * @var array|null
-     */
-    public $pending_download;
-
-    /**
-     * Plugin privado pendiente de descarga
-     * @var array|null
-     */
-    public $pending_private_download;
-
-    /**
-     * Resultado del test de conexión privada
-     * @var array|null
-     */
-    public $private_test_result;
-
-    /**
      * Información del actualizador
      * @var array|null
      */
@@ -186,7 +168,6 @@ class admin_home extends fs_controller
 
         // Inicializar variables para plugins pendientes
         $this->sync_pending_actions();
-        $this->private_test_result = null;
 
         // Inicializar información del actualizador
         $this->init_updater_info();
@@ -203,8 +184,6 @@ class admin_home extends fs_controller
     private function sync_pending_actions()
     {
         $this->pending_plugin = isset($_SESSION['pending_plugin']) ? $_SESSION['pending_plugin'] : null;
-        $this->pending_download = isset($_SESSION['pending_download']) ? $_SESSION['pending_download'] : null;
-        $this->pending_private_download = isset($_SESSION['pending_private_download']) ? $_SESSION['pending_private_download'] : null;
     }
 
     /**
@@ -482,62 +461,6 @@ class admin_home extends fs_controller
             return;
         }
 
-        if (filter_input(INPUT_POST, 'cancel_pending_download')) {
-            /// cancelar descarga pendiente
-            if (isset($_SESSION['pending_download'])) {
-                unset($_SESSION['pending_download']);
-            }
-            $this->sync_pending_actions();
-            return;
-        }
-
-        if (filter_input(INPUT_POST, 'cancel_pending_private_download')) {
-            /// cancelar descarga privada pendiente
-            if (isset($_SESSION['pending_private_download'])) {
-                unset($_SESSION['pending_private_download']);
-            }
-            $this->sync_pending_actions();
-            return;
-        }
-
-        if (filter_input(INPUT_POST, 'save_private_config')) {
-            /// guardar configuración de plugins privados
-            $this->save_private_plugins_config();
-            return;
-        }
-
-        if (filter_input(INPUT_GET, 'delete_private_config')) {
-            /// eliminar configuración de plugins privados
-            $this->delete_private_plugins_config();
-            return;
-        }
-
-        if (filter_input(INPUT_GET, 'test_private_connection')) {
-            /// probar conexión con plugins privados
-            $this->test_private_plugins_connection();
-            return;
-        }
-
-        if (filter_input(INPUT_GET, 'refresh_private_plugins')) {
-            /// refrescar lista de plugins privados
-            $this->refresh_private_plugins();
-            return;
-        }
-
-        if (filter_input(INPUT_GET, 'download_private')) {
-            /// descargar un plugin privado
-            $this->download_private(filter_input(INPUT_GET, 'download_private'));
-            return;
-        }
-
-        if (filter_input(INPUT_GET, 'debug_private_ini')) {
-            /// debug de lectura de ini remoto
-            $this->template = false;
-            header('Content-Type: application/json');
-            echo json_encode($this->plugin_manager->debug_remote_ini(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-            return;
-        }
-
         if (filter_input(INPUT_POST, 'modpages')) {
             /// activar/desactivas páginas del menú
             $this->enable_pages();
@@ -553,9 +476,6 @@ class admin_home extends fs_controller
         } else if (filter_input(INPUT_POST, 'install')) {
             /// instalar plugin (copiarlo y descomprimirlo)
             $this->install_plugin();
-        } else if (filter_input(INPUT_GET, 'download')) {
-            /// descargamos un plugin de la lista de la comunidad
-            $this->download(filter_input(INPUT_GET, 'download'));
         } else if (filter_input(INPUT_GET, 'reset')) {
             /// reseteamos la configuración avanzada
             $this->settings->reset();
@@ -755,55 +675,6 @@ class admin_home extends fs_controller
     {
         $name = basename($name);
         $this->plugin_manager->disable($name);
-    }
-
-    /**
-     * Descarga un plugin de la lista dinámica de la comunidad.
-     */
-    private function download($plugin_id)
-    {
-        // Verificar si el plugin ya existe antes de descargar
-        $downloads = $this->plugin_manager->downloads();
-        $plugin_name = null;
-
-        foreach ($downloads as $item) {
-            if ($item['id'] == (int) $plugin_id) {
-                $plugin_name = $item['nombre'];
-                break;
-            }
-        }
-
-        if (!$plugin_name) {
-            $this->new_error_msg('Plugin no encontrado en la lista de descargas.');
-            return;
-        }
-
-        $existing_plugin = $this->plugin_manager->check_plugin_exists($plugin_name);
-
-        if ($existing_plugin && !filter_input(INPUT_GET, 'confirm_download')) {
-            // Guardar información en sesión para el modal
-            $_SESSION['pending_download'] = [
-                'plugin_id' => $plugin_id,
-                'name' => $plugin_name,
-                'current_version' => $existing_plugin['version']
-            ];
-            $this->sync_pending_actions();
-
-            $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
-            return;
-        }
-
-        // Si hay confirmación, descargar con backup
-        if (filter_input(INPUT_GET, 'confirm_download') && isset($_SESSION['pending_download'])) {
-            $pending = $_SESSION['pending_download'];
-            $this->plugin_manager->download($pending['plugin_id'], true);
-            unset($_SESSION['pending_download']);
-            $this->sync_pending_actions();
-            return;
-        }
-
-        // Plugin nuevo, descargar directamente
-        $this->plugin_manager->download($plugin_id, false);
     }
 
     /**
@@ -1126,77 +997,6 @@ class admin_home extends fs_controller
     }
 
     /**
-     * Guarda la configuración de plugins privados.
-     */
-    private function save_private_plugins_config()
-    {
-        $github_token = filter_input(INPUT_POST, 'github_token');
-        $private_plugins_url = filter_input(INPUT_POST, 'private_plugins_url');
-
-        if (empty($github_token) || empty($private_plugins_url)) {
-            $this->new_error_msg('Debes proporcionar tanto el token de GitHub como la URL del JSON de plugins.');
-            return;
-        }
-
-        // Validar que la URL tenga un formato válido
-        if (!filter_var($private_plugins_url, FILTER_VALIDATE_URL)) {
-            $this->new_error_msg('La URL proporcionada no es válida.');
-            return;
-        }
-
-        if ($this->plugin_manager->save_private_config($github_token, $private_plugins_url)) {
-            $this->new_message('Configuración de plugins privados guardada correctamente.');
-
-            // Probar la conexión automáticamente
-            $test_result = $this->plugin_manager->test_private_connection();
-            if ($test_result['success']) {
-                $this->new_message($test_result['message']);
-            } else {
-                $this->new_advice($test_result['message']);
-            }
-        } else {
-            $this->new_error_msg('Error al guardar la configuración.');
-        }
-    }
-
-    /**
-     * Elimina la configuración de plugins privados.
-     */
-    private function delete_private_plugins_config()
-    {
-        if ($this->plugin_manager->delete_private_config()) {
-            $this->new_message('Configuración de plugins privados eliminada correctamente.');
-        } else {
-            $this->new_error_msg('Error al eliminar la configuración.');
-        }
-    }
-
-    /**
-     * Prueba la conexión con plugins privados.
-     */
-    private function test_private_plugins_connection()
-    {
-        $this->private_test_result = $this->plugin_manager->test_private_connection();
-
-        if ($this->private_test_result['success']) {
-            $this->new_message($this->private_test_result['message']);
-        } else {
-            $this->new_error_msg($this->private_test_result['message']);
-        }
-    }
-
-    /**
-     * Refresca la lista de plugins privados.
-     */
-    private function refresh_private_plugins()
-    {
-        // Limpiar TODA la caché para forzar recarga completa
-        $this->cache->clean();
-        $this->plugin_manager->refresh_private_downloads();
-        $this->new_message('Lista de plugins privados actualizada.');
-    }
-
-    /**
      * Copia un directorio de forma recursiva.
      *
      * @param string $src Ruta de origen
@@ -1242,21 +1042,4 @@ class admin_home extends fs_controller
         return $success;
     }
 
-    /**
-     * Descarga un plugin privado.
-     * Siempre crea backup automático si el plugin ya existe.
-     * 
-     * @param string $plugin_id
-     */
-    private function download_private($plugin_id)
-    {
-        // Limpiar cualquier sesión pendiente anterior
-        if (isset($_SESSION['pending_private_download'])) {
-            unset($_SESSION['pending_private_download']);
-        }
-        $this->sync_pending_actions();
-
-        // Descargar el plugin (siempre crea backup si ya existe)
-        $this->plugin_manager->download_private($plugin_id);
-    }
 }

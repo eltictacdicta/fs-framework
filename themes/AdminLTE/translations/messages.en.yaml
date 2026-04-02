@@ -42,6 +42,8 @@ advanced: 'Advanced'
 themes: 'Themes'
 add_plugin: 'Add Plugin'
 updater: 'Updater'
+private_plugins_managed_in_updater: 'Private plugin management is no longer part of the core. It is managed from the %plugin% plugin.'
+open_private_store: 'Open private store'
 
 # Themes
 theme_name: 'Theme Name'

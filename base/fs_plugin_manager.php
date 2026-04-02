@@ -64,24 +64,6 @@ class fs_plugin_manager
     public $disable_rm_plugins = false;
 
     /**
-     *
-     * @var array
-     */
-    private $download_list;
-
-    /**
-     * Lista de plugins privados disponibles para descarga
-     * @var array
-     */
-    private $private_download_list;
-
-    /**
-     * Configuración de plugins privados (token, url)
-     * @var array
-     */
-    private $private_config;
-
-    /**
      * Versión de FSFramework (archivo VERSION)
      * @var string
      */
@@ -108,7 +90,6 @@ class fs_plugin_manager
             }
         }
 
-        // Cargar versión principal de FSFramework
         if (file_exists(FS_FOLDER . '/VERSION')) {
             $raw_version = file_get_contents(FS_FOLDER . '/VERSION');
             $this->version = trim($raw_version);
@@ -123,812 +104,6 @@ class fs_plugin_manager
     private function pluginsPath($pluginName = '')
     {
         return FS_FOLDER . self::PLUGINS_PATH . $pluginName;
-    }
-
-    private function downloadZipPath()
-    {
-        return FS_FOLDER . self::DOWNLOAD_ZIP_PATH;
-    }
-
-    private function getFsVarModel()
-    {
-        require_once self::FS_VAR_MODEL;
-        return new fs_var();
-    }
-
-    private function ensureDirectory($path)
-    {
-        if (!file_exists($path)) {
-            mkdir($path, 0777, true);
-        }
-    }
-
-    private function clearAndEnsureDirectory($path)
-    {
-        if (file_exists($path) && !fs_file_manager::del_tree($path)) {
-            throw new RuntimeException('No se pudo limpiar el directorio: ' . $path);
-        }
-
-        if (!mkdir($path, 0777, true) && !is_dir($path)) {
-            throw new RuntimeException('No se pudo crear el directorio: ' . $path);
-        }
-    }
-
-    private function deleteDownloadZip()
-    {
-        if (file_exists($this->downloadZipPath())) {
-            unlink($this->downloadZipPath());
-        }
-    }
-
-    private function findNewExtractedPluginFolder(array $plugins_list)
-    {
-        foreach (fs_file_manager::scan_folder($this->pluginsPath()) as $folderName) {
-            if (is_dir($this->pluginsPath($folderName)) && !in_array($folderName, $plugins_list)) {
-                return $folderName;
-            }
-        }
-
-        return null;
-    }
-
-    private function replacePluginFolder($sourceFolder, $targetPluginName)
-    {
-        $sourcePath = $this->pluginsPath($sourceFolder);
-        $targetPath = $this->pluginsPath($targetPluginName);
-        $backupPath = $targetPath . '.bak';
-        $hasBackup = false;
-
-        if (!file_exists($sourcePath)) {
-            throw new RuntimeException('No existe el plugin de origen para reemplazo: ' . $sourcePath);
-        }
-
-        if (file_exists($backupPath) && !fs_file_manager::del_tree($backupPath)) {
-            throw new RuntimeException('No se pudo limpiar el backup temporal del plugin: ' . $backupPath);
-        }
-
-        if (file_exists($targetPath)) {
-            if (!rename($targetPath, $backupPath)) {
-                throw new RuntimeException('No se pudo crear backup del plugin existente: ' . $targetPath);
-            }
-            $hasBackup = true;
-        }
-
-        if (!rename($sourcePath, $targetPath)) {
-            if ($hasBackup && !rename($backupPath, $targetPath)) {
-                error_log('Error crítico: no se pudo restaurar backup del plugin ' . $targetPluginName . ' desde ' . $backupPath);
-            }
-            throw new RuntimeException('No se pudo reemplazar el plugin destino: ' . $targetPath);
-        }
-
-        if ($hasBackup && file_exists($backupPath) && !fs_file_manager::del_tree($backupPath)) {
-            throw new RuntimeException('Plugin reemplazado, pero no se pudo eliminar backup temporal: ' . $backupPath);
-        }
-    }
-
-    private function extractDownloadZipIntoPlugins()
-    {
-        if (!fs_file_manager::extract_zip_safe($this->downloadZipPath(), $this->pluginsPath())) {
-            $this->core_log->new_error('Error al extraer el ZIP. Código de integridad o seguridad fallido.');
-            $this->deleteDownloadZip();
-            return false;
-        }
-
-        $this->deleteDownloadZip();
-        return true;
-    }
-
-    private function finalizeDownloadedPlugin(array $item, array $plugins_list)
-    {
-        if (!$this->extractDownloadZipIntoPlugins()) {
-            return false;
-        }
-
-        $newFolder = $this->findNewExtractedPluginFolder($plugins_list);
-        if (!is_null($newFolder)) {
-            $this->replacePluginFolder($newFolder, $item['nombre']);
-        }
-
-        return true;
-    }
-
-    private function getFirstDirectoryFromPath($path)
-    {
-        foreach (fs_file_manager::scan_folder($path) as $folderName) {
-            if (is_dir($path . $folderName)) {
-                return $folderName;
-            }
-        }
-
-        return null;
-    }
-
-    public function disable($plugin_name)
-    {
-        if (!in_array($plugin_name, $this->enabled())) {
-            return true;
-        }
-
-        foreach ($GLOBALS['plugins'] as $i => $value) {
-            if ($value == $plugin_name) {
-                unset($GLOBALS['plugins'][$i]);
-                break;
-            }
-        }
-
-        if ($this->save()) {
-            $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> desactivado correctamente.');
-            $this->core_log->save('Plugin ' . $plugin_name . ' desactivado correctamente.', 'msg');
-        } else {
-            $this->core_log->new_error('Imposible desactivar el plugin <b>' . $plugin_name . '</b>.');
-            return false;
-        }
-
-        /*
-         * Desactivamos las páginas que ya no existen
-         */
-        $this->disable_unnused_pages();
-
-        /// desactivamos los plugins que dependan de este
-        foreach ($this->installed() as $plug) {
-            /**
-             * Si el plugin que hemos desactivado, es requerido por el plugin
-             * que estamos comprobando, lo desativamos también.
-             */
-            if (in_array($plug['name'], $GLOBALS['plugins']) && in_array($plugin_name, $plug['require'])) {
-                $this->disable($plug['name']);
-            }
-        }
-
-        // Si es un plugin de soporte, desactivar los plugins que dependen de él
-        $this->disable_support_dependents($plugin_name);
-
-        $this->clean_cache();
-        return true;
-    }
-
-    /**
-     * Desactiva los plugins que dependen de un plugin de soporte (legacy_support o facturascripts_support).
-     * La lógica de detección de dependientes está delegada a los propios plugins de soporte.
-     * 
-     * @param string $plugin_name Nombre del plugin de soporte que se está desactivando
-     */
-    private function disable_support_dependents($plugin_name)
-    {
-        $validator_class = null;
-
-        if ($plugin_name === 'legacy_support') {
-            $validator_class = 'FSFramework\\Plugins\\legacy_support\\VersionValidator';
-            $validator_file = $this->pluginsPath('legacy_support/VersionValidator.php');
-        } elseif ($plugin_name === 'facturascripts_support') {
-            $validator_class = 'FSFramework\\Plugins\\facturascripts_support\\VersionValidator';
-            $validator_file = $this->pluginsPath('facturascripts_support/VersionValidator.php');
-        } else {
-            return; // No es un plugin de soporte
-        }
-
-        // Cargar la clase si no está cargada
-        if (!class_exists($validator_class) && file_exists($validator_file)) {
-            require_once $validator_file;
-        }
-
-        if (!class_exists($validator_class) || !method_exists($validator_class, 'getDependentPlugins')) {
-            return;
-        }
-
-        // Obtener los plugins dependientes desde el propio plugin de soporte
-        $dependents = $validator_class::getDependentPlugins();
-
-        foreach ($dependents as $dependent_plugin) {
-            if (in_array($dependent_plugin, $GLOBALS['plugins'])) {
-                $this->core_log->new_message('Desactivando <b>' . $dependent_plugin . '</b> porque depende de <b>' . $plugin_name . '</b>.');
-                $this->disable($dependent_plugin);
-            }
-        }
-    }
-
-    public function disabled()
-    {
-        $disabled = [];
-        if (defined('FS_DISABLED_PLUGINS')) {
-            foreach (explode(',', FS_DISABLED_PLUGINS) as $aux) {
-                $disabled[] = $aux;
-            }
-        }
-
-        return $disabled;
-    }
-
-    public function download($plugin_id, $create_backup = false)
-    {
-        if ($this->disable_mod_plugins) {
-            $this->core_log->new_error('No tienes permiso para descargar plugins.');
-            return false;
-        }
-
-        foreach ($this->downloads() as $item) {
-            if ($item['id'] != (int) $plugin_id) {
-                continue;
-            }
-
-            $this->core_log->new_message('Descargando el plugin ' . $item['nombre']);
-            if (!@fs_file_download($item['zip_link'], $this->downloadZipPath())) {
-                $this->core_log->new_error('Error al descargar. Tendrás que descargarlo manualmente desde '
-                    . '<a href="' . $item['zip_link'] . '" target="_blank">aquí</a> y añadirlo pulsando el botón <b>añadir</b>.');
-                return false;
-            }
-
-            // Crear backup si existe y se solicita
-            if ($create_backup && file_exists($this->pluginsPath($item['nombre']))) {
-                if (!$this->create_backup($item['nombre'])) {
-                    $this->deleteDownloadZip();
-                    return false;
-                }
-            }
-
-            $plugins_list = fs_file_manager::scan_folder($this->pluginsPath());
-
-            if (!$this->finalizeDownloadedPlugin($item, $plugins_list)) {
-                return false;
-            }
-
-            $this->core_log->new_message('Plugin añadido correctamente.');
-            return $this->enable($item['nombre']);
-        }
-
-        $this->core_log->new_error('Descarga no encontrada.');
-        return false;
-    }
-
-    public function downloads()
-    {
-        if (isset($this->download_list)) {
-            return $this->download_list;
-        }
-
-        $cached = $this->fetchDownloadsFromCache();
-        if ($cached !== false) {
-            $this->download_list = $cached;
-            return $this->download_list;
-        }
-
-        $remote = $this->fetchDownloadsFromRemote();
-        if ($remote !== false) {
-            $this->download_list = $remote;
-            $this->cache->set('download_list', $this->download_list);
-            return $this->download_list;
-        }
-
-        $this->core_log->new_error('Error al descargar la lista de plugins.');
-        $this->download_list = $this->buildFallbackDownloadList();
-        return $this->download_list;
-    }
-
-    /**
-     * @return array|false Lista normalizada y completa desde caché, o false si no hay caché válida
-     */
-    private function fetchDownloadsFromCache()
-    {
-        $list = $this->cache->get('download_list');
-        if (!$list || !is_array($list)) {
-            return false;
-        }
-
-        $complete = true;
-        foreach ($list as $key => $value) {
-            $list[$key] = $this->normalize_download_item($value, $key);
-            if (empty($list[$key]['version']) || empty($list[$key]['creador'])) {
-                $complete = false;
-            }
-        }
-
-        if ($complete) {
-            return $list;
-        }
-
-        $this->cache->delete('download_list');
-        return false;
-    }
-
-    /**
-     * @return array|false Lista de plugins enriquecida desde remoto, o false si falla la descarga
-     */
-    private function fetchDownloadsFromRemote()
-    {
-        $json = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-custom-plugins/main/custom_plugins.json', 10);
-        if (!$json || $json === 'ERROR') {
-            return false;
-        }
-
-        $list = json_decode($json, true);
-        if (!is_array($list)) {
-            $this->core_log->new_error('Error al parsear la lista remota de plugins. Verifica el formato del JSON.');
-            return false;
-        }
-
-        foreach ($list as $key => $value) {
-            $item = $this->normalize_download_item($value, $key);
-            $item = $this->enrichDownloadItem($item);
-            $item['instalado'] = file_exists($this->pluginsPath($item['nombre']));
-            $list[$key] = $item;
-        }
-
-        return $list;
-    }
-
-    /**
-     * Completa metadatos faltantes de un item de descarga desde el INI remoto del repositorio.
-     */
-    private function enrichDownloadItem(array $item): array
-    {
-        if (!empty($item['version']) && !empty($item['descripcion']) && !empty($item['creador'])) {
-            return $item;
-        }
-
-        $remote_ini_data = $this->get_public_remote_plugin_ini($item);
-        if (!$remote_ini_data) {
-            return $item;
-        }
-
-        if (empty($item['version']) && isset($remote_ini_data['version'])) {
-            $item['version'] = $remote_ini_data['version'];
-        }
-
-        if (empty($item['descripcion']) && isset($remote_ini_data['description'])) {
-            $item['descripcion'] = $remote_ini_data['description'];
-        }
-
-        if (empty($item['creador'])) {
-            $item['creador'] = $remote_ini_data['author'] ?? $remote_ini_data['author_name'] ?? '';
-        }
-
-        return $item;
-    }
-
-    private function buildFallbackDownloadList(): array
-    {
-        return [
-            [
-                'id' => 87,
-                'nick' => "NeoRazorX",
-                'creador' => "NeoRazorX",
-                'nombre' => "facturacion_base",
-                'tipo' => "gratis",
-                'descripcion' => "Plugin con las funciones básicas de facturación, contabilidad e informes simples.",
-                'link' => "https://github.com/NeoRazorX/facturacion_base",
-                'zip_link' => "https://github.com/NeoRazorX/facturacion_base/archive/master.zip",
-                'imagen' => "",
-                'estable' => true,
-                'version' => 140,
-                'creado' => "14-07-2016",
-                'ultima_modificacion' => "30-06-2018",
-                'descargas' => 130611,
-                'oferta_hasta' => null,
-                'caducidad' => null,
-                'licencia' => "LGPL",
-                'youtube_id' => "",
-                'demo_url' => "",
-                'precio' => 0,
-                'instalado' => file_exists($this->pluginsPath('facturacion_base'))
-            ]
-        ];
-    }
-
-    private static $downloadFieldAliases = [
-        'nombre' => ['name'],
-        'descripcion' => ['description'],
-        'creador' => ['author', 'autor'],
-        'link' => ['url'],
-        'zip_link' => ['download_url', 'archive_url'],
-        'ultima_modificacion' => ['updated_at', 'updated'],
-    ];
-
-    private static $downloadFieldDefaults = [
-        'estable' => true,
-        'tipo' => 'gratis',
-        'version' => '',
-        'descripcion' => '',
-        'creador' => '',
-    ];
-
-    /**
-     * Normaliza los campos de un item de descarga para soportar cambios de esquema JSON.
-     *
-     * @param array $item
-     * @param int|string $key
-     * @return array
-     */
-    private function normalize_download_item(array $item, $key)
-    {
-        if (!isset($item['id']) || $item['id'] === '') {
-            $item['id'] = $key;
-        }
-
-        $item = $this->resolveFieldAliases($item);
-
-        if (!empty($item['link'])) {
-            $item['link'] = fs_normalize_url($item['link']);
-        }
-        if (!empty($item['zip_link'])) {
-            $item['zip_link'] = fs_normalize_url($item['zip_link']);
-        }
-
-        foreach (self::$downloadFieldDefaults as $field => $default) {
-            if (!isset($item[$field]) || ($default !== '' && empty($item[$field]))) {
-                $item[$field] = $default;
-            }
-        }
-
-        return $item;
-    }
-
-    private function resolveFieldAliases(array $item)
-    {
-        foreach (self::$downloadFieldAliases as $target => $sources) {
-            if (!empty($item[$target])) {
-                continue;
-            }
-            foreach ($sources as $source) {
-                if (!empty($item[$source])) {
-                    $item[$target] = $item[$source];
-                    break;
-                }
-            }
-        }
-
-        return $item;
-    }
-
-    /**
-     * Parsea una URL de repositorio de forma segura evitando warnings de parse_url().
-     *
-     * @param mixed $url
-     * @return array|false
-     */
-    private function parse_repository_url($url)
-    {
-        if (!is_string($url) || '' === $url) {
-            return false;
-        }
-
-        $sanitized = trim($url);
-        $sanitized = preg_replace('/[\x00-\x1F\x7F]/', '', $sanitized);
-        if (!is_string($sanitized) || '' === $sanitized) {
-            return false;
-        }
-
-        $sanitized = str_replace(' ', '%20', $sanitized);
-        $sanitized = filter_var($sanitized, FILTER_SANITIZE_URL);
-        if (!is_string($sanitized) || '' === $sanitized) {
-            return false;
-        }
-
-        $parsed = @parse_url($sanitized);
-        if (!is_array($parsed) || !isset($parsed['path'])) {
-            return false;
-        }
-
-        return $parsed;
-    }
-
-    /**
-     * Extrae usuario y repositorio desde un link tipo GitHub.
-     *
-     * @param mixed $url
-     * @return array|false
-     */
-    private function extract_repo_parts($url)
-    {
-        $parsed = $this->parse_repository_url($url);
-        if (false === $parsed) {
-            return false;
-        }
-
-        $path_parts = explode('/', trim($parsed['path'], '/'));
-        if (count($path_parts) < 2 || '' === $path_parts[0] || '' === $path_parts[1]) {
-            return false;
-        }
-
-        return [
-            'user' => $path_parts[0],
-            'repo' => $path_parts[1],
-        ];
-    }
-
-    /**
-     * Obtiene datos de fsframework.ini/facturascripts.ini desde un repositorio público.
-     *
-     * @param array $plugin_data
-     * @return array|false
-     */
-    private function get_public_remote_plugin_ini(array $plugin_data)
-    {
-        if (empty($plugin_data['link'])) {
-            return false;
-        }
-
-        $repo_parts = $this->extract_repo_parts($plugin_data['link']);
-        if (false === $repo_parts) {
-            return false;
-        }
-
-        $branch = !empty($plugin_data['branch']) ? $plugin_data['branch'] : 'master';
-
-        foreach (['fsframework.ini', 'facturascripts.ini'] as $ini_file) {
-            $raw_url = "https://raw.githubusercontent.com/{$repo_parts['user']}/{$repo_parts['repo']}/{$branch}/{$ini_file}";
-            $result = $this->parseRemoteIniContent(@fs_file_get_contents($raw_url, 10));
-            if ($result !== false) {
-                return $result;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Parsea el contenido de un archivo INI remoto y extrae los datos del plugin.
-     *
-     * @param string|false $ini_content
-     * @param bool $returnRawFallback Si true, devuelve $ini_data completo como fallback
-     * @return array|false
-     */
-    private function parseRemoteIniContent($ini_content, $returnRawFallback = false)
-    {
-        if (!$ini_content || $ini_content === 'ERROR') {
-            return false;
-        }
-
-        $ini_data = @parse_ini_string($ini_content, true);
-        if (!$ini_data || !is_array($ini_data)) {
-            return false;
-        }
-
-        if (isset($ini_data['plugin']) && is_array($ini_data['plugin'])) {
-            return $ini_data['plugin'];
-        }
-
-        if (isset($ini_data['version']) || isset($ini_data['description']) || isset($ini_data['author']) || isset($ini_data['name'])) {
-            return $ini_data;
-        }
-
-        foreach ($ini_data as $values) {
-            if (is_array($values) && (isset($values['version']) || isset($values['description']))) {
-                return $values;
-            }
-        }
-
-        return $returnRawFallback ? $ini_data : false;
-    }
-
-    /**
-     * Devuelve la configuración de plugins privados.
-     * @return array
-     */
-    public function get_private_config()
-    {
-        if (isset($this->private_config)) {
-            return $this->private_config;
-        }
-
-        $fs_var = $this->getFsVarModel();
-
-        $this->private_config = [
-            'github_token' => '',
-            'private_plugins_url' => '',
-            'enabled' => false
-        ];
-
-        $raw_config = $fs_var->simple_get('private_plugins_config');
-        $saved_config = method_exists($fs_var, 'simple_get_decrypted')
-            ? $fs_var->simple_get_decrypted('private_plugins_config')
-            : $raw_config;
-
-        if ($saved_config) {
-            $decoded = json_decode($saved_config, true);
-            if (is_array($decoded)) {
-                $this->private_config = array_merge($this->private_config, $decoded);
-
-                if (is_string($raw_config)
-                    && !str_starts_with($raw_config, 'v1:')
-                    && method_exists($fs_var, 'simple_save_encrypted')) {
-                    $fs_var->simple_save_encrypted('private_plugins_config', json_encode($this->private_config));
-                }
-            }
-        }
-
-        return $this->private_config;
-    }
-
-    /**
-     * Guarda la configuración de plugins privados.
-     * @param string $github_token Token de acceso de GitHub
-     * @param string $private_plugins_url URL del JSON de plugins privados
-     * @return bool
-     */
-    public function save_private_config($github_token, $private_plugins_url)
-    {
-        $fs_var = $this->getFsVarModel();
-
-        $this->private_config = [
-            'github_token' => $github_token,
-            'private_plugins_url' => $private_plugins_url,
-            'enabled' => !empty($github_token) && !empty($private_plugins_url)
-        ];
-
-        if (method_exists($fs_var, 'simple_save_encrypted')) {
-            $result = $fs_var->simple_save_encrypted('private_plugins_config', json_encode($this->private_config));
-            if (!$result) {
-                $result = $fs_var->simple_save('private_plugins_config', json_encode($this->private_config));
-            }
-        } else {
-            $result = $fs_var->simple_save('private_plugins_config', json_encode($this->private_config));
-        }
-
-        // Limpiar cache de la lista de plugins privados
-        $this->cache->delete('private_download_list');
-
-        return $result;
-    }
-
-    /**
-     * Elimina la configuración de plugins privados.
-     * @return bool
-     */
-    public function delete_private_config()
-    {
-        $fs_var = $this->getFsVarModel();
-
-        $this->private_config = null;
-        $this->private_download_list = null;
-
-        // Limpiar cache
-        $this->cache->delete('private_download_list');
-
-        return $fs_var->simple_delete('private_plugins_config');
-    }
-
-    /**
-     * Verifica si la configuración de plugins privados está activa.
-     * @return bool
-     */
-    public function is_private_plugins_enabled()
-    {
-        $config = $this->get_private_config();
-        return $config['enabled'] && !empty($config['github_token']) && !empty($config['private_plugins_url']);
-    }
-
-    /**
-     * Devuelve la lista de plugins privados disponibles para descarga.
-     * @param bool $force_reload Forzar recarga ignorando caché
-     * @return array
-     */
-    public function private_downloads($force_reload = false)
-    {
-        if (!$force_reload && isset($this->private_download_list) && !empty($this->private_download_list)) {
-            return $this->private_download_list;
-        }
-
-        if (!$this->is_private_plugins_enabled()) {
-            $this->private_download_list = [];
-            return $this->private_download_list;
-        }
-
-        if (!$force_reload) {
-            $cached = $this->loadPrivateDownloadsFromCache();
-            if ($cached !== false) {
-                $this->private_download_list = $cached;
-                return $this->private_download_list;
-            }
-        }
-
-        $config = $this->get_private_config();
-        $remote = $this->fetchPrivateDownloadsFromRemote($config);
-        if ($remote !== false) {
-            $this->private_download_list = $remote;
-            $this->cache->set('private_download_list', $this->private_download_list, 3600);
-            return $this->private_download_list;
-        }
-
-        $this->core_log->new_error('Error al descargar la lista de plugins privados. Verifica el token y la URL.');
-        $this->private_download_list = [];
-        return $this->private_download_list;
-    }
-
-    /**
-     * @return array|false Lista privada desde caché, o false si no hay caché válida
-     */
-    private function loadPrivateDownloadsFromCache()
-    {
-        $cached = $this->cache->get('private_download_list');
-        if ($cached === false || !is_array($cached) || empty($cached)) {
-            return false;
-        }
-
-        $first_plugin = reset($cached);
-        if (!isset($first_plugin['version']) && !isset($first_plugin['descripcion'])) {
-            $this->cache->delete('private_download_list');
-            return false;
-        }
-
-        return $cached;
-    }
-
-    /**
-     * @return array|false Lista de plugins privados desde remoto, o false si falla
-     */
-    private function fetchPrivateDownloadsFromRemote(array $config)
-    {
-        $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 15);
-        if (!$json || $json === 'ERROR') {
-            return false;
-        }
-
-        $list = json_decode($json, true);
-        if (!is_array($list)) {
-            $this->core_log->new_error('Error al parsear el JSON de plugins privados. Verifica el formato del archivo.');
-            return false;
-        }
-
-        foreach ($list as $key => $value) {
-            $list[$key] = $this->decoratePrivatePlugin($value, $key, $config);
-        }
-
-        return $list;
-    }
-
-    /**
-     * Decora un plugin privado con flags, ID prefijado y datos del INI remoto.
-     */
-    private function decoratePrivatePlugin(array $plugin, $key, array $config): array
-    {
-        $plugin['instalado'] = file_exists($this->pluginsPath($plugin['nombre']));
-        $plugin['privado'] = true;
-        $plugin['id'] = 'priv_' . ($plugin['id'] ?? $key);
-
-        $remote_ini_data = $this->get_remote_plugin_ini($plugin, $config['github_token']);
-        if (!$remote_ini_data) {
-            return $plugin;
-        }
-
-        foreach (['version', 'description', 'min_version', 'require'] as $field) {
-            if (!isset($remote_ini_data[$field])) {
-                continue;
-            }
-            $target = ($field === 'description') ? 'descripcion' : $field;
-            $plugin[$target] = $remote_ini_data[$field];
-        }
-
-        return $plugin;
-    }
-
-    /**
-     * Obtiene los datos del fsframework.ini de un repositorio remoto.
-     * @param array $plugin_data Datos del plugin del JSON
-     * @param string $token Token de GitHub
-     * @return array|false Array con los datos del ini o false si falla
-     */
-    private function get_remote_plugin_ini($plugin_data, $token)
-    {
-        if (empty($plugin_data['link'])) {
-            return false;
-        }
-
-        $repo_parts = $this->extract_repo_parts($plugin_data['link']);
-        if (false === $repo_parts) {
-            return false;
-        }
-
-        $branch = $plugin_data['branch'] ?? 'master';
-
-        foreach (['fsframework.ini', 'facturascripts.ini'] as $ini_file) {
-            $api_url = "https://api.github.com/repos/{$repo_parts['user']}/{$repo_parts['repo']}/contents/{$ini_file}?ref={$branch}";
-            $result = $this->parseRemoteIniContent(@fs_file_get_contents_github_api($api_url, $token, 10), true);
-            if ($result !== false) {
-                return $result;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -1034,6 +209,85 @@ class fs_plugin_manager
             'success' => true,
             'message' => 'Conexión exitosa. Se encontraron ' . count($plugins) . ' plugin(s) disponible(s).' . $ini_test
         ];
+    }
+
+    public function disable($plugin_name)
+    {
+        if (!in_array($plugin_name, $this->enabled())) {
+            return true;
+        }
+
+        foreach ($GLOBALS['plugins'] as $i => $value) {
+            if ($value == $plugin_name) {
+                unset($GLOBALS['plugins'][$i]);
+                break;
+            }
+        }
+
+        if ($this->save()) {
+            $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> desactivado correctamente.');
+            $this->core_log->save('Plugin ' . $plugin_name . ' desactivado correctamente.', 'msg');
+        } else {
+            $this->core_log->new_error('Imposible desactivar el plugin <b>' . $plugin_name . '</b>.');
+            return false;
+        }
+
+        $this->disable_unused_pages();
+
+        foreach ($this->installed() as $plug) {
+            if (in_array($plug['name'], $GLOBALS['plugins']) && in_array($plugin_name, $plug['require'])) {
+                $this->disable($plug['name']);
+            }
+        }
+
+        $this->disable_support_dependents($plugin_name);
+
+        $this->clean_cache();
+        return true;
+    }
+
+    private function disable_support_dependents($plugin_name)
+    {
+        $validator_class = null;
+
+        if ($plugin_name === 'legacy_support') {
+            $validator_class = 'FSFramework\\Plugins\\legacy_support\\VersionValidator';
+            $validator_file = $this->pluginsPath('legacy_support/VersionValidator.php');
+        } elseif ($plugin_name === 'facturascripts_support') {
+            $validator_class = 'FSFramework\\Plugins\\facturascripts_support\\VersionValidator';
+            $validator_file = $this->pluginsPath('facturascripts_support/VersionValidator.php');
+        } else {
+            return;
+        }
+
+        if (!class_exists($validator_class) && file_exists($validator_file)) {
+            require_once $validator_file;
+        }
+
+        if (!class_exists($validator_class) || !method_exists($validator_class, 'getDependentPlugins')) {
+            return;
+        }
+
+        $dependents = $validator_class::getDependentPlugins();
+
+        foreach ($dependents as $dependent_plugin) {
+            if (in_array($dependent_plugin, $GLOBALS['plugins'])) {
+                $this->core_log->new_message('Desactivando <b>' . $dependent_plugin . '</b> porque depende de <b>' . $plugin_name . '</b>.');
+                $this->disable($dependent_plugin);
+            }
+        }
+    }
+
+    public function disabled()
+    {
+        $disabled = [];
+        if (defined('FS_DISABLED_PLUGINS')) {
+            foreach (explode(',', FS_DISABLED_PLUGINS) as $aux) {
+                $disabled[] = $aux;
+            }
+        }
+
+        return $disabled;
     }
 
     /**
@@ -1146,11 +400,8 @@ class fs_plugin_manager
 
                 $install = FALSE;
                 $txt = 'Dependencias incumplidas: <b>' . $req . '</b>';
-                foreach ($this->downloads() as $value) {
-                    if ($value['nombre'] == $req && !$this->disable_add_plugins) {
-                        $txt .= '. Puedes descargar este plugin desde la <b>pestaña descargas</b>.';
-                        break;
-                    }
+                if (!$this->disable_add_plugins && file_exists(FS_FOLDER . '/plugins/system_updater')) {
+                    $txt .= '. Puedes instalarlo desde <b>system_updater</b> en la tienda de plugins.';
                 }
 
                 $this->core_log->new_error($txt);
@@ -1325,7 +576,7 @@ class fs_plugin_manager
         return false;
     }
 
-    private function disable_unnused_pages()
+    private function disable_unused_pages()
     {
         $eliminadas = [];
         $page_model = new fs_page();
@@ -1606,19 +857,6 @@ class fs_plugin_manager
 
         if (isset($ini_file['require']) && $ini_file['require'] != '') {
             $plugin['require'] = explode(',', $ini_file['require']);
-        }
-
-        if (!isset($ini_file['version_url']) && $this->downloads()) {
-            foreach ($this->downloads() as $ditem) {
-                if ($ditem['id'] != $plugin['idplugin']) {
-                    continue;
-                }
-
-                if (intval($ditem['version']) > $plugin['version']) {
-                    $plugin['download2_url'] = 'updater.php?idplugin=' . $plugin['idplugin'] . '&name=' . $plugin_name;
-                }
-                break;
-            }
         }
 
         if ($plugin['enabled']) {
