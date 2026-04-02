@@ -284,6 +284,7 @@ class StealthMode
 
         $exemptPrefixes = [
             '/oidc/',
+            '/oauth/',
             '/api/',
             '/.well-known/',
         ];
