@@ -292,8 +292,8 @@ class fs_schema
 
         $upper = strtoupper($normalizedDefault);
 
-        if ($normalizedDefault === 'true' || $normalizedDefault === 'false') {
-            $val = $isMySQL ? ($normalizedDefault === 'true' ? '1' : '0') : $upper;
+        if ($upper === 'TRUE' || $upper === 'FALSE') {
+            $val = $isMySQL ? ($upper === 'TRUE' ? '1' : '0') : $upper;
             return self::SQL_DEFAULT . $val;
         }
 
@@ -330,6 +330,18 @@ class fs_schema
 
         if (!$isMySQL) {
             return $default;
+        }
+
+        // nextval() es de PostgreSQL; en MySQL AUTO_INCREMENT no necesita default
+        if (stripos($default, 'nextval(') !== false) {
+            return null;
+        }
+
+        // Eliminar type casts de PostgreSQL: 'valor'::tipo → valor
+        if (preg_match("/^'(.*?)'::/", $default, $m)) {
+            $default = $m[1];
+        } elseif (strpos($default, '::') !== false) {
+            $default = preg_replace('/::.*$/', '', $default);
         }
 
         $type = strtolower(trim($sqlType));

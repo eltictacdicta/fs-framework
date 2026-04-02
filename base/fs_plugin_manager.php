@@ -424,6 +424,8 @@ class fs_plugin_manager
 
         require_all_models();
 
+        $this->ensurePluginTables($name);
+
         if ($wizard) {
             $this->core_log->new_advice('Ya puedes <a href="index.php?page=' . $wizard . '">configurar el plugin</a>.');
             header('Location: index.php?page=' . $wizard);
@@ -557,6 +559,37 @@ class fs_plugin_manager
 
         $this->core_log->new_error('Imposible eliminar el plugin ' . $plugin_name);
         return false;
+    }
+
+    /**
+     * Crea las tablas de un plugin a partir de sus XMLs antes de
+     * instanciar controladores, para evitar errores de "table doesn't exist"
+     * cuando un controlador consulta una tabla recién definida.
+     */
+    private function ensurePluginTables(string $plugin_name): void
+    {
+        $tableDir = $this->pluginsPath($plugin_name . '/model/table');
+        if (!is_dir($tableDir)) {
+            return;
+        }
+
+        if (!class_exists('fs_schema', false)) {
+            require_once FS_FOLDER . '/base/fs_schema.php';
+        }
+
+        $xmlFiles = glob($tableDir . '/*.xml');
+        if (empty($xmlFiles)) {
+            return;
+        }
+
+        sort($xmlFiles);
+        foreach ($xmlFiles as $xmlFile) {
+            try {
+                fs_schema::createFromXml($xmlFile);
+            } catch (\Throwable $e) {
+                error_log('fs_plugin_manager: error creando tabla desde ' . basename($xmlFile) . ': ' . $e->getMessage());
+            }
+        }
     }
 
     private function clean_cache()
