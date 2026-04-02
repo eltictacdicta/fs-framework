@@ -59,23 +59,28 @@ class Tools
                 $message = is_scalar($msg) || (is_object($msg) && method_exists($msg, '__toString'))
                     ? (string) $msg
                     : '';
-                
-                // Ensure params is an initialized, iterable array
-                $params = is_iterable($params) ? $params : [];
-                
+
+                $normalizedParams = [];
+                if (is_array($params)) {
+                    $normalizedParams = $params;
+                } elseif ($params instanceof \Traversable) {
+                    foreach ($params as $key => $val) {
+                        $normalizedParams[$key] = $val;
+                    }
+                }
+
                 $replacements = [];
-                foreach ($params as $key => $val) {
-                    // Ensure key and value are valid for strtr
+                foreach ($normalizedParams as $key => $val) {
                     $validKey = is_scalar($key) ? (string) $key : '';
                     $validVal = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
                         ? (string) $val
                         : '';
-                        
+
                     if ($validKey !== '') {
                         $replacements[$validKey] = $validVal;
                     }
                 }
-                
+
                 return strtr($message, $replacements);
             }
         };

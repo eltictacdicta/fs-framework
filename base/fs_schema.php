@@ -710,7 +710,12 @@ class fs_schema
         }
 
         try {
-            new $modelClass();
+            $model = new $modelClass();
+            if (!$model instanceof fs_model) {
+                $results['errors'][] = 'El modelo ' . $modelClass . ' no extiende fs_model.';
+                return;
+            }
+
             $tables = $db->list_tables();
             if ($tables !== false && $db->table_exists($tableName, $tables)) {
                 $results['created'][] = $tableName;

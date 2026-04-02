@@ -80,7 +80,7 @@ class StealthModeTest extends TestCase
     private function createDbStub(array $settings = []): \fs_db2
     {
         return new class($settings) extends \fs_db2 {
-            private array $settings;
+            private array $settings = [];
             public string $lastExecSql = '';
 
             public function __construct(array $settings = [])
