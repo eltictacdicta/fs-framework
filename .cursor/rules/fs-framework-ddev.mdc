@@ -9,8 +9,9 @@ alwaysApply: true
 ## Relación con la línea base compartida
 
 - Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- `AGENTS.md` define la base común de entorno y comandos; esta regla es la propietaria del detalle operativo de DDEV en Cursor.
 - Amplia el detalle operativo de DDEV, pero no debe contradecir la línea base compartida de `.github/copilot-instructions.md` ni `AGENTS.md`.
-- Si aqui cambia una directriz general sobre el entorno de desarrollo, reflejar el mismo cambio en `.github/copilot-instructions.md` y `AGENTS.md` dentro de la misma tarea.
+- Si aqui cambia una directriz general sobre el entorno de desarrollo, actualizar primero `AGENTS.md` y reflejar el mismo cambio en `.github/copilot-instructions.md` dentro de la misma tarea.
 
 ## Configuración Base `.ddev/config.yaml`
 

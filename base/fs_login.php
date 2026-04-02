@@ -174,29 +174,30 @@ class fs_login
 
         // Limpiar sesión de Symfony
         $this->session->invalidate();
+        $expire = time() - FS_COOKIES_EXPIRE;
 
         /// borramos las cookies (legacy)
         if (filter_input(INPUT_COOKIE, 'logkey')) {
-            setcookie('logkey', '', time() - FS_COOKIES_EXPIRE);
-            setcookie('logkey', '', time() - FS_COOKIES_EXPIRE, $path);
+            $this->setLegacyCookie('logkey', '', $expire);
+            $this->setLegacyCookie('logkey', '', $expire, $path);
             if ($path != '/') {
-                setcookie('logkey', '', time() - FS_COOKIES_EXPIRE, '/');
+                $this->setLegacyCookie('logkey', '', $expire, '/');
             }
         }
 
         if (filter_input(INPUT_COOKIE, 'auth_sig')) {
-            setcookie('auth_sig', '', time() - FS_COOKIES_EXPIRE);
-            setcookie('auth_sig', '', time() - FS_COOKIES_EXPIRE, $path);
+            $this->setLegacyCookie('auth_sig', '', $expire);
+            $this->setLegacyCookie('auth_sig', '', $expire, $path);
             if ($path != '/') {
-                setcookie('auth_sig', '', time() - FS_COOKIES_EXPIRE, '/');
+                $this->setLegacyCookie('auth_sig', '', $expire, '/');
             }
         }
 
         /// ¿Eliminamos la cookie del usuario?
         $user = filter_input(INPUT_COOKIE, 'user');
         if ($rmuser && $user) {
-            setcookie('user', '', time() - FS_COOKIES_EXPIRE);
-            setcookie('user', '', time() - FS_COOKIES_EXPIRE, $path);
+            $this->setLegacyCookie('user', '', $expire);
+            $this->setLegacyCookie('user', '', $expire, $path);
         }
 
         /// guardamos el evento en el log
@@ -447,9 +448,29 @@ class fs_login
     private function save_cookie($user)
     {
         $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, (string) $user->log_key);
-        setcookie('user', $user->nick, time() + FS_COOKIES_EXPIRE);
-        setcookie('logkey', $user->log_key, time() + FS_COOKIES_EXPIRE);
-        setcookie('auth_sig', $signature, time() + FS_COOKIES_EXPIRE);
+        $expire = time() + FS_COOKIES_EXPIRE;
+
+        $this->setLegacyCookie('user', $user->nick, $expire);
+        $this->setLegacyCookie('logkey', $user->log_key, $expire);
+        $this->setLegacyCookie('auth_sig', $signature, $expire);
+    }
+
+    private function setLegacyCookie(string $name, string $value, int $expire, string $path = '/'): void
+    {
+        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+
+        if (PHP_VERSION_ID >= 70300) {
+            setcookie($name, $value, [
+                'expires' => $expire,
+                'path' => $path,
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
+            return;
+        }
+
+        setcookie($name, $value, $expire, $path . '; SameSite=Lax', '', $secure, true);
     }
 
     /**

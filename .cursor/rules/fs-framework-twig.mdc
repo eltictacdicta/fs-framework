@@ -9,8 +9,9 @@ alwaysApply: false
 ## Relación con la línea base compartida
 
 - Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- `AGENTS.md` define la base común para vistas y Twig; esta regla es la propietaria del detalle operativo de templates en Cursor.
 - Amplia el detalle de templates y no debe contradecir la línea base compartida definida en `.github/copilot-instructions.md` y `AGENTS.md`.
-- Si aqui cambia una norma comun de vistas, seguridad en templates o convenciones del tema, reflejarla también en `.github/copilot-instructions.md` y `AGENTS.md`.
+- Si aquí cambia una norma común de vistas, seguridad en templates o convenciones del tema, actualizar primero `AGENTS.md` y reflejarla también en `.github/copilot-instructions.md`.
 ## Ubicación de Templates
 
 Los temas se encuentran en `/themes/`. El tema por defecto es **AdminLTE**:

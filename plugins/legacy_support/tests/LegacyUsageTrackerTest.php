@@ -3,7 +3,7 @@
  * Tests para el registro de uso legacy.
  */
 
-namespace Tests\Base;
+namespace Tests\LegacySupport;
 
 use FSFramework\Plugins\legacy_support\LegacyUsageTracker;
 use PHPUnit\Framework\TestCase;

@@ -1,21 +1,20 @@
 /**
  * Script para corregir problemas de contenido mixto
  */
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
     // Buscar y reemplazar todas las referencias a imágenes HTTP inseguras
-    const insecureUrls = [
-        'http://i.imgur.com/XtwPPAJ.png',
-        'http://files.softicons.com/download/toolbar-icons/flatastic-icons-part-2-by-custom-icon-design/png/512x512/data-add.png'
-    ];
+    const insecureUrlMap = new Map([
+        ['http://i.imgur.com/XtwPPAJ.png', 'https://i.imgur.com/XtwPPAJ.png'],
+        ['http://files.softicons.com/download/toolbar-icons/flatastic-icons-part-2-by-custom-icon-design/png/512x512/data-add.png', 'https://files.softicons.com/download/toolbar-icons/flatastic-icons-part-2-by-custom-icon-design/png/512x512/data-add.png']
+    ]);
     
     // Reemplazar en atributos de estilo
     $('[style*="http://"]').each(function() {
         let style = $(this).attr('style');
         if (style) {
-            insecureUrls.forEach(url => {
+            insecureUrlMap.forEach((secureUrl, insecureUrl) => {
                 // Reemplazar con una versión HTTPS o remover
-                const secureUrl = url.replace('http://', 'https://');
-                style = style.replace(url, secureUrl);
+                style = style.replace(insecureUrl, secureUrl);
             });
             $(this).attr('style', style);
         }
@@ -25,10 +24,9 @@ $(document).ready(function() {
     $('img[src^="http://"]').each(function() {
         let src = $(this).attr('src');
         if (src) {
-            insecureUrls.forEach(url => {
-                if (src === url) {
+            insecureUrlMap.forEach((secureUrl, insecureUrl) => {
+                if (src === insecureUrl) {
                     // Reemplazar con una versión HTTPS
-                    const secureUrl = url.replace('http://', 'https://');
                     $(this).attr('src', secureUrl);
                 }
             });

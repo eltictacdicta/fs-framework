@@ -1,12 +1,18 @@
 ---
-description: Reglas generales para fs-framework - PHP 8.3, Symfony 7.4, DDEV
+description: Baseline comun siempre activo en Cursor para FSFramework, derivado de AGENTS.md
 globs: ["**/*.php", "**/*.twig", "composer.json", ".ddev/**", "AGENTS.md", ".github/copilot-instructions.md", ".cursor/rules/**/*.mdc"]
 alwaysApply: true
 ---
 
-# FSFramework — Guía General de Desarrollo
+# FSFramework — Baseline Común para Cursor
 
-## Stack Tecnológico
+## Rol de esta regla
+
+- Esta regla resume en Cursor la linea base comun definida de forma canónica en `AGENTS.md`.
+- Debe permanecer corta, transversal y estable.
+- El detalle operativo pertenece a las reglas especializadas por tema y no debe duplicarse aqui.
+
+## Baseline compartido
 
 - **PHP 8.3** (mínimo 8.2 según composer.json, preferir 8.3)
 - **Symfony 7.4** (componentes: http-foundation, routing, security-csrf, event-dispatcher, validator, dependency-injection, form, translation, cache)
@@ -15,57 +21,28 @@ alwaysApply: true
 - **PHPUnit 11** para tests
 - **MySQL / PostgreSQL** como bases de datos
 
-## Estructura del Proyecto
+- Usar `ddev` para PHP, Composer y PHPUnit. Evitar comandos host salvo petición explícita.
+- Asumir `ddev start` cuando la tarea dependa de servicios locales.
+- Respetar la separación entre código legacy en `base/`, `controller/`, `model/` y código moderno PSR-4 en `src/`.
+- Mantener convenciones legacy al tocar código antiguo y usar convenciones modernas en `src/`.
+- Preferir Twig para vistas nuevas, servicios Symfony y el contenedor para código moderno, y helpers ya presentes en el framework antes de introducir patrones nuevos.
+- Mantener la base de seguridad compartida: SQL seguro, salida escapada, CSRF en flujos mutables y manejo seguro de contraseñas y archivos.
+- Añadir o actualizar tests para lógica nueva o modificada, sobre todo en `src/` y en código reutilizable de plugins.
+- Mantener compatibilidad con la arquitectura y dependencias del sistema de plugins.
 
-```
-/
-├── base/          # Clases core legacy (fs_model, fs_controller, fs_core_log…)
-├── src/           # Código moderno con namespaces (PSR-4)
-│   ├── Attribute/ # Atributos PHP 8 (FSRoute)
-│   ├── Cache/     # CacheManager (Symfony Cache)
-│   ├── Controller/
-│   ├── Core/      # Kernel y Router
-│   ├── DependencyInjection/
-│   ├── Event/     # FSEventDispatcher, ModelEvent
-│   ├── Form/      # FormHelper
-│   ├── Security/  # CSRF, PasswordHasher, UserAdapter
-│   ├── Traits/    # ResponseTrait, ValidatorTrait
-│   └── Translation/
-├── controller/    # Controladores legacy (snake_case)
-├── model/         # Modelos legacy + XML schemas
-├── view/          # Plantillas Twig + assets
-├── plugins/       # Plugins (business_data, clientes_core…)
-├── tests/         # PHPUnit — siempre crear tests
-└── translations/  # YAML (nuevo) + JSON FS2025 (compatibilidad)
-```
+## Donde vive el detalle
 
-## Convenciones de Nomenclatura
-
-### Clases modernas (`src/`)
-- **PascalCase** para clases: `CacheManager`, `FSEventDispatcher`
-- **Namespaces** obligatorios: `FSFramework\Cache\CacheManager`
-- Un archivo = una clase
-
-### Código legacy (`base/`, `controller/`, `model/`)
-- **snake_case** para nombres de archivo y clase: `fs_model`, `api_user`
-- Mantener compatibilidad con FacturaScripts 2017 y 2025
-
-### Plantillas
-- Nuevas: `NombreVista.html.twig` (PascalCase)
-- Legacy: `nombre_vista.html` (snake_case, se traducen automáticamente)
-
-## Principios de Desarrollo
-
-1. **Nunca duplicar lógica** entre `base/` y `src/` — usar bridges/adapters
-2. **Siempre escribir tests** para código nuevo en `src/`
-3. **Usar el contenedor de dependencias** en lugar de instanciación directa
-4. **Twig para todas las vistas nuevas** — nunca PHP puro en templates
-5. **Symfony Validator** para validaciones de modelos
-6. **Eventos** para desacoplar lógica de negocio
+- DDEV: `.cursor/rules/fs-framework-ddev.mdc`
+- Seguridad: `.cursor/rules/fs-framework-security.mdc`
+- Testing: `.cursor/rules/fs-framework-testing.mdc`
+- Twig: `.cursor/rules/fs-framework-twig.mdc`
+- Symfony 7.4: `.cursor/rules/fs-framework-symfony74.mdc`
+- PHP moderno: `.cursor/rules/fs-framework-php83.mdc`
+- Plugins: `.cursor/rules/fs-framework-plugins.mdc`
 
 ## Sincronización de Instrucciones Entre IDEs
 
 - Mantener alineadas las reglas base compartidas entre `.github/copilot-instructions.md`, `AGENTS.md` y `.cursor/rules/*.mdc`.
-- Si una tarea modifica una directriz general o permanente, aplicar el cambio equivalente en los otros archivos de instrucciones durante la misma tarea.
-- `copilot-instructions.md` debe conservar el resumen corto, `AGENTS.md` la guía extensa y las reglas de Cursor el detalle operativo por contexto.
+- Si una tarea modifica una directriz general o permanente, actualizar primero `AGENTS.md` y aplicar el cambio equivalente en este archivo y en la regla especializada correspondiente durante la misma tarea.
+- `copilot-instructions.md` debe conservar el resumen corto, `AGENTS.md` la guía extensa, este archivo el baseline siempre activo y las reglas especializadas el detalle operativo por contexto.
 - Para cambios centrados en archivos de instrucciones, aplicar también la regla específica `fs-framework-ai-instructions.mdc`.

@@ -1,6 +1,6 @@
 ---
 description: Testing con PHPUnit 11 en FSFramework — estructura, patrones, mocking, DDEV
-globs: ["tests/**/*.php", "phpunit.xml"]
+globs: ["tests/**/*.php", "plugins/*/tests/**/*.php", "phpunit.xml", "plugins/*/phpunit.xml"]
 alwaysApply: false
 ---
 
@@ -9,8 +9,9 @@ alwaysApply: false
 ## Relación con la línea base compartida
 
 - Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- `AGENTS.md` define la expectativa común de tests; esta regla es la propietaria del detalle operativo de PHPUnit en Cursor.
 - Amplía el detalle de testing, pero no sustituye la línea base compartida de `.github/copilot-instructions.md` y `AGENTS.md`.
-- Si una expectativa de testing aquí pasa a ser obligatoria para todo el repositorio, actualizar también `.github/copilot-instructions.md` y `AGENTS.md` en la misma tarea.
+- Si una expectativa de testing aquí pasa a ser obligatoria para todo el repositorio, actualizar primero `AGENTS.md` y reflejarlo también en `.github/copilot-instructions.md` en la misma tarea.
 
 ## Ejecutar Tests
 
@@ -24,7 +25,10 @@ ddev exec php vendor/bin/phpunit --testsuite Security
 ddev exec php vendor/bin/phpunit --testsuite Traits
 ddev exec php vendor/bin/phpunit --testsuite Cache
 ddev exec php vendor/bin/phpunit --testsuite Api
-ddev exec php vendor/bin/phpunit --testsuite ClientesCore
+ddev exec php vendor/bin/phpunit --testsuite Plugins
+
+# Suite aislada de un plugin concreto
+ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml
 
 # Un test específico
 ddev exec php vendor/bin/phpunit --filter NombreDelTest
@@ -51,18 +55,18 @@ tests/
 │   └── LegacyUsageTrackerTest.php
 ├── Cache/
 │   └── CacheManagerTest.php
-├── ClientesCore/
-│   ├── ClienteModelTest.php
-│   ├── DireccionClienteModelTest.php
-│   └── GrupoClientesModelTest.php
 ├── Components/
-│   ├── CoreUpdaterTest.php
 │   └── StealthModeTest.php
 ├── Security/
 │   ├── CsrfManagerTest.php
 │   └── PasswordHasherServiceTest.php
 └── Traits/
     └── ValidatorTraitTest.php
+
+plugins/
+└── <PluginName>/
+    ├── phpunit.xml            # Suite opcional del plugin
+    └── tests/                 # Tests auto-descubiertos por el root
 ```
 
 ## Test Suites (phpunit.xml)
@@ -74,7 +78,7 @@ tests/
 | **Traits** | `tests/Traits/` | Traits de Symfony (ValidatorTrait) |
 | **Cache** | `tests/Cache/` | Sistema de caché (CacheManager) |
 | **Api** | `tests/Api/` | Autenticación y routing REST API |
-| **ClientesCore** | `tests/ClientesCore/` | Modelos del plugin core de clientes |
+| **Plugins** | `plugins/*/tests/**/*Test.php` | Tests modulares de plugins descubiertos automáticamente |
 
 ## Convenciones Obligatorias
 
@@ -94,6 +98,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 ```
 
 - Namespace raíz: `Tests\` (PSR-4 via `autoload-dev` en composer.json)
+- Los tests de plugins viven en `plugins/<PluginName>/tests/`; no mezclar cobertura específica de plugins privados dentro de `tests/` del root.
 - Clases en `base/` no autoloaded: usar `require_once`
 
 ### Atributos PHPUnit 11 (preferidos sobre prefijo test)
@@ -306,7 +311,7 @@ class ValidatorTraitTest extends TestCase
 
 ## Tests para Plugins
 
-Los tests de plugins se ubican en `tests/NombrePlugin/`:
+Los tests de plugins se ubican en `plugins/<PluginName>/tests/` y pueden tener una suite aislada en `plugins/<PluginName>/phpunit.xml`:
 
 ```php
 <?php
@@ -318,7 +323,7 @@ namespace Tests\ClientesCore;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
-require_once __DIR__ . '/../../plugins/clientes_core/model/core/cliente.php';
+require_once FS_FOLDER . '/plugins/clientes_core/model/core/cliente.php';
 
 #[CoversClass(\cliente::class)]
 class ClienteModelTest extends TestCase

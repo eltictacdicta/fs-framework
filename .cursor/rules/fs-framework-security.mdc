@@ -9,8 +9,9 @@ alwaysApply: true
 ## Relación con la línea base compartida
 
 - Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- `AGENTS.md` define la base común de seguridad; esta regla es la propietaria del detalle operativo de seguridad PHP en Cursor.
 - Amplia el detalle de seguridad, pero no reemplaza la línea base compartida de `.github/copilot-instructions.md` y `AGENTS.md`.
-- Si aqui cambia una norma de seguridad que deba considerarse baseline comun, actualizar también `.github/copilot-instructions.md` y `AGENTS.md` en la misma tarea.
+- Si aquí cambia una norma de seguridad que deba considerarse baseline común, actualizar primero `AGENTS.md` y reflejarlo también en `.github/copilot-instructions.md` en la misma tarea.
 
 ## 🔴 CRÍTICO — SQL Injection
 

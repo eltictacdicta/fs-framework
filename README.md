@@ -305,11 +305,16 @@ ddev exec php vendor/bin/phpunit
 # Solo tests de clases core (base/)
 ddev exec php vendor/bin/phpunit --testsuite Base
 
-# Solo tests de componentes Symfony (src/)
-ddev exec php vendor/bin/phpunit --testsuite Components
+# Solo tests de plugins descubiertos dinámicamente
+ddev exec php vendor/bin/phpunit --testsuite Plugins
+
+# Ejecutar la suite aislada de un plugin
+ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml
 ```
 
 > **119 tests, 193 assertions** cubriendo: `fs_model`, `fs_core_log`, `fs_functions`, `fs_ip_filter`, `fs_query_builder`, `PasswordHasherService`, `ValidatorTrait` y `CacheManager`.
+
+Los tests específicos de plugins deben vivir en `plugins/<PluginName>/tests/`. El `phpunit.xml` raíz descubre automáticamente cualquier `*Test.php` dentro de esas carpetas cuando el plugin está presente en el workspace.
 
 ## Documentación Adicional
 

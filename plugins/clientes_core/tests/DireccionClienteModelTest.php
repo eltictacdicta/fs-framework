@@ -77,7 +77,7 @@ class DireccionClienteModelTest extends TestCase
     {
         $this->model->codcliente = null;
         $this->model->direccion = 'Calle Test 1';
-        
+
         $this->assertFalse($this->model->test());
     }
 

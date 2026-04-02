@@ -62,11 +62,6 @@ interface AllowedUserInterface
     public function canOtlLogin(string $nick_usuario): bool;
 
     /**
-     * Actualiza la versión actual del usuario
-     */
-    public function updateVersion(string $nick_usuario, string $version): bool;
-
-    /**
      * Obtiene estadísticas de usuarios permitidos
      * @return array{total_allowed: int, total_blocked: int, users_with_tokens: int}
      */

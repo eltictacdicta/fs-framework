@@ -1,5 +1,5 @@
 ---
-description: Mantener sincronizadas las instrucciones compartidas entre Cursor, Copilot y AGENTS al editar archivos de reglas o guias de agentes
+description: Gobernanza y sincronizacion de las instrucciones compartidas entre Cursor, Copilot y AGENTS para FSFramework
 globs: ["AGENTS.md", ".github/copilot-instructions.md", ".cursor/rules/**/*.mdc"]
 alwaysApply: true
 ---
@@ -8,17 +8,28 @@ alwaysApply: true
 
 ## Regla de paridad
 
-- Si actualizas `.github/copilot-instructions.md`, revisa y actualiza el equivalente en `AGENTS.md` y en la regla o reglas de `.cursor/rules/` afectadas.
-- Si actualizas `AGENTS.md`, refleja la misma base en `.github/copilot-instructions.md` y en las reglas de Cursor correspondientes.
-- Si actualizas una regla de `.cursor/rules/*.mdc` que cambie directrices compartidas, actualiza también `.github/copilot-instructions.md` y `AGENTS.md`.
+- `AGENTS.md` es la fuente canónica de la linea base comun.
+- Si actualizas una directriz compartida o permanente, modifica primero `AGENTS.md` y refleja el cambio equivalente en `.github/copilot-instructions.md`, `.cursor/rules/fs-framework-general.mdc` y en la regla especializada propietaria del tema.
+- Si actualizas una regla de `.cursor/rules/*.mdc` con un cambio solo especializado, actualiza únicamente esa regla y no toques los documentos derivados salvo que cambie la base comun.
 - No dejar cambios de instrucciones pendientes para otra tarea cuando afecten a la linea base comun.
 
 ## Reparto de responsabilidades
 
-- `.github/copilot-instructions.md`: resumen corto, siempre vigente, con las reglas basicas compartidas.
-- `AGENTS.md`: guia extensa con contexto, ejemplos y convenciones detalladas del repositorio.
-- `.cursor/rules/fs-framework-general.mdc`: linea base comun para Cursor.
-- Resto de `.cursor/rules/*.mdc`: detalle operativo especializado por area, como seguridad, testing, Twig, Symfony o plugins.
+- `AGENTS.md`: canon de la linea base compartida, jerarquia documental y convenciones del repositorio.
+- `.github/copilot-instructions.md`: resumen corto y derivado para Copilot.
+- `.cursor/rules/fs-framework-general.mdc`: baseline siempre cargado en Cursor, derivado del canon.
+- Resto de `.cursor/rules/*.mdc`: detalle operativo especializado por area, propietario del procedimiento y los ejemplos de su tema.
+
+## Matriz de propiedad por tema
+
+- Entorno y comandos: `AGENTS.md` fija la base; `.cursor/rules/fs-framework-ddev.mdc` posee el detalle operativo.
+- Stack, arquitectura y convenciones transversales: `AGENTS.md` fija la base; `.github/copilot-instructions.md` y `.cursor/rules/fs-framework-general.mdc` la resumen.
+- Seguridad: `AGENTS.md` fija la base; `.cursor/rules/fs-framework-security.mdc` posee el detalle.
+- Testing: `AGENTS.md` fija la base; `.cursor/rules/fs-framework-testing.mdc` posee el detalle.
+- Twig y vistas: `AGENTS.md` fija la base; `.cursor/rules/fs-framework-twig.mdc` posee el detalle.
+- Symfony 7.4: `AGENTS.md` fija la base; `.cursor/rules/fs-framework-symfony74.mdc` posee el detalle.
+- PHP moderno: `AGENTS.md` fija la base; `.cursor/rules/fs-framework-php83.mdc` posee el detalle.
+- Plugins: `AGENTS.md` fija la base; `.cursor/rules/fs-framework-plugins.mdc` posee el detalle.
 
 ## Mínimo que debe mantenerse sincronizado
 
@@ -32,6 +43,8 @@ alwaysApply: true
 
 ## Criterio de actualización
 
-- Si el cambio es global o permanente, sincronizar los tres frentes.
+- Un cambio es comun cuando altera una expectativa transversal de entorno, stack, arquitectura, seguridad base, testing o plugins.
+- Un cambio es especializado cuando solo añade o corrige procedimiento, ejemplo o criterio operativo de un tema concreto sin cambiar esa expectativa transversal.
+- Si el cambio es comun, sincronizar canon, resumen derivado, baseline de Cursor y regla especializada propietaria.
 - Si el cambio es especializado, actualizar la regla `.mdc` concreta y reflejarlo en los documentos compartidos solo si cambia la base comun.
 - Evitar contradicciones: la version detallada puede ampliar la regla comun, pero no contradecirla.

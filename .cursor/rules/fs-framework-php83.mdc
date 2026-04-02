@@ -9,8 +9,9 @@ alwaysApply: false
 ## Relación con la línea base compartida
 
 - Esta regla complementa `.cursor/rules/fs-framework-general.mdc` y `.cursor/rules/fs-framework-ai-instructions.mdc`.
+- `AGENTS.md` define la base común de convenciones modernas; esta regla es la propietaria del detalle operativo de PHP moderno en Cursor.
 - Amplia criterios de implementacion para PHP moderno, pero no sustituye ni contradice la línea base compartida de `.github/copilot-instructions.md` y `AGENTS.md`.
-- Si una recomendacion aqui pasa a ser regla general del repositorio, actualizar también `.github/copilot-instructions.md` y `AGENTS.md` en la misma tarea.
+- Si una recomendacion aqui pasa a ser regla general del repositorio, actualizar primero `AGENTS.md` y reflejarla también en `.github/copilot-instructions.md` en la misma tarea.
 
 ## Tipos Estrictos — SIEMPRE declarar
 

@@ -24,8 +24,8 @@
         <testsuite name="Api">
             <directory>tests/Api</directory>
         </testsuite>
-        <testsuite name="ClientesCore">
-            <directory>tests/ClientesCore</directory>
+        <testsuite name="Plugins">
+            <directory suffix="Test.php">plugins</directory>
         </testsuite>
     </testsuites>
 

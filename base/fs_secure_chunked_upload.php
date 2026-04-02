@@ -122,7 +122,7 @@ class fs_secure_chunked_upload
 
         $this->initializeDirectories();
 
-        if (mt_rand(1, 100) === 1) {
+        if (random_int(1, 100) === 1) {
             $this->cleanup_orphan_chunks(24);
         }
     }

@@ -3,21 +3,38 @@
 ## Overview
 FSFramework is a modernized PHP-based ERP/accounting software fork of FacturaScripts 2017, with Symfony 7.4 integration and PHP 8.2+ features. This guide provides comprehensive instructions for agentic coding agents working in this repository.
 
-## Shared Baseline Summary
+## Shared Baseline Canon
+
+`AGENTS.md` is the canonical source for the shared rules that must stay aligned across Cursor and Copilot.
 
 - Mandatory environment: `ddev` for PHP, Composer and PHPUnit commands.
+- Assume `ddev start` when a task depends on local web services, database access or containerized tooling.
 - Stack baseline: PHP 8.2+ with preference for 8.3, Symfony 7.4, Twig 3 and PHPUnit 11.
 - Preserve the architectural split between legacy code in `base/`, `controller/`, `model/` and modern PSR-4 code in `src/`.
+- Prefer Twig for new views, Symfony services and the container for modern code, and existing framework helpers before introducing new patterns.
 - Keep the common safety baseline: safe SQL, escaped output, CSRF in mutating flows, secure password handling and safe file handling.
 - Add or update tests for business logic changes, especially reusable logic in `src/` and plugins.
+- Keep changes compatible with the existing plugin architecture and dependency conventions.
 
 ## Document Roles
 
-- `.github/copilot-instructions.md`: concise shared baseline for VS Code / Copilot.
-- `AGENTS.md`: detailed repository reference with examples, architecture and operational guidance.
-- `.cursor/rules/fs-framework-general.mdc`: shared baseline for Cursor.
-- Other `.cursor/rules/*.mdc`: specialized operational guidance by area such as DDEV, security, Symfony, testing, Twig or plugins.
-- Detailed sections below extend the baseline; they should refine it, not contradict it.
+- `AGENTS.md`: canonical reference for the shared baseline, repository conventions, examples and operational guidance.
+- `.github/copilot-instructions.md`: concise baseline derived from `AGENTS.md` for VS Code / Copilot.
+- `.cursor/rules/fs-framework-general.mdc`: always-on Cursor baseline derived from `AGENTS.md`.
+- `.cursor/rules/fs-framework-ai-instructions.mdc`: synchronization contract that defines how shared guidance is updated across IDEs.
+- Other `.cursor/rules/*.mdc`: topic owners for specialized operational detail such as DDEV, security, Symfony, testing, Twig or plugins.
+- Derived documents may summarize or expand the canon, but must never contradict it.
+
+## Topic Ownership Matrix
+
+- Environment and command execution: `AGENTS.md` owns the baseline; `.cursor/rules/fs-framework-ddev.mdc` owns DDEV operational detail.
+- Shared stack, architecture and cross-cutting conventions: `AGENTS.md` owns the baseline; `.github/copilot-instructions.md` and `.cursor/rules/fs-framework-general.mdc` summarize it.
+- Security baseline: `AGENTS.md` owns the baseline; `.cursor/rules/fs-framework-security.mdc` owns PHP security detail.
+- Testing expectations: `AGENTS.md` owns the baseline; `.cursor/rules/fs-framework-testing.mdc` owns PHPUnit structure and patterns.
+- Twig and view conventions: `AGENTS.md` owns the baseline; `.cursor/rules/fs-framework-twig.mdc` owns template detail.
+- Symfony 7.4 usage: `AGENTS.md` owns the baseline; `.cursor/rules/fs-framework-symfony74.mdc` owns component-level detail.
+- Modern PHP conventions: `AGENTS.md` owns the baseline; `.cursor/rules/fs-framework-php83.mdc` owns language-level detail.
+- Plugin conventions: `AGENTS.md` owns the baseline; `.cursor/rules/fs-framework-plugins.mdc` owns plugin-specific operational detail.
 
 ## Development Environment
 
@@ -29,11 +46,11 @@ FSFramework is a modernized PHP-based ERP/accounting software fork of FacturaScr
 
 ## Instruction Parity Across IDEs
 
-- Keep the shared baseline synchronized across `.github/copilot-instructions.md`, `AGENTS.md`, and `.cursor/rules/*.mdc`.
-- If a task changes common agent guidance in any one of those places, update the equivalent guidance in the other two within the same task.
-- Use `.github/copilot-instructions.md` for the concise baseline, `AGENTS.md` for the detailed reference, and `.cursor/rules/*.mdc` for operational and file-pattern-specific behavior.
-- Shared rules that must not drift include at least: mandatory `ddev`, PHP/Composer/PHPUnit execution through `ddev`, stack baseline, security baseline, testing expectations, legacy vs modern architecture conventions, and plugin development constraints.
-- If a change only affects a specialized area, update the corresponding Cursor rule file as the source of operational detail and mirror it in the shared documents only when it changes the common baseline.
+- Update `AGENTS.md` first whenever a shared or permanent rule changes.
+- Reflect the same shared change in `.github/copilot-instructions.md`, `.cursor/rules/fs-framework-general.mdc`, and any specialized `.mdc` file that owns the affected topic within the same task.
+- If a change is specialized and does not alter the shared baseline, update only the owning Cursor rule and keep the derived summaries untouched.
+- Shared rules that must not drift include at least: mandatory `ddev`, `ddev`-based PHP/Composer/PHPUnit execution, `ddev start` assumptions, stack baseline, security baseline, testing expectations, legacy vs modern architecture conventions, and plugin development constraints.
+- Specialized rules may extend the canon with procedures, examples and file-pattern-specific guidance, but they must not redefine the shared baseline independently.
 
 ## Build Commands
 
@@ -75,11 +92,14 @@ ddev exec php vendor/bin/phpunit
 # Run only base/core tests
 ddev exec php vendor/bin/phpunit --testsuite Base
 
-# Run only Symfony component tests
-ddev exec php vendor/bin/phpunit --testsuite Components
+# Run dynamically discovered plugin tests
+ddev exec php vendor/bin/phpunit --testsuite Plugins
 
 # Run a specific test file
 ddev exec php vendor/bin/phpunit tests/Base/FsModelMethodsTest.php
+
+# Run an individual plugin suite directly
+ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml
 ```
 
 #### Test Structure
@@ -94,8 +114,7 @@ tests/
 │   ├── FsIpFilterTest.php     # IP ban/whitelist logic
 │   ├── FsQueryBuilderTest.php # SQL generation (SELECT, WHERE, JOIN, INSERT, UPDATE, DELETE)
 │   ├── FsDbalHelperTest.php   # DBAL helper utilities
-│   ├── FsMysqlDefaultNormalizationTest.php  # MySQL default value normalization
-│   └── LegacyUsageTrackerTest.php  # Legacy static method tracking
+│   └── FsMysqlDefaultNormalizationTest.php  # MySQL default value normalization
 ├── Security/                  # Security component tests
 │   ├── PasswordHasherServiceTest.php  # Hash, verify, legacy migration, salt
 │   └── CsrfManagerTest.php    # CSRF token generation and validation
@@ -105,18 +124,19 @@ tests/
 │   └── CacheManagerTest.php   # Singleton, set/get/has/delete, callbacks
 ├── Api/                       # API component tests
 │   └── ChainedAuthAdapterTest.php  # Multi-auth adapter chain
-├── ClientesCore/              # Core plugin model tests
-│   ├── ClienteModelTest.php
-│   ├── DireccionClienteModelTest.php
-│   └── GrupoClientesModelTest.php
 └── Components/                # Core plugin component tests
-    ├── CoreUpdaterTest.php
     └── StealthModeTest.php
+
+plugins/
+└── <PluginName>/
+    ├── phpunit.xml            # Optional isolated plugin suite
+    └── tests/                 # Auto-discovered by the root phpunit.xml when present
 ```
 
 #### Writing New Tests
 
 - **Namespace**: `Tests\` (PSR-4 autoloaded via `autoload-dev` in `composer.json`)
+- **Plugin tests**: Place plugin-specific coverage under `plugins/<PluginName>/tests/`; keep the project root `tests/` directory for open core coverage only.
 - **Base classes**: Non-autoloaded classes in `base/` must be loaded with `require_once`
 - **Abstract `fs_model`**: Use an anonymous subclass with empty constructor to test pure methods without DB:
   ```php
@@ -152,12 +172,13 @@ tests/
 | **Base** | `tests/Base/` | Core classes in `base/` (fs_model, fs_core_log, fs_functions, fs_ip_filter, fs_query_builder) |
 | **Components** | `tests/Security/`, `tests/Traits/`, `tests/Cache/` | Symfony-based components in `src/` |
 | **Api** | `tests/Api/` | REST API authentication and routing |
-| **ClientesCore** | `tests/ClientesCore/` | Core plugin models (clientes, direcciones, grupos) |
+| **Plugins** | `plugins/*/tests/**/*Test.php` | Auto-discovered plugin tests when the plugin exists in the workspace |
 
 #### Configuration
 
 - **Config file**: `phpunit.xml` (project root)
 - **Bootstrap**: `tests/bootstrap.php` — defines `FS_FOLDER`, `FS_DB_TYPE`, `FS_TMP_NAME` and other constants
+- **Plugin discovery**: the root `phpunit.xml` loads any `*Test.php` found under `plugins/*/tests/`, so plugin suites can stay modular and private to each plugin.
 - **Deprecation detection**: `SYMFONY_DEPRECATIONS_HELPER=weak` — logs Symfony deprecations without failing tests
 
 ## Code Style Guidelines
@@ -1558,7 +1579,8 @@ Before publishing a plugin, verify:
 - [ ] Models implement `test()`, `save()`, `delete()`, `exists()`
 - [ ] `declare(strict_types=1)` in all modern PHP files (`Model/`, `Controller/`, `src/`)
 - [ ] Translation keys have plugin-specific prefix
-- [ ] Tests exist in `tests/PluginName/` for model logic
+- [ ] Plugin-specific tests live in `plugins/<PluginName>/tests/`
+- [ ] The plugin provides `plugins/<PluginName>/phpunit.xml` when isolated execution is useful
 - [ ] XML schema defined for each new database table in `model/table/`
 - [ ] Works on PHP 8.2 and 8.3
 

@@ -780,7 +780,7 @@ class fs_controller extends fs_app
      */
     protected function save_codalmacen($cod)
     {
-        setcookie('default_almacen', $cod, time() + FS_COOKIES_EXPIRE);
+        $this->setPreferenceCookie('default_almacen', $cod);
         $this->default_items->set_codalmacen($cod);
     }
 
@@ -790,7 +790,7 @@ class fs_controller extends fs_app
      */
     protected function save_codimpuesto($cod)
     {
-        setcookie('default_impuesto', $cod, time() + FS_COOKIES_EXPIRE);
+        $this->setPreferenceCookie('default_impuesto', $cod);
         $this->default_items->set_codimpuesto($cod);
     }
 
@@ -800,8 +800,27 @@ class fs_controller extends fs_app
      */
     protected function save_codpago($cod)
     {
-        setcookie('default_formapago', $cod, time() + FS_COOKIES_EXPIRE);
+        $this->setPreferenceCookie('default_formapago', $cod);
         $this->default_items->set_codpago($cod);
+    }
+
+    protected function setPreferenceCookie(string $name, string $value): void
+    {
+        $expire = time() + FS_COOKIES_EXPIRE;
+        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+
+        if (PHP_VERSION_ID >= 70300) {
+            setcookie($name, $value, [
+                'expires' => $expire,
+                'path' => '/',
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
+            return;
+        }
+
+        setcookie($name, $value, $expire, '/; SameSite=Lax', '', $secure, true);
     }
 
     /**

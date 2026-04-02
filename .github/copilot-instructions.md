@@ -2,10 +2,10 @@
 
 ## Shared Instruction Baseline
 
-- Keep this file, `AGENTS.md`, and `.cursor/rules/*.mdc` aligned on the shared project rules.
-- If a task updates shared agent guidance in one of those locations, reflect the equivalent change in the other two during the same work session.
-- Use this file for the concise baseline, `AGENTS.md` for the detailed guide, and Cursor rules for operational and context-specific instructions.
-- Do not allow core guidance to drift between VS Code/Copilot and Cursor.
+- `AGENTS.md` is the canonical source for the shared project rules.
+- Keep this file and `.cursor/rules/*.mdc` aligned with `AGENTS.md` whenever a shared or permanent rule changes.
+- Use this file for the concise derived baseline, `AGENTS.md` for the detailed guide, `.cursor/rules/fs-framework-general.mdc` for the always-on Cursor baseline, and specialized Cursor rules for topic-specific operational detail.
+- Do not allow shared guidance to drift between VS Code/Copilot and Cursor.
 
 ## Development Environment
 
@@ -15,7 +15,6 @@
 - For Composer commands, prefer `ddev exec composer ...`.
 - For PHPUnit, prefer `ddev exec php vendor/bin/phpunit ...`.
 - If the task depends on the local web environment or services, assume `ddev start` must be running.
-- When giving command examples for this repository, prefer `ddev`-based commands.
 
 ## FSFramework Baseline
 
@@ -30,13 +29,10 @@
 - Escape output by default. In Twig use `{{ }}` and only allow raw HTML from trusted sources.
 - Keep CSRF protection in mutating POST flows.
 - Add or update PHPUnit coverage for business logic changes, especially in `src/` and reusable model/service code.
+- Keep plugin-specific tests inside `plugins/<PluginName>/tests/`; the root PHPUnit configuration auto-discovers them when the plugin is present.
 - Keep changes minimal, consistent with FSFramework conventions, and compatible with the existing plugin architecture.
 
-Examples:
+## Maintenance Rule
 
-```bash
-ddev exec php -v
-ddev exec composer install
-ddev exec php vendor/bin/phpunit
-ddev exec php some_script.php
-```
+- Update `AGENTS.md` first when changing shared guidance, then synchronize this file and the affected Cursor rule files in the same task.
+- If a change only affects a specialized topic, update the owning Cursor rule and touch this file only when the shared baseline changes.
