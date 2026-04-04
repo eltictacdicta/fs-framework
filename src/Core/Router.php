@@ -22,27 +22,73 @@ class Router
     private ?RequestContext $context = null;
     private ?UrlGenerator $urlGenerator = null;
     private static string $cacheFile = '';
+    private static string $cacheSigFile = '';
 
     public function __construct(string $rootFolder)
     {
         $this->rootFolder = $rootFolder;
         self::$cacheFile = $rootFolder . '/tmp/routes_cache.php';
+        self::$cacheSigFile = $rootFolder . '/tmp/routes_cache.sig';
         $this->routes = $this->loadRoutes();
+    }
+
+    /**
+     * Huella de los ficheros fuente de rutas (config + controladores con atributos).
+     * Si cambia cualquier archivo, la caché serializada se invalida (evita rutas OIDC / API obsoletas).
+     */
+    private function getRoutesSourceFingerprint(): string
+    {
+        $parts = [];
+        $routesFile = $this->rootFolder . '/config/routes.php';
+        if (is_file($routesFile)) {
+            $parts[] = $routesFile . ':' . (int) filemtime($routesFile);
+        }
+        $coreDir = $this->rootFolder . '/src/Controller';
+        if (is_dir($coreDir)) {
+            $files = glob($coreDir . '/*.php') ?: [];
+            sort($files, SORT_STRING);
+            foreach ($files as $f) {
+                $parts[] = $f . ':' . (int) filemtime($f);
+            }
+        }
+        if (isset($GLOBALS['plugins']) && is_array($GLOBALS['plugins'])) {
+            foreach ($GLOBALS['plugins'] as $plugin) {
+                $dir = $this->rootFolder . '/plugins/' . $plugin . '/Controller';
+                if (!is_dir($dir)) {
+                    continue;
+                }
+                $files = glob($dir . '/*.php') ?: [];
+                sort($files, SORT_STRING);
+                foreach ($files as $f) {
+                    $parts[] = $f . ':' . (int) filemtime($f);
+                }
+            }
+        }
+        return hash('sha256', implode("\0", $parts));
     }
 
     private function loadRoutes(): RouteCollection
     {
-        // Intentar cargar desde caché en producción
-        if ($this->shouldUseCache() && file_exists(self::$cacheFile)) {
-            try {
-                $cached = include_once self::$cacheFile;
-                if ($cached instanceof RouteCollection) {
-                    return $cached;
+        $fingerprint = $this->getRoutesSourceFingerprint();
+        // Intentar cargar desde caché en producción (solo si la huella coincide con el disco)
+        if ($this->shouldUseCache()
+            && file_exists(self::$cacheFile)
+            && file_exists(self::$cacheSigFile)) {
+            $storedSig = @file_get_contents(self::$cacheSigFile);
+            if ($storedSig !== false && hash_equals($fingerprint, trim($storedSig))) {
+                try {
+                    $cached = include_once self::$cacheFile;
+                    if ($cached instanceof RouteCollection) {
+                        return $cached;
+                    }
+                } catch (\Throwable $e) {
+                    @unlink(self::$cacheFile);
+                    @unlink(self::$cacheSigFile);
+                    error_log("Router: Cache corrupted, regenerating - " . $e->getMessage());
                 }
-            } catch (\Throwable $e) {
-                // Caché corrupto, eliminar y regenerar
+            } else {
                 @unlink(self::$cacheFile);
-                error_log("Router: Cache corrupted, regenerating - " . $e->getMessage());
+                @unlink(self::$cacheSigFile);
             }
         }
 
@@ -56,7 +102,7 @@ class Router
 
         // Guardar en caché si está habilitado
         if ($this->shouldUseCache()) {
-            $this->cacheRoutes($collection);
+            $this->cacheRoutes($collection, $fingerprint);
         }
 
         return $collection;
@@ -385,10 +431,14 @@ class Router
 
     public function clearCache(): bool
     {
+        $ok = true;
         if (file_exists(self::$cacheFile)) {
-            return unlink(self::$cacheFile);
+            $ok = unlink(self::$cacheFile) && $ok;
         }
-        return true;
+        if (file_exists(self::$cacheSigFile)) {
+            $ok = unlink(self::$cacheSigFile) && $ok;
+        }
+        return $ok;
     }
 
     private function shouldUseCache(): bool
@@ -396,7 +446,7 @@ class Router
         return !defined('FS_DEBUG') || !FS_DEBUG;
     }
 
-    private function cacheRoutes(RouteCollection $routes): void
+    private function cacheRoutes(RouteCollection $routes, string $fingerprint): void
     {
         // Verificar si hay closures que impidan la serialización
         if ($this->hasClosureControllers($routes)) {
@@ -416,6 +466,7 @@ class Router
             $content = "<?php\n// Routes cache generated at " . date('Y-m-d H:i:s') . "\n";
             $content .= "return unserialize(base64_decode('" . $encoded . "'));\n";
             @file_put_contents(self::$cacheFile, $content);
+            @file_put_contents(self::$cacheSigFile, $fingerprint);
         } catch (\Exception $e) {
             // Si falla la serialización (closures u otros), simplemente no cachear
             error_log("Router: Unable to cache routes - " . $e->getMessage());

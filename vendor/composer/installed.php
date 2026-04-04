@@ -3,7 +3,7 @@
         'name' => 'facturascripts/fs-framework-modern',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => 'cac3182b92c8a82d3be626e9f128f8cedd25805c',
+        'reference' => 'c653b591af5b8d62d7f18d917bcf9dfdf7ebfb41',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -40,7 +40,7 @@
         'facturascripts/fs-framework-modern' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => 'cac3182b92c8a82d3be626e9f128f8cedd25805c',
+            'reference' => 'c653b591af5b8d62d7f18d917bcf9dfdf7ebfb41',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
