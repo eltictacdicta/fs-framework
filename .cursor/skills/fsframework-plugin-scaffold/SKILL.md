@@ -79,7 +79,7 @@ require = ""
 
 declare(strict_types=1);
 
-namespace FSFramework\Plugins\nombre_plugin;
+namespace FSFramework\Plugins\NombrePlugin;
 
 class Init
 {
@@ -92,7 +92,7 @@ class Init
 
 ## Step 5: Model with XML Schema
 
-**XML schema** in `model/table/mi_tabla.xml`:
+**XML schema** in `model/table/mi_tablas.xml` (DB table names use plural `snake_case`; the PHP model file remains singular, for example `model/mi_tabla.php`):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -108,13 +108,13 @@ class Init
         <nulo>NO</nulo>
     </columna>
     <restriccion>
-        <nombre>mi_tabla_pkey</nombre>
+        <nombre>mi_tablas_pkey</nombre>
         <consulta>PRIMARY KEY (id)</consulta>
     </restriccion>
 </tabla>
 ```
 
-**Model class** in `model/mi_tabla.php` — must implement `test()`, `save()`, `delete()`, `exists()`.
+**Model class** in `model/mi_tabla.php` — must implement `test()`, `save()`, `delete()`, `exists()`, and should point to the plural DB table name (for example, `mi_tablas`).
 See skill [fsframework-model-crud](../fsframework-model-crud/SKILL.md) for the complete pattern.
 
 ## Step 6: Controller
@@ -143,7 +143,7 @@ class admin_mi_modulo extends fs_controller
 
 declare(strict_types=1);
 
-namespace FSFramework\Plugins\nombre_plugin\Controller;
+namespace FSFramework\Plugins\NombrePlugin\Controller;
 
 use FSFramework\Attribute\FSRoute;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -209,7 +209,7 @@ All keys MUST use a plugin-specific prefix.
 ```php
 <?php
 
-use FSFramework\Plugins\nombre_plugin\Service\MiServicio;
+use FSFramework\Plugins\NombrePlugin\Service\MiServicio;
 
 return function (\Symfony\Component\DependencyInjection\ContainerBuilder $container) {
     $container->register('nombre_plugin.mi_servicio', MiServicio::class)
@@ -228,13 +228,14 @@ declare(strict_types=1);
 
 namespace Tests\NombrePlugin;
 
+use FSFramework\Plugins\NombrePlugin\Model\MiTabla;
 use PHPUnit\Framework\TestCase;
 
 class MiModeloTest extends TestCase
 {
     public function testSomething(): void
     {
-        $this->assertTrue(true);
+        $this->assertSame(MiTabla::class, 'FSFramework\\Plugins\\NombrePlugin\\Model\\MiTabla');
     }
 }
 ```
@@ -280,10 +281,10 @@ ddev exec php vendor/bin/phpunit -c plugins/NombrePlugin/phpunit.xml
 |---------|-----------|---------|
 | Plugin dir | PascalCase or snake_case | `MiPlugin` |
 | Model class | snake_case (legacy) | `mi_tabla` |
-| Model file | snake_case.php | `mi_tabla.php` |
-| Table name | plural snake_case | `mi_tablas` |
-| XML schema | table name.xml | `mi_tablas.xml` |
+| Model file | singular snake_case.php | `mi_tabla.php` |
+| Table name in DB | plural snake_case | `mi_tablas` |
+| XML schema | table name.xml (plural) | `mi_tablas.xml` |
 | Controller (legacy) | snake_case | `admin_mi_modulo` |
 | Controller (modern) | PascalCase | `MiController` |
 | Translation keys | plugin-prefix-key | `mi-plugin-title` |
-| Namespace | `FSFramework\Plugins\nombre\` | |
+| Namespace | `FSFramework\Plugins\NombrePlugin\` | `FSFramework\Plugins\NombrePlugin\Controller` |

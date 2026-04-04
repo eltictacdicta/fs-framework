@@ -132,9 +132,15 @@ class mi_modelo extends fs_model
     public function test(): bool
     {
         $this->nombre = $this->no_html($this->nombre);
+        $this->email = $this->no_html($this->email);
 
         if (empty($this->nombre)) {
             $this->new_error_msg('El nombre es obligatorio');
+            return false;
+        }
+
+        if (empty($this->email)) {
+            $this->new_error_msg('El email es obligatorio');
             return false;
         }
 
@@ -214,7 +220,7 @@ For models in `Model/` (PSR-4), add `ValidatorTrait` and attributes:
 
 declare(strict_types=1);
 
-namespace FSFramework\Plugins\mi_plugin\Model;
+namespace FSFramework\Plugins\NombrePlugin\Model;
 
 use FSFramework\Traits\ValidatorTrait;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -233,6 +239,7 @@ class MiModelo extends \fs_model
     public function test(): bool
     {
         $this->nombre = $this->no_html($this->nombre);
+        $this->email = $this->no_html($this->email);
         return $this->validate();
     }
 }
