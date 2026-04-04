@@ -2217,7 +2217,7 @@ if (!class_exists('PHPMailer')) {
          */
         protected function generateId()
         {
-            return md5(uniqid(time()));
+            return bin2hex(random_bytes(16));
         }
 
         /**

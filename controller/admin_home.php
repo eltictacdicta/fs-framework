@@ -496,7 +496,7 @@ class admin_home extends fs_controller
      */
     private function activar_comprobacion_columnas()
     {
-        $GLOBALS['config2']['check_db_types'] = mt_rand(0, 1);
+        $GLOBALS['config2']['check_db_types'] = random_int(0, 1);
         $this->settings->save();
     }
 
