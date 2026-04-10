@@ -34,7 +34,6 @@ class CsrfManagerTest extends TestCase
 
         $token = CsrfManager::generateToken();
 
-        $this->assertIsString($token);
         $this->assertNotSame('', $token);
     }
 

@@ -193,7 +193,6 @@ class FsCoreLogTest extends TestCase
         $this->log->new_message('test');
         $arr = $this->log->toArray();
 
-        $this->assertIsArray($arr);
         $this->assertNotEmpty($arr);
         $this->assertSame('test', $arr[0]['message']);
         $this->assertSame('messages', $arr[0]['channel']);

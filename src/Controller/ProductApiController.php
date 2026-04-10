@@ -3,11 +3,12 @@
 namespace FSFramework\Controller;
 
 use FSFramework\Attribute\FSRoute;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * API controller for managing products.
- * 
+ *
  * This controller provides RESTful API endpoints for product management.
  *
  * @author Javier Trujillo <mistertekcom@gmail.com>
@@ -20,11 +21,11 @@ class ProductApiController extends BaseController
 
     /**
      * List all products.
-     * 
+        *
      * @return JsonResponse JSON response with products list
      */
     #[FSRoute('/', methods: ['GET'], name: 'list')]
-    public function listProducts(Request $request)
+    public function listProducts(Request $request): JsonResponse
     {
         $products = [
             ['id' => 1, 'name' => 'Product 1', 'price' => 19.99],
@@ -37,12 +38,12 @@ class ProductApiController extends BaseController
 
     /**
      * Show a single product.
-     * 
+        *
      * @param int $id Product ID
      * @return JsonResponse JSON response with product details
      */
     #[FSRoute(self::ROUTE_ID, methods: ['GET'], requirements: ['id' => '\d+'], name: 'show')]
-    public function showProduct(Request $request, int $id)
+    public function showProduct(Request $request, int $id): JsonResponse
     {
         $product = ['id' => $id, 'name' => self::PRODUCT_NAME_PREFIX . $id, 'price' => $id * 10.99];
         return $this->json($product);
@@ -50,11 +51,11 @@ class ProductApiController extends BaseController
 
     /**
      * Create a new product.
-     * 
+        *
      * @return JsonResponse JSON response with created product
      */
     #[FSRoute('/', methods: ['POST'], name: 'create')]
-    public function createProduct(Request $request)
+    public function createProduct(Request $request): JsonResponse
     {
         $data = $request->request->all();
         
@@ -69,12 +70,12 @@ class ProductApiController extends BaseController
 
     /**
      * Update a product.
-     * 
+        *
      * @param int $id Product ID
      * @return JsonResponse JSON response with updated product
      */
     #[FSRoute(self::ROUTE_ID, methods: ['PUT'], requirements: ['id' => '\d+'], name: 'update')]
-    public function updateProduct(Request $request, int $id)
+    public function updateProduct(Request $request, int $id): JsonResponse
     {
         $data = $request->request->all();
         
@@ -89,12 +90,12 @@ class ProductApiController extends BaseController
 
     /**
      * Delete a product.
-     * 
+     *
      * @param int $id Product ID
      * @return JsonResponse JSON response with success message
      */
     #[FSRoute(self::ROUTE_ID, methods: ['DELETE'], requirements: ['id' => '\d+'], name: 'delete')]
-    public function deleteProduct(Request $request, int $id)
+    public function deleteProduct(Request $request, int $id): JsonResponse
     {
         return $this->json(['message' => self::PRODUCT_NAME_PREFIX . $id . ' deleted successfully']);
     }

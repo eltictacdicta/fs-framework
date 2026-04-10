@@ -89,12 +89,22 @@ class EndpointRegistry
     /**
      * Registra un plugin con sus endpoints
      *
-     * @param array{plugin_name: string, version?: string, auth_class?: string, auth_file?: string, endpoints?: string[], public_routes?: string[], config?: array} $config
+        * @param array<string, mixed> $config
      */
     public function registerPlugin(string $pluginFolder, array $config, string $pluginsDir): void
     {
-        $pluginName = $config['plugin_name'] ?? $pluginFolder;
-        $version = $config['version'] ?? 'v1';
+        if (!isset($config['plugin_name']) || !is_string($config['plugin_name']) || $config['plugin_name'] === '') {
+            $configPath = $pluginsDir . '/' . $pluginFolder . '/api_endpoints.php';
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'Invalid or missing plugin_name in API endpoint configuration for plugin "%s" at "%s".',
+                    $pluginFolder,
+                    $configPath
+                )
+            );
+        }
+
+        $pluginName = $config['plugin_name'];
         
         $this->plugins[$pluginName] = $config;
 

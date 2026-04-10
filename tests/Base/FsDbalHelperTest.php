@@ -62,7 +62,7 @@ PHP;
         $output = shell_exec(escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($code));
         $params = json_decode((string) $output, true);
 
-        $this->assertIsArray($params);
+        $this->assertNotNull($params);
         $this->assertSame('pdo_pgsql', $params['driver']);
         $this->assertSame(5432, $params['port']);
         $this->assertSame('UTF8', $params['charset']);

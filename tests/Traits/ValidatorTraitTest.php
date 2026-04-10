@@ -112,10 +112,9 @@ class ValidatorTraitTest extends TestCase
         $messages = $model->getValidationErrorMessages();
 
         $this->assertNotEmpty($messages);
-        $this->assertIsArray($messages);
         // Debe contener mensajes como strings
         foreach ($messages as $msg) {
-            $this->assertIsString($msg);
+            $this->assertNotSame('', $msg);
         }
     }
 

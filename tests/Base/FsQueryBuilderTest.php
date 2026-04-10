@@ -19,8 +19,12 @@ class FsQueryBuilderTest extends TestCase
         require_once FS_FOLDER . '/base/fs_query_builder.php';
 
         // Crear mock de fs_db2 que solo implementa escape_string
-        $mockDb = new class {
-            public function escape_string(string $str): string
+        $mockDb = new class() extends \fs_db2 {
+            public function __construct()
+            {
+            }
+
+            public function escape_string($str): string
             {
                 return addslashes($str);
             }

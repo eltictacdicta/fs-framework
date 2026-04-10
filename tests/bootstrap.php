@@ -59,6 +59,26 @@ if (!defined('FS_NF0')) {
     define('FS_NF0', 2);
 }
 
+if (!defined('FS_NF1')) {
+    define('FS_NF1', ',');
+}
+
+if (!defined('FS_NF2')) {
+    define('FS_NF2', '.');
+}
+
+if (!defined('FS_ITEM_LIMIT')) {
+    define('FS_ITEM_LIMIT', 50);
+}
+
+if (!defined('FS_COOKIES_EXPIRE')) {
+    define('FS_COOKIES_EXPIRE', 31536000);
+}
+
+if (!defined('FS_PATH')) {
+    define('FS_PATH', '');
+}
+
 if (!defined('FS_DEMO')) {
     define('FS_DEMO', false);
 }

@@ -220,13 +220,11 @@ class ApiKernel
         // Documentación
         if ($path === 'docs') {
             $this->showDocumentation();
-            return true;
         }
 
         // OpenAPI spec
         if ($path === 'openapi.json') {
             $this->showOpenApiSpec();
-            return true;
         }
 
         return false;
@@ -301,6 +299,15 @@ class ApiKernel
         $duration = (microtime(true) - $this->startTime) * 1000; // ms
         $statusCode = ($result['success'] ?? false) ? 200 : 400;
         $errorMessage = $result['error'] ?? null;
+        $userData = $result['user'] ?? null;
+        $userId = null;
+
+        if (is_array($userData)) {
+            $candidateUserId = $userData['nick'] ?? $userData['userId'] ?? $userData['id'] ?? null;
+            if (is_scalar($candidateUserId)) {
+                $userId = (string) $candidateUserId;
+            }
+        }
 
         try {
             // Usar callback si está definido

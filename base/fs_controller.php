@@ -300,6 +300,30 @@ class fs_controller extends fs_app
     }
 
     /**
+     * Escapa texto para mensajes y vistas legacy.
+     * Mantiene compatibilidad con controladores que históricamente llamaban a $this->no_html().
+     *
+     * @param mixed $txt
+     * @return string
+     */
+    public function no_html($txt)
+    {
+        if ($this->empresa && method_exists($this->empresa, 'no_html')) {
+            return $this->empresa->no_html($txt);
+        }
+
+        if ($txt === null) {
+            return '';
+        }
+
+        return trim(str_replace(
+            ['&', '"', "'", '<', '>'],
+            ['&amp;', '&quot;', '&#39;', '&lt;', '&gt;'],
+            (string) $txt
+        ));
+    }
+
+    /**
      * Valida el token CSRF para peticiones POST.
      * 
      * Modos de operación:

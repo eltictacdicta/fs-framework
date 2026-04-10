@@ -150,7 +150,6 @@ class CacheManagerTest extends TestCase
     {
         $info = $this->cache->getInfo();
 
-        $this->assertIsArray($info);
         $this->assertArrayHasKey('type', $info);
         $this->assertArrayHasKey('adapters', $info);
     }

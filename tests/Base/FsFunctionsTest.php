@@ -130,7 +130,6 @@ class FsFunctionsTest extends TestCase
     public function testGetMaxFileUploadReturnsPositiveInt(): void
     {
         $max = fs_get_max_file_upload();
-        $this->assertIsInt($max);
         $this->assertGreaterThan(0, $max);
     }
 }

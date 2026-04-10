@@ -71,7 +71,7 @@ class Tools
 
                 $replacements = [];
                 foreach ($normalizedParams as $key => $val) {
-                    $validKey = is_scalar($key) ? (string) $key : '';
+                    $validKey = (string) $key;
                     $validVal = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
                         ? (string) $val
                         : '';
@@ -293,10 +293,10 @@ class Tools
     /**
      * Format money value.
      * @param float $amount
-     * @param string $decimals
+     * @param int|null $decimals
      * @return string
      */
-    public static function money($amount, $decimals = 2)
+    public static function money($amount, ?int $decimals = 2)
     {
         $nf0 = defined('FS_NF0') ? FS_NF0 : 2;
         $nf1 = defined('FS_NF1') ? FS_NF1 : ',';

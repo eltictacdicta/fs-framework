@@ -126,7 +126,6 @@ class PasswordHasherServiceTest extends TestCase
         $hash = $this->hasher->hash('test');
         $info = $this->hasher->getHashInfo($hash);
 
-        $this->assertIsArray($info);
         $this->assertArrayHasKey('algoName', $info);
     }
 
@@ -135,7 +134,7 @@ class PasswordHasherServiceTest extends TestCase
         $hash = sha1('test');
         $info = $this->hasher->getHashInfo($hash);
 
-        $this->assertIsArray($info);
+        $this->assertArrayHasKey('algo', $info);
     }
 
     // =====================================================================

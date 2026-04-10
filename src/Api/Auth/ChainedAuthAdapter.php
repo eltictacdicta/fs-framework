@@ -20,6 +20,7 @@
 namespace FSFramework\Api\Auth;
 
 use FSFramework\Api\Auth\Contract\ApiAuthInterface;
+use FSFramework\model\fs_user;
 
 /**
  * Generic chain-of-responsibility adapter for token validation.
@@ -55,7 +56,7 @@ class ChainedAuthAdapter implements ApiAuthInterface
         return $this->primary->authenticate($nick, $password);
     }
 
-    public function authenticateWithoutPassword(\fs_user $user): array
+    public function authenticateWithoutPassword(fs_user $user): array
     {
         return $this->primary->authenticateWithoutPassword($user);
     }
@@ -114,7 +115,7 @@ class ChainedAuthAdapter implements ApiAuthInterface
         return $this->primary->hasAccessTo($pageName);
     }
 
-    public function getCurrentUser(): ?\fs_user
+    public function getCurrentUser(): ?fs_user
     {
         return $this->primary->getCurrentUser();
     }

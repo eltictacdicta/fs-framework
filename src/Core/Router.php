@@ -180,11 +180,9 @@ class Router
             $className = $namespace . basename($file, '.php');
 
             try {
+                include_once $file;
                 if (!class_exists($className, false)) {
-                    include_once $file;
-                    if (!class_exists($className, false)) {
-                        continue;
-                    }
+                    continue;
                 }
 
                 $this->loadAttributeRoutesFromClass($collection, $className);
@@ -379,7 +377,7 @@ class Router
     private function dispatchClassController(string $controller, Request $request, array $parameters): ?Response
     {
         if (is_subclass_of($controller, 'fs_controller')) {
-            if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
+            if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
                 \FSFramework\Plugins\legacy_support\LegacyUsageTracker::incrementLegacyRoute($controller, 'legacy_controller');
             }
             return null;
@@ -433,10 +431,14 @@ class Router
     {
         $ok = true;
         if (file_exists(self::$cacheFile)) {
-            $ok = unlink(self::$cacheFile) && $ok;
+            if (!unlink(self::$cacheFile)) {
+                $ok = false;
+            }
         }
         if (file_exists(self::$cacheSigFile)) {
-            $ok = unlink(self::$cacheSigFile) && $ok;
+            if (!unlink(self::$cacheSigFile)) {
+                $ok = false;
+            }
         }
         return $ok;
     }

@@ -20,6 +20,7 @@
 namespace FSFramework\Traits;
 
 use Symfony\Component\Validator\Validation;
+use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -129,10 +130,10 @@ trait ValidatorTrait
      * Valida un valor contra constraints específicos.
      * 
      * @param mixed $value Valor a validar
-     * @param Assert\Constraint|array $constraints Constraint o lista de constraints
+      * @param Constraint|array $constraints Constraint o lista de constraints
      * @return bool True si la validación pasa
      */
-    public function validateValue(mixed $value, Assert\Constraint|array $constraints): bool
+    public function validateValue(mixed $value, Constraint|array $constraints): bool
     {
         $violations = self::getValidator()->validate($value, $constraints);
         
@@ -327,7 +328,7 @@ class ConstraintBuilder
     /**
      * Añade un constraint personalizado.
      */
-    public function add(Assert\Constraint $constraint): self
+    public function add(Constraint $constraint): self
     {
         $this->constraints[] = $constraint;
         return $this;

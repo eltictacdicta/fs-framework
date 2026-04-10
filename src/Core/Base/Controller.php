@@ -19,7 +19,7 @@ class Controller
 
     /**
      * Template to render (without extension).
-     * @var string|false
+    * @var string|false|null
      */
     protected $template = null;
 
@@ -93,14 +93,16 @@ class Controller
     private $last_changes;
     protected $core_log;
     private $uptime;
+    protected string $uri = '';
 
     public function __construct(string $className = '', string $uri = '')
     {
         $tiempo = explode(' ', microtime());
-        $this->uptime = $tiempo[1] + $tiempo[0];
+        $this->uptime = (float) $tiempo[1] + (float) $tiempo[0];
 
         $this->className = $className ?: (new \ReflectionClass($this))->getShortName();
         $this->request = \FSFramework\Core\Kernel::request();
+        $this->uri = $uri !== '' ? $uri : $this->request->getPathInfo();
 
         // Initialize Core tools
         $this->db = new \fs_db2();
@@ -316,11 +318,7 @@ class Controller
     public function get_last_changes()
     {
         if (!isset($this->last_changes)) {
-            if ($this->cache) {
-                $this->last_changes = $this->cache->get_array('last_changes_' . $this->user->nick);
-            } else {
-                $this->last_changes = [];
-            }
+            $this->last_changes = $this->cache->get_array('last_changes_' . $this->user->nick);
         }
 
         return $this->last_changes;
@@ -376,7 +374,7 @@ class Controller
     public function duration()
     {
         $tiempo = explode(" ", microtime());
-        return number_format($tiempo[1] + $tiempo[0] - $this->uptime, 3) . ' s';
+        return number_format(((float) $tiempo[1] + (float) $tiempo[0]) - $this->uptime, 3) . ' s';
     }
 
     public function get_db_history()

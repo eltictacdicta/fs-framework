@@ -32,7 +32,7 @@ class ModelResourceRegistry
 {
     private static ?self $instance = null;
 
-    /** @var array<string, array{class: string, config: ApiResource|array}> */
+    /** @var array<string, array{class: string, config: ApiResource|array, file: ?string}> */
     private array $resources = [];
 
     /** @var bool */
@@ -211,7 +211,7 @@ class ModelResourceRegistry
     /**
      * Obtiene todos los recursos registrados
      *
-     * @return array<string, array{class: string, config: ApiResource|array}>
+     * @return array<string, array{class: string, config: ApiResource|array, file: ?string}>
      */
     public function getAll(): array
     {

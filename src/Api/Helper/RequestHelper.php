@@ -20,6 +20,7 @@
 namespace FSFramework\Api\Helper;
 
 use FSFramework\Api\Exception\ValidationException;
+use FSFramework\Core\Plugins;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -33,6 +34,9 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class RequestHelper
 {
+    /** @var list<string> */
+    private static array $trustedProxies = [];
+
     private static ?Request $request = null;
 
     /**
@@ -229,7 +233,7 @@ class RequestHelper
      */
     public static function requireField(array $data, string $field, ?string $message = null): void
     {
-        if (!isset($data[$field]) || $data[$field] === '' || $data[$field] === null) {
+        if (!array_key_exists($field, $data) || $data[$field] === '' || $data[$field] === null) {
             throw new ValidationException($message ?? "Campo requerido: {$field}");
         }
     }
@@ -245,7 +249,7 @@ class RequestHelper
         $missing = [];
         
         foreach ($fields as $field) {
-            if (!isset($data[$field]) || $data[$field] === '' || $data[$field] === null) {
+            if (!array_key_exists($field, $data) || $data[$field] === '' || $data[$field] === null) {
                 $missing[] = $field;
             }
         }
@@ -278,11 +282,49 @@ class RequestHelper
     }
 
     /**
+     * Configura las IPs de proxies confiables que pueden aportar cabeceras de forwarding.
+     *
+     * @param list<string> $trustedProxies
+     */
+    public static function setTrustedProxies(array $trustedProxies): void
+    {
+        $validatedProxies = [];
+
+        foreach ($trustedProxies as $trustedProxy) {
+            $validatedProxy = self::extractFirstValidIp($trustedProxy);
+            if ($validatedProxy !== '') {
+                $validatedProxies[] = $validatedProxy;
+            }
+        }
+
+        self::$trustedProxies = array_values(array_unique($validatedProxies));
+    }
+
+    /**
      * Obtiene la IP del cliente
      */
     public static function getClientIp(): string
     {
-        return fs_get_ip();
+        $remoteAddr = self::extractFirstValidIp($_SERVER['REMOTE_ADDR'] ?? null);
+        $clientIp = '';
+
+        if ($remoteAddr === '') {
+            return '';
+        }
+
+        if (!in_array($remoteAddr, self::$trustedProxies, true)) {
+            return $remoteAddr;
+        }
+
+        foreach (['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CF_CONNECTING_IP'] as $field) {
+            $candidateIp = self::extractFirstValidIp($_SERVER[$field] ?? null);
+            if ($candidateIp !== '') {
+                $clientIp = $candidateIp;
+                break;
+            }
+        }
+
+        return $clientIp !== '' ? $clientIp : $remoteAddr;
     }
 
     /**
@@ -317,6 +359,26 @@ class RequestHelper
     public static function isValidEmail(string $email): bool
     {
         return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    private static function extractFirstValidIp(null|string $rawValue): string
+    {
+        if ($rawValue === null || $rawValue === '') {
+            return '';
+        }
+
+        foreach (explode(',', $rawValue) as $candidateIp) {
+            $candidateIp = trim($candidateIp);
+            if ($candidateIp === '') {
+                continue;
+            }
+
+            if (filter_var($candidateIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6) !== false) {
+                return $candidateIp;
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -362,7 +424,7 @@ class RequestHelper
 
     private static function legacyDeprecation(string $method, string $replacement): void
     {
-        if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
+        if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
             \FSFramework\Plugins\legacy_support\LegacyUsageTracker::incrementLegacyComponent(
                 'api.request_helper',
                 $method

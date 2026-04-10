@@ -337,7 +337,7 @@ class StealthMode
         }
         $inClause = "'" . implode("','", $placeholders) . "'";
 
-        $q = strtolower(FS_DB_TYPE) === 'mysql' ? '`' : '"';
+        $q = Tools::config('db_type', 'mysql') === 'mysql' ? '`' : '"';
         $sql = "SELECT name, " . $q . "varchar" . $q . " FROM " . self::TABLE . " WHERE name IN (" . $inClause . ")";
         $data = $this->db->select($sql);
 
@@ -357,7 +357,7 @@ class StealthMode
         $escapedKey = $this->db->escape_string($key);
         $escapedValue = $this->db->escape_string($value);
 
-        $q = strtolower(FS_DB_TYPE) === 'mysql' ? '`' : '"';
+        $q = Tools::config('db_type', 'mysql') === 'mysql' ? '`' : '"';
 
         $exists = $this->db->select(
             "SELECT name FROM " . self::TABLE . " WHERE name = '" . $escapedKey . "'"

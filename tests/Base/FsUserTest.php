@@ -37,7 +37,7 @@ class FsUserTest extends TestCase
 
         $reflection = new \ReflectionClass(fs_user::class);
         $this->user = $reflection->newInstanceWithoutConstructor();
-        $this->user->log_key = null;
+        $this->user->log_key = '';
         $this->user->logged_on = false;
 
         $_SERVER['REMOTE_ADDR'] = '127.0.0.1';

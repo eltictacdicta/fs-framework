@@ -1,0 +1,1045 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Undefined variable\: \$userId$#'
+			identifier: variable.undefined
+			count: 1
+			path: src/Api/ApiKernel.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 2
+			path: src/Api/ApiKernel.php
+
+		-
+			message: '#^Method FSFramework\\Api\\Auth\\ChainedAuthAdapter\:\:getCurrentUser\(\) has invalid return type fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Api/Auth/ChainedAuthAdapter.php
+
+		-
+			message: '#^Method FSFramework\\Api\\Auth\\ChainedAuthAdapter\:\:validateRefreshToken\(\) has invalid return type fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Api/Auth/ChainedAuthAdapter.php
+
+		-
+			message: '#^Parameter \$user of method FSFramework\\Api\\Auth\\ChainedAuthAdapter\:\:authenticateWithoutPassword\(\) has invalid type fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Api/Auth/ChainedAuthAdapter.php
+
+		-
+			message: '#^Method FSFramework\\Api\\Auth\\Contract\\ApiAuthInterface\:\:getCurrentUser\(\) has invalid return type fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Api/Auth/Contract/ApiAuthInterface.php
+
+		-
+			message: '#^Method FSFramework\\Api\\Auth\\Contract\\ApiAuthInterface\:\:validateRefreshToken\(\) has invalid return type fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Api/Auth/Contract/ApiAuthInterface.php
+
+		-
+			message: '#^Parameter \$user of method FSFramework\\Api\\Auth\\Contract\\ApiAuthInterface\:\:authenticateWithoutPassword\(\) has invalid type fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Api/Auth/Contract/ApiAuthInterface.php
+
+		-
+			message: '#^Function fs_get_ip not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: src/Api/Helper/RequestHelper.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between mixed and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 2
+			path: src/Api/Helper/RequestHelper.php
+
+		-
+			message: '#^Method FSFramework\\Api\\Resource\\ModelResourceRegistry\:\:get\(\) should return array\{class\: string, config\: array\|FSFramework\\Api\\Attribute\\ApiResource, file\: string\|null\}\|null but returns array\{class\: string, config\: array\|FSFramework\\Api\\Attribute\\ApiResource\}\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Api/Resource/ModelResourceRegistry.php
+
+		-
+			message: '#^Offset ''plugin_name'' on array\{plugin_name\: string, version\?\: string, auth_class\?\: string, auth_file\?\: string, endpoints\?\: array\<string\>, public_routes\?\: array\<string\>, config\?\: array\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/Api/Router/EndpointRegistry.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:createProduct\(\) has invalid return type FSFramework\\Controller\\JsonResponse\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:createProduct\(\) should return FSFramework\\Controller\\JsonResponse but returns Symfony\\Component\\HttpFoundation\\JsonResponse\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:deleteProduct\(\) has invalid return type FSFramework\\Controller\\JsonResponse\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:deleteProduct\(\) should return FSFramework\\Controller\\JsonResponse but returns Symfony\\Component\\HttpFoundation\\JsonResponse\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:listProducts\(\) has invalid return type FSFramework\\Controller\\JsonResponse\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:listProducts\(\) should return FSFramework\\Controller\\JsonResponse but returns Symfony\\Component\\HttpFoundation\\JsonResponse\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:showProduct\(\) has invalid return type FSFramework\\Controller\\JsonResponse\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:showProduct\(\) should return FSFramework\\Controller\\JsonResponse but returns Symfony\\Component\\HttpFoundation\\JsonResponse\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:updateProduct\(\) has invalid return type FSFramework\\Controller\\JsonResponse\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Method FSFramework\\Controller\\ProductApiController\:\:updateProduct\(\) should return FSFramework\\Controller\\JsonResponse but returns Symfony\\Component\\HttpFoundation\\JsonResponse\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Controller/ProductApiController.php
+
+		-
+			message: '#^Access to property \$admin on an unknown class fs_user\.$#'
+			identifier: class.notFound
+			count: 3
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Access to property \$allow_delete on an unknown class fs_access\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Access to property \$fs_page on an unknown class fs_access\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Access to property \$fs_user on an unknown class fs_access\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Access to property \$logged_on on an unknown class fs_user\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Access to property \$nick on an unknown class fs_user\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method clean_cache\(\) on an unknown class fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method connect\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method delete\(\) on an unknown class fs_cache\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method get\(\) on an unknown class fs_page\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method get_array\(\) on an unknown class fs_cache\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method get_menu\(\) on an unknown class fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method get_selects\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method get_transactions\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method have_access_to\(\) on an unknown class fs_user\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method log_in\(\) on an unknown class fs_login\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method log_out\(\) on an unknown class fs_login\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method save\(\) on an unknown class fs_access\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method save\(\) on an unknown class fs_page\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method simple_get\(\) on an unknown class fs_var\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Call to method url\(\) on an unknown class fs_page\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 2
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Constructor of class FSFramework\\Core\\Base\\Controller has an unused parameter \$uri\.$#'
+			identifier: constructor.unusedParameter
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Instantiated class fs_access not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Instantiated class fs_cache not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Instantiated class fs_core_log not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Instantiated class fs_db2 not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Instantiated class fs_login not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Instantiated class fs_page not found\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Instantiated class fs_user not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Instantiated class fs_var not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Property FSFramework\\Core\\Base\\Controller\:\:\$cache has unknown class fs_cache as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Property FSFramework\\Core\\Base\\Controller\:\:\$dataBase has unknown class fs_db2 as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Property FSFramework\\Core\\Base\\Controller\:\:\$db has unknown class fs_db2 as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Property FSFramework\\Core\\Base\\Controller\:\:\$login_tools has unknown class fs_login as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Property FSFramework\\Core\\Base\\Controller\:\:\$page has unknown class fs_page as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Property FSFramework\\Core\\Base\\Controller\:\:\$template \(string\|false\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Property FSFramework\\Core\\Base\\Controller\:\:\$user has unknown class fs_user as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/Base/Controller.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 8
+			path: src/Core/Html.php
+
+		-
+			message: '#^Negated boolean expression is always true\.$#'
+			identifier: booleanNot.alwaysTrue
+			count: 1
+			path: src/Core/Router.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: src/Core/Router.php
+
+		-
+			message: '#^Call to method connect\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Call to method connected\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Call to method escape_string\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 3
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Call to method exec\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Call to method select\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Instantiated class fs_db2 not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Parameter \$db of method FSFramework\\Core\\StealthMode\:\:__construct\(\) has invalid type fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Property FSFramework\\Core\\StealthMode\:\:\$db has unknown class fs_db2 as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''mysql'' and ''mysql'' will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: src/Core/StealthMode.php
+
+		-
+			message: '#^Call to method simple_get\(\) on an unknown class fs_var\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/ThemeManager.php
+
+		-
+			message: '#^Call to method simple_save\(\) on an unknown class fs_var\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/ThemeManager.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 5
+			path: src/Core/ThemeManager.php
+
+		-
+			message: '#^Instantiated class fs_var not found\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Core/ThemeManager.php
+
+		-
+			message: '#^Call to function is_scalar\(\) with \(int\|string\) will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Core/Tools.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 1
+			path: src/Core/Tools.php
+
+		-
+			message: '#^Default value of the parameter \#2 \$decimals \(int\) of method FSFramework\\Core\\Tools\:\:money\(\) is incompatible with type string\.$#'
+			identifier: parameter.defaultValue
+			count: 1
+			path: src/Core/Tools.php
+
+		-
+			message: '#^Call to static method connection_params\(\) on an unknown class fs_dbal\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Database/DbalConnectionFactory.php
+
+		-
+			message: '#^Call to static method is_available\(\) on an unknown class fs_dbal\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Database/DbalConnectionFactory.php
+
+		-
+			message: '#^Call to static method unavailable_reason\(\) on an unknown class fs_dbal\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Database/DbalConnectionFactory.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 3
+			path: src/Database/DbalConnectionFactory.php
+
+		-
+			message: '#^Class fs_db2 not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/DependencyInjection/Container.php
+
+		-
+			message: '#^Class fs_prepared_db not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/DependencyInjection/Container.php
+
+		-
+			message: '#^Method FSFramework\\DependencyInjection\\Container\:\:db\(\) has invalid return type fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/DependencyInjection/Container.php
+
+		-
+			message: '#^Method FSFramework\\DependencyInjection\\Container\:\:preparedDb\(\) has invalid return type fs_prepared_db\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/DependencyInjection/Container.php
+
+		-
+			message: '#^Trait FSFramework\\Traits\\ResponseTrait is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: src/Traits/ResponseTrait.php
+
+		-
+			message: '#^Parameter \$constraint of method FSFramework\\Traits\\ConstraintBuilder\:\:add\(\) has invalid type Symfony\\Component\\Validator\\Constraints\\Constraint\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Traits/ValidatorTrait.php
+
+		-
+			message: '#^Call to method clean_advices\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method clean_errors\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method clean_messages\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 2
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method clean_sql_history\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method clear\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method controller_name\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method getStats\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method get_advices\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 3
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method get_errors\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 4
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method get_messages\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 5
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method get_sql_history\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 3
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method new_advice\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 4
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method new_error\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 5
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method new_message\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 9
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method new_sql\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 4
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method set_user_nick\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method toArray\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method toJson\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method user_nick\(\) on an unknown class fs_core_log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Instantiated class fs_core_log not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Parameter \#1 \$objectOrClass of class ReflectionClass constructor expects class\-string\<fs_core_log\>\|fs_core_log, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Property Tests\\Base\\FsCoreLogTest\:\:\$log has unknown class fs_core_log as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsCoreLogTest.php
+
+		-
+			message: '#^Call to method connected\(\) on an unknown class fs_dbal_engine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method dbal_requested\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method exec\(\) on an unknown class fs_dbal_engine\.$#'
+			identifier: class.notFound
+			count: 3
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method get_active_backend_name\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method get_columns\(\) on an unknown class fs_dbal_engine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method get_error_msg\(\) on an unknown class fs_dbal_engine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method get_requested_backend_name\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method lastval\(\) on an unknown class fs_dbal_engine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method list_tables\(\) on an unknown class fs_dbal_engine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method select\(\) on an unknown class fs_dbal_engine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method select_limit\(\) on an unknown class fs_dbal_engine\.$#'
+			identifier: class.notFound
+			count: 2
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to method using_dbal\(\) on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to static method connection_params\(\) on an unknown class fs_dbal\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to static method driver_name\(\) on an unknown class fs_dbal\.$#'
+			identifier: class.notFound
+			count: 3
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to static method effective_backend\(\) on an unknown class fs_dbal\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to static method is_requested\(\) on an unknown class fs_dbal\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Call to static method requested_backend\(\) on an unknown class fs_dbal\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 6
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Constant FS_ITEM_LIMIT not found\.$#'
+			identifier: constant.notFound
+			count: 4
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Instantiated class fs_db2 not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Instantiated class fs_dbal_engine not found\.$#'
+			identifier: class.notFound
+			count: 4
+			path: tests/Base/FsDbalHelperTest.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 1
+			path: tests/Base/FsFunctionsTest.php
+
+		-
+			message: '#^Function bround not found\.$#'
+			identifier: function.notFound
+			count: 7
+			path: tests/Base/FsFunctionsTest.php
+
+		-
+			message: '#^Function fs_fix_html not found\.$#'
+			identifier: function.notFound
+			count: 4
+			path: tests/Base/FsFunctionsTest.php
+
+		-
+			message: '#^Function fs_get_max_file_upload not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: tests/Base/FsFunctionsTest.php
+
+		-
+			message: '#^Function fs_is_local_ip not found\.$#'
+			identifier: function.notFound
+			count: 14
+			path: tests/Base/FsFunctionsTest.php
+
+		-
+			message: '#^Function fs_normalize_url not found\.$#'
+			identifier: function.notFound
+			count: 2
+			path: tests/Base/FsFunctionsTest.php
+
+		-
+			message: '#^Access to constant MAX_ATTEMPTS on an unknown class fs_ip_filter\.$#'
+			identifier: class.notFound
+			count: 3
+			path: tests/Base/FsIpFilterTest.php
+
+		-
+			message: '#^Call to method clear\(\) on an unknown class fs_ip_filter\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsIpFilterTest.php
+
+		-
+			message: '#^Call to method in_white_list\(\) on an unknown class fs_ip_filter\.$#'
+			identifier: class.notFound
+			count: 2
+			path: tests/Base/FsIpFilterTest.php
+
+		-
+			message: '#^Call to method is_banned\(\) on an unknown class fs_ip_filter\.$#'
+			identifier: class.notFound
+			count: 6
+			path: tests/Base/FsIpFilterTest.php
+
+		-
+			message: '#^Call to method set_attempt\(\) on an unknown class fs_ip_filter\.$#'
+			identifier: class.notFound
+			count: 5
+			path: tests/Base/FsIpFilterTest.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 2
+			path: tests/Base/FsIpFilterTest.php
+
+		-
+			message: '#^Instantiated class fs_ip_filter not found\.$#'
+			identifier: class.notFound
+			count: 10
+			path: tests/Base/FsIpFilterTest.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 2
+			path: tests/Base/FsModelMethodsTest.php
+
+		-
+			message: '#^Class fs_mysql not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsMysqlDefaultNormalizationTest.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 3
+			path: tests/Base/FsMysqlDefaultNormalizationTest.php
+
+		-
+			message: '#^Instantiated class fs_mysql not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsMysqlDefaultNormalizationTest.php
+
+		-
+			message: '#^Property Tests\\Base\\FsMysqlDefaultNormalizationTest\:\:\$mysql has unknown class fs_mysql as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsMysqlDefaultNormalizationTest.php
+
+		-
+			message: '#^Call to method from\(\) on an unknown class fs_query_builder\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsQueryBuilderTest.php
+
+		-
+			message: '#^Call to method reset\(\) on an unknown class fs_query_builder\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsQueryBuilderTest.php
+
+		-
+			message: '#^Call to method table\(\) on an unknown class fs_query_builder\.$#'
+			identifier: class.notFound
+			count: 29
+			path: tests/Base/FsQueryBuilderTest.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 1
+			path: tests/Base/FsQueryBuilderTest.php
+
+		-
+			message: '#^Instantiated class fs_query_builder not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsQueryBuilderTest.php
+
+		-
+			message: '#^Property Tests\\Base\\FsQueryBuilderTest\:\:\$qb has unknown class fs_query_builder as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsQueryBuilderTest.php
+
+		-
+			message: '#^Access to property \$last_browser on an unknown class FSFramework\\model\\fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsUserTest.php
+
+		-
+			message: '#^Access to property \$last_ip on an unknown class FSFramework\\model\\fs_user\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsUserTest.php
+
+		-
+			message: '#^Access to property \$log_key on an unknown class FSFramework\\model\\fs_user\.$#'
+			identifier: class.notFound
+			count: 5
+			path: tests/Base/FsUserTest.php
+
+		-
+			message: '#^Access to property \$logged_on on an unknown class FSFramework\\model\\fs_user\.$#'
+			identifier: class.notFound
+			count: 3
+			path: tests/Base/FsUserTest.php
+
+		-
+			message: '#^Call to method new_logkey\(\) on an unknown class FSFramework\\model\\fs_user\.$#'
+			identifier: class.notFound
+			count: 3
+			path: tests/Base/FsUserTest.php
+
+		-
+			message: '#^Class FSFramework\\model\\fs_user not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsUserTest.php
+
+		-
+			message: '#^Constant FS_FOLDER not found\.$#'
+			identifier: constant.notFound
+			count: 4
+			path: tests/Base/FsUserTest.php
+
+		-
+			message: '#^Property Tests\\Base\\FsUserTest\:\:\$user has unknown class FSFramework\\model\\fs_user as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Base/FsUserTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Cache/CacheManagerTest.php
+
+		-
+			message: '#^Access to property \$lastExecSql on an unknown class fs_db2\.$#'
+			identifier: class.notFound
+			count: 6
+			path: tests/Components/StealthModeTest.php
+
+		-
+			message: '#^Method Tests\\Components\\StealthModeTest\:\:createDbStub\(\) has invalid return type fs_db2\.$#'
+			identifier: class.notFound
+			count: 1
+			path: tests/Components/StealthModeTest.php
+
+		-
+			message: '#^Method Tests\\Components\\StealthModeTest\:\:createDbStub\(\) should return fs_db2 but returns fs_db2@anonymous/tests/Components/StealthModeTest\.php\:82\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Components/StealthModeTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Security/CsrfManagerTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 2
+			path: tests/Security/PasswordHasherServiceTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Traits/ValidatorTraitTest.php
+
+		-
+			message: '#^Parameter \$constraints of method Tests\\Traits\\TestModelWithValidation\:\:validateValue\(\) has invalid type Symfony\\Component\\Validator\\Constraints\\Constraint\.$#'
+			identifier: class.notFound
+			count: 2
+			path: tests/Traits/ValidatorTraitTest.php

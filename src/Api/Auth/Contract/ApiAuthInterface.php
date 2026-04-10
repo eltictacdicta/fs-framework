@@ -19,6 +19,8 @@
 
 namespace FSFramework\Api\Auth\Contract;
 
+use FSFramework\model\fs_user;
+
 /**
  * Interface principal para manejar la autenticación API REST
  *
@@ -36,7 +38,7 @@ interface ApiAuthInterface
      * Autentica un usuario sin contraseña (para OTL - One Touch Login)
      * @return array{success: bool, token?: string, refresh_token?: string, user?: array, expires_in?: int, error?: string}
      */
-    public function authenticateWithoutPassword(\fs_user $user): array;
+    public function authenticateWithoutPassword(fs_user $user): array;
 
     /**
      * Cierra la sesión de un usuario
@@ -52,7 +54,7 @@ interface ApiAuthInterface
 
     /**
      * Valida un refresh token
-     * @return array{success: bool, user?: \fs_user, error?: string}
+     * @return array{success: bool, user?: fs_user, error?: string}
      */
     public function validateRefreshToken(string $refreshToken): array;
 
@@ -75,7 +77,7 @@ interface ApiAuthInterface
     /**
      * Obtiene el usuario autenticado actual
      */
-    public function getCurrentUser(): ?\fs_user;
+    public function getCurrentUser(): ?fs_user;
 
     /**
      * Obtiene el token actual

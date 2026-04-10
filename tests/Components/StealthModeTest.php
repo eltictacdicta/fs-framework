@@ -77,6 +77,9 @@ class StealthModeTest extends TestCase
         $this->assertStringContainsString('cdn.jsdelivr.net', $db->lastExecSql);
     }
 
+    /**
+     * @return \fs_db2&object{lastExecSql: string}
+     */
     private function createDbStub(array $settings = []): \fs_db2
     {
         return new class($settings) extends \fs_db2 {
@@ -103,6 +106,9 @@ class StealthModeTest extends TestCase
                 return addslashes((string) $str);
             }
 
+            /**
+             * @return array<int, array<string, string>>
+             */
             public function select($sql, $params = [])
             {
                 if (str_contains($sql, 'WHERE name IN')) {

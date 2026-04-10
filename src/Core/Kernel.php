@@ -2,6 +2,7 @@
 
 namespace FSFramework\Core;
 
+use FSFramework\Core\Exception\KernelNotBootedException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -146,7 +147,7 @@ class Kernel
     public static function getInstance(): self
     {
         if (self::$instance === null) {
-            throw new \RuntimeException('Kernel not booted. Call Kernel::boot() first.');
+            throw new KernelNotBootedException();
         }
         return self::$instance;
     }
@@ -180,11 +181,11 @@ class Kernel
 
     /**
      * Helper to get the router statically for URL generation.
-     * 
+      *
      * Uso:
      *   Kernel::router()->generate('admin_users');
      *   Kernel::router()->generateLegacyUrl('admin_home', ['id' => 1]);
-     * 
+      *
      * @return Router|null
      */
     public static function router(): ?Router
