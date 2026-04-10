@@ -210,6 +210,8 @@ class fs_mysql extends fs_db_engine
     public function compare_constraints($table_name, $xml_cons, $db_cons, $delete_only = FALSE)
     {
         $sql = '';
+        $xmlSignatures = $this->buildXmlConstraintSignatures($xml_cons);
+        $dbSignatures = $this->buildDbConstraintSignatures($table_name);
 
         if (!empty($db_cons)) {
             /**
@@ -229,6 +231,10 @@ class fs_mysql extends fs_db_engine
                         $found = TRUE;
                         break;
                     }
+                }
+
+                if (!$found && $this->constraintHasEquivalentXmlDefinition($db_con, $dbSignatures, $xmlSignatures)) {
+                    $found = TRUE;
                 }
 
                 if (!$found) {
@@ -261,6 +267,10 @@ class fs_mysql extends fs_db_engine
                 $db_con = $this->search_in_array($db_cons, 'name', $xml_con['nombre']);
                 if (!empty($db_con)) {
                     continue;
+                }
+
+                if ($this->xmlConstraintHasEquivalentDbDefinition($xml_con, $dbSignatures, $xmlSignatures)) {
+                    continue;
                 } elseif (substr($xml_con['consulta'], 0, 11) == 'FOREIGN KEY') {
                     $sql .= 'ALTER TABLE ' . $table_name . ' ADD CONSTRAINT ' . $xml_con['nombre'] . ' ' . $xml_con['consulta'] . ';';
                 } else if (substr($xml_con['consulta'], 0, 6) == 'UNIQUE') {
@@ -270,6 +280,193 @@ class fs_mysql extends fs_db_engine
         }
 
         return $this->fix_postgresql($sql);
+    }
+
+    private function constraintHasEquivalentXmlDefinition(array $dbConstraint, array $dbSignatures, array $xmlSignatures): bool
+    {
+        if (empty($dbConstraint['name']) || !isset($dbSignatures[$dbConstraint['name']])) {
+            return false;
+        }
+
+        return in_array($dbSignatures[$dbConstraint['name']], $xmlSignatures, true);
+    }
+
+    private function xmlConstraintHasEquivalentDbDefinition(array $xmlConstraint, array $dbSignatures, array $xmlSignatures): bool
+    {
+        if (empty($xmlConstraint['nombre']) || !isset($xmlSignatures[$xmlConstraint['nombre']])) {
+            return false;
+        }
+
+        return in_array($xmlSignatures[$xmlConstraint['nombre']], $dbSignatures, true);
+    }
+
+    private function buildXmlConstraintSignatures(array $xmlConstraints): array
+    {
+        $signatures = [];
+
+        foreach ($xmlConstraints as $xmlConstraint) {
+            if (empty($xmlConstraint['nombre']) || empty($xmlConstraint['consulta'])) {
+                continue;
+            }
+
+            $signature = $this->normalizeXmlConstraintSignature($xmlConstraint['consulta']);
+            if ($signature !== null) {
+                $signatures[$xmlConstraint['nombre']] = $signature;
+            }
+        }
+
+        return $signatures;
+    }
+
+    private function buildDbConstraintSignatures(string $table_name): array
+    {
+        $grouped = [];
+        foreach ($this->get_constraints_extended($table_name) as $row) {
+            if (empty($row['name']) || empty($row['type'])) {
+                continue;
+            }
+
+            $name = $row['name'];
+            if (!isset($grouped[$name])) {
+                $grouped[$name] = [
+                    'type' => strtoupper($row['type']),
+                    'rows' => [],
+                ];
+            }
+
+            $grouped[$name]['rows'][] = $row;
+        }
+
+        $signatures = [];
+        foreach ($grouped as $name => $constraint) {
+            $signature = $this->normalizeDbConstraintSignature($constraint);
+            if ($signature !== null) {
+                $signatures[$name] = $signature;
+            }
+        }
+
+        return $signatures;
+    }
+
+    private function normalizeXmlConstraintSignature(string $query): ?string
+    {
+        $normalized = preg_replace('/\s+/', ' ', trim($query));
+        if (!is_string($normalized) || $normalized === '') {
+            return null;
+        }
+
+        if (preg_match('/^PRIMARY KEY\s*\(([^)]+)\)$/i', $normalized, $matches)) {
+            return 'PRIMARY KEY|' . implode(',', $this->normalizeIdentifierList($matches[1]));
+        }
+
+        if (preg_match('/^UNIQUE\s*\(([^)]+)\)$/i', $normalized, $matches)) {
+            return 'UNIQUE|' . implode(',', $this->normalizeIdentifierList($matches[1]));
+        }
+
+        if (!preg_match('/^FOREIGN KEY\s*\(([^)]+)\)\s+REFERENCES\s+([^\s(]+)\s*\(([^)]+)\)(.*)$/i', $normalized, $matches)) {
+            return null;
+        }
+
+        $localColumns = implode(',', $this->normalizeIdentifierList($matches[1]));
+        $foreignTable = $this->normalizeIdentifier($matches[2]);
+        $foreignColumns = implode(',', $this->normalizeIdentifierList($matches[3]));
+        $tail = $matches[4] ?? '';
+
+        return sprintf(
+            'FOREIGN KEY|%s|%s|%s|%s|%s',
+            $localColumns,
+            $foreignTable,
+            $foreignColumns,
+            $this->extractRuleFromSqlTail($tail, 'UPDATE'),
+            $this->extractRuleFromSqlTail($tail, 'DELETE')
+        );
+    }
+
+    private function normalizeDbConstraintSignature(array $constraint): ?string
+    {
+        if (empty($constraint['type']) || empty($constraint['rows'])) {
+            return null;
+        }
+
+        $rows = $constraint['rows'];
+        usort($rows, static function (array $left, array $right): int {
+            $leftPosition = (int) ($left['ordinal_position'] ?? 0);
+            $rightPosition = (int) ($right['ordinal_position'] ?? 0);
+
+            if ($leftPosition !== $rightPosition) {
+                return $leftPosition <=> $rightPosition;
+            }
+
+            return strcmp((string) ($left['column_name'] ?? ''), (string) ($right['column_name'] ?? ''));
+        });
+
+        $type = strtoupper($constraint['type']);
+        $columns = [];
+        foreach ($rows as $row) {
+            if (!empty($row['column_name'])) {
+                $columns[] = $this->normalizeIdentifier($row['column_name']);
+            }
+        }
+
+        if ($type === 'PRIMARY KEY' || $type === 'UNIQUE') {
+            return $type . '|' . implode(',', $columns);
+        }
+
+        if ($type !== 'FOREIGN KEY') {
+            return null;
+        }
+
+        $firstRow = $rows[0];
+        $foreignColumns = [];
+        foreach ($rows as $row) {
+            if (!empty($row['foreign_column_name'])) {
+                $foreignColumns[] = $this->normalizeIdentifier($row['foreign_column_name']);
+            }
+        }
+
+        return sprintf(
+            'FOREIGN KEY|%s|%s|%s|%s|%s',
+            implode(',', $columns),
+            $this->normalizeIdentifier((string) ($firstRow['foreign_table_name'] ?? '')),
+            implode(',', $foreignColumns),
+            strtoupper((string) ($firstRow['on_update'] ?? 'RESTRICT')),
+            strtoupper((string) ($firstRow['on_delete'] ?? 'RESTRICT'))
+        );
+    }
+
+    private function normalizeIdentifierList(string $list): array
+    {
+        $items = array_map('trim', explode(',', $list));
+        $items = array_filter($items, static function ($item): bool {
+            return $item !== '';
+        });
+
+        return array_map(function ($item): string {
+            return $this->normalizeIdentifier($item);
+        }, $items);
+    }
+
+    private function normalizeIdentifier(string $identifier): string
+    {
+        $identifier = trim($identifier);
+        $identifier = trim($identifier, "`\" ");
+
+        if (strpos($identifier, '.') !== false) {
+            $parts = explode('.', $identifier);
+            $identifier = end($parts);
+            $identifier = trim((string) $identifier, "`\" ");
+        }
+
+        return strtolower($identifier);
+    }
+
+    private function extractRuleFromSqlTail(string $tail, string $ruleType): string
+    {
+        if (!preg_match('/ON ' . $ruleType . '\s+(RESTRICT|CASCADE|SET NULL|NO ACTION|SET DEFAULT)/i', $tail, $matches)) {
+            return 'RESTRICT';
+        }
+
+        return strtoupper($matches[1]);
     }
 
     /**
@@ -718,6 +915,8 @@ class fs_mysql extends fs_db_engine
         $sql = "SELECT t1.constraint_name as name,
             t1.constraint_type as type,
             t2.column_name,
+            t2.ordinal_position,
+            t2.position_in_unique_constraint,
             t2.referenced_table_name AS foreign_table_name,
             t2.referenced_column_name AS foreign_column_name,
             t3.update_rule AS on_update,
@@ -731,7 +930,7 @@ class fs_mysql extends fs_db_engine
             ON t3.constraint_schema = t1.table_schema
             AND t3.constraint_name = t1.constraint_name
          WHERE t1.table_schema = SCHEMA() AND t1.table_name = '" . $table_name . "'
-         ORDER BY type DESC, name ASC;";
+            ORDER BY type DESC, name ASC, t2.ordinal_position ASC;";
 
         $aux = $this->select($sql);
         if ($aux) {
