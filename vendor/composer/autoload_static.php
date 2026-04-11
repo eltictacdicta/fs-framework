@@ -155,6 +155,7 @@ class ComposerStaticInit751b4d4f7b2c4c680951860734c7f0f4
             'Symfony\\Component\\Config\\' => 25,
             'Symfony\\Component\\Cache\\' => 24,
             'Symfony\\Bridge\\PhpUnit\\' => 23,
+            'ShipMonk\\PHPStan\\DeadCode\\' => 26,
             'Sabberworm\\CSS\\' => 15,
         ),
         'R' =>
@@ -349,6 +350,10 @@ class ComposerStaticInit751b4d4f7b2c4c680951860734c7f0f4
         'Symfony\\Bridge\\PhpUnit\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/phpunit-bridge',
+        ),
+        'ShipMonk\\PHPStan\\DeadCode\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/shipmonk/dead-code-detector/src',
         ),
         'Sabberworm\\CSS\\' =>
         array (
