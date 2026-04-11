@@ -20,6 +20,7 @@
 
 - Stack baseline: PHP 8.2+ (prefer 8.3), Symfony 7.4, Twig 3, PHPUnit 11.
 - Respect the split between legacy code in `base/`, `controller/`, `model/` and modern PSR-4 code in `src/`.
+- Keep the core Symfony-first: prefer modern Symfony 7.4 services and leave legacy compatibility in thin bridges or wrappers.
 - Prefer Twig for new views, Symfony-based services and the container for modern code, and keep legacy naming and compatibility conventions where touching old code.
 - Prefer framework helpers already present in the project: `ValidatorTrait`, response helpers, event dispatcher, translator, cache manager, and the plugin system conventions.
 

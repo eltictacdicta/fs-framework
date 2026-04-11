@@ -445,7 +445,12 @@ abstract class fs_model
     private function get_base_dir($table_name)
     {
         self::$base_dir[$table_name] = '';
-        foreach ($GLOBALS['plugins'] as $plugin) {
+        $plugins = $GLOBALS['plugins'] ?? [];
+        if (!is_array($plugins) && !$plugins instanceof \Traversable) {
+            return;
+        }
+
+        foreach ($plugins as $plugin) {
             if (file_exists('plugins/' . $plugin . '/model/table/' . $table_name . '.xml')) {
                 self::$base_dir[$table_name] = 'plugins/' . $plugin . '/';
                 break;

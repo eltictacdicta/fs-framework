@@ -10,19 +10,25 @@
  */
 
 require_once __DIR__ . '/fs_session_manager.php';
+require_once __DIR__ . '/fs_core_log.php';
+
+use FSFramework\Security\LegacyAuthBridge;
+use FSFramework\Security\LegacyUserService;
+use FSFramework\Security\PasswordHasherService;
+use FSFramework\Security\SessionManager;
 
 /**
  * Servicio de autenticación unificado
- * 
+ *
  * Usa fs_user como modelo único de usuario para mantener compatibilidad
  * con el sistema legacy mientras proporciona una API moderna.
- * 
+ *
  * Uso:
  *   fs_auth::check();           // Verifica sesión
  *   fs_auth::user();            // Devuelve fs_user
  *   fs_auth::isAdmin();         // Verifica admin
  *   fs_auth::can('ventas_clientes'); // Verifica permiso
- * 
+ *
  * @author Javier Trujillo <mistertekcom@gmail.com>
  */
 class fs_auth
@@ -35,10 +41,10 @@ class fs_auth
      * @var fs_user|null
      */
     private static $currentUser = null;
-    
+
     /**
      * Verifica si hay un usuario autenticado
-     * 
+     *
      * @return bool
      */
     public static function check()
@@ -48,7 +54,7 @@ class fs_auth
 
     /**
      * Verifica si hay un usuario autenticado (alias de check)
-     * 
+     *
      * @return bool
      */
     public static function isAuthenticated()
@@ -58,7 +64,7 @@ class fs_auth
 
     /**
      * Obtiene el usuario actual (fs_user)
-     * 
+     *
      * @return fs_user|null
      */
     public static function user()
@@ -74,17 +80,9 @@ class fs_auth
             return self::$currentUser;
         }
 
-        // Cargar usuario desde BD
-        self::loadDependencies();
-        
-        if (class_exists('fs_user')) {
-            $userModel = new fs_user();
-            $user = $userModel->get($nick);
-            self::$currentUser = $user ? $user : null;
-            
-            if (self::$currentUser) {
-                self::$currentUser->logged_on = true;
-            }
+        self::$currentUser = self::getLegacyUserService()->findByNick($nick);
+        if (self::$currentUser) {
+            self::$currentUser->logged_on = true;
         }
 
         return self::$currentUser;
@@ -92,7 +90,7 @@ class fs_auth
 
     /**
      * Obtiene el nick del usuario actual
-     * 
+     *
      * @return string|null
      */
     public static function nick()
@@ -102,7 +100,7 @@ class fs_auth
 
     /**
      * Obtiene el email del usuario actual
-     * 
+     *
      * @return string|null
      */
     public static function email()
@@ -113,7 +111,7 @@ class fs_auth
 
     /**
      * Obtiene el rol del usuario actual
-     * 
+     *
      * @return string
      */
     public static function role()
@@ -127,7 +125,7 @@ class fs_auth
 
     /**
      * Verifica si el usuario es administrador
-     * 
+     *
      * @return bool
      */
     public static function isAdmin()
@@ -139,54 +137,59 @@ class fs_auth
     /**
      * Intenta autenticar un usuario
      * Usa el sistema de verificación de fs_user
-     * 
+     *
      * @param string $nick Nick del usuario
      * @param string $password Contraseña
      * @return bool
      */
     public static function attempt($nick, $password)
     {
-        self::loadDependencies();
-        
-        if (!class_exists('fs_user')) {
+        $authenticated = false;
+
+        $user = self::getLegacyUserService()->findEnabledByNick((string) $nick);
+        if ($user && self::isPasswordValid($user, $password)) {
+            self::completeLogin($user);
+            $authenticated = true;
+        }
+
+        return $authenticated;
+    }
+
+    /**
+     * @param fs_user $user
+     */
+    private static function isPasswordValid($user, string $password): bool
+    {
+        $storedHash = (string) $user->password;
+        $hasher = new PasswordHasherService();
+        if (!$hasher->verifyAndMigrate($storedHash, $password)) {
             return false;
         }
 
-        $userModel = new fs_user();
-        $user = $userModel->get($nick);
-
-        if (!$user || !$user->enabled) {
-            return false;
-        }
-
-        // Verificar contraseña (soporta Argon2ID, bcrypt y SHA1 legacy)
-        $passwordValid = false;
-        
-        // Primero intentar con password_verify (Argon2ID, bcrypt)
-        if (function_exists('password_verify') && password_verify($password, $user->password)) {
-            $passwordValid = true;
-        } 
-        // Fallback a SHA1 legacy
-        elseif ($user->password === sha1($password) || $user->password === sha1(mb_strtolower($password, 'UTF8'))) {
-            $passwordValid = true;
-            // Actualizar a hash seguro si el método existe
+        if ($storedHash !== (string) $user->password) {
             if (method_exists($user, 'set_password')) {
-                $user->set_password($password);
+                if ($user->set_password($password) !== false) {
+                    $user->save();
+                }
+            } else {
+                $user->password = $storedHash;
                 $user->save();
             }
         }
 
-        if (!$passwordValid) {
-            return false;
-        }
+        return true;
+    }
 
-        // Generar nueva clave de sesión
+    /**
+     * @param fs_user $user
+     */
+    private static function completeLogin($user): void
+    {
         if (method_exists($user, 'new_logkey')) {
             $user->new_logkey();
             $user->save();
         }
 
-        // Guardar en sesión
         fs_session_manager::login([
             'nick' => $user->nick,
             'email' => isset($user->email) ? $user->email : null,
@@ -195,16 +198,13 @@ class fs_auth
             'logkey' => $user->log_key
         ]);
 
-        // Guardar cookies legacy para compatibilidad
         self::setLegacyCookies($user);
-
         self::$currentUser = $user;
-        return true;
     }
 
     /**
      * Cierra la sesión
-     * 
+     *
      * @return void
      */
     public static function logout()
@@ -216,7 +216,7 @@ class fs_auth
 
     /**
      * Verifica si el usuario tiene acceso a una página
-     * 
+     *
      * @param string $pageName Nombre de la página
      * @return bool
      */
@@ -227,22 +227,12 @@ class fs_auth
             return false;
         }
 
-        // Los administradores tienen todos los permisos
-        if ($user->admin) {
-            return true;
-        }
-
-        // Usar el método have_access_to de fs_user
-        if (method_exists($user, 'have_access_to')) {
-            return $user->have_access_to($pageName);
-        }
-
-        return false;
+        return self::getLegacyUserService()->canAccess($user, (string) $pageName);
     }
 
     /**
      * Verifica si el usuario puede eliminar en una página
-     * 
+     *
      * @param string $pageName Nombre de la página
      * @return bool
      */
@@ -253,16 +243,12 @@ class fs_auth
             return false;
         }
 
-        if (method_exists($user, 'allow_delete_on')) {
-            return $user->allow_delete_on($pageName);
-        }
-
-        return $user->admin;
+        return self::getLegacyUserService()->canDelete($user, (string) $pageName);
     }
 
     /**
      * Verifica si el usuario tiene alguno de los permisos
-     * 
+     *
      * @param array $pageNames Array de nombres de página
      * @return bool
      */
@@ -278,7 +264,7 @@ class fs_auth
 
     /**
      * Verifica si el usuario tiene todos los permisos
-     * 
+     *
      * @param array $pageNames Array de nombres de página
      * @return bool
      */
@@ -294,7 +280,7 @@ class fs_auth
 
     /**
      * Redirige si no está autenticado
-     * 
+     *
      * @param string $redirectTo URL de redirección
      * @return void
      */
@@ -308,7 +294,7 @@ class fs_auth
 
     /**
      * Redirige si no tiene permiso a una página
-     * 
+     *
      * @param string $pageName Nombre de la página
      * @param string $redirectTo URL de redirección
      * @return void
@@ -325,7 +311,7 @@ class fs_auth
 
     /**
      * Redirige si no es administrador
-     * 
+     *
      * @param string $redirectTo URL de redirección
      * @return void
      */
@@ -341,7 +327,7 @@ class fs_auth
 
     /**
      * Obtiene la fecha de inicio de sesión
-     * 
+     *
      * @return int|null Timestamp
      */
     public static function loginTime()
@@ -351,7 +337,7 @@ class fs_auth
 
     /**
      * Obtiene el tiempo de sesión en segundos
-     * 
+     *
      * @return int
      */
     public static function sessionDuration()
@@ -365,7 +351,7 @@ class fs_auth
 
     /**
      * Guarda la URL actual para redirigir después del login
-     * 
+     *
      * @param string $url URL a guardar
      * @return void
      */
@@ -376,7 +362,7 @@ class fs_auth
 
     /**
      * Obtiene la URL guardada para redirigir después del login
-     * 
+     *
      * @param string $default URL por defecto
      * @return string
      */
@@ -389,7 +375,7 @@ class fs_auth
 
     /**
      * Autentica y redirige
-     * 
+     *
      * @param string $nick Nick del usuario
      * @param string $password Contraseña
      * @param string $redirectTo URL de redirección
@@ -407,7 +393,7 @@ class fs_auth
 
     /**
      * Obtiene el token CSRF actual
-     * 
+     *
      * @return string
      */
     public static function csrfToken()
@@ -417,7 +403,7 @@ class fs_auth
 
     /**
      * Verifica un token CSRF
-     * 
+     *
      * @param string $token Token a verificar
      * @return bool
      */
@@ -428,126 +414,94 @@ class fs_auth
 
     /**
      * Verifica el token CSRF de la petición actual
-     * 
+     *
      * @return bool
      */
     public static function verifyCsrfRequest()
     {
-        $token = isset($_POST['_token']) ? $_POST['_token'] : 
-                 (isset($_SERVER['HTTP_X_CSRF_TOKEN']) ? $_SERVER['HTTP_X_CSRF_TOKEN'] : '');
+        $token = isset($_POST['_token']) ? $_POST['_token'] : '';
+        if ($token === '') {
+            $token = isset($_SERVER['HTTP_X_CSRF_TOKEN']) ? $_SERVER['HTTP_X_CSRF_TOKEN'] : '';
+        }
+
         return self::verifyCsrf($token);
     }
 
     /**
-     * Carga las dependencias necesarias para fs_user
-     * 
-     * @return void
-     */
-    private static function loadDependencies()
-    {
-        $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
-
-        // Cargar dependencias en orden
-        $dependencies = [
-            'fs_cache' => $folder . '/base/fs_cache.php',
-            'fs_core_log' => $folder . '/base/fs_core_log.php',
-            'fs_db2' => $folder . '/base/fs_db2.php',
-            'fs_model' => $folder . '/base/fs_model.php',
-            'fs_page' => $folder . '/model/core/fs_page.php',
-            'fs_access' => $folder . '/model/core/fs_access.php',
-            'fs_user' => $folder . '/model/core/fs_user.php',
-        ];
-
-        foreach ($dependencies as $class => $path) {
-            if (!class_exists($class) && file_exists($path)) {
-                require_once $path;
-            }
-        }
-    }
-
-    /**
      * Establece cookies legacy para compatibilidad con fs_login
-     * 
+     *
      * @param fs_user $user Usuario
      * @return void
      */
     private static function setLegacyCookies($user)
     {
+        $logKey = isset($user->log_key) ? trim((string) $user->log_key) : '';
+        if ($logKey === '') {
+            self::logLegacyCookieSkipped($user);
+            return;
+        }
+
+        $legacyAuthBridge = self::getLegacyAuthBridge();
+        if ($legacyAuthBridge !== null) {
+            $legacyAuthBridge->issueLegacyCookies((string) $user->nick, $logKey);
+            return;
+        }
+
         $expire = time() + (defined('FS_COOKIES_EXPIRE') ? FS_COOKIES_EXPIRE : 31536000);
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-        $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, (string) $user->log_key);
-        
-        if (PHP_VERSION_ID >= 70300) {
-            setcookie('user', $user->nick, [
-                'expires' => $expire,
-                'path' => '/',
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
-            setcookie('logkey', $user->log_key, [
-                'expires' => $expire,
-                'path' => '/',
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
-            setcookie('auth_sig', $signature, [
-                'expires' => $expire,
-                'path' => '/',
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
-        } else {
-            setcookie('user', $user->nick, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
-            setcookie('logkey', $user->log_key, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
-            setcookie('auth_sig', $signature, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
-        }
+        $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, $logKey);
+        setcookie('user', $user->nick, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+        setcookie('logkey', $logKey, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+        setcookie('auth_sig', $signature, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
     }
 
     /**
      * Limpia las cookies legacy
-     * 
+     *
      * @return void
      */
     private static function clearLegacyCookies()
     {
+        $legacyAuthBridge = self::getLegacyAuthBridge();
+        if ($legacyAuthBridge !== null) {
+            $legacyAuthBridge->clearLegacyCookies();
+            return;
+        }
+
         $expire = time() - 3600;
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-        
-        if (PHP_VERSION_ID >= 70300) {
-            setcookie('user', '', [
-                'expires' => $expire,
-                'path' => '/',
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
-            setcookie('logkey', '', [
-                'expires' => $expire,
-                'path' => '/',
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
-            setcookie('auth_sig', '', [
-                'expires' => $expire,
-                'path' => '/',
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
-        } else {
-            setcookie('user', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
-            setcookie('logkey', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
-            setcookie('auth_sig', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+        setcookie('user', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+        setcookie('logkey', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+        setcookie('auth_sig', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
+    }
+
+    private static function getLegacyAuthBridge(): ?LegacyAuthBridge
+    {
+        if (!class_exists(SessionManager::class)) {
+            return null;
         }
+
+        return SessionManager::getInstance()->getLegacyAuthBridge();
+    }
+
+    private static function getLegacyUserService(): LegacyUserService
+    {
+        return new LegacyUserService();
+    }
+
+    /**
+     * @param mixed $user
+     */
+    private static function logLegacyCookieSkipped($user): void
+    {
+        $nick = is_object($user) && isset($user->nick) ? (string) $user->nick : '';
+        $log = new fs_core_log(__CLASS__);
+        $log->alert('No se emitieron cookies legacy porque falta log_key.', ['nick' => $nick]);
     }
 
     /**
      * Limpia la caché del usuario actual
-     * 
+     *
      * @return void
      */
     public static function clearCache()
@@ -557,7 +511,7 @@ class fs_auth
 
     /**
      * Obtiene el ID del agente asociado al usuario (si existe)
-     * 
+     *
      * @return string|null
      */
     public static function agentId()
@@ -568,7 +522,7 @@ class fs_auth
 
     /**
      * Verifica si el usuario tiene un agente asociado
-     * 
+     *
      * @return bool
      */
     public static function hasAgent()

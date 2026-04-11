@@ -19,10 +19,10 @@ use Symfony\Component\HttpFoundation\Session\Flash\FlashBag;
 
 /**
  * Gestor de sesiones moderno usando Symfony HttpFoundation
- * 
+ *
  * Proporciona una API moderna sobre Symfony Session mientras mantiene
  * compatibilidad con el sistema legacy (cookies user/logkey).
- * 
+ *
  * Características:
  * - Usa Symfony Session internamente
  * - CSRF token automático
@@ -30,13 +30,13 @@ use Symfony\Component\HttpFoundation\Session\Flash\FlashBag;
  * - Cookies seguras (SameSite, httponly)
  * - Mensajes flash nativos de Symfony
  * - Compatibilidad con cookies legacy
- * 
+ *
  * Uso:
  *   $session = SessionManager::getInstance();
  *   $session->set('key', 'value');
  *   $value = $session->get('key');
  *   $session->flash('success', 'Operación completada');
- * 
+ *
  * @author Javier Trujillo <mistertekcom@gmail.com>
  */
 class SessionManager
@@ -44,7 +44,7 @@ class SessionManager
     private static ?SessionManager $instance = null;
     private Session $session;
     private bool $initialized = false;
-    private ?string $csrfToken = null;
+    private LegacyAuthBridge $legacyAuthBridge;
 
     /**
      * Constructor privado (singleton)
@@ -52,6 +52,7 @@ class SessionManager
     private function __construct()
     {
         $this->initialize();
+        $this->legacyAuthBridge = new LegacyAuthBridge($this->session);
     }
 
     /**
@@ -78,7 +79,6 @@ class SessionManager
         if (session_status() === PHP_SESSION_ACTIVE) {
             $this->session = new Session();
             $this->initialized = true;
-            $this->initializeCsrf();
             return;
         }
 
@@ -111,28 +111,14 @@ class SessionManager
         }
 
         $storage = new NativeSessionStorage($options, $handler);
-        
+
         $this->session = new Session($storage, new AttributeBag(), new FlashBag());
         $this->session->start();
 
         // Regenerar ID periódicamente
         $this->maybeRegenerateId();
 
-        // Inicializar CSRF
-        $this->initializeCsrf();
-
         $this->initialized = true;
-    }
-
-    /**
-     * Inicializa el token CSRF
-     */
-    private function initializeCsrf(): void
-    {
-        if (!$this->session->has('_csrf_token')) {
-            $this->session->set('_csrf_token', bin2hex(random_bytes(32)));
-        }
-        $this->csrfToken = $this->session->get('_csrf_token');
     }
 
     /**
@@ -141,7 +127,7 @@ class SessionManager
     private function maybeRegenerateId(): void
     {
         $lastRegen = $this->session->get('_last_regeneration', 0);
-        
+
         if (time() - $lastRegen > 1800) { // 30 minutos
             $this->regenerateId();
         }
@@ -165,55 +151,13 @@ class SessionManager
             return true;
         }
 
-        // Verificar cookies legacy
-        return $this->syncFromLegacyCookies();
-    }
-
-    /**
-     * Sincroniza desde cookies legacy
-     */
-    private function syncFromLegacyCookies(): bool
-    {
-        $cookieUser = $_COOKIE['user'] ?? null;
-        $cookieLogkey = $_COOKIE['logkey'] ?? null;
-        $cookieSig = $_COOKIE['auth_sig'] ?? null;
-
-        if (!$cookieUser || !$cookieLogkey) {
+        $legacyUserData = $this->legacyAuthBridge->getLegacyUserDataFromCookies();
+        if ($legacyUserData === null) {
             return false;
         }
 
-        // Ya sincronizado
-        if ($this->session->get('user_nick') === $cookieUser) {
-            return true;
-        }
-
-        // Intentar validar con fs_user
-        if (!class_exists('fs_user')) {
-            return false;
-        }
-
-        try {
-            $userModel = new \fs_user();
-            $user = $userModel->get($cookieUser);
-
-            if ($user && $user->enabled && $user->log_key === $cookieLogkey) {
-                if (!empty($cookieSig) && !CookieSigner::verifyRememberMe((string) $cookieUser, (string) $cookieLogkey, (string) $cookieSig)) {
-                    return false;
-                }
-
-                $this->login([
-                    'nick' => $user->nick,
-                    'email' => $user->email ?? null,
-                    'admin' => (bool) $user->admin,
-                    'logkey' => $cookieLogkey,
-                ]);
-                return true;
-            }
-        } catch (\Throwable $e) {
-            // Ignorar errores
-        }
-
-        return false;
+        $this->login($legacyUserData);
+        return true;
     }
 
     /**
@@ -238,41 +182,9 @@ class SessionManager
     public function logout(): void
     {
         $this->session->invalidate();
-        $this->csrfToken = null;
-        
-        // Limpiar cookies legacy
-        $this->clearLegacyCookies();
-    }
 
-    /**
-     * Limpia las cookies legacy
-     */
-    private function clearLegacyCookies(): void
-    {
-        $expire = time() - 3600;
-        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-        
-        setcookie('user', '', [
-            'expires' => $expire,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => 'Lax'
-        ]);
-        setcookie('logkey', '', [
-            'expires' => $expire,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => 'Lax'
-        ]);
-        setcookie('auth_sig', '', [
-            'expires' => $expire,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => 'Lax'
-        ]);
+        // Limpiar cookies legacy
+        $this->legacyAuthBridge->clearLegacyCookies();
     }
 
     // =========================================================================
@@ -335,15 +247,12 @@ class SessionManager
 
     public function getCsrfToken(): string
     {
-        return $this->csrfToken ?? '';
+        return CsrfManager::generateToken();
     }
 
     public function verifyCsrfToken(string $token): bool
     {
-        if (!$this->csrfToken || !$token) {
-            return false;
-        }
-        return hash_equals($this->csrfToken, $token);
+        return $token !== '' && CsrfManager::isValid($token);
     }
 
     public function csrfField(): string
@@ -355,8 +264,7 @@ class SessionManager
 
     public function csrfMeta(): string
     {
-        return '<meta name="csrf-token" content="' . 
-               htmlspecialchars($this->getCsrfToken(), ENT_QUOTES, 'UTF-8') . '">';
+        return CsrfManager::metaTag();
     }
 
     // =========================================================================
@@ -366,6 +274,11 @@ class SessionManager
     public function getCurrentUserNick(): ?string
     {
         return $this->session->get('user_nick');
+    }
+
+    public function getCurrentRole(): string
+    {
+        return $this->session->get('user_role', 'guest');
     }
 
     public function isAdmin(): bool
@@ -391,6 +304,11 @@ class SessionManager
     public function getSymfonySession(): Session
     {
         return $this->session;
+    }
+
+    public function getLegacyAuthBridge(): LegacyAuthBridge
+    {
+        return $this->legacyAuthBridge;
     }
 
     /**

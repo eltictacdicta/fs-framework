@@ -24,6 +24,7 @@ alwaysApply: true
 - Usar `ddev` para PHP, Composer y PHPUnit. Evitar comandos host salvo petición explícita.
 - Asumir `ddev start` cuando la tarea dependa de servicios locales.
 - Respetar la separación entre código legacy en `base/`, `controller/`, `model/` y código moderno PSR-4 en `src/`.
+- Mantener el núcleo en modo Symfony-first: cuando exista equivalente moderno en Symfony 7.4, delegar en él y dejar la compatibilidad legacy en bridges o wrappers finos.
 - Mantener convenciones legacy al tocar código antiguo y usar convenciones modernas en `src/`.
 - Preferir Twig para vistas nuevas, servicios Symfony y el contenedor para código moderno, y helpers ya presentes en el framework antes de introducir patrones nuevos.
 - Mantener la base de seguridad compartida: SQL seguro, salida escapada, CSRF en flujos mutables y manejo seguro de contraseñas y archivos.

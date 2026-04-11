@@ -79,11 +79,28 @@ $id = filter_var($_GET['id'], FILTER_VALIDATE_INT);
 ```
 
 ```php
-// ✅ Validar CSRF en el controlador antes de procesar
-use FSFramework\Security\CSRFProtection;
+// ✅ Preferir FormHelper para que Symfony gestione CSRF automáticamente
+use FSFramework\Form\FormHelper;
 
-if (!CSRFProtection::validate($this->request->get('_token'))) {
-    $this->miniLog->alert('Token CSRF inválido');
+$form = FormHelper::create()
+    ->add('campo')
+    ->getForm();
+```
+
+```php
+// ✅ Si necesitas validación manual, no ocultes un _token ausente
+use FSFramework\Security\CsrfManager;
+
+$token = $this->request->get('_token');
+if ($token === null) {
+    $miniLog = new fs_core_log(__CLASS__);
+    $miniLog->alert('Falta el token CSRF en la petición.');
+    return false;
+}
+
+if (!CsrfManager::isValid($token)) {
+    $miniLog = new fs_core_log(__CLASS__);
+    $miniLog->alert('Token CSRF inválido.');
     return false;
 }
 ```
@@ -91,8 +108,11 @@ if (!CSRFProtection::validate($this->request->get('_token'))) {
 ## 🔴 CRÍTICO — Gestión de Sesiones
 
 ```php
-// ✅ Regenerar ID de sesión tras login
-session_regenerate_id(true);
+use FSFramework\Security\SessionManager;
+
+// ✅ Regenerar ID de sesión tras login vía el gestor moderno
+$session = SessionManager::getInstance();
+$session->regenerateId();
 
 // ✅ Configuración segura de cookies de sesión (en config.php o php.ini)
 ini_set('session.cookie_httponly', 1);

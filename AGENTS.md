@@ -11,6 +11,7 @@ FSFramework is a modernized PHP-based ERP/accounting software fork of FacturaScr
 - Assume `ddev start` when a task depends on local web services, database access or containerized tooling.
 - Stack baseline: PHP 8.2+ with preference for 8.3, Symfony 7.4, Twig 3 and PHPUnit 11.
 - Preserve the architectural split between legacy code in `base/`, `controller/`, `model/` and modern PSR-4 code in `src/`.
+- Keep the core Symfony-first: when a modern Symfony 7.4 service exists, prefer delegating to it and keep legacy compatibility in thin bridges or wrappers.
 - Prefer Twig for new views, Symfony services and the container for modern code, and existing framework helpers before introducing new patterns.
 - Keep the common safety baseline: safe SQL, escaped output, CSRF in mutating flows, secure password handling and safe file handling.
 - Add or update tests for business logic changes, especially reusable logic in `src/` and plugins.
@@ -357,6 +358,7 @@ Use provided helper functions:
   /Form/                      # FormHelper (Symfony Forms)
   /Security/                  # CsrfManager, UserAdapter, PasswordHasher,
                               # CookieSigner, SignedUrlService, SessionManager,
+                              # LegacyAuthBridge, LegacyUserService,
                               # EncryptionService, SafeRedirect, SecretManager
   /Traits/                    # ValidatorTrait, ResponseTrait
   /Translation/               # FSTranslator, FS2025JsonLoader, TranslationHelper
@@ -395,7 +397,8 @@ Use provided helper functions:
 ```
 
 ### Imports and Includes
-- Use `require_once` for core dependencies
+- Use `require_once` only for legacy bootstrap or fallback dependencies that are not PSR-4 autoloaded yet.
+- In `src/`, prefer namespaces, Composer autoloading, Symfony services, and the container over manual includes.
 - Group includes at top of files
 - Example:
 ```php
@@ -727,9 +730,12 @@ if (SignedUrlService::verify($signedUrl)) {
 use FSFramework\Security\SessionManager;
 
 // Secure session handling
-SessionManager::start();
-SessionManager::regenerate();  // Prevent session fixation
-SessionManager::setSecure($key, $value, true);  // HTTP-only cookies
+$session = SessionManager::getInstance();
+$session->regenerateId();
+$session->set('user_nick', $nick);
+
+// Legacy cookie compatibility belongs in the dedicated bridge, not in new business code
+$session->getLegacyAuthBridge()->clearLegacyCookies();
 ```
 
 ```php
