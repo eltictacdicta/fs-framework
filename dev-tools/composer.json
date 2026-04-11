@@ -1,0 +1,24 @@
+{
+    "name": "facturascripts/fs-framework-dev-tools",
+    "description": "Herramientas de desarrollo locales para FSFramework",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "phpunit/phpunit": "^11.0",
+        "symfony/phpunit-bridge": "^7.4",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "rector/rector": "^2.4",
+        "shipmonk/dead-code-detector": "^1.0"
+    },
+    "config": {
+        "vendor-dir": "../vendor/dev-tools",
+        "platform": {
+            "php": "8.3"
+        },
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true
+        }
+    }
+}

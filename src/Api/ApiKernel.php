@@ -25,8 +25,6 @@ use FSFramework\Api\Auth\Contract\ApiLogInterface;
 use FSFramework\Api\Middleware\CorsMiddleware;
 use FSFramework\Api\Helper\ResponseHelper;
 use FSFramework\Api\Exception\ApiException;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
  * Kernel principal de la API
@@ -46,9 +44,6 @@ class ApiKernel
     /** @var ApiLogInterface|null Logger inyectable desde plugins */
     private ?ApiLogInterface $apiLogger = null;
 
-    /** @var callable|null Función de logging inyectable desde plugins */
-    private $logCallback = null;
-
     private function __construct()
     {
         $this->startTime = microtime(true);
@@ -64,16 +59,6 @@ class ApiKernel
     public function setApiLogger(ApiLogInterface $logger): void
     {
         $this->apiLogger = $logger;
-    }
-
-    /**
-     * Establece una función de logging personalizada
-     *
-     * @param callable $callback function(?string $userId, string $path, string $method, int $statusCode, float $duration, ?string $errorMessage): bool
-     */
-    public function setLogCallback(callable $callback): void
-    {
-        $this->logCallback = $callback;
     }
 
     /**
@@ -124,47 +109,18 @@ class ApiKernel
             $result = $this->router->handle($path, $method);
 
             // Logging
-            $this->logRequest($path, $method, $result);
+            $this->logRequest($result);
 
             // Enviar respuesta
             $statusCode = ($result['success'] ?? false) ? 200 : ($result['statusCode'] ?? 400);
             ResponseHelper::sendJson($result, $statusCode);
 
         } catch (ApiException $e) {
-            $this->logRequest($path ?? '', $method ?? 'GET', ['success' => false, 'error' => $e->getMessage()]);
+            $this->logRequest(['success' => false, 'error' => $e->getMessage()]);
             ResponseHelper::sendJson($e->toArray($this->debug), $e->getHttpStatusCode());
         } catch (\Exception $e) {
-            $this->logRequest($path ?? '', $method ?? 'GET', ['success' => false, 'error' => $e->getMessage()]);
+            $this->logRequest(['success' => false, 'error' => $e->getMessage()]);
             ResponseHelper::sendServerError($this->debug ? $e->getMessage() : 'Error interno del servidor');
-        }
-    }
-
-    /**
-     * Maneja un request Symfony (para integración con Router de Symfony)
-     */
-    public function handleRequest(Request $request): JsonResponse
-    {
-        try {
-            $path = $request->getPathInfo();
-            $method = $request->getMethod();
-
-            // Limpiar /api del inicio si existe
-            if (str_starts_with($path, '/api')) {
-                $path = substr($path, 4);
-            }
-
-            $result = $this->router->handle($path, $method);
-            $statusCode = ($result['success'] ?? false) ? 200 : 400;
-
-            return new JsonResponse($result, $statusCode);
-
-        } catch (ApiException $e) {
-            return new JsonResponse($e->toArray($this->debug), $e->getHttpStatusCode());
-        } catch (\Exception $e) {
-            return new JsonResponse([
-                'success' => false,
-                'error' => $this->debug ? $e->getMessage() : 'Error interno'
-            ], 500);
         }
     }
 
@@ -294,28 +250,12 @@ class ApiKernel
      *
      * @param array<string, mixed> $result
      */
-    private function logRequest(string $path, string $method, array $result): void
+    private function logRequest(array $result): void
     {
         $duration = (microtime(true) - $this->startTime) * 1000; // ms
         $statusCode = ($result['success'] ?? false) ? 200 : 400;
-        $errorMessage = $result['error'] ?? null;
-        $userData = $result['user'] ?? null;
-        $userId = null;
-
-        if (is_array($userData)) {
-            $candidateUserId = $userData['nick'] ?? $userData['userId'] ?? $userData['id'] ?? null;
-            if (is_scalar($candidateUserId)) {
-                $userId = (string) $candidateUserId;
-            }
-        }
 
         try {
-            // Usar callback si está definido
-            if ($this->logCallback !== null) {
-                ($this->logCallback)($userId, $path, $method, $statusCode, $duration, $errorMessage);
-                return;
-            }
-
             // Usar logger si está inyectado
             if ($this->apiLogger !== null) {
                 $this->apiLogger->save();
@@ -338,19 +278,4 @@ class ApiKernel
         }
     }
 
-    /**
-     * Obtiene el router
-     */
-    public function getRouter(): ApiRouter
-    {
-        return $this->router;
-    }
-
-    /**
-     * Obtiene el registry
-     */
-    public function getRegistry(): EndpointRegistry
-    {
-        return $this->registry;
-    }
 }

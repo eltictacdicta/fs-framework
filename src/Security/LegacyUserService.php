@@ -14,6 +14,8 @@ declare(strict_types=1);
 
 namespace FSFramework\Security;
 
+use fs_user;
+
 /**
  * Resolución y permisos de usuarios legacy basados en fs_user.
  */
@@ -33,7 +35,7 @@ final class LegacyUserService
             return null;
         }
 
-        $userModel = new \fs_user();
+        $userModel = new fs_user();
         $user = $userModel->get($nick);
         return $user ?: null;
     }

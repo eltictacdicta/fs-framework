@@ -4,6 +4,25 @@ Fork modernizado de FacturaScripts 2017 con soporte inicial para plugins de Fact
 
 Software libre bajo licencia GNU/LGPL.
 
+## Dependencias de produccion y desarrollo
+
+Este repositorio puede mantener en GitHub el `vendor/` necesario para produccion y, al mismo tiempo, dejar las herramientas de desarrollo fuera de lo versionado.
+
+- Produccion: usa el `vendor/` principal del proyecto
+- Desarrollo: instala las herramientas locales con `ddev exec composer install --working-dir=dev-tools`
+- Las herramientas se instalan en `vendor/dev-tools/`, que esta ignorado por Git
+
+Con este esquema:
+
+- quien descarga el framework para produccion no necesita instalar PHPStan, Rector o PHPUnit
+- quien desarrolla puede instalarlos despues cuando los necesite
+- el `vendor/` de produccion no se mezcla con el `vendor` de tooling local
+
+Atajos disponibles en el `composer.json` principal una vez instaladas las herramientas:
+
+- `ddev exec composer phpstan`
+- `ddev exec composer phpstan:dead-code`
+
 ## Advertencia
 
 Este framework mantiene la lógica original de FacturaScripts 2017 pero ha sido modernizado con componentes de Symfony 7.4 y migrado a Twig como motor de plantillas principal. **No es 100% compatible con la funcionalidad base de facturación original**, en el futuro ofrecerá compatibilidad parcial con plugins de FacturaScripts 2025.

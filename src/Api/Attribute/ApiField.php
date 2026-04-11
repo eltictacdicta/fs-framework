@@ -68,29 +68,4 @@ class ApiField
         public ?string $format = null
     ) {}
 
-    /**
-     * Verifica si el campo es de solo lectura
-     */
-    public function isReadOnly(): bool
-    {
-        return $this->readable && !$this->writable;
-    }
-
-    /**
-     * Verifica si el campo es de solo escritura
-     */
-    public function isWriteOnly(): bool
-    {
-        return $this->writable && !$this->readable;
-    }
-
-    /**
-     * Obtiene los constraints de validación
-     *
-     * @return Constraint[]
-     */
-    public function getValidationConstraints(): array
-    {
-        return $this->validation;
-    }
 }

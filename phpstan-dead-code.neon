@@ -1,0 +1,129 @@
+includes:
+    - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/phpstan/phpstan-doctrine/extension.neon
+    - vendor/shipmonk/dead-code-detector/rules.neon
+
+parameters:
+    customRulesetUsed: true
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    tmpDir: tmp/phpstan-dead-code
+    scanDirectories:
+        - base
+        - controller
+        - model
+        - plugins
+        - src
+        - tests
+    paths:
+        - api.php
+        - cron.php
+        - debug_loader.php
+        - index.php
+        - install.php
+        - src
+        - base
+        - controller
+        - model
+        - plugins
+        - tests
+        - updater.php
+        - visual_flow_demo.php
+    ignoreErrors:
+        -
+            identifier: trait.unused
+            path: src/Traits/ResponseTrait.php
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/base/*
+        -
+            identifier: shipmonk.deadProperty.neverWritten
+            path: %currentWorkingDirectory%/base/*
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/base/*
+        -
+            identifier: shipmonk.deadConstant
+            path: %currentWorkingDirectory%/base/*
+        -
+            identifier: shipmonk.deadEnumCase
+            path: %currentWorkingDirectory%/base/*
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/controller/*
+        -
+            identifier: shipmonk.deadProperty.neverWritten
+            path: %currentWorkingDirectory%/controller/*
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/controller/*
+        -
+            identifier: shipmonk.deadConstant
+            path: %currentWorkingDirectory%/controller/*
+        -
+            identifier: shipmonk.deadEnumCase
+            path: %currentWorkingDirectory%/controller/*
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/model/*
+        -
+            identifier: shipmonk.deadProperty.neverWritten
+            path: %currentWorkingDirectory%/model/*
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/model/*
+        -
+            identifier: shipmonk.deadConstant
+            path: %currentWorkingDirectory%/model/*
+        -
+            identifier: shipmonk.deadEnumCase
+            path: %currentWorkingDirectory%/model/*
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/model/*/*
+        -
+            identifier: shipmonk.deadProperty.neverWritten
+            path: %currentWorkingDirectory%/model/*/*
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/model/*/*
+        -
+            identifier: shipmonk.deadConstant
+            path: %currentWorkingDirectory%/model/*/*
+        -
+            identifier: shipmonk.deadEnumCase
+            path: %currentWorkingDirectory%/model/*/*
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/plugins/*/*
+        -
+            identifier: shipmonk.deadProperty.neverWritten
+            path: %currentWorkingDirectory%/plugins/*/*
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/plugins/*/*
+        -
+            identifier: shipmonk.deadConstant
+            path: %currentWorkingDirectory%/plugins/*/*
+        -
+            identifier: shipmonk.deadEnumCase
+            path: %currentWorkingDirectory%/plugins/*/*
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/plugins/*/*/*
+        -
+            identifier: shipmonk.deadProperty.neverWritten
+            path: %currentWorkingDirectory%/plugins/*/*/*
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/plugins/*/*/*
+        -
+            identifier: shipmonk.deadConstant
+            path: %currentWorkingDirectory%/plugins/*/*/*
+        -
+            identifier: shipmonk.deadEnumCase
+            path: %currentWorkingDirectory%/plugins/*/*/*
+    shipmonkDeadCode:
+        usageExcluders:
+            tests:
+                enabled: true

@@ -48,44 +48,4 @@ enum Operation: string
         ];
     }
 
-    /**
-     * Operaciones de solo lectura
-     *
-     * @return Operation[]
-     */
-    public static function readOnly(): array
-    {
-        return [
-            self::LIST,
-            self::GET
-        ];
-    }
-
-    /**
-     * Operaciones de escritura
-     *
-     * @return Operation[]
-     */
-    public static function write(): array
-    {
-        return [
-            self::CREATE,
-            self::UPDATE,
-            self::DELETE
-        ];
-    }
-
-    /**
-     * Mapea método HTTP a operación
-     */
-    public static function fromHttpMethod(string $method, bool $hasId): ?self
-    {
-        return match ($method) {
-            'GET' => $hasId ? self::GET : self::LIST,
-            'POST' => self::CREATE,
-            'PUT', 'PATCH' => self::UPDATE,
-            'DELETE' => self::DELETE,
-            default => null
-        };
-    }
 }

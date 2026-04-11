@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of FSFramework
  * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
@@ -8,7 +11,6 @@
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
  */
-
 namespace FSFramework\Security;
 
 class SecretManager
@@ -33,7 +35,7 @@ class SecretManager
             }
         }
 
-        if (empty($parts)) {
+        if ($parts === []) {
             $parts[] = __FILE__;
             $parts[] = PHP_VERSION;
         }

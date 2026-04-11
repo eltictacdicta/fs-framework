@@ -19,6 +19,7 @@
 
 namespace FSFramework\Security;
 
+use Throwable;
 use FSFramework\Core\Kernel;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManager;
@@ -99,7 +100,7 @@ class CsrfManager
     {
         try {
             return Kernel::request();
-        } catch (\Throwable $e) {
+        } catch (Throwable) {
             return new Request();
         }
     }
@@ -208,11 +209,10 @@ class CsrfManager
 
     /**
      * Obtiene el token de una petición HTTP (de POST o header).
-     * 
-     * @param \Symfony\Component\HttpFoundation\Request $request
+     *
      * @return string|null El token si existe, null si no
      */
-    public static function getTokenFromRequest(\Symfony\Component\HttpFoundation\Request $request): ?string
+    public static function getTokenFromRequest(Request $request): ?string
     {
         // Primero buscar en POST
         $token = $request->request->get(self::FIELD_NAME);
@@ -228,13 +228,12 @@ class CsrfManager
     /**
      * Valida el token CSRF de una petición HTTP.
      * Modo conveniente que extrae y valida el token automáticamente.
-     * 
-     * @param \Symfony\Component\HttpFoundation\Request $request
+     *
      * @param string|null $tokenId Identificador del token
      * @return bool True si el token es válido
      */
     public static function validateRequest(
-        \Symfony\Component\HttpFoundation\Request $request,
+        Request $request,
         ?string $tokenId = null
     ): bool {
         $token = self::getTokenFromRequest($request);

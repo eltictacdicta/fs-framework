@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of FSFramework
  * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
@@ -8,8 +11,9 @@
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
  */
-
 namespace FSFramework\Security;
+
+use RuntimeException;
 
 class EncryptionService
 {
@@ -25,7 +29,7 @@ class EncryptionService
     public function encrypt(string $plainText): string
     {
         if (!$this->isAvailable()) {
-            throw new \RuntimeException('Sodium no está disponible en esta instalación de PHP.');
+            throw new RuntimeException('Sodium no está disponible en esta instalación de PHP.');
         }
 
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
@@ -37,17 +41,17 @@ class EncryptionService
     public function decrypt(string $cipherText): string
     {
         if (!$this->isAvailable()) {
-            throw new \RuntimeException('Sodium no está disponible en esta instalación de PHP.');
+            throw new RuntimeException('Sodium no está disponible en esta instalación de PHP.');
         }
 
         $parts = explode(':', $cipherText, 2);
         if (count($parts) !== 2 || $parts[0] !== self::VERSION) {
-            throw new \RuntimeException('Formato de cifrado no soportado.');
+            throw new RuntimeException('Formato de cifrado no soportado.');
         }
 
         $raw = base64_decode($parts[1], true);
         if ($raw === false || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
-            throw new \RuntimeException('Payload cifrado inválido.');
+            throw new RuntimeException('Payload cifrado inválido.');
         }
 
         $nonce = substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
@@ -55,7 +59,7 @@ class EncryptionService
 
         $plain = sodium_crypto_secretbox_open($cipher, $nonce, $this->key());
         if ($plain === false) {
-            throw new \RuntimeException('No se pudo descifrar el payload.');
+            throw new RuntimeException('No se pudo descifrar el payload.');
         }
 
         return $plain;

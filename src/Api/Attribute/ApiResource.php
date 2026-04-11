@@ -76,45 +76,4 @@ class ApiResource
         return in_array($operation, $this->operations, true);
     }
 
-    /**
-     * Verifica si permite lectura
-     */
-    public function allowsRead(): bool
-    {
-        return $this->allowsOperation(Operation::LIST) || $this->allowsOperation(Operation::GET);
-    }
-
-    /**
-     * Verifica si permite escritura
-     */
-    public function allowsWrite(): bool
-    {
-        return $this->allowsOperation(Operation::CREATE) 
-            || $this->allowsOperation(Operation::UPDATE)
-            || $this->allowsOperation(Operation::DELETE);
-    }
-
-    /**
-     * Verifica si un campo es buscable
-     */
-    public function isSearchable(string $field): bool
-    {
-        return in_array($field, $this->searchable, true);
-    }
-
-    /**
-     * Verifica si un campo es ordenable
-     */
-    public function isSortable(string $field): bool
-    {
-        return in_array($field, $this->sortable, true);
-    }
-
-    /**
-     * Verifica si un campo es filtrable
-     */
-    public function isFilterable(string $field): bool
-    {
-        return in_array($field, $this->filterable, true);
-    }
 }

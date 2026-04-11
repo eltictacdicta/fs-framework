@@ -27,6 +27,7 @@ require_once __DIR__ . '/base/fs_db2.php';
 require_once __DIR__ . '/base/fs_ip_filter.php';
 require_once __DIR__ . '/base/fs_login.php';
 require_once __DIR__ . '/base/fs_model.php';
+require_once __DIR__ . '/base/fs_extended_model.php';
 require_once __DIR__ . '/base/fs_prepared_db.php';
 require_once __DIR__ . '/base/fs_query_builder.php';
 require_once __DIR__ . '/base/fs_schema.php';
@@ -41,5 +42,7 @@ $pluginDirs = array_filter(scandir(__DIR__ . '/plugins') ?: [], static function 
 });
 
 $GLOBALS['plugins'] = array_values($pluginDirs);
+
+require_once __DIR__ . '/base/fs_controller.php';
 
 fs_model_autoloader::register(false);

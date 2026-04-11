@@ -14,14 +14,17 @@ declare(strict_types=1);
 
 namespace FSFramework\Security;
 
+use fs_user;
+use Throwable;
+use fs_core_log;
 use Symfony\Component\HttpFoundation\Session\Session;
 
 /**
  * Bridge mínimo para compatibilidad de autenticación heredada.
  */
-final class LegacyAuthBridge
+final readonly class LegacyAuthBridge
 {
-    public function __construct(private readonly Session $session)
+    public function __construct(private Session $session)
     {
     }
 
@@ -39,7 +42,7 @@ final class LegacyAuthBridge
             $this->loadUserDependencies();
             if (class_exists('fs_user')) {
                 try {
-                    $userModel = new \fs_user();
+                    $userModel = new fs_user();
                     $user = $userModel->get($cookieUser);
                     if ($this->isLegacyUserAuthenticated($user, (string) $cookieLogkey)
                         && $this->isRememberMeSignatureValid((string) $cookieUser, (string) $cookieLogkey, (string) $cookieSig)) {
@@ -50,7 +53,7 @@ final class LegacyAuthBridge
                             'logkey' => (string) $cookieLogkey,
                         ];
                     }
-                } catch (\Throwable $e) {
+                } catch (Throwable) {
                     $legacyUserData = null;
                 }
             }
@@ -116,7 +119,7 @@ final class LegacyAuthBridge
             return;
         }
 
-        $log = new \fs_core_log(__CLASS__);
+        $log = new fs_core_log(self::class);
         $log->alert('No se emitieron cookies legacy porque falta log_key.', ['nick' => $nick]);
     }
 

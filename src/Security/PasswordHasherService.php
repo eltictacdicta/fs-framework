@@ -20,7 +20,6 @@
 namespace FSFramework\Security;
 
 use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasher;
 use Symfony\Component\PasswordHasher\PasswordHasherInterface;
 
 /**
@@ -230,11 +229,7 @@ class PasswordHasherService
 
         // Probar MD5 (otro formato legacy común)
         $md5Hash = md5($plainPassword);
-        if (hash_equals($storedHash, $md5Hash)) {
-            return true;
-        }
-
-        return false;
+        return hash_equals($storedHash, $md5Hash);
     }
 
     /**

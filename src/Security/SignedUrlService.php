@@ -11,6 +11,8 @@
 
 namespace FSFramework\Security;
 
+use DateTimeInterface;
+use DateInterval;
 use Symfony\Component\HttpFoundation\Exception\SignedUriException;
 use Symfony\Component\HttpFoundation\UriSigner;
 
@@ -18,7 +20,7 @@ class SignedUrlService
 {
     private static ?UriSigner $signer = null;
 
-    public static function sign(string $url, \DateTimeInterface|\DateInterval|int|null $expiration = null): string
+    public static function sign(string $url, DateTimeInterface|DateInterval|int|null $expiration = null): string
     {
         $signer = self::getSigner();
 
@@ -33,7 +35,7 @@ class SignedUrlService
     {
         try {
             return self::getSigner()->check($url);
-        } catch (SignedUriException $e) {
+        } catch (SignedUriException) {
             return false;
         }
     }

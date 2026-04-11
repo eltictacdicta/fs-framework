@@ -93,11 +93,10 @@ class SafeRedirect
     /**
      * Valida y ejecuta una redirección segura.
      * Convenience method que hace validate() + header() + exit().
-     * 
+     *
      * @param string|null $url URL a validar
      * @param string $fallbackUrl URL por defecto si la validación falla
      * @param int $httpCode Código HTTP de redirección (302 por defecto)
-     * @return never
      */
     public static function redirect(?string $url, string $fallbackUrl = 'index.php', int $httpCode = 302): never
     {
@@ -184,7 +183,7 @@ class SafeRedirect
         ];
         
         foreach ($dangerousProtocols as $protocol) {
-            if (str_starts_with($normalized, $protocol)) {
+            if (str_starts_with((string) $normalized, $protocol)) {
                 return true;
             }
         }
@@ -201,16 +200,9 @@ class SafeRedirect
         if (preg_match('#^/[^/]#', $url) || $url === '/') {
             return true;
         }
-        
         // Es un path simple como "index.php?page=home"
-        if (!str_contains($url, '://') && !str_starts_with($url, '//')) {
-            // Verificar que no tenga esquema
-            if (!preg_match('#^[a-zA-Z][a-zA-Z0-9+.-]*:#', $url)) {
-                return true;
-            }
-        }
-        
-        return false;
+        // Verificar que no tenga esquema
+        return !str_contains($url, '://') && !str_starts_with($url, '//') && !preg_match('#^[a-zA-Z][a-zA-Z0-9+.-]*:#', $url);
     }
 
     /**
@@ -278,13 +270,8 @@ class SafeRedirect
         if (in_array($targetHost, self::$allowedHosts, true)) {
             return true;
         }
-        
         // Verificar si es un subdominio del host actual
-        if ($currentHost && str_ends_with($targetHost, '.' . $currentHost)) {
-            return true;
-        }
-        
-        return false;
+        return $currentHost && str_ends_with($targetHost, '.' . $currentHost);
     }
 
     /**
@@ -305,12 +292,12 @@ class SafeRedirect
         if (isset($_SERVER['HTTP_HOST'])) {
             // Remover puerto si está presente
             $host = $_SERVER['HTTP_HOST'];
-            $host = preg_replace('/:\d+$/', '', $host);
+            $host = preg_replace('/:\d+$/', '', (string) $host);
             return strtolower($host);
         }
         
         if (isset($_SERVER['SERVER_NAME'])) {
-            return strtolower($_SERVER['SERVER_NAME']);
+            return strtolower((string) $_SERVER['SERVER_NAME']);
         }
         
         return null;

@@ -19,6 +19,8 @@
 
 namespace FSFramework\Security;
 
+use fs_user;
+use BadMethodCallException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\EquatableInterface;
@@ -45,14 +47,11 @@ use Symfony\Component\Security\Core\User\EquatableInterface;
  */
 class UserAdapter implements UserInterface, PasswordAuthenticatedUserInterface, EquatableInterface
 {
-    private object $legacyUser;
-
     /**
      * @param object $legacyUser Instancia de fs_user
      */
-    public function __construct(object $legacyUser)
+    public function __construct(private object $legacyUser)
     {
-        $this->legacyUser = $legacyUser;
     }
 
     /**
@@ -64,7 +63,7 @@ class UserAdapter implements UserInterface, PasswordAuthenticatedUserInterface, 
             return null;
         }
 
-        $fsUser = new \fs_user();
+        $fsUser = new fs_user();
         $user = $fsUser->get($nick);
 
         if (!$user) {
@@ -107,11 +106,11 @@ class UserAdapter implements UserInterface, PasswordAuthenticatedUserInterface, 
             $accesses = $this->legacyUser->get_accesses();
             foreach ($accesses as $access) {
                 // Crear rol basado en la página
-                $roles[] = 'ROLE_PAGE_' . strtoupper($access->fs_page);
+                $roles[] = 'ROLE_PAGE_' . strtoupper((string) $access->fs_page);
                 
                 // Si tiene permiso de eliminación
                 if ($access->allow_delete ?? false) {
-                    $roles[] = 'ROLE_DELETE_' . strtoupper($access->fs_page);
+                    $roles[] = 'ROLE_DELETE_' . strtoupper((string) $access->fs_page);
                 }
             }
         }
@@ -266,6 +265,6 @@ class UserAdapter implements UserInterface, PasswordAuthenticatedUserInterface, 
         if (method_exists($this->legacyUser, $name)) {
             return $this->legacyUser->$name(...$arguments);
         }
-        throw new \BadMethodCallException("Method {$name} does not exist on legacy user.");
+        throw new BadMethodCallException("Method {$name} does not exist on legacy user.");
     }
 }
