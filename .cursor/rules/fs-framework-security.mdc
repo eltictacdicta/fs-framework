@@ -79,28 +79,11 @@ $id = filter_var($_GET['id'], FILTER_VALIDATE_INT);
 ```
 
 ```php
-// ✅ Preferir FormHelper para que Symfony gestione CSRF automáticamente
-use FSFramework\Form\FormHelper;
-
-$form = FormHelper::create()
-    ->add('campo')
-    ->getForm();
-```
-
-```php
-// ✅ Si necesitas validación manual, no ocultes un _token ausente
+// ✅ Validar CSRF con los helpers actuales del framework
 use FSFramework\Security\CsrfManager;
 
-$token = $this->request->get('_token');
-if ($token === null) {
-    $miniLog = new fs_core_log(__CLASS__);
-    $miniLog->alert('Falta el token CSRF en la petición.');
-    return false;
-}
-
-if (!CsrfManager::isValid($token)) {
-    $miniLog = new fs_core_log(__CLASS__);
-    $miniLog->alert('Token CSRF inválido.');
+if (!CsrfManager::isValid((string) $this->request->get('_token'))) {
+    error_log('Token CSRF inválido');
     return false;
 }
 ```
