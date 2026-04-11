@@ -3,7 +3,7 @@
         'name' => 'facturascripts/fs-framework-modern',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '4f91d1ccf7b037a0fd7866901f25461f7a6f7d2e',
+        'reference' => 'd0318535f352936f4dbc72638a1abd5eb03946e9',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -40,7 +40,7 @@
         'facturascripts/fs-framework-modern' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '4f91d1ccf7b037a0fd7866901f25461f7a6f7d2e',
+            'reference' => 'd0318535f352936f4dbc72638a1abd5eb03946e9',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -309,6 +309,15 @@
             'install_path' => __DIR__ . '/../radebatz/type-info-extras',
             'aliases' => array(),
             'dev_requirement' => false,
+        ),
+        'rector/rector' => array(
+            'pretty_version' => '2.4.1',
+            'version' => '2.4.1.0',
+            'reference' => '000b7050b9e4fe98db2192971e56eb0b302b3feb',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../rector/rector',
+            'aliases' => array(),
+            'dev_requirement' => true,
         ),
         'sabberworm/php-css-parser' => array(
             'pretty_version' => 'v9.3.0',
