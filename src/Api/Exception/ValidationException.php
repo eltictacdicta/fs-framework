@@ -26,9 +26,6 @@ namespace FSFramework\Api\Exception;
  */
 class ValidationException extends ApiException
 {
-    /** @var string[] */
-    protected array $validationErrors = [];
-
     /**
      * @param string|string[] $errors
      */
@@ -39,7 +36,6 @@ class ValidationException extends ApiException
         ?\Throwable $previous = null
     ) {
         if (is_array($errors)) {
-            $this->validationErrors = $errors;
             $message = "Error de validación";
             $errorData = array_merge($errorData ?? [], ['errors' => $errors]);
         } else {
@@ -49,11 +45,4 @@ class ValidationException extends ApiException
         parent::__construct($message, 400, $errorData, $code, $previous);
     }
 
-    /**
-     * @return string[]
-     */
-    public function getValidationErrors(): array
-    {
-        return $this->validationErrors;
-    }
 }

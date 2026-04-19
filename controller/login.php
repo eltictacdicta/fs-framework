@@ -29,6 +29,8 @@ class login extends fs_controller
 {
     private const LOCATION_HEADER = 'Location: ';
 
+    private bool $skipLoginLogic = false;
+
     public function __construct()
     {
         parent::__construct(__CLASS__, 'Login', '', false, false);
@@ -36,29 +38,16 @@ class login extends fs_controller
 
     protected function private_core()
     {
-        // No hacer nada durante la activación de páginas desde admin_home
-        if ($this->is_enable_page_context()) {
+        if ($this->skipLoginLogic) {
             return;
         }
 
         $this->process_login_logic();
     }
 
-    /**
-     * Verifica si estamos en el contexto de activación de páginas
-     * @return bool
-     */
-    private function is_enable_page_context()
+    public function skipLoginLogic(bool $skip = true): void
     {
-        // Si se está llamando desde admin_home para activar páginas,
-        // no debe ejecutarse la lógica de redirección
-        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-        foreach ($trace as $frame) {
-            if (isset($frame['class']) && $frame['class'] === 'admin_home' && isset($frame['function']) && $frame['function'] === 'enable_page') {
-                return true;
-            }
-        }
-        return false;
+        $this->skipLoginLogic = $skip;
     }
 
     /**
@@ -162,12 +151,27 @@ class login extends fs_controller
         exit();
     }
 
+    public function loginActionUrl(): string
+    {
+        $query = $this->request->query->all();
+        unset($query['page']);
+        $query['nlogin'] = $query['nlogin'] ?? '';
+
+        return 'index.php?' . http_build_query($query);
+    }
+
+    public function shouldShowPasswordResetLink(): bool
+    {
+        require_once FS_FOLDER . '/src/Core/StealthMode.php';
+
+        return !(new \FSFramework\Core\StealthMode())->isEnabled();
+    }
+
     protected function public_core()
     {
         $this->template = 'login.html.twig';
 
-        // No hacer nada durante la activación de páginas desde admin_home
-        if ($this->is_enable_page_context()) {
+        if ($this->skipLoginLogic) {
             return;
         }
 

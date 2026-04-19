@@ -34,7 +34,8 @@ class fs_user extends \fs_model
     public $nick;
 
     /**
-     * Contraseña, en sha1
+    * Contraseña del usuario.
+    * Se almacenan hashes modernos con password_hash(); pueden existir hashes SHA1 legacy durante la transición.
      * @var string 
      */
     public $password;
@@ -204,13 +205,14 @@ class fs_user extends \fs_model
         new \fs_page();
 
         $this->new_message('Se ha creado el usuario <b>admin</b> con la contraseña <b>admin</b>.');
+        $adminHash = password_hash('admin', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
         if ($this->db->select("SELECT * FROM agentes WHERE codagente = '1';")) {
             return "INSERT INTO " . $this->table_name . " (nick,password,log_key,codagente,admin,enabled)
-            VALUES ('admin','" . sha1('admin') . "',NULL,'1',TRUE,TRUE);";
+            VALUES ('admin'," . $this->var2str($adminHash) . ",NULL,'1',TRUE,TRUE);";
         }
 
         return "INSERT INTO " . $this->table_name . " (nick,password,log_key,codagente,admin,enabled)
-            VALUES ('admin','" . sha1('admin') . "',NULL,NULL,TRUE,TRUE);";
+            VALUES ('admin'," . $this->var2str($adminHash) . ",NULL,NULL,TRUE,TRUE);";
     }
 
     public function url()
@@ -406,6 +408,13 @@ class fs_user extends \fs_model
 
         $this->new_error_msg('La contraseña debe contener entre 8 y 32 caracteres.');
         return FALSE;
+    }
+
+    public function is_legacy_sha1_password(): bool
+    {
+        return is_string($this->password)
+            && preg_match('/^[a-f0-9]{40}$/i', $this->password) === 1
+            && password_get_info($this->password)['algo'] === null;
     }
     /*
      * Modifica y guarda la fecha de login si tiene una diferencia de más de 5 minutos

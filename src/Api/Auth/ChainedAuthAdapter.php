@@ -26,9 +26,8 @@ use FSFramework\model\fs_user;
  * Generic chain-of-responsibility adapter for token validation.
  *
  * Tries each registered ApiAuthInterface adapter in order until one
- * succeeds. This allows multiple authentication strategies (e.g. opaque
- * tokens from api_base + OIDC tokens from OidcProvider) to coexist
- * without coupling the individual implementations to each other.
+ * succeeds. This allows the core API layer to stay generic while plugins
+ * such as api_base and OidcProvider supply concrete token strategies.
  */
 class ChainedAuthAdapter implements ApiAuthInterface
 {
@@ -56,11 +55,6 @@ class ChainedAuthAdapter implements ApiAuthInterface
         return $this->primary->authenticate($nick, $password);
     }
 
-    public function authenticateWithoutPassword(fs_user $user): array
-    {
-        return $this->primary->authenticateWithoutPassword($user);
-    }
-
     public function logout(string $token): array
     {
         foreach ($this->adapters as $adapter) {
@@ -81,17 +75,6 @@ class ChainedAuthAdapter implements ApiAuthInterface
             }
         }
         return ['success' => false, 'error' => 'Token inválido'];
-    }
-
-    public function validateRefreshToken(string $refreshToken): array
-    {
-        foreach ($this->adapters as $adapter) {
-            $result = $adapter->validateRefreshToken($refreshToken);
-            if ($result['success']) {
-                return $result;
-            }
-        }
-        return ['success' => false, 'error' => 'Refresh token inválido'];
     }
 
     public function refreshTokens(string $refreshToken): array
@@ -125,16 +108,6 @@ class ChainedAuthAdapter implements ApiAuthInterface
         return $this->primary->getCurrentToken();
     }
 
-    public function clearUserRateLimit(string $nick, ?string $ip = null): bool
-    {
-        return $this->primary->clearUserRateLimit($nick, $ip);
-    }
-
-    public function getUsersWithActiveTokens(): array
-    {
-        return $this->primary->getUsersWithActiveTokens();
-    }
-
     public function revokeUserTokens(string $nick): bool
     {
         $success = false;
@@ -146,8 +119,4 @@ class ChainedAuthAdapter implements ApiAuthInterface
         return $success;
     }
 
-    public function getRateLimitStatistics(): array
-    {
-        return $this->primary->getRateLimitStatistics();
-    }
 }

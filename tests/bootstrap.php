@@ -67,12 +67,20 @@ if (!defined('FS_NF2')) {
     define('FS_NF2', '.');
 }
 
+if (!defined('FS_POS_DIVISA')) {
+    define('FS_POS_DIVISA', 'right');
+}
+
 if (!defined('FS_ITEM_LIMIT')) {
     define('FS_ITEM_LIMIT', 50);
 }
 
 if (!defined('FS_COOKIES_EXPIRE')) {
     define('FS_COOKIES_EXPIRE', 31536000);
+}
+
+if (!defined('FS_DB_HISTORY')) {
+    define('FS_DB_HISTORY', false);
 }
 
 if (!defined('FS_PATH')) {

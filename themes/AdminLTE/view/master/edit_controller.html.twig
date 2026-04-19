@@ -66,6 +66,10 @@
     </form>
 </div>
 
+<form id="form_delete_model" action="{{ fsc.model.url() }}&action=delete" method="post" style="display: none;">
+    {{ csrf_field() }}
+</form>
+
 <script type="text/javascript">
     $(document).ready(function () {
         $("#btn_delete_model").click(function (event) {
@@ -75,7 +79,7 @@
                 title: '<b>Atención</b>',
                 callback: function (result) {
                     if (result) {
-                        window.location.href = '{{ fsc.model.url()|raw }}&action=delete';
+                        document.getElementById('form_delete_model').submit();
                     }
                 }
             });

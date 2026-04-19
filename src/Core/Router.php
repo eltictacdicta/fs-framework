@@ -120,6 +120,10 @@ class Router
                 $collection->addCollection($loader->load('routes.php'));
             }
         }
+
+        foreach (Plugins::routeConfigurators() as $configurator) {
+            $configurator($collection);
+        }
     }
 
     /**
@@ -149,6 +153,10 @@ class Router
         }
 
         foreach ($GLOBALS['plugins'] as $plugin) {
+            if (!Plugins::shouldLoadAutomaticRoutes($plugin)) {
+                continue;
+            }
+
             $pluginControllerDir = $pluginsDir . '/' . $plugin . '/controller';
             if (is_dir($pluginControllerDir)) {
                 $collection->addCollection($this->loadLegacyControllerRoutes($pluginControllerDir));
@@ -415,6 +423,14 @@ class Router
 
     public function generateLegacyUrl(string $pageName, array $params = []): string
     {
+        if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            \FSFramework\Plugins\legacy_support\LegacyCompatibility::reportDeprecatedComponent(
+                'legacy.router',
+                'generateLegacyUrl',
+                'Router::generate()'
+            );
+        }
+
         $url = 'index.php?page=' . urlencode($pageName);
         foreach ($params as $key => $value) {
             $url .= '&' . urlencode($key) . '=' . urlencode((string) $value);
@@ -429,6 +445,13 @@ class Router
 
     public function clearCache(): bool
     {
+        if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            \FSFramework\Plugins\legacy_support\LegacyCompatibility::reportDeprecatedComponent(
+                'legacy.router',
+                'clearCache'
+            );
+        }
+
         $ok = true;
         if (file_exists(self::$cacheFile)) {
             if (!unlink(self::$cacheFile)) {

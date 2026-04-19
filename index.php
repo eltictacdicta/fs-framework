@@ -77,14 +77,16 @@ try {
 \FSFramework\Core\Kernel::boot();
 
 /// --- Stealth Mode Gate ---
-/// Si el modo stealth está activo y la petición no tiene acceso,
-/// se muestra la homepage pública y se detiene la ejecución.
 require_once FS_FOLDER . '/src/Core/StealthMode.php';
+require_once FS_FOLDER . '/src/Core/PublicAccessGate.php';
 $_stealth = new \FSFramework\Core\StealthMode();
-if ($_stealth->isEnabled() && !$_stealth->isExemptRoute() && !$_stealth->hasAccess()) {
-    $_stealth->renderPublicHomepage();
+$_publicAccessGate = new \FSFramework\Core\PublicAccessGate($_stealth);
+$_publicAccessResponse = $_publicAccessGate->intercept(\FSFramework\Core\Kernel::request());
+if ($_publicAccessResponse) {
+    $_publicAccessResponse->send();
+    exit;
 }
-unset($_stealth);
+unset($_publicAccessGate, $_publicAccessResponse, $_stealth);
 
 /// --- Symfony Routing Bridge ---
 try {

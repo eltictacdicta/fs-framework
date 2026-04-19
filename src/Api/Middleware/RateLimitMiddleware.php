@@ -19,8 +19,6 @@
 
 namespace FSFramework\Api\Middleware;
 
-use FSFramework\Api\Exception\ApiException;
-use FSFramework\Api\Helper\ResponseHelper;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -160,29 +158,9 @@ class RateLimitMiddleware implements MiddlewareInterface
         return self::$cache[$this->identifier]['reset'];
     }
 
-    /**
-     * Establece el límite
-     */
-    public function setLimit(int $limit): self
+    public function getLimit(): int
     {
-        $this->limit = $limit;
-        return $this;
+        return $this->limit;
     }
 
-    /**
-     * Establece la ventana de tiempo
-     */
-    public function setWindow(int $window): self
-    {
-        $this->window = $window;
-        return $this;
-    }
-
-    /**
-     * Limpia el cache (útil para tests)
-     */
-    public static function clearCache(): void
-    {
-        self::$cache = [];
-    }
 }

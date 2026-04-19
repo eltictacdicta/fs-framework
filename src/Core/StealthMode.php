@@ -30,13 +30,15 @@ use Sabberworm\CSS\Value\CSSString;
 use Sabberworm\CSS\Value\URL;
 use Sabberworm\CSS\Value\Value;
 use Sabberworm\CSS\Value\ValueList;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Gestiona el "modo stealth" del panel de administración.
  *
  * Cuando está activo, index.php muestra una homepage pública personalizada
  * y el acceso al backend requiere un parámetro secreto en la URL que
- * desbloquea la sesión una sola vez.
+ * habilita una única entrada oculta al login legacy.
  *
  * Usa fs_db2 directamente (sin depender de fs_model/fs_var) para poder
  * ejecutarse en el gate temprano de index.php.
@@ -123,8 +125,8 @@ class StealthMode
     /**
      * Comprueba si la petición actual tiene acceso al backend.
      * - Si el usuario ya está logueado (sesión de login existente) -> acceso.
-     * - Si la sesión stealth ya fue desbloqueada -> acceso.
-     * - Si el parámetro secreto es correcto -> desbloquea sesión y redirige.
+     * - Si la petición es al login oculto y la sesión stealth lo permite -> acceso.
+        * - La redirección desde entrada secreta se gestiona en consumeSecretEntryRedirect().
      * - En otro caso -> sin acceso.
      */
     public function hasAccess(): bool
@@ -133,34 +135,38 @@ class StealthMode
             return true;
         }
 
-        if ($this->isSessionUnlocked()) {
-            return true;
-        }
-
-        $paramName = $this->getParamName();
-        $paramValue = $this->getParamValue();
-
-        if (empty($paramValue)) {
-            error_log(sprintf('StealthMode: access denied because the secret parameter "%s" is empty.', $paramName));
-            return false;
-        }
-
-        $requestValue = $_GET[$paramName] ?? null;
-
-        if ($requestValue !== null && hash_equals($paramValue, (string) $requestValue)) {
-            $this->grantAccess();
-            $this->redirectClean();
+        if ($this->isHiddenLoginAllowed()) {
             return true;
         }
 
         return false;
     }
 
-    /**
-     * Renderiza la homepage pública y termina la ejecución.
-     * Envuelve el contenido del editor en un documento HTML completo con Bootstrap.
-     */
-    public function renderPublicHomepage(): void
+    public function consumeSecretEntryRedirect(): ?RedirectResponse
+    {
+        if (!$this->isValidSecretRequest()) {
+            return null;
+        }
+
+        if ($this->isHiddenLoginPageRequest() || $this->isHiddenLoginSubmission()) {
+            return null;
+        }
+
+        $this->grantAccess();
+
+        return $this->redirectToHiddenLogin();
+    }
+
+    public function createPublicHomepageResponse(): Response
+    {
+        $response = new Response($this->buildPublicHomepageHtml());
+        $response->headers->set('Content-Type', 'text/html; charset=UTF-8');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        return $response;
+    }
+
+    public function buildPublicHomepageHtml(): string
     {
         $bodyContent = trim($this->getHomepageHtml());
         $customCss = trim($this->getCustomCss());
@@ -169,12 +175,7 @@ class StealthMode
             $bodyContent = $this->getDefaultBodyContent();
         }
 
-        $html = $this->wrapInDocument($bodyContent, $customCss);
-
-        header('Content-Type: text/html; charset=UTF-8');
-        header('X-Content-Type-Options: nosniff');
-        echo $html;
-        exit;
+        return $this->wrapInDocument($bodyContent, $customCss);
     }
 
     public function getParamName(): string
@@ -214,6 +215,69 @@ class StealthMode
         }
 
         return $base . '/index.php?' . urlencode($this->getParamName()) . '=' . urlencode($paramValue);
+    }
+
+    public function getHiddenLoginUrl(): string
+    {
+        $base = defined('FS_PATH') ? rtrim((string) FS_PATH, '/') : '';
+        $paramName = $this->getParamName();
+        $paramValue = $this->getParamValue();
+
+        return $base . '/index.php?page=login&' . urlencode($paramName) . '=' . urlencode($paramValue);
+    }
+
+    public function isPublicHomepageRequest(?string $uri = null): bool
+    {
+        if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            \FSFramework\Plugins\legacy_support\LegacyCompatibility::reportDeprecatedComponent(
+                'legacy.stealth_mode',
+                'isPublicHomepageRequest',
+                'Plugins::isPublicPath()'
+            );
+        }
+
+        $requestUri = $uri ?? ($_SERVER['REQUEST_URI'] ?? '/');
+        $path = parse_url($requestUri, PHP_URL_PATH) ?? '/';
+        $path = $path === '/' ? '/' : rtrim($path, '/');
+        if ($path === '') {
+            $path = '/';
+        }
+
+        $base = defined('FS_PATH') ? rtrim((string) FS_PATH, '/') : '';
+        $allowedPaths = ['/'];
+        if ($base !== '') {
+            $allowedPaths[] = $base;
+            $allowedPaths[] = $base . '/index.php';
+        } else {
+            $allowedPaths[] = '/index.php';
+        }
+
+        if (!in_array($path, $allowedPaths, true)) {
+            return false;
+        }
+
+        return empty($_GET['page']);
+    }
+
+    public function hasAuthenticatedSession(): bool
+    {
+        return $this->isUserLoggedIn();
+    }
+
+    public function isLegacyLoginRequest(): bool
+    {
+        return $this->isHiddenLoginPageRequest();
+    }
+
+    public function isLegacyLoginSubmission(): bool
+    {
+        return $this->isHiddenLoginSubmission();
+    }
+
+    public function createLegacyLoginRedirectResponse(): RedirectResponse
+    {
+        $base = defined('FS_PATH') ? rtrim((string) FS_PATH, '/') : '';
+        return new RedirectResponse($base . '/index.php?page=login');
     }
 
     // -- Métodos de gestión (usados por admin_stealth) --
@@ -279,28 +343,17 @@ class StealthMode
      */
     public function isExemptRoute(): bool
     {
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
-        $path = parse_url($uri, PHP_URL_PATH) ?? '';
-
-        $exemptPrefixes = [
-            '/oidc/',
-            '/oauth/',
-            '/api/',
-            '/.well-known/',
-        ];
-
-        foreach ($exemptPrefixes as $prefix) {
-            if (stripos($path, $prefix) === 0) {
-                return true;
-            }
+        if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            \FSFramework\Plugins\legacy_support\LegacyCompatibility::reportDeprecatedComponent(
+                'legacy.stealth_mode',
+                'isExemptRoute',
+                'Plugins::isPublicPath()'
+            );
         }
 
-        $page = $_GET['page'] ?? '';
-        $exemptPages = [
-            'password_reset',
-        ];
-
-        return in_array($page, $exemptPages, true);
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $path = parse_url($uri, PHP_URL_PATH) ?? '';
+        return Plugins::isPublicPath($path);
     }
 
     // -- Acceso directo a BD via fs_db2 --
@@ -397,13 +450,45 @@ class StealthMode
         return false;
     }
 
-    private function isSessionUnlocked(): bool
+    private function isHiddenLoginAllowed(): bool
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            @session_start();
+        if (!$this->isValidSecretRequest()) {
+            return false;
         }
 
-        return !empty($_SESSION[self::SESSION_KEY]);
+        return $this->isHiddenLoginPageRequest() || $this->isHiddenLoginSubmission();
+    }
+
+    private function isHiddenLoginPageRequest(): bool
+    {
+        return ($_GET['page'] ?? '') === 'login';
+    }
+
+    private function isHiddenLoginSubmission(): bool
+    {
+        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+            return false;
+        }
+
+        if (isset($_GET['nlogin'])) {
+            return true;
+        }
+
+        return isset($_POST['user']) && (isset($_POST['password']) || isset($_POST['email']));
+    }
+
+    private function isValidSecretRequest(): bool
+    {
+        $paramName = $this->getParamName();
+        $paramValue = $this->getParamValue();
+
+        if (empty($paramValue)) {
+            error_log(sprintf('StealthMode: access denied because the secret parameter "%s" is empty.', $paramName));
+            return false;
+        }
+
+        $requestValue = $_GET[$paramName] ?? null;
+        return $requestValue !== null && hash_equals($paramValue, (string) $requestValue);
     }
 
     private function grantAccess(): void
@@ -415,16 +500,9 @@ class StealthMode
         $_SESSION[self::SESSION_KEY] = true;
     }
 
-    private function redirectClean(): void
+    private function redirectToHiddenLogin(): RedirectResponse
     {
-        $base = defined('FS_PATH') ? FS_PATH : '/';
-        if (empty($base)) {
-            $base = '/';
-        }
-        $location = rtrim($base, '/') . '/index.php';
-
-        header('Location: ' . $location);
-        exit;
+        return new RedirectResponse($this->getHiddenLoginUrl());
     }
 
     // -- Sanitización --

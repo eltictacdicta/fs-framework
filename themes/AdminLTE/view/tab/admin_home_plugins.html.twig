@@ -72,7 +72,7 @@
                         <span class="glyphicon glyphicon-ok"></span>&nbsp; Activar
                     </a>
                     {% else %}
-                    <a class="btn btn-xs btn-warning" href="#" onclick="bootbox.alert({message: '{{ value.error_msg }}', title: '<b>Atención</b>'});">
+                    <a class="btn btn-xs btn-warning" href="#" onclick="bootbox.alert({message: '{{ value.error_msg|e('js') }}', title: '<b>Atención</b>'});">
                         <span class="glyphicon glyphicon-remove"></span>&nbsp; Incompatible
                     </a>
                     {% endif %}

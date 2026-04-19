@@ -50,8 +50,6 @@ if (defined('FS_LAZY_MODELS') && FS_LAZY_MODELS) {
 #[AllowDynamicProperties]
 class fs_controller extends fs_app
 {
-    use \FSFramework\Traits\ResponseTrait;
-
     /**
      * Objeto Request de Symfony HttpFoundation para acceso a parámetros
      * de la petición de forma moderna y segura.
@@ -70,6 +68,13 @@ class fs_controller extends fs_app
      * @var bool
      */
     protected $is_ajax = false;
+
+    /**
+     * Indica si el controlador permite cambiar de base de datos desde la petición.
+     * Algunos flujos legacy de login lo rellenan dinámicamente.
+     * @var bool
+     */
+    protected $multi_db = false;
 
     /**
      * Nombre del controlador (lo utilizamos en lugar de __CLASS__ porque __CLASS__
@@ -490,28 +495,6 @@ class fs_controller extends fs_app
         if ($guardar) {
             $this->core_log->save($msg, $tipo, $alerta);
         }
-    }
-
-    /**
-     * Muestra al usuario un mensaje de error y lo imprime en la consola de JavaScript
-     * @param string $msg el mensaje a mostrar
-     * @param string $tipo el tipo de mensaje (por defecto 'error')
-     * @param bool $alerta si se debe mostrar una alerta (por defecto FALSE)
-     * @param bool $guardar si se debe guardar el mensaje en el log (por defecto TRUE)
-     */
-    public function new_error_console($msg, $tipo = 'error', $alerta = FALSE, $guardar = TRUE)
-    {
-        if ($this->class_name == $this->core_log->controller_name()) {
-            /// solamente nos interesa mostrar los mensajes del controlador que inicia todo
-            $this->core_log->new_error($msg);
-        }
-
-        if ($guardar) {
-            $this->core_log->save($msg, $tipo, $alerta);
-        }
-
-        // Generar un script JavaScript para mostrar el mensaje en la consola
-        echo "<script>console.log('" . addslashes($msg) . "');</script>";
     }
 
     /**

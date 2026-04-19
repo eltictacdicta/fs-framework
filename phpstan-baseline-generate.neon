@@ -1,0 +1,11 @@
+includes:
+    - vendor/dev-tools/phpstan/phpstan-symfony/extension.neon
+    - vendor/dev-tools/phpstan/phpstan-doctrine/extension.neon
+
+parameters:
+    level: 5
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    paths:
+        - src
+        - tests

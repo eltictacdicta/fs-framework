@@ -743,6 +743,9 @@ class admin_home extends fs_controller
 
         require_once $class_name;
         $new_fsc = new $page->name();
+        if ($new_fsc instanceof login) {
+            $new_fsc->skipLoginLogic();
+        }
         if (!isset($new_fsc->page)) {
             $this->new_error_msg("Error al leer la página " . $page->name);
             return false;

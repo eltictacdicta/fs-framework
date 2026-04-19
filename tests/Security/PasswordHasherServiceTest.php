@@ -105,7 +105,7 @@ class PasswordHasherServiceTest extends TestCase
             $storedHash,
             $password,
             $salt,
-            function ($newHash) use (&$migrated) {
+            function () use (&$migrated) {
                 $migrated = true;
             }
         );
@@ -115,6 +115,24 @@ class PasswordHasherServiceTest extends TestCase
         // El hash almacenado debe haber cambiado a formato moderno
         $this->assertNotSame($legacyHash, $storedHash);
         $this->assertTrue($this->hasher->isModernHash($storedHash));
+    }
+
+    public function testVerifyWithLegacySupportAcceptsLowercaseSha1Variant(): void
+    {
+        $legacyHash = sha1(mb_strtolower('SecretPass', 'UTF8'));
+
+        $result = $this->hasher->verifyWithLegacySupport($legacyHash, 'SecretPass');
+
+        $this->assertTrue($result);
+    }
+
+    public function testVerifyWithLegacySupportAcceptsLegacyMd5(): void
+    {
+        $legacyHash = md5('legacy_password');
+
+        $result = $this->hasher->verifyWithLegacySupport($legacyHash, 'legacy_password');
+
+        $this->assertTrue($result);
     }
 
     // =====================================================================

@@ -27,49 +27,12 @@ namespace FSFramework\Api\Auth\Contract;
 interface AllowedUserInterface
 {
     /**
-     * Busca un usuario permitido por su nick
-     */
-    public function getByNick(string $nick_usuario): self|false;
-
-    /**
      * Verifica si un usuario tiene permiso para acceder a la API
      */
     public function isUserAllowed(string $nick_usuario): bool;
 
     /**
-     * Bloquea un usuario
-     */
-    public function blockUser(string $nick_usuario, ?string $motivo = null): bool;
-
-    /**
-     * Desbloquea un usuario
-     */
-    public function unblockUser(string $nick_usuario): bool;
-
-    /**
      * Actualiza el último acceso de un usuario
      */
     public function updateLastAccess(string $nick_usuario): bool;
-
-    /**
-     * Activa o desactiva OTL para un usuario
-     */
-    public function toggleOtl(string $nick_usuario, bool $otl): bool;
-
-    /**
-     * Verifica si un usuario tiene OTL activado
-     */
-    public function canOtlLogin(string $nick_usuario): bool;
-
-    /**
-     * Obtiene estadísticas de usuarios permitidos
-     * @return array{total_allowed: int, total_blocked: int, users_with_tokens: int}
-     */
-    public function getStatistics(): array;
-
-    /**
-     * Obtiene todos los usuarios permitidos
-     * @return static[]
-     */
-    public function all(): array;
 }

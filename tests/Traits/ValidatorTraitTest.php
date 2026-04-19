@@ -157,6 +157,19 @@ class ValidatorTraitTest extends TestCase
         ]));
     }
 
+    public function testValidatePropertiesChecksOnlySelectedFields(): void
+    {
+        $model = new TestModelWithValidation();
+        $model->nombre = '';
+        $model->email = self::TEST_EMAIL;
+
+        $this->assertFalse($model->validateProperties('nombre'));
+
+        $errors = $model->getValidationErrors();
+        $this->assertArrayHasKey('nombre', $errors);
+        $this->assertArrayNotHasKey('email', $errors);
+    }
+
     // =====================================================================
     // ConstraintBuilder — builder fluido
     // =====================================================================
@@ -200,5 +213,29 @@ class ValidatorTraitTest extends TestCase
 
         $this->assertCount(1, $constraints);
         $this->assertInstanceOf(Assert\Range::class, $constraints[0]);
+    }
+
+    public function testConstraintBuilderAdditionalHelpers(): void
+    {
+        $constraints = TestModelWithValidation::constraints()
+            ->notNull()
+            ->regex('/^[A-Z]+$/')
+            ->positiveOrZero()
+            ->choice(['A', 'B'])
+            ->date()
+            ->dateTime()
+            ->iban()
+            ->add(new Assert\Url())
+            ->get();
+
+        $this->assertCount(8, $constraints);
+        $this->assertInstanceOf(Assert\NotNull::class, $constraints[0]);
+        $this->assertInstanceOf(Assert\Regex::class, $constraints[1]);
+        $this->assertInstanceOf(Assert\PositiveOrZero::class, $constraints[2]);
+        $this->assertInstanceOf(Assert\Choice::class, $constraints[3]);
+        $this->assertInstanceOf(Assert\Date::class, $constraints[4]);
+        $this->assertInstanceOf(Assert\DateTime::class, $constraints[5]);
+        $this->assertInstanceOf(Assert\Iban::class, $constraints[6]);
+        $this->assertInstanceOf(Assert\Url::class, $constraints[7]);
     }
 }

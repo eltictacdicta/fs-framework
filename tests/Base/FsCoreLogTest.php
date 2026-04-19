@@ -40,6 +40,15 @@ class FsCoreLogTest extends TestCase
         $this->assertSame('Operación completada', $messages[0]);
     }
 
+    public function testDisplayMessagesSanitizeUnsafeHtml(): void
+    {
+        $this->log->new_message('<b>Seguro</b> <script>alert(1)</script> <a href="javascript:alert(1)">x</a> <a href="index.php?page=ok">ok</a>');
+
+        $messages = $this->log->get_messages();
+
+        $this->assertSame('<b>Seguro</b> alert(1) x <a href="index.php?page=ok">ok</a>', $messages[0]);
+    }
+
     public function testMultipleMessages(): void
     {
         $this->log->new_message('Primero');

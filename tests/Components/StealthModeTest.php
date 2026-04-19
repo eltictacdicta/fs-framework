@@ -2,6 +2,7 @@
 
 namespace Tests\Components;
 
+use FSFramework\Core\Plugins;
 use FSFramework\Core\StealthMode;
 use PHPUnit\Framework\TestCase;
 
@@ -19,6 +20,8 @@ class StealthModeTest extends TestCase
         $_COOKIE = [];
         $_SESSION = [];
         $_SERVER['REQUEST_URI'] = '/index.php';
+        Plugins::resetRuntimeState();
+        $GLOBALS['plugins'] = [];
     }
 
     public function testHasAccessDeniesWhenSecretIsMissing(): void
@@ -31,15 +34,74 @@ class StealthModeTest extends TestCase
         $this->assertFalse($stealth->hasAccess());
     }
 
-    public function testIsExemptRouteOnlyMatchesPrefixesAtStart(): void
+    public function testIsExemptRouteDelegatesToPluginManagedPublicPrefixes(): void
     {
+        Plugins::registerPublicPathPrefixes('OidcProvider', ['/oauth', '/account']);
+        $GLOBALS['plugins'] = ['OidcProvider'];
+
         $stealth = new StealthMode($this->createDbStub());
 
-        $_SERVER['REQUEST_URI'] = '/prefix/api/test';
+        $_SERVER['REQUEST_URI'] = '/prefix/oauth/test';
         $this->assertFalse($stealth->isExemptRoute());
 
-        $_SERVER['REQUEST_URI'] = '/api/test';
+        $_SERVER['REQUEST_URI'] = '/oauth';
         $this->assertTrue($stealth->isExemptRoute());
+
+        $_SERVER['REQUEST_URI'] = '/account';
+        $this->assertTrue($stealth->isExemptRoute());
+
+        $_SERVER['REQUEST_URI'] = '/.well-known/openid-configuration';
+        $this->assertFalse($stealth->isExemptRoute());
+    }
+
+    public function testHiddenLoginRequiresSecretParameterOnEachAnonymousRequest(): void
+    {
+        $_SESSION['stealth_unlocked'] = true;
+        $_SERVER['REQUEST_URI'] = '/ventas_clientes';
+
+        $stealth = new StealthMode($this->createDbStub([
+            'stealth_param_name' => 'adminpanel',
+            'stealth_param_value' => 'secret-token',
+        ]));
+
+        $this->assertFalse($stealth->hasAccess());
+
+        $_SERVER['REQUEST_URI'] = '/index.php';
+        $this->assertFalse($stealth->hasAccess());
+
+        $_GET = ['page' => 'login', 'adminpanel' => 'secret-token'];
+        $_SERVER['REQUEST_URI'] = '/index.php?page=login&adminpanel=secret-token';
+        $this->assertTrue($stealth->hasAccess());
+
+        $_GET = ['nlogin' => 'admin', 'adminpanel' => 'secret-token'];
+        $_POST = ['user' => 'admin', 'password' => 'pass'];
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $this->assertTrue($stealth->hasAccess());
+
+        $_GET = ['nlogin' => 'admin'];
+        $this->assertFalse($stealth->hasAccess());
+    }
+
+    public function testAccessUrlPointsToHiddenLoginEntry(): void
+    {
+        if (!defined('FS_BASE_URL')) {
+            define('FS_BASE_URL', 'https://oidcprovider.ddev.site');
+        }
+
+        $stealth = new StealthMode($this->createDbStub([
+            'stealth_param_name' => 'adminpanel',
+            'stealth_param_value' => 'secret-token',
+        ]));
+
+        $this->assertSame(
+            'https://oidcprovider.ddev.site/index.php?adminpanel=secret-token',
+            $stealth->getAccessUrl()
+        );
+
+        $this->assertSame(
+            '/index.php?page=login&adminpanel=secret-token',
+            $stealth->getHiddenLoginUrl()
+        );
     }
 
     public function testSaveCustomCssRejectsDangerousRules(): void
@@ -113,7 +175,7 @@ class StealthModeTest extends TestCase
             {
                 if (str_contains($sql, 'WHERE name IN')) {
                     $rows = [];
-                    foreach ($this->settings as $name => $value) {
+                    foreach ((array) $this->settings as $name => $value) {
                         $rows[] = ['name' => $name, 'varchar' => $value];
                     }
 

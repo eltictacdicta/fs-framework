@@ -34,15 +34,12 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class RequestHelper
 {
-    /** @var list<string> */
-    private static array $trustedProxies = [];
-
     private static ?Request $request = null;
 
     /**
      * Establece el request de Symfony para usar
      */
-    public static function setRequest(Request $request): void
+    public static function setRequest(?Request $request): void
     {
         self::$request = $request;
     }
@@ -56,28 +53,6 @@ class RequestHelper
             self::$request = Request::createFromGlobals();
         }
         return self::$request;
-    }
-
-    /**
-     * Obtiene y decodifica el input JSON del request
-     * @return array<string, mixed>
-     * @throws ValidationException Si el JSON es inválido
-     */
-    public static function getJsonInput(): array
-    {
-        $input = file_get_contents('php://input');
-        
-        if (empty($input)) {
-            return [];
-        }
-        
-        $data = json_decode($input, true);
-        
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new ValidationException('JSON inválido: ' . json_last_error_msg());
-        }
-        
-        return $data ?: [];
     }
 
     /**
@@ -98,28 +73,13 @@ class RequestHelper
     }
     
     /**
-     * Obtiene un parámetro de query string
-     */
-    public static function getQueryParam(string $name, mixed $default = null): mixed
-    {
-        return $_GET[$name] ?? $default;
-    }
-
-    /**
      * Obtiene un parámetro (GET o POST)
+     * @deprecated Será retirado en v3.0. Usar getRequest()->get().
      */
     public static function getParam(string $name, mixed $default = null): mixed
     {
-        return $_REQUEST[$name] ?? $default;
-    }
-
-    /**
-     * Obtiene un parámetro string
-     */
-    public static function getString(string $name, string $default = ''): string
-    {
-        $value = self::getParam($name);
-        return $value !== null ? (string)$value : $default;
+        self::legacyDeprecation('getParam', 'getRequest()->get');
+        return self::getRequestValue($name, $default);
     }
 
     /**
@@ -127,7 +87,7 @@ class RequestHelper
      */
     public static function getInt(string $name, int $default = 0): int
     {
-        $value = self::getParam($name);
+        $value = self::getRequestValue($name);
         return $value !== null ? intval($value) : $default;
     }
 
@@ -136,7 +96,7 @@ class RequestHelper
      */
     public static function getBool(string $name, bool $default = false): bool
     {
-        $value = self::getParam($name);
+        $value = self::getRequestValue($name);
         if ($value === null) {
             return $default;
         }
@@ -144,98 +104,27 @@ class RequestHelper
     }
     
     /**
-     * Obtiene un parámetro requerido
-     * @throws ValidationException Si el parámetro no existe
-     */
-    public static function getRequiredParam(string $name): string
-    {
-        $value = self::getQueryParam($name);
-        
-        if ($value === null || $value === '') {
-            throw new ValidationException("Parámetro requerido: {$name}");
-        }
-        
-        return $value;
-    }
-    
-    /**
-     * Obtiene múltiples parámetros requeridos
-     * @param string[] $names
-     * @return array<string, string>
-     * @throws ValidationException Si algún parámetro no existe
-     */
-    public static function getRequiredParams(array $names): array
-    {
-        $params = [];
-        $missing = [];
-        
-        foreach ($names as $name) {
-            $value = self::getQueryParam($name);
-            if ($value === null || $value === '') {
-                $missing[] = $name;
-            } else {
-                $params[$name] = $value;
-            }
-        }
-        
-        if (!empty($missing)) {
-            throw new ValidationException(
-                'Parámetros requeridos faltantes: ' . implode(', ', $missing)
-            );
-        }
-        
-        return $params;
-    }
-    
-    /**
-     * Obtiene el token de autenticación del request
-     * Busca en: Authorization header, X-Auth-Token header, query param, POST param
+     * Obtiene el token de autenticación del request.
+     * Busca solo en cabeceras seguras: Authorization y X-Auth-Token.
      */
     public static function getAuthToken(): ?string
     {
-        // Authorization: Bearer TOKEN
+        $token = null;
         $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
         if (str_starts_with($authHeader, 'Bearer ')) {
-            return substr($authHeader, 7);
+            $token = substr($authHeader, 7);
+        } elseif (isset($_SERVER['HTTP_X_AUTH_TOKEN'])) {
+            $token = $_SERVER['HTTP_X_AUTH_TOKEN'];
         }
 
-        // X-Auth-Token header
-        if (isset($_SERVER['HTTP_X_AUTH_TOKEN'])) {
-            return $_SERVER['HTTP_X_AUTH_TOKEN'];
-        }
-
-        // getallheaders() fallback
         $headers = function_exists('getallheaders') ? getallheaders() : [];
-        if (isset($headers['Authorization'])) {
-            return str_replace('Bearer ', '', $headers['Authorization']);
+        if ($token === null && isset($headers['Authorization']) && str_starts_with($headers['Authorization'], 'Bearer ')) {
+            $token = substr($headers['Authorization'], 7);
+        } elseif ($token === null && isset($headers['X-Auth-Token'])) {
+            $token = $headers['X-Auth-Token'];
         }
-        if (isset($headers['X-Auth-Token'])) {
-            return $headers['X-Auth-Token'];
-        }
-        
-        // Query param
-        if (isset($_GET['token'])) {
-            return $_GET['token'];
-        }
-        
-        // POST param
-        if (isset($_POST['token'])) {
-            return $_POST['token'];
-        }
-        
-        return null;
-    }
-    
-    /**
-     * Valida que un campo exista en los datos
-     * @param array<string, mixed> $data
-     * @throws ValidationException Si el campo no existe
-     */
-    public static function requireField(array $data, string $field, ?string $message = null): void
-    {
-        if (!array_key_exists($field, $data) || $data[$field] === '' || $data[$field] === null) {
-            throw new ValidationException($message ?? "Campo requerido: {$field}");
-        }
+
+        return $token;
     }
     
     /**
@@ -262,90 +151,6 @@ class RequestHelper
     }
     
     /**
-     * Sanitiza una cadena de texto
-     */
-    public static function sanitizeString(string $value): string
-    {
-        return htmlspecialchars(strip_tags(trim($value)), ENT_QUOTES, 'UTF-8');
-    }
-
-    /**
-     * Obtiene el método HTTP del request
-     */
-    public static function getMethod(): string
-    {
-        // Soporte para _method override (útil para formularios HTML)
-        if (isset($_POST['_method'])) {
-            return strtoupper($_POST['_method']);
-        }
-        return $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    }
-
-    /**
-     * Configura las IPs de proxies confiables que pueden aportar cabeceras de forwarding.
-     *
-     * @param list<string> $trustedProxies
-     */
-    public static function setTrustedProxies(array $trustedProxies): void
-    {
-        $validatedProxies = [];
-
-        foreach ($trustedProxies as $trustedProxy) {
-            $validatedProxy = self::extractFirstValidIp($trustedProxy);
-            if ($validatedProxy !== '') {
-                $validatedProxies[] = $validatedProxy;
-            }
-        }
-
-        self::$trustedProxies = array_values(array_unique($validatedProxies));
-    }
-
-    /**
-     * Obtiene la IP del cliente
-     */
-    public static function getClientIp(): string
-    {
-        $remoteAddr = self::extractFirstValidIp($_SERVER['REMOTE_ADDR'] ?? null);
-        $clientIp = '';
-
-        if ($remoteAddr === '') {
-            return '';
-        }
-
-        if (!in_array($remoteAddr, self::$trustedProxies, true)) {
-            return $remoteAddr;
-        }
-
-        foreach (['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CF_CONNECTING_IP'] as $field) {
-            $candidateIp = self::extractFirstValidIp($_SERVER[$field] ?? null);
-            if ($candidateIp !== '') {
-                $clientIp = $candidateIp;
-                break;
-            }
-        }
-
-        return $clientIp !== '' ? $clientIp : $remoteAddr;
-    }
-
-    /**
-     * Obtiene el User-Agent
-     */
-    public static function getUserAgent(): string
-    {
-        return $_SERVER['HTTP_USER_AGENT'] ?? '';
-    }
-
-    /**
-     * Verifica si es una petición HTTPS
-     */
-    public static function isHttps(): bool
-    {
-        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || ($_SERVER['SERVER_PORT'] ?? 0) == 443
-            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
-    }
-
-    /**
      * Verifica si es una petición AJAX
      */
     public static function isAjax(): bool
@@ -353,56 +158,28 @@ class RequestHelper
         return strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
     }
 
-    /**
-     * Valida un email
-     */
-    public static function isValidEmail(string $email): bool
+    private static function getRequestValue(string $name, mixed $default = null): mixed
     {
-        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
-    }
+        $request = self::getRequest();
+        $value = $default;
 
-    private static function extractFirstValidIp(null|string $rawValue): string
-    {
-        if ($rawValue === null || $rawValue === '') {
-            return '';
+        if ($request->attributes->has($name)) {
+            $value = $request->attributes->get($name);
+        } elseif ($request->query->has($name)) {
+            $value = $request->query->get($name, $default);
+        } elseif ($request->request->has($name)) {
+            $value = $request->request->get($name, $default);
         }
 
-        foreach (explode(',', $rawValue) as $candidateIp) {
-            $candidateIp = trim($candidateIp);
-            if ($candidateIp === '') {
-                continue;
-            }
-
-            if (filter_var($candidateIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6) !== false) {
-                return $candidateIp;
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * Valida una URL
-     */
-    public static function isValidUrl(string $url): bool
-    {
-        return filter_var($url, FILTER_VALIDATE_URL) !== false;
+        return $value;
     }
 
     // Legacy method aliases
     /**
-     * @deprecated Será retirado en v3.0. Usar getJsonBody() o getJsonInput().
-     */
-    public static function getJsonInput_legacy(): array
-    {
-        self::legacyDeprecation('getJsonInput_legacy', 'getJsonBody/getJsonInput');
-        return self::getJsonInput();
-    }
-    /**
      * @deprecated Será retirado en v3.0. Usar getInt() + validación explícita.
      */
-    public static function getIntParam(string $name, int $default = 0, ?int $min = null, ?int $max = null): int 
-    { 
+    public static function getIntParam(string $name, int $default = 0, ?int $min = null, ?int $max = null): int
+    {
         self::legacyDeprecation('getIntParam', 'getInt');
         $value = self::getInt($name, $default);
         if ($min !== null && $value < $min) {
@@ -424,11 +201,14 @@ class RequestHelper
 
     private static function legacyDeprecation(string $method, string $replacement): void
     {
-        if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
-            \FSFramework\Plugins\legacy_support\LegacyUsageTracker::incrementLegacyComponent(
+        if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            \FSFramework\Plugins\legacy_support\LegacyCompatibility::reportDeprecatedComponent(
                 'api.request_helper',
-                $method
+                $method,
+                $replacement . '()'
             );
+
+            return;
         }
 
         @trigger_error(

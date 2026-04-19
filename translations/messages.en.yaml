@@ -188,6 +188,7 @@ delete-confirm: "Are you sure you want to delete this record?"
 changes-saved: "Changes saved"
 no-results: "No results"
 no-data: "No data"
+stealth-login-flow-help: "Use this URL to access the login while stealth mode is active. You must enter through this URL and complete the login from that same flow; the form keeps the hidden parameter until you authenticate."
 
 # ==========================================
 # Tables / Lists

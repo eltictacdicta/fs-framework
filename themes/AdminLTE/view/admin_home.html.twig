@@ -21,7 +21,7 @@
             title: '<b>Atención</b>',
             callback: function (result) {
                 if (result) {
-                    window.location.href = '{{ fsc.url()|raw }}&delete_plugin=' + name + '#plugins';
+                    window.location.href = '{{ fsc.url()|e('js') }}&delete_plugin=' + name + '#plugins';
                 }
             }
         });
@@ -32,7 +32,7 @@
             title: '<b>Restaurar versión anterior</b>',
             callback: function (result) {
                 if (result) {
-                    window.location.href = '{{ fsc.url()|raw }}&restore_backup=' + name + '#plugins';
+                    window.location.href = '{{ fsc.url()|e('js') }}&restore_backup=' + name + '#plugins';
                 }
             }
         });
@@ -102,9 +102,9 @@
 
     function mostrar_modales_confirmacion() {
         {% if fsc.pending_plugin %}
-        $('#plugin_name_install').text('{{ fsc.pending_plugin.name }}');
-        $('#current_version_install').text('{{ fsc.pending_plugin.current_version }}');
-        $('#new_version_install').text('{{ fsc.pending_plugin.new_version }}');
+        $('#plugin_name_install').text('{{ fsc.pending_plugin.name|e('js') }}');
+        $('#current_version_install').text('{{ fsc.pending_plugin.current_version|e('js') }}');
+        $('#new_version_install').text('{{ fsc.pending_plugin.new_version|e('js') }}');
         $('#modal_confirm_overwrite_install').modal('show');
         {% endif %}
 
@@ -115,7 +115,11 @@
 
         $('#modal_confirm_overwrite_install').on('hidden.bs.modal', function () {
             {% if fsc.pending_plugin %}
-            $.post('{{ fsc.url()|raw }}', { cancel_pending_install: '1' });
+            var csrfToken = $('meta[name="csrf-token"]').attr('content') || '';
+            $.post('{{ fsc.url()|e('js') }}', {
+                cancel_pending_install: '1',
+                _csrf_token: csrfToken
+            });
             {% endif %}
         });
 
@@ -319,6 +323,7 @@
             </div>
             <div class="modal-body">
                 <form class="form" action="{{ fsc.url()|raw }}#plugins" enctype="multipart/form-data" method="post">
+                    {{ csrf_field() }}
                     <input type="hidden" name="install" value="TRUE"/>
                     <div class="form-group">
                         <input type="file" name="fplugin" accept="application/zip"/>
@@ -360,6 +365,7 @@
             </div>
             <div class="modal-footer">
                 <form id="form_confirm_install" action="{{ fsc.url()|raw }}#plugins" method="post" enctype="multipart/form-data">
+                    {{ csrf_field() }}
                     <input type="hidden" name="install" value="TRUE"/>
                     <input type="hidden" name="confirm_overwrite" value="1"/>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>

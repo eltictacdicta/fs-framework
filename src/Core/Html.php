@@ -478,39 +478,4 @@ class Html
         return in_array('legacy_support', $GLOBALS['plugins'] ?? [], true);
     }
 
-    /**
-     * Check if a template exists
-     * 
-     * @param string $template Template name
-     * @return bool True if template exists
-     */
-    public static function templateExists(string $template): bool
-    {
-        if (self::$twig === null) {
-            // Initialize Twig with minimal params
-            self::render('', ['fsc' => null]);
-        }
-
-        $loader = self::$twig->getLoader();
-
-        if (str_contains($template, '.')) {
-            return $loader->exists($template);
-        }
-
-        if ($loader->exists($template . '.html.twig')) {
-            return true;
-        }
-
-        return self::isLegacySupportEnabled() && $loader->exists($template . '.html');
-    }
-
-    /**
-     * Get the Twig environment instance (for advanced usage)
-     * 
-     * @return Environment|null
-     */
-    public static function getTwig(): ?Environment
-    {
-        return self::$twig;
-    }
 }

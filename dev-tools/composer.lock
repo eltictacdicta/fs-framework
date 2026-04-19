@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6d1a553b0a6ec9013fbaf39b95869d64",
+    "content-hash": "4341647484794797c72c137b03f0513c",
     "packages": [
         {
             "name": "myclabs/deep-copy",
@@ -1950,16 +1950,16 @@
         },
         {
             "name": "shipmonk/dead-code-detector",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/shipmonk-rnd/dead-code-detector.git",
-                "reference": "dd909a6e267ae03837f166bc5e9d2f0851b14ff0"
+                "reference": "bb6d5c90bff7c72dee7a6ef978668b7603a198ae"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/shipmonk-rnd/dead-code-detector/zipball/dd909a6e267ae03837f166bc5e9d2f0851b14ff0",
-                "reference": "dd909a6e267ae03837f166bc5e9d2f0851b14ff0",
+                "url": "https://api.github.com/repos/shipmonk-rnd/dead-code-detector/zipball/bb6d5c90bff7c72dee7a6ef978668b7603a198ae",
+                "reference": "bb6d5c90bff7c72dee7a6ef978668b7603a198ae",
                 "shasum": ""
             },
             "require": {
@@ -1995,6 +1995,7 @@
                 "symfony/dependency-injection": "^5.4 || ^6.0 || ^7.0 || ^8.0",
                 "symfony/doctrine-bridge": "^5.4 || ^6.0 || ^7.0 || ^8.0",
                 "symfony/event-dispatcher": "^5.4 || ^6.0 || ^7.0 || ^8.0",
+                "symfony/form": "^5.4 || ^6.0 || ^7.0 || ^8.0",
                 "symfony/framework-bundle": "^5.4 || ^6.0 || ^7.0 || ^8.0",
                 "symfony/http-kernel": "^5.4 || ^6.0 || ^7.0 || ^8.0",
                 "symfony/routing": "^5.4 || ^6.0 || ^7.0 || ^8.0",
@@ -2030,9 +2031,9 @@
             ],
             "support": {
                 "issues": "https://github.com/shipmonk-rnd/dead-code-detector/issues",
-                "source": "https://github.com/shipmonk-rnd/dead-code-detector/tree/1.0.0"
+                "source": "https://github.com/shipmonk-rnd/dead-code-detector/tree/1.1.0"
             },
-            "time": "2026-04-08T10:39:05+00:00"
+            "time": "2026-04-17T10:05:26+00:00"
         },
         {
             "name": "staabm/side-effects-detector",

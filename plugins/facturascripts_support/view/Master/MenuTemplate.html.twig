@@ -140,6 +140,7 @@
             {% block sidebar_search %}
             {% if in_array('community3', GLOBALS.plugins) %}
             <form action="index.php?page=community_search" method="post" class="sidebar-form">
+                {{ csrf_field() }}
                 <div class="input-group">
                     <input type="text" name="query" class="form-control" placeholder="{{ trans('search') }}..." autocomplete="off" />
                     <span class="input-group-btn">
@@ -149,6 +150,7 @@
             </form>
             {% elseif in_array('facturacion_base', GLOBALS.plugins) %}
             <form action="index.php?page=ventas_articulos" method="post" class="sidebar-form">
+                {{ csrf_field() }}
                 <div class="input-group">
                     <input type="text" name="query" class="form-control" placeholder="{{ trans('article') }}..." autocomplete="off" />
                     <span class="input-group-btn">

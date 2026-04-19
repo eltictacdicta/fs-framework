@@ -142,7 +142,7 @@ class PasswordHasherService
             return $this->verify($storedHash, $plainPassword);
         }
 
-        // Verificar con hash legacy (SHA1)
+        // Delegar la compatibilidad legacy en legacy_support cuando esté disponible.
         return $this->verifyLegacyHash($storedHash, $plainPassword, $legacySalt);
     }
 
@@ -176,7 +176,7 @@ class PasswordHasherService
             return $valid;
         }
 
-        // Verificar hash legacy
+        // Delegar la verificación legacy en legacy_support cuando esté disponible.
         if (!$this->verifyLegacyHash($storedHash, $plainPassword, $legacySalt)) {
             return false;
         }
@@ -204,32 +204,28 @@ class PasswordHasherService
     }
 
     /**
-     * Verifica un hash legacy (SHA1 usado en FSFramework original).
-     * 
-     * El formato legacy era: sha1($salt . $password)
+     * Verifica hashes legacy a través de legacy_support cuando el plugin está presente.
+     * Mantiene un fallback local mínimo para instalaciones donde el plugin no esté cargado.
      */
     private function verifyLegacyHash(
         string $storedHash,
         string $plainPassword,
         ?string $legacySalt = null
     ): bool {
-        // Formato legacy FSFramework: sha1(salt + password)
-        if ($legacySalt !== null) {
-            $legacyHash = sha1($legacySalt . $plainPassword);
-            if (hash_equals($storedHash, $legacyHash)) {
-                return true;
-            }
+        if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            return \FSFramework\Plugins\legacy_support\LegacyCompatibility::verifyLegacyPassword(
+                $storedHash,
+                $plainPassword,
+                $legacySalt
+            );
         }
 
-        // También probar sin salt (algunos sistemas legacy)
-        $legacyHash = sha1($plainPassword);
-        if (hash_equals($storedHash, $legacyHash)) {
+        if ($legacySalt !== null && hash_equals($storedHash, sha1($legacySalt . $plainPassword))) {
             return true;
         }
 
-        // Probar MD5 (otro formato legacy común)
-        $md5Hash = md5($plainPassword);
-        return hash_equals($storedHash, $md5Hash);
+        return hash_equals($storedHash, sha1($plainPassword))
+            || hash_equals($storedHash, md5($plainPassword));
     }
 
     /**

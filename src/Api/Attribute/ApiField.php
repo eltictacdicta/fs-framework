@@ -49,23 +49,23 @@ class ApiField
      * @param bool $readable El campo se incluye en respuestas GET
      * @param bool $writable El campo acepta datos en POST/PUT
      * @param string|null $name Nombre en la API (diferente al nombre de la propiedad)
-     * @param string|null $description Descripción para documentación
      * @param Constraint[] $validation Constraints de Symfony Validator
      * @param string|null $type Tipo para documentación (string, integer, boolean, etc.)
-     * @param mixed $default Valor por defecto si no se proporciona
+     * @param string|null $description Descripción para documentación OpenAPI/metadata legacy
+     * @param mixed $default Valor por defecto para documentación/compatibilidad
+     * @param string|null $format Formato para documentación (email, date-time, uuid, etc.)
      * @param bool $required Campo requerido en operaciones de escritura
-     * @param string|null $format Formato especial (date, datetime, email, url, etc.)
      */
     public function __construct(
         public bool $readable = true,
         public bool $writable = true,
         public ?string $name = null,
-        public ?string $description = null,
         public array $validation = [],
         public ?string $type = null,
+        public ?string $description = null,
         public mixed $default = null,
-        public bool $required = false,
-        public ?string $format = null
+        public ?string $format = null,
+        public bool $required = false
     ) {}
 
 }

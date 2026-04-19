@@ -188,6 +188,7 @@ delete-confirm: "¿Está seguro de que desea eliminar este registro?"
 changes-saved: "Cambios guardados"
 no-results: "Sin resultados"
 no-data: "No hay datos"
+stealth-login-flow-help: "Usa esta URL para acceder al login cuando el modo stealth está activo. Debes entrar por esta URL y completar el login desde ese mismo flujo; el formulario mantiene el parámetro oculto hasta autenticarte."
 
 # ==========================================
 # Tablas / Listados

@@ -386,13 +386,25 @@ class fs_login
         // Verificar con el método moderno (Argon2ID)
         if (password_verify($password, $user->password)) {
             $password_verified = true;
+            if (password_needs_rehash($user->password, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4])) {
+                $user->set_password($password);
+                $user->save();
+            }
         }
-        // Para compatibilidad con versiones anteriores (SHA1)
-        elseif ($user->password === sha1($password) || $user->password === sha1(mb_strtolower($password, 'UTF8'))) {
-            $password_verified = true;
-            // Si la contraseña coincide con SHA1, actualizar el hash a Argon2ID para mayor seguridad
-            $user->set_password($password);
-            $user->save();
+        // Delegar la compatibilidad SHA1 legacy en legacy_support.
+        elseif (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            $password_verified = \FSFramework\Plugins\legacy_support\LegacyCompatibility::verifyAndUpgradeLegacyPassword(
+                $user,
+                $password
+            );
+        } elseif (method_exists($user, 'is_legacy_sha1_password') && $user->is_legacy_sha1_password()) {
+            $password_verified = false;
+            $this->core_log->new_error('No se puede migrar la contraseña legacy de este usuario sin activar el plugin legacy_support.');
+            $this->core_log->save(
+                'Login bloqueado para ' . $nick . ': se requiere legacy_support para migrar contraseñas SHA1 legacy.',
+                'login',
+                TRUE
+            );
         }
 
         if (!$password_verified) {

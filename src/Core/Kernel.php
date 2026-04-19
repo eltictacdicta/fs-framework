@@ -18,13 +18,17 @@ class Kernel
         $this->request = Request::createFromGlobals();
         $this->configureLegacyIncludePaths();
 
-        $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__, 2);
-        $this->router = new Router($root);
-
         // Load PHPMailer compatibility layer
+        $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__, 2);
         if (file_exists($root . '/extras/phpmailer_compat.php')) {
             require_once $root . '/extras/phpmailer_compat.php';
         }
+    }
+
+    private function initializeRouter(): void
+    {
+        $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__, 2);
+        $this->router = new Router($root);
     }
 
     /**
@@ -140,6 +144,7 @@ class Kernel
         if (self::$instance === null) {
             self::$instance = new self();
             Plugins::init();
+            self::$instance->initializeRouter();
         }
         return self::$instance;
     }
@@ -172,9 +177,18 @@ class Kernel
 
     /**
      * Helper to handle the current request through the router
+     * @deprecated Será retirado en v3.0. Migrar a Kernel::router()?->handle(Kernel::request()).
      */
     public static function handleRequest(): ?Response
     {
+        if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            \FSFramework\Plugins\legacy_support\LegacyCompatibility::reportDeprecatedComponent(
+                'legacy.kernel',
+                'handleRequest',
+                'Kernel::router()?->handle(Kernel::request())'
+            );
+        }
+
         $kernel = self::getInstance();
         return $kernel->getRouter() ? $kernel->getRouter()->handle($kernel->getRequest()) : null;
     }
@@ -184,7 +198,6 @@ class Kernel
       *
      * Uso:
      *   Kernel::router()->generate('admin_users');
-     *   Kernel::router()->generateLegacyUrl('admin_home', ['id' => 1]);
       *
      * @return Router|null
      */

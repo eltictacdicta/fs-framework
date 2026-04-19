@@ -29,9 +29,6 @@ use Attribute;
  * class usuario extends fs_model {
  *     #[ApiHidden]
  *     public $password_hash;
- *
- *     #[ApiHidden(reason: 'Información interna')]
- *     public $internal_data;
  * }
  * ```
  *
@@ -40,10 +37,4 @@ use Attribute;
 #[Attribute(Attribute::TARGET_PROPERTY)]
 class ApiHidden
 {
-    /**
-     * @param string|null $reason Razón por la que está oculto (para documentación)
-     */
-    public function __construct(
-        public ?string $reason = null
-    ) {}
 }

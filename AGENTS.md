@@ -338,15 +338,14 @@ Use provided helper functions:
   /*/Controller/              # FS2025 controllers (PSR-4)
   /*/Model/                  # FS2025 models (PSR-4)
 /src/                          # Modern Symfony-based code (PSR-4)
-  /Api/                       # REST API system
-    /Attribute/              # ApiResource, ApiField, ApiHidden, Operation
-    /Auth/                    # ChainedAuthAdapter, auth contracts
-    /Endpoint/                # ApiEndpoint, ModelResourceEndpoint
-    /Exception/               # ApiException, ValidationException, etc.
-    /Helper/                  # RequestHelper, ResponseHelper
-    /Middleware/              # Auth, Cors, RateLimit middleware
-    /Resource/                # ModelResourceRegistry, ResourceTransformer
-    /Router/                  # ApiRouter, EndpointRegistry
+    /Api/                       # Core API primitives still shared by plugins
+        /Attribute/              # ApiResource, ApiField, ApiHidden, Operation
+        /Auth/                    # ChainedAuthAdapter, auth contracts
+        /Endpoint/                # ApiEndpoint base
+        /Exception/               # ApiException, ValidationException, etc.
+        /Helper/                  # RequestHelper
+        /Middleware/              # Auth, Cors, RateLimit middleware
+        /Resource/                # ResourceTransformer
   /Attribute/                 # PHP 8 Attributes (FSRoute)
   /Cache/                     # CacheManager (Symfony Cache)
   /Controller/                # BaseController, PageController
@@ -451,6 +450,7 @@ FSFramework includes a translation system based on Symfony Translation Component
 #### Using Translations in PHP
 ```php
 use FSFramework\Translation\FSTranslator;
+use FSFramework\Translation\TranslationHelper;
 
 // Simple translation
 echo FSTranslator::trans('login-text');
@@ -460,6 +460,14 @@ echo FSTranslator::trans('hello', ['%name%' => 'Juan']);
 
 // Change locale
 FSTranslator::setLocale('en_EN');
+
+// Or initialize and use the helper facade
+TranslationHelper::initializeFromConfig(FS_FOLDER);
+echo TranslationHelper::trans('save');
+
+// Namespaced helper functions declared in TranslationHelper.php
+echo \FSFramework\Translation\trans('save');
+echo \FSFramework\Translation\__('hello', ['%name%' => 'Juan']);
 ```
 
 #### Creating Translations for Plugins
@@ -706,12 +714,21 @@ FSFramework provides several security utilities in `src/Security/`:
 ```php
 use FSFramework\Security\CookieSigner;
 
-// Sign cookies to prevent tampering
-$signer = new CookieSigner($secretKey);
-$signedValue = $signer->sign($value);
-if ($signer->verify($signedValue, $value)) {
-    // Cookie is valid
+// Static API:
+// CookieSigner::signRememberMe(string $nick, string $logKey): string
+// CookieSigner::verifyRememberMe(string $nick, string $logKey, string $signature): bool
+$signature = CookieSigner::signRememberMe($nick, $logKey);
+
+if (CookieSigner::verifyRememberMe($nick, $logKey, $signature)) {
+    // Remember-me signature is valid
 }
+
+// Migration from the removed instance API:
+// Before: $signer = new CookieSigner($secretKey); $signature = $signer->sign($nick . '|' . $logKey);
+// Before: $signer->verify($nick . '|' . $logKey, $signature);
+// After: CookieSigner::signRememberMe($nick, $logKey);
+// After: CookieSigner::verifyRememberMe($nick, $logKey, $signature);
+// The old constructor and instance methods are removed; update callers directly to the static API.
 ```
 
 ```php
@@ -749,17 +766,39 @@ $decrypted = EncryptionService::decrypt($encrypted, $key);
 ```php
 use FSFramework\Security\SafeRedirect;
 
-// Safe redirects preventing open redirect vulnerabilities
-SafeRedirect::to('https://trusted-domain.com/page');
-SafeRedirect::toIfValid($url, 'https://fallback.com');
+// Validate a user-provided redirect target
+$safeUrl = SafeRedirect::validate($_REQUEST['redir'] ?? null, 'index.php');
+
+// Or read from common request parameters such as redir/redirect/return_url
+$safeUrl = SafeRedirect::getFromRequest('index.php');
+
+// SafeRedirect::redirect(?string $url, string $fallbackUrl = 'index.php', int $httpCode = 302)
+// If the URL is already validated by SafeRedirect::validate() or SafeRedirect::getFromRequest(),
+// you can pass it directly without a second fallback.
+SafeRedirect::redirect($safeUrl);
+
+// Use the second argument only when redirect() must validate raw input itself
+// and fall back if the incoming URL is empty or invalid.
+SafeRedirect::redirect($_REQUEST['redir'] ?? null, 'index.php');
 ```
 
 ```php
 use FSFramework\Security\SecretManager;
 
-// Manage application secrets (API keys, tokens)
-SecretManager::set('my_api_key', $encryptedValue);
-$value = SecretManager::get('my_api_key');
+// Access the application secret or derive HMAC values from it
+$secret = SecretManager::getSecret();
+$apiKeySecret = SecretManager::hmac('api_key');
+$encryptionKeySecret = SecretManager::hmac('encryption_key');
+
+// Migration note:
+// SecretManager::set('key') / SecretManager::get('key') are removed.
+// Use SecretManager::getSecret() for the single application secret and
+// SecretManager::hmac('context') to derive purpose-specific values.
+// Recommended migration steps:
+// 1. Replace each old logical key name with a stable context string such as 'api_key' or 'encryption_key'.
+// 2. If code needed the raw shared secret, replace SecretManager::get('key') with SecretManager::getSecret().
+// 3. If code needed separate derived keys, replace SecretManager::get('key') with SecretManager::hmac('key').
+// 4. Keep the context names stable so derived values remain deterministic across requests.
 ```
 
 ### Form Helper
@@ -984,13 +1023,9 @@ src/Api/
 │       ├── ApiAuthInterface.php
 │       ├── AllowedUserInterface.php
 │       ├── ApiLogInterface.php
-│       ├── RateLimitInterface.php
-│       ├── SecurityEventInterface.php
-│       ├── SecuritySettingInterface.php
-│       └── UserTokenInterface.php
-├── Endpoint/                  # API endpoints
-│   ├── ApiEndpoint.php
-│   └── ModelResourceEndpoint.php
+│       └── User-facing runtime contracts only
+├── Endpoint/                  # API base endpoint abstractions
+│   └── ApiEndpoint.php
 ├── Exception/                 # API exceptions
 │   ├── ApiException.php
 │   ├── ConflictException.php
@@ -998,20 +1033,17 @@ src/Api/
 │   ├── NotFoundException.php
 │   ├── UnauthorizedException.php
 │   └── ValidationException.php
-├── Helper/                    # API helpers
-│   ├── RequestHelper.php
-│   └── ResponseHelper.php
+├── Helper/                    # Shared API helpers
+│   └── RequestHelper.php
 ├── Middleware/               # API middleware
 │   ├── AuthMiddleware.php
 │   ├── CorsMiddleware.php
 │   ├── RateLimitMiddleware.php
 │   └── MiddlewareInterface.php
-├── Resource/                 # Resource handling
-│   ├── ModelResourceRegistry.php
+├── Resource/                 # Shared resource transformation
 │   └── ResourceTransformer.php
-└── Router/                   # API routing
-    ├── ApiRouter.php
-    └── EndpointRegistry.php
+└── Runtime ownership         # Active API runtime now lives in plugins/api_base
+    └── Router, endpoint registry, model registry and generic model endpoint moved to the plugin
 ```
 
 ### API Attributes

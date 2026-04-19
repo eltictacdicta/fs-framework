@@ -37,7 +37,9 @@ use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
 use Symfony\Component\Form\Extension\Csrf\CsrfExtension;
-use Symfony\Component\Security\Csrf\CsrfTokenManager;
+use Symfony\Component\Form\Extension\HttpFoundation\HttpFoundationExtension;
+use Symfony\Component\Form\Extension\Validator\ValidatorExtension;
+use Symfony\Component\Validator\Validation;
 use FSFramework\Security\CsrfManager;
 
 /**
@@ -78,9 +80,12 @@ class FormHelper
     {
         if (self::$factory === null) {
             $csrfManager = CsrfManager::getManager();
+            $validator = Validation::createValidator();
 
             self::$factory = Forms::createFormFactoryBuilder()
                 ->addExtension(new CsrfExtension($csrfManager))
+                ->addExtension(new HttpFoundationExtension())
+                ->addExtension(new ValidatorExtension($validator))
                 ->getFormFactory();
         }
 

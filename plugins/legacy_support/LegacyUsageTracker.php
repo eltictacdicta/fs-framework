@@ -49,6 +49,8 @@ final class LegacyUsageTracker
 
         $routes = self::sortCounters($data['routes'] ?? []);
         $components = self::sortCounters($data['components'] ?? []);
+        $componentGroups = self::groupComponents($components);
+        $bridgeGroups = self::groupBridgeComponents($components);
 
         return [
             'updated_at' => $data['updated_at'] ?? null,
@@ -57,9 +59,14 @@ final class LegacyUsageTracker
                 'component_hits' => array_sum($components),
                 'unique_routes' => count($routes),
                 'unique_components' => count($components),
+                'unique_component_groups' => count($componentGroups),
+                'bridge_hits' => array_sum($bridgeGroups),
+                'unique_bridge_groups' => count($bridgeGroups),
             ],
             'top_routes' => array_slice($routes, 0, $limit, true),
             'top_components' => array_slice($components, 0, $limit, true),
+            'component_groups' => array_slice($componentGroups, 0, $limit, true),
+            'bridge_groups' => array_slice($bridgeGroups, 0, $limit, true),
         ];
     }
 
@@ -134,6 +141,59 @@ final class LegacyUsageTracker
     {
         arsort($counters);
         return $counters;
+    }
+
+    /**
+     * @param array<string, int> $components
+     * @return array<string, int>
+     */
+    private static function groupComponents(array $components): array
+    {
+        $groups = [];
+
+        foreach ($components as $componentKey => $hits) {
+            $group = self::resolveComponentGroup($componentKey);
+            $groups[$group] = ($groups[$group] ?? 0) + $hits;
+        }
+
+        return self::sortCounters($groups);
+    }
+
+    /**
+     * @param array<string, int> $components
+     * @return array<string, int>
+     */
+    private static function groupBridgeComponents(array $components): array
+    {
+        $groups = [];
+
+        foreach ($components as $componentKey => $hits) {
+            $component = explode(':', $componentKey, 2)[0];
+            if (!str_starts_with($component, 'legacy.')) {
+                continue;
+            }
+
+            $group = self::resolveComponentGroup($componentKey);
+            $groups[$group] = ($groups[$group] ?? 0) + $hits;
+        }
+
+        return self::sortCounters($groups);
+    }
+
+    private static function resolveComponentGroup(string $componentKey): string
+    {
+        $component = explode(':', $componentKey, 2)[0];
+
+        return match ($component) {
+            'legacy.auth' => 'Autenticación legacy',
+            'legacy.kernel' => 'Kernel bridge',
+            'legacy.router' => 'Router bridge',
+            'legacy.stealth_mode' => 'Stealth mode',
+            'api.request_helper' => 'API request helpers',
+            'api.response_helper' => 'API response helpers',
+            'legacy.template_loader', 'legacy.template_translation', 'legacy_support.loader' => 'Twig/RainTPL compatibility',
+            default => 'Otros componentes legacy',
+        };
     }
 
     private static function normalizeKey(string $value): string

@@ -30,44 +30,4 @@ interface ApiLogInterface
      * Guarda el log
      */
     public function save(): bool;
-
-    /**
-     * Obtiene logs recientes
-     * @return static[]
-     */
-    public function getRecent(int $limit = 100, int $offset = 0): array;
-
-    /**
-     * Obtiene logs por usuario
-     * @return static[]
-     */
-    public function getByUser(string $userId, int $limit = 50): array;
-
-    /**
-     * Obtiene logs con errores
-     * @return static[]
-     */
-    public function getErrors(int $limit = 100): array;
-
-    /**
-     * Obtiene estadísticas de uso de la API
-     * @return array|null
-     */
-    public function getStatistics(int $days = 7, ?string $userId = null): ?array;
-
-    /**
-     * Obtiene estadísticas por endpoint
-     * @return array|null
-     */
-    public function getEndpointStats(int $days = 7): ?array;
-
-    /**
-     * Limpia logs antiguos
-     */
-    public function cleanOldLogs(int $days = 30): bool;
-
-    /**
-     * Cuenta el total de logs
-     */
-    public function countAll(): int;
 }

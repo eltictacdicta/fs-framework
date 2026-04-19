@@ -87,9 +87,14 @@ class admin_info extends fs_list_controller
                 'component_hits' => 0,
                 'unique_routes' => 0,
                 'unique_components' => 0,
+                'unique_component_groups' => 0,
+                'bridge_hits' => 0,
+                'unique_bridge_groups' => 0,
             ],
             'top_routes' => [],
             'top_components' => [],
+            'component_groups' => [],
+            'bridge_groups' => [],
         ];
     }
 

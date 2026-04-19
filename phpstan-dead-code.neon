@@ -5,6 +5,7 @@ includes:
 
 parameters:
     customRulesetUsed: true
+    reportUnmatchedIgnoredErrors: false
     bootstrapFiles:
         - phpstan-bootstrap.php
     tmpDir: tmp/phpstan-dead-code
@@ -31,8 +32,62 @@ parameters:
         - visual_flow_demo.php
     ignoreErrors:
         -
-            identifier: trait.unused
-            path: src/Traits/ResponseTrait.php
+            message: '#^Unused FSFramework\\Api\\Helper\\RequestHelper\:\:(getJsonInput_legacy|getIntParam|getBoolParam)\b#'
+            path: %currentWorkingDirectory%/src/Api/Helper/RequestHelper.php
+        -
+            message: '#^Unused FSFramework\\Plugins\\api_base\\Api\\Helper\\ResponseHelper\:\:(sendSuccess|sendError|sendJson|sendCreated|sendServerError)\b#'
+            path: %currentWorkingDirectory%/plugins/api_base/Api/Helper/ResponseHelper.php
+        -
+            message: '#^Unused FSFramework\\Core\\Router\:\:(generateLegacyUrl|clearCache)\b#'
+            path: %currentWorkingDirectory%/src/Core/Router.php
+        -
+            message: '#^Unused FSFramework\\Core\\Router\:\:(generate|getRoutes)\b#'
+            path: %currentWorkingDirectory%/src/Core/Router.php
+        -
+            message: '#^Unused FSFramework\\Core\\StealthMode\:\:(isPublicHomepageRequest|isExemptRoute)\b#'
+            path: %currentWorkingDirectory%/src/Core/StealthMode.php
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/src/Core/Base/Controller.php
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/src/Core/Base/Controller.php
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/src/Core/Base/ControllerPermissions.php
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/src/Core/Tools.php
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/src/Core/UploadedFile.php
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/src/Database/DbalConnectionFactory.php
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/src/DependencyInjection/Container.php
+        -
+            message: '#^Unused FSFramework\\Security\\SessionManager\:\:__clone\b#'
+            path: %currentWorkingDirectory%/src/Security/SessionManager.php
+        -
+            identifier: shipmonk.deadProperty.neverRead
+            path: %currentWorkingDirectory%/src/Dinamic/Model/User.php
+        -
+            identifier: shipmonk.deadProperty.neverWritten
+            path: %currentWorkingDirectory%/src/Dinamic/Model/User.php
+        -
+            identifier: shipmonk.deadConstant
+            path: %currentWorkingDirectory%/src/Event/ControllerEvent.php
+        -
+            identifier: shipmonk.deadMethod
+            path: %currentWorkingDirectory%/src/Event/ControllerEvent.php
+        -
+            message: '#^Unused FSFramework\\Core\\Template\\InitClass\:\:(uninstall|loadExtension)\b#'
+            path: %currentWorkingDirectory%/src/Core/Template/InitClass.php
+        -
+            message: '#^Unused FSFramework\\Core\\ThemeManager\:\:getAvailableThemes\b#'
+            path: %currentWorkingDirectory%/src/Core/ThemeManager.php
         -
             identifier: shipmonk.deadProperty.neverRead
             path: %currentWorkingDirectory%/base/*

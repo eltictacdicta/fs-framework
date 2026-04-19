@@ -78,10 +78,6 @@ class CorsMiddleware implements MiddlewareInterface
 
     private function resolveAllowedOrigin(?string $origin): ?string
     {
-        if (!is_string($origin) || $origin === '') {
-            return null;
-        }
-
         if (in_array('*', $this->allowedOrigins, true)) {
             // Security check: reject insecure wildcard+credentials combination
             if ($this->allowCredentials) {
@@ -91,7 +87,11 @@ class CorsMiddleware implements MiddlewareInterface
                 }
                 return null;
             }
-            return $origin;
+            return '*';
+        }
+
+        if (!is_string($origin) || $origin === '') {
+            return null;
         }
 
         return in_array($origin, $this->allowedOrigins, true) ? $origin : null;
@@ -126,14 +126,16 @@ class CorsMiddleware implements MiddlewareInterface
 
         if ($allowedOrigin !== null) {
             $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
-            $response->headers->set('Vary', 'Origin');
+            if ($allowedOrigin !== '*') {
+                $response->headers->set('Vary', 'Origin');
+            }
         }
         
         $response->headers->set('Access-Control-Allow-Methods', implode(', ', $this->allowedMethods));
         $response->headers->set('Access-Control-Allow-Headers', implode(', ', $this->allowedHeaders));
         $response->headers->set('Access-Control-Max-Age', (string)$this->maxAge);
         
-        if ($this->allowCredentials) {
+        if ($this->allowCredentials && $allowedOrigin !== '*') {
             $response->headers->set('Access-Control-Allow-Credentials', 'true');
         }
     }
@@ -148,59 +150,18 @@ class CorsMiddleware implements MiddlewareInterface
 
         if ($allowedOrigin !== null) {
             header('Access-Control-Allow-Origin: ' . $allowedOrigin);
-            header('Vary: Origin');
+            if ($allowedOrigin !== '*') {
+                header('Vary: Origin');
+            }
         }
         
         header('Access-Control-Allow-Methods: ' . implode(', ', $this->allowedMethods));
         header('Access-Control-Allow-Headers: ' . implode(', ', $this->allowedHeaders));
         header('Access-Control-Max-Age: ' . $this->maxAge);
         
-        if ($this->allowCredentials) {
+        if ($this->allowCredentials && $allowedOrigin !== '*') {
             header('Access-Control-Allow-Credentials: true');
         }
     }
 
-    /**
-     * Maneja preflight OPTIONS (legacy)
-     */
-    public function handlePreflight(): never
-    {
-        $this->setHeaders();
-        http_response_code(204);
-        exit;
-    }
-
-    /**
-     * Añade un origen permitido
-     */
-    public function allowOrigin(string $origin): self
-    {
-        if (!in_array($origin, $this->allowedOrigins, true)) {
-            $this->allowedOrigins[] = $origin;
-        }
-        return $this;
-    }
-
-    /**
-     * Añade un método permitido
-     */
-    public function allowMethod(string $method): self
-    {
-        $method = strtoupper($method);
-        if (!in_array($method, $this->allowedMethods, true)) {
-            $this->allowedMethods[] = $method;
-        }
-        return $this;
-    }
-
-    /**
-     * Añade un header permitido
-     */
-    public function allowHeader(string $header): self
-    {
-        if (!in_array($header, $this->allowedHeaders, true)) {
-            $this->allowedHeaders[] = $header;
-        }
-        return $this;
-    }
 }

@@ -5,6 +5,7 @@ namespace Tests\Security;
 use FSFramework\Security\CsrfManager;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use Symfony\Component\HttpFoundation\Request;
 
 class CsrfManagerTest extends TestCase
 {
@@ -35,6 +36,32 @@ class CsrfManagerTest extends TestCase
         $token = CsrfManager::generateToken();
 
         $this->assertNotSame('', $token);
+    }
+
+    public function testRefreshAndRemoveTokenLifecycle(): void
+    {
+        $initial = CsrfManager::generateToken('custom_form');
+        $refreshed = CsrfManager::refreshToken('custom_form');
+
+        $this->assertNotSame('', $initial);
+        $this->assertNotSame($initial, $refreshed);
+        $this->assertTrue(CsrfManager::isValid($refreshed, 'custom_form'));
+        $removed = CsrfManager::removeToken('custom_form');
+        $this->assertNotNull($removed);
+        $this->assertFalse(CsrfManager::isValid($refreshed, 'custom_form'));
+    }
+
+    public function testValidateRequestAcceptsPostFieldAndHeaderToken(): void
+    {
+        $token = CsrfManager::generateToken('request_form');
+
+        $postRequest = new Request([], [CsrfManager::FIELD_NAME => $token]);
+        $headerRequest = new Request();
+        $headerRequest->headers->set(CsrfManager::HEADER_NAME, $token);
+
+        $this->assertTrue(CsrfManager::validateRequest($postRequest, 'request_form'));
+        $this->assertTrue(CsrfManager::validateRequest($headerRequest, 'request_form'));
+        $this->assertFalse(CsrfManager::validateRequest(new Request(), 'request_form'));
     }
 
     private function resetCsrfState(): void

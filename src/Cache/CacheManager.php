@@ -71,21 +71,6 @@ class CacheManager
      */
     public const DEFAULT_TTL = 180;
     
-    /**
-     * TTL corto para datos muy dinámicos (30 segundos).
-     */
-    public const SHORT_TTL = 30;
-    
-    /**
-     * TTL medio para datos moderadamente estáticos (10 minutos).
-     */
-    public const MEDIUM_TTL = 600;
-    
-    /**
-     * TTL largo para datos semi-estáticos (1 hora).
-     */
-    public const LONG_TTL = 3600;
-
     private function __construct()
     {
         $baseDir = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__, 2);
@@ -359,17 +344,6 @@ class CacheManager
     }
 
     /**
-     * Limpia todas las cachés y devuelve true si todas fueron exitosas.
-     * 
-     * @return bool True si todas las cachés se limpiaron correctamente
-     */
-    public function clearAllSuccessful(): bool
-    {
-        $results = $this->clearAll();
-        return !in_array(false, $results, true);
-    }
-
-    /**
      * Obtiene información sobre el estado de la caché.
      * 
      * @return array Información de la caché
@@ -466,21 +440,6 @@ class CacheManager
         
         return $files;
     }
-
-    /**
-     * Obtiene el adaptador de caché interno (para uso avanzado).
-     * 
-     * @return CacheItemPoolInterface
-     */
-    public function getAdapter(): CacheItemPoolInterface
-    {
-        return $this->cache;
-    }
-
-    /**
-     * Previene la clonación del singleton.
-     */
-    private function __clone() {}
 
     /**
      * Resetea la instancia (útil para tests).

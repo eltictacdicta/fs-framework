@@ -46,11 +46,6 @@ class ApiException extends \Exception
         return $this->httpStatusCode;
     }
     
-    public function getErrorData(): ?array
-    {
-        return $this->errorData;
-    }
-    
     /**
      * Convierte la excepción a array para respuesta JSON
      * @return array{success: false, error: string, errorType: string, errorData?: array, debug?: array}

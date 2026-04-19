@@ -100,7 +100,7 @@
                 <a href="{{ value.url() }}" class="btn btn-xs btn-default" title="Ver/Editar">
                     <span class="glyphicon glyphicon-edit"></span>
                 </a>
-                <a href="#" onclick="delete_agente('{{ value.codagente }}', '{{ value.get_fullname() }}')" class="btn btn-xs btn-danger" title="Eliminar">
+                <a href="#" onclick="delete_agente('{{ value.codagente|e('js') }}', '{{ value.get_fullname()|e('js') }}')" class="btn btn-xs btn-danger" title="Eliminar">
                     <span class="glyphicon glyphicon-trash"></span>
                 </a>
             </td>

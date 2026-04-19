@@ -29,6 +29,9 @@
  * @author FacturaScripts Team
  */
 
+use FSFramework\Api\Exception\ApiException;
+use FSFramework\DependencyInjection\Container;
+
 // Establecer directorio de trabajo
 define('FS_FOLDER', __DIR__);
 define('FS_JSON_CONTENT_TYPE', 'Content-Type: application/json; charset=utf-8');
@@ -85,11 +88,14 @@ require_once 'base/fs_plugin_manager.php';
 $plugin_manager = new fs_plugin_manager();
 $GLOBALS['plugins'] = $plugin_manager->enabled();
 
-// Ejecutar API Kernel
-use FSFramework\Api\ApiKernel;
-
 try {
-    ApiKernel::handle();
+    $container = Container::getContainer();
+
+    if (!$container->has('api.runtime')) {
+        throw new ApiException('El runtime de API no está disponible. Activa el plugin api_base o registra un servicio api.runtime.', 500);
+    }
+
+    $container->get('api.runtime')->handle();
 } catch (\Throwable $e) {
     header(FS_JSON_CONTENT_TYPE);
     http_response_code(500);

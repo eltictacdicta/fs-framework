@@ -17,11 +17,11 @@
       $("#b_eliminar_rol").click(function(event) {
          event.preventDefault();
          bootbox.confirm({
-            message: '¿Realmente desea eliminar el rol {{ fsc.rol.codrol }}?',
+            message: '¿Realmente desea eliminar el rol {{ fsc.rol.codrol|e('js') }}?',
             title: '<b>Atención</b>',
             callback: function(result) {
                if (result) {
-                  window.location.href = "index.php?page=admin_users&delete_rol="+encodeURIComponent("{{ fsc.rol.codrol }}")+"#roles";
+                  window.location.href = "index.php?page=admin_users&delete_rol="+encodeURIComponent("{{ fsc.rol.codrol|e('js') }}")+"#roles";
                }
             }                
          });

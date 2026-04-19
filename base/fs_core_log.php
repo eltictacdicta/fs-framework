@@ -511,11 +511,130 @@ class fs_core_log
         $messages = [];
         foreach (self::$data_log as $data) {
             if ($data['channel'] === $channel) {
-                $messages[] = $full ? $data : $data['message'];
+                $messages[] = $full ? $data : $this->sanitizeForDisplay($data['message'], $channel);
             }
         }
 
         return $messages;
+    }
+
+    private function sanitizeForDisplay($message, $channel)
+    {
+        if (!in_array($channel, ['advices', 'errors', 'messages'], true)) {
+            return $message;
+        }
+
+        if (!is_string($message) || $message === '') {
+            return $message;
+        }
+
+        if (!class_exists('DOMDocument')) {
+            return htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        $allowedTags = [
+            'a' => ['href', 'title', 'target', 'rel'],
+            'b' => [],
+            'strong' => [],
+            'i' => [],
+            'em' => [],
+            'br' => [],
+            'code' => [],
+        ];
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        @$dom->loadHTML('<?xml encoding="utf-8" ?><div>' . $message . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+
+        $root = $dom->getElementsByTagName('div')->item(0);
+        if (!$root instanceof \DOMElement) {
+            return htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        $safe = '';
+        foreach ($root->childNodes as $child) {
+            $safe .= $this->sanitizeNode($child, $allowedTags);
+        }
+
+        return $safe;
+    }
+
+    private function sanitizeNode(\DOMNode $node, array $allowedTags): string
+    {
+        if ($node instanceof \DOMText) {
+            return htmlspecialchars($node->nodeValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        if (!$node instanceof \DOMElement) {
+            return '';
+        }
+
+        $tagName = strtolower($node->tagName);
+        $children = '';
+        foreach ($node->childNodes as $child) {
+            $children .= $this->sanitizeNode($child, $allowedTags);
+        }
+
+        if (!isset($allowedTags[$tagName])) {
+            return $children;
+        }
+
+        $attributes = '';
+        foreach ($allowedTags[$tagName] as $attribute) {
+            if (!$node->hasAttribute($attribute)) {
+                continue;
+            }
+
+            $value = trim($node->getAttribute($attribute));
+            if ($value === '') {
+                continue;
+            }
+
+            if ($attribute === 'href') {
+                $sanitizedHref = $this->sanitizeHref($value);
+                if ($sanitizedHref === null) {
+                    continue;
+                }
+                $value = $sanitizedHref;
+            } elseif ($attribute === 'target') {
+                if (!in_array($value, ['_blank', '_self'], true)) {
+                    continue;
+                }
+            } elseif ($attribute === 'rel') {
+                $value = 'noopener noreferrer';
+            }
+
+            $attributes .= ' ' . $attribute . '="' . htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        }
+
+        if ($tagName === 'a' && str_contains($attributes, ' target="_blank"') && !str_contains($attributes, ' rel=')) {
+            $attributes .= ' rel="noopener noreferrer"';
+        }
+
+        if ($tagName === 'a' && !str_contains($attributes, ' href=')) {
+            return $children;
+        }
+
+        if ($tagName === 'br') {
+            return '<br>';
+        }
+
+        return '<' . $tagName . $attributes . '>' . $children . '</' . $tagName . '>';
+    }
+
+    private function sanitizeHref(string $href): ?string
+    {
+        $normalized = trim($href);
+        $lower = strtolower($normalized);
+
+        if (str_starts_with($lower, 'javascript:') || str_starts_with($lower, 'data:')) {
+            return null;
+        }
+
+        if (preg_match('/^(https?:\/\/|\/|#|\?|index\.php)/i', $normalized) === 1) {
+            return $normalized;
+        }
+
+        return null;
     }
 
     // =========================================================================

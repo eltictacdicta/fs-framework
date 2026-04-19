@@ -13,6 +13,7 @@
 
     <source>
         <include>
+            <file>LegacyCompatibility.php</file>
             <file>LegacyUsageTracker.php</file>
             <file>LegacyTelemetry.php</file>
             <file>VersionValidator.php</file>

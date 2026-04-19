@@ -35,29 +35,10 @@ class AuthMiddleware implements MiddlewareInterface
 {
     private ?ApiAuthInterface $authModel = null;
     private ?AllowedUserInterface $allowedUserModel = null;
-    
-    /** @var array<string, mixed>|null Usuario autenticado actual */
-    private ?array $currentUser = null;
 
     public function __construct(?ApiAuthInterface $authModel = null, ?AllowedUserInterface $allowedUserModel = null)
     {
         $this->authModel = $authModel;
-        $this->allowedUserModel = $allowedUserModel;
-    }
-
-    /**
-     * Establece el modelo de autenticación (permite inyección desde plugins)
-     */
-    public function setAuthModel(ApiAuthInterface $authModel): void
-    {
-        $this->authModel = $authModel;
-    }
-
-    /**
-     * Establece el modelo de usuarios permitidos (permite inyección desde plugins)
-     */
-    public function setAllowedUserModel(AllowedUserInterface $allowedUserModel): void
-    {
         $this->allowedUserModel = $allowedUserModel;
     }
 
@@ -111,88 +92,8 @@ class AuthMiddleware implements MiddlewareInterface
         
         // Actualizar último acceso
         $this->allowedUserModel->updateLastAccess($user['nick']);
-        
-        $this->currentUser = $user;
+
         return $user;
     }
 
-    /**
-     * Intenta autenticar sin lanzar excepción
-     *
-     * @return array<string, mixed>|null
-     */
-    public function tryAuthenticate(): ?array
-    {
-        try {
-            return $this->authenticate();
-        } catch (\Exception $e) {
-            return null;
-        }
-    }
-
-    /**
-     * Obtiene el usuario autenticado actual
-     *
-     * @return array<string, mixed>|null
-     */
-    public function getCurrentUser(): ?array
-    {
-        return $this->currentUser;
-    }
-
-    /**
-     * Verifica que el usuario tenga un rol específico
-     *
-     * @param array<string, mixed> $user
-     */
-    public function hasRole(array $user, string $role): bool
-    {
-        return ($user['role'] ?? null) === $role;
-    }
-
-    /**
-     * Verifica que el usuario sea administrador
-     *
-     * @param array<string, mixed> $user
-     */
-    public function isAdmin(array $user): bool
-    {
-        return ($user['admin'] ?? false) === true;
-    }
-
-    /**
-     * Requiere que el usuario sea administrador
-     *
-     * @param array<string, mixed> $user
-     * @throws UnauthorizedException
-     */
-    public function requireAdmin(array $user): void
-    {
-        if (!$this->isAdmin($user)) {
-            throw new UnauthorizedException('Se requieren permisos de administrador');
-        }
-    }
-
-    /**
-     * Verifica que el usuario sea propietario del recurso
-     *
-     * @param array<string, mixed> $user
-     */
-    public function isOwner(array $user, string $resourceUserId): bool
-    {
-        return isset($user['nick']) && $user['nick'] === $resourceUserId;
-    }
-
-    /**
-     * Requiere que el usuario sea propietario o administrador
-     *
-     * @param array<string, mixed> $user
-     * @throws UnauthorizedException
-     */
-    public function requireOwnerOrAdmin(array $user, string $resourceUserId): void
-    {
-        if (!$this->isOwner($user, $resourceUserId) && !$this->isAdmin($user)) {
-            throw new UnauthorizedException('No tiene permisos para acceder a este recurso');
-        }
-    }
 }

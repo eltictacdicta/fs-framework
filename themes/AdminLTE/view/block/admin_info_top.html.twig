@@ -95,8 +95,36 @@
                         <div class="col-sm-3"><strong>Endpoints legacy únicos:</strong> {{ legacyUsage.totals.unique_routes }}</div>
                         <div class="col-sm-3"><strong>Componentes legacy únicos:</strong> {{ legacyUsage.totals.unique_components }}</div>
                     </div>
+                    <div class="row" style="margin-top: 10px;">
+                        <div class="col-sm-6">
+                            <strong>Bridges activos:</strong>
+                            {% if legacyUsage.bridge_groups is not empty %}
+                                {% for name, hits in legacyUsage.bridge_groups %}
+                                    <span class="label label-warning" style="display: inline-block; margin-right: 6px; margin-top: 4px;">
+                                        {{ name }}: {{ hits }}
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">sin datos</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-sm-6">
+                            <strong>Categorías activas:</strong>
+                            {% if legacyUsage.component_groups is not empty %}
+                                {% for name, hits in legacyUsage.component_groups %}
+                                    <span class="label label-default" style="display: inline-block; margin-right: 6px; margin-top: 4px;">
+                                        {{ name }}: {{ hits }}
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">sin datos</span>
+                            {% endif %}
+                        </div>
+                    </div>
                     <p class="help-block" style="margin-top: 10px; margin-bottom: 0;">
                         Última actualización: {{ legacyUsage.updated_at ?: 'sin datos' }}.
+                        Grupos únicos: {{ legacyUsage.totals.unique_component_groups }}.
+                        Hits en bridges: {{ legacyUsage.totals.bridge_hits }}.
                     </p>
                 </div>
                 <div class="table-responsive">

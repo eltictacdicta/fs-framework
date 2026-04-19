@@ -38,11 +38,11 @@
       <div class="login-logo">
          <a href="index.php">
             {% if file_exists(theme_path ~ '/img/logo.png') %}
-            <img src="{{ constant('FS_PATH') }}{{ theme_path }}/img/logo.png" style="max-width: 200px;"/>
+            <img src="{{ constant('FS_PATH') }}{{ theme_path }}/img/logo.png" style="max-width: 200px;" alt="Logo"/>
             {% elseif file_exists(constant('FS_MYDOCS') ~ 'images/logo.png') %}
-            <img src="images/logo.png" style="max-width: 200px;"/>
+            <img src="images/logo.png" style="max-width: 200px;" alt="Logo"/>
             {% elseif file_exists(constant('FS_MYDOCS') ~ 'images/logo.jpg') %}
-            <img src="images/logo.jpg" style="max-width: 200px;"/>
+            <img src="images/logo.jpg" style="max-width: 200px;" alt="Logo"/>
             {% else %}
             <b>Factura</b>Scripts
             {% endif %}
@@ -74,7 +74,8 @@
             {% endif %}
          </p>
 
-         <form name="f_login" action="index.php?nlogin={{ nlogin }}" method="post">
+         <form name="f_login" action="{{ fsc.loginActionUrl() }}" method="post">
+            {{ csrf_field() }}
             {% if constant('FS_DEMO') %}
             <input type="hidden" name="password" value="demo"/>
             <div class="form-group has-feedback">
@@ -101,7 +102,7 @@
             </div>
          </form>
 
-         {% if not constant('FS_DEMO') %}
+         {% if not constant('FS_DEMO') and fsc.shouldShowPasswordResetLink() %}
          <br/>
          <a href="index.php?page=password_reset" class="text-center">{{ trans('i-forgot-password') }}</a>
          {% endif %}

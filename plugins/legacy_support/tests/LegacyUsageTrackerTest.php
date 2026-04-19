@@ -47,4 +47,34 @@ class LegacyUsageTrackerTest extends TestCase
         $this->assertSame([], $summary['top_routes']);
         $this->assertSame([], $summary['top_components']);
     }
+
+    public function testSummaryGroupsLegacyComponentsByCategory(): void
+    {
+        LegacyUsageTracker::incrementLegacyComponent('legacy.router', 'generateLegacyUrl');
+        LegacyUsageTracker::incrementLegacyComponent('legacy.router', 'clearCache');
+        LegacyUsageTracker::incrementLegacyComponent('legacy.kernel', 'handleRequest');
+        LegacyUsageTracker::incrementLegacyComponent('api.request_helper', 'getParam');
+
+        $summary = LegacyUsageTracker::getSummary();
+
+        $this->assertSame(3, $summary['totals']['unique_component_groups']);
+        $this->assertSame(
+            [
+                'Router bridge' => 2,
+                'Kernel bridge' => 1,
+                'API request helpers' => 1,
+            ],
+            $summary['component_groups']
+        );
+
+        $this->assertSame(3, $summary['totals']['bridge_hits']);
+        $this->assertSame(2, $summary['totals']['unique_bridge_groups']);
+        $this->assertSame(
+            [
+                'Router bridge' => 2,
+                'Kernel bridge' => 1,
+            ],
+            $summary['bridge_groups']
+        );
+    }
 }

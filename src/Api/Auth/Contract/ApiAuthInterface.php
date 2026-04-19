@@ -35,12 +35,6 @@ interface ApiAuthInterface
     public function authenticate(string $nick, string $password): array;
 
     /**
-     * Autentica un usuario sin contraseña (para OTL - One Touch Login)
-     * @return array{success: bool, token?: string, refresh_token?: string, user?: array, expires_in?: int, error?: string}
-     */
-    public function authenticateWithoutPassword(fs_user $user): array;
-
-    /**
      * Cierra la sesión de un usuario
      * @return array{success: bool, message?: string, error?: string}
      */
@@ -51,12 +45,6 @@ interface ApiAuthInterface
      * @return array{success: bool, user?: array, error?: string}
      */
     public function validateToken(string $token): array;
-
-    /**
-     * Valida un refresh token
-     * @return array{success: bool, user?: fs_user, error?: string}
-     */
-    public function validateRefreshToken(string $refreshToken): array;
 
     /**
      * Genera nuevos tokens usando un refresh token válido
@@ -85,24 +73,7 @@ interface ApiAuthInterface
     public function getCurrentToken(): ?string;
 
     /**
-     * Limpia el rate limit de un usuario
-     */
-    public function clearUserRateLimit(string $nick, ?string $ip = null): bool;
-
-    /**
-     * Obtiene usuarios con tokens activos
-     * @return array<array{nick: string, token_count: int, last_used: ?string, last_created: ?string}>
-     */
-    public function getUsersWithActiveTokens(): array;
-
-    /**
      * Revoca todos los tokens de un usuario
      */
     public function revokeUserTokens(string $nick): bool;
-
-    /**
-     * Obtiene estadísticas de rate limiting
-     * @return array<array{nick: string, ip: string, attempts: int, is_blocked: bool, last_attempt: ?string, blocked_until: ?string}>
-     */
-    public function getRateLimitStatistics(): array;
 }
