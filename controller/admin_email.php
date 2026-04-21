@@ -83,7 +83,10 @@ class admin_email extends fs_controller
             'mail_from_name' => $this->no_html(fs_fix_html(trim((string) fs_filter_input_req('mail_from_name', '')))),
         ];
 
-        $config['mail_password'] = (string) $this->request->request->get('mail_password', '');
+        $submittedPassword = (string) $this->request->request->get('mail_password', '');
+        if ($submittedPassword !== '') {
+            $config['mail_password'] = $submittedPassword;
+        }
 
         if ($this->mailService->saveConfig($config)) {
             $this->new_message(FSTranslator::trans('email-config-saved'));
