@@ -167,13 +167,16 @@ class fs_auth
         }
 
         if ($storedHash !== (string) $user->password) {
-            if (method_exists($user, 'set_password')) {
-                if ($user->set_password($password) !== false) {
+            // Solo migrar el hash si la contraseña cumple requisitos de longitud
+            if (mb_strlen($password) >= 8 && mb_strlen($password) <= 32) {
+                if (method_exists($user, 'set_password')) {
+                    if ($user->set_password($password) !== false) {
+                        $user->save();
+                    }
+                } else {
+                    $user->password = $storedHash;
                     $user->save();
                 }
-            } else {
-                $user->password = $storedHash;
-                $user->save();
             }
         }
 

@@ -69,3 +69,6 @@ AdminLTE-2.4.18
 .env.local
 .env.*.local
 config.php.bak-secret-migration
+
+# Secret key auto-generada (nunca subir)
+.fs_secret_key

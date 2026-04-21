@@ -164,7 +164,23 @@ class fs_app
      */
     public function get_messages()
     {
+        $this->load_session_flash_messages();
         return $this->core_log->get_messages();
+    }
+
+    private function load_session_flash_messages()
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE || empty($_SESSION['flash_messages']) || !is_array($_SESSION['flash_messages'])) {
+            return;
+        }
+
+        foreach ($_SESSION['flash_messages'] as $message) {
+            if (is_string($message) && $message !== '') {
+                $this->core_log->new_message($message);
+            }
+        }
+
+        unset($_SESSION['flash_messages']);
     }
 
     /**

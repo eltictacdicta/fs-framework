@@ -1,7 +1,7 @@
 <?php
 /**
  * Bootstrap para pruebas unitarias de FSFramework
- * 
+ *
  * Define las constantes mínimas necesarias para que las clases del
  * framework se puedan instanciar en un entorno de testing aislado,
  * sin conexión a base de datos.
@@ -9,6 +9,12 @@
 
 // Autoloader de Composer
 require_once __DIR__ . '/../vendor/autoload.php';
+
+// Reutilizar la configuracion real cuando exista, por ejemplo en ddev.
+$appConfig = dirname(__DIR__) . '/config.php';
+if (file_exists($appConfig)) {
+    require_once $appConfig;
+}
 
 // Constantes del framework necesarias para las clases base
 if (!defined('FS_FOLDER')) {
@@ -83,6 +89,14 @@ if (!defined('FS_DB_HISTORY')) {
     define('FS_DB_HISTORY', false);
 }
 
+if (!defined('FS_FOREIGN_KEYS')) {
+    define('FS_FOREIGN_KEYS', true);
+}
+
+if (!defined('FS_CHECK_DB_TYPES')) {
+    define('FS_CHECK_DB_TYPES', true);
+}
+
 if (!defined('FS_PATH')) {
     define('FS_PATH', '');
 }
@@ -91,8 +105,17 @@ if (!defined('FS_DEMO')) {
     define('FS_DEMO', false);
 }
 
+if (!defined('FS_SECRET_KEY')) {
+    define('FS_SECRET_KEY', 'phpunit-test-secret-key');
+}
+
 // Asegurar que el directorio tmp existe para tests que lo necesiten
 $tmpDir = FS_FOLDER . '/tmp';
 if (!is_dir($tmpDir)) {
     mkdir($tmpDir, 0777, true);
 }
+
+require_once FS_FOLDER . '/base/fs_model.php';
+require_once FS_FOLDER . '/base/fs_model_autoloader.php';
+
+fs_model_autoloader::register();

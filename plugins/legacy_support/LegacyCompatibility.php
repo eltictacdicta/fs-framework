@@ -48,18 +48,47 @@ final class LegacyCompatibility
         );
 
         if (!is_callable([$user, 'set_password']) || !is_callable([$user, 'save'])) {
-            return false;
+            // No se puede migrar, pero la contraseña legacy es válida
+            return true;
+        }
+
+        // Solo intentar migrar si la contraseña cumple requisitos de longitud
+        // Si no cumple, el login sigue siendo válido pero no se migra
+        if (mb_strlen($plainPassword) < 8 || mb_strlen($plainPassword) > 32) {
+            return true;
         }
 
         try {
             if ($user->set_password($plainPassword) === false) {
-                return false;
+                // Fallo en migración, pero la contraseña legacy es válida
+                return true;
             }
 
-            return $user->save() !== false;
-        } catch (Throwable) {
-            return false;
+            if ($user->save() === false) {
+                $userId = self::getOpaqueUserId($user);
+                error_log(sprintf(
+                    'FSFramework legacy_support: failed to persist migrated legacy password for user %s after successful rehash.',
+                    $userId
+                ));
+            }
+
+            return true;
+        } catch (Throwable $e) {
+            $userId = self::getOpaqueUserId($user);
+            error_log(sprintf(
+                'FSFramework legacy_support: exception migrating legacy password for user %s: %s',
+                $userId,
+                $e->getMessage()
+            ));
+            return true;
         }
+    }
+
+    private static function getOpaqueUserId(object $user): string
+    {
+        $identifier = $user->nick ?? $user->id ?? 'unknown';
+
+        return hash('sha256', (string) $identifier);
     }
 
     public static function verifyLegacyPassword(

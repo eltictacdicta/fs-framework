@@ -10,3 +10,21 @@ parameters:
     paths:
         - src
         - tests
+    ignoreErrors:
+        # False positives: PHPStan infers constant values from test bootstrap,
+        # but these checks are needed at runtime when constants may vary
+        -
+            identifier: booleanNot.alwaysTrue
+            path: src/Core/Base/Controller.php
+        -
+            identifier: if.alwaysTrue
+            path: src/Core/Base/Controller.php
+        -
+            identifier: function.alreadyNarrowedType
+            path: src/Security/SecretManager.php
+        -
+            identifier: booleanAnd.alwaysTrue
+            path: src/Security/SecretManager.php
+        -
+            identifier: notIdentical.alwaysTrue
+            path: src/Security/SecretManager.php

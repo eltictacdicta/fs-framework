@@ -204,8 +204,13 @@ class fs_user extends \fs_model
         new \agente();
         new \fs_page();
 
-        $this->new_message('Se ha creado el usuario <b>admin</b> con la contraseña <b>admin</b>.');
-        $adminHash = password_hash('admin', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+        $defaultPassword = rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
+        $this->new_message(
+            'Se ha creado el usuario <b>admin</b> con contraseña temporal: <code>' . 
+            htmlspecialchars($defaultPassword, ENT_QUOTES, 'UTF-8') . 
+            '</code><br><b>¡IMPORTANTE!</b> Cambia esta contraseña inmediatamente después del primer acceso.'
+        );
+        $adminHash = password_hash($defaultPassword, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
         if ($this->db->select("SELECT * FROM agentes WHERE codagente = '1';")) {
             return "INSERT INTO " . $this->table_name . " (nick,password,log_key,codagente,admin,enabled)
             VALUES ('admin'," . $this->var2str($adminHash) . ",NULL,'1',TRUE,TRUE);";

@@ -170,7 +170,7 @@ class fs_autoload
         $namespaceMap = [
             'FSFramework\\Security\\' => '/base/fs_%s.php',
             'FSFramework\\Database\\' => '/base/fs_%s.php',
-            'FSFramework\\Core\\' => '/core/%s.php',
+            'FSFramework\\Core\\' => '/src/Core/%s.php',
             'FSFramework\\Model\\' => '/model/core/%s.php',
             'FSFramework\\Traits\\' => '/core/Traits/%s.php',
         ];

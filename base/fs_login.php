@@ -386,9 +386,12 @@ class fs_login
         // Verificar con el método moderno (Argon2ID)
         if (password_verify($password, $user->password)) {
             $password_verified = true;
+            // Solo hacer rehash si la contraseña cumple requisitos de longitud
             if (password_needs_rehash($user->password, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4])) {
-                $user->set_password($password);
-                $user->save();
+                if (mb_strlen($password) >= 8 && mb_strlen($password) <= 32) {
+                    $user->set_password($password);
+                    $user->save();
+                }
             }
         }
         // Delegar la compatibilidad SHA1 legacy en legacy_support.
@@ -413,6 +416,9 @@ class fs_login
             return FALSE;
         }
 
+        // Detectar contraseñas inseguras (menores a 8 caracteres) y marcar para cambio obligatorio
+        $requiresPasswordChange = mb_strlen($password) < 8;
+
         $user->new_logkey();
 
         if (!$user->admin && !$this->ip_filter->in_white_list($ip)) {
@@ -421,6 +427,12 @@ class fs_login
         } else if ($user->save()) {
             // Guardamos en sesión Y en cookies (legacy)
             $this->save_session_data($user);
+
+            // Marcar en sesión si requiere cambio de contraseña
+            if ($requiresPasswordChange) {
+                $this->session->set('force_password_change', true);
+                $this->session->set('force_password_change_reason', 'insecure_password');
+            }
 
             /// añadimos el mensaje al log
             $this->core_log->save('Login correcto.', 'login');

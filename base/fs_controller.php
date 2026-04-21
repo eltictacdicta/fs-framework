@@ -215,6 +215,14 @@ class fs_controller extends fs_app
             } else if (!$this->log_in()) {
                 $this->template = 'login/default';
                 $this->public_core();
+            } else if ($this->shouldForcePasswordChange() && $name !== 'force_password_change') {
+                header('Location: index.php?page=force_password_change');
+                exit();
+            } else if ($name === 'force_password_change' && $this->shouldForcePasswordChange()) {
+                $this->template = $name;
+                $this->set_default_items();
+                $this->pre_private_core();
+                $this->private_core();
             } else if ($this->user->have_access_to($this->page->name)) {
                 if ($name == __CLASS__) {
                     $this->template = 'index';
@@ -764,6 +772,32 @@ class fs_controller extends fs_app
         }
 
         return $this->user->logged_on;
+    }
+
+    /**
+     * Verifica si el usuario debe cambiar su contraseña de forma obligatoria.
+     * Esto ocurre cuando la contraseña actual es insegura (menor a 8 caracteres).
+     * @return bool
+     */
+    private function shouldForcePasswordChange(): bool
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return false;
+        }
+
+        if (isset($_SESSION['force_password_change']) && $_SESSION['force_password_change'] === true) {
+            return true;
+        }
+
+        if ($this->request && $this->request->hasSession()) {
+            try {
+                return $this->request->getSession()->get('force_password_change', false) === true;
+            } catch (\Throwable $e) {
+                error_log('FSFramework fs_controller: error checking force_password_change session flag: ' . $e->getMessage());
+            }
+        }
+
+        return false;
     }
 
     private function pre_private_core()

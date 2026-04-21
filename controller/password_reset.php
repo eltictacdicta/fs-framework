@@ -20,6 +20,7 @@
 require_once 'base/fs_ip_filter.php';
 
 use FSFramework\Translation\FSTranslator;
+use FSFramework\Core\MailService;
 
 /**
  * Controlador de recuperación de contraseña por email.
@@ -233,8 +234,8 @@ class password_reset extends fs_controller
 
     /**
      * Envía el email de recuperación de contraseña.
-     * Usa PHPMailer en modo mail() nativo (como WordPress), sin configuración SMTP.
-     * Remitente: fsf@dominio.com (dominio calculado dinámicamente).
+     * Usa el MailService del núcleo que soporta configuración SMTP,
+     * con fallback a mail() nativo de PHP si no hay SMTP configurado.
      * 
      * @param fs_user $user el usuario destinatario
      * @param string $plain_token el token en texto plano
@@ -242,7 +243,6 @@ class password_reset extends fs_controller
     private function send_reset_email($user, $plain_token)
     {
         $domain = $this->get_trusted_domain();
-        $from_email = 'fsf@' . $domain;
 
         // Nombre de la empresa si está disponible
         $from_name = 'FSFramework';
@@ -260,23 +260,13 @@ class password_reset extends fs_controller
         $reset_url = \FSFramework\Security\SignedUrlService::sign($reset_url, time() + 3600);
 
         $subject = FSTranslator::trans('password-reset-email-subject', ['%company%' => $from_name]);
-
         $body = $this->build_email_body($user, $reset_url, $from_name);
 
         try {
-            $mail = new \PHPMailer();
-            $mail->CharSet = 'UTF-8';
-            $mail->Mailer = 'mail'; // Usar mail() nativo de PHP, como WordPress
-            $mail->From = $from_email;
-            $mail->FromName = $from_name;
-            $mail->addAddress($user->email, $user->nick);
-            $mail->Subject = $subject;
-            $mail->isHTML(true);
-            $mail->Body = $body;
-            $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $body));
-
-            if (!$mail->send()) {
-                error_log('FSFramework password_reset: Error enviando email al usuario ' . $user->nick . ': ' . $mail->ErrorInfo);
+            $mailService = new MailService();
+            
+            if (!$mailService->send($user->email, $subject, $body, $user->nick, null, $from_name)) {
+                error_log('FSFramework password_reset: Error enviando email al usuario ' . $user->nick);
             }
         } catch (\Exception $e) {
             error_log('FSFramework password_reset: Excepción enviando email: ' . $e->getMessage());

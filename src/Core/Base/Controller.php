@@ -299,10 +299,11 @@ class Controller
 
         $this->fs_updated = false;
         if ($this->user->admin) {
-            $desactivado = defined('FS_DISABLE_MOD_PLUGINS') ? FS_DISABLE_MOD_PLUGINS : false;
-            if ($desactivado) {
-                $this->fs_updated = false;
-            } else {
+            $canCheckUpdates = true;
+            if (defined('FS_DISABLE_MOD_PLUGINS')) {
+                $canCheckUpdates = !constant('FS_DISABLE_MOD_PLUGINS');
+            }
+            if ($canCheckUpdates) {
                 $fsvar = new \fs_var();
                 $this->fs_updated = (bool) $fsvar->simple_get('updates');
             }
