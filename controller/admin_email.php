@@ -33,6 +33,8 @@ class admin_email extends fs_controller
 
     public string $testMessage = '';
 
+    public array $emailSystemInfo = [];
+
     public function __construct()
     {
         parent::__construct(__CLASS__, FSTranslator::trans('email-config'), 'admin', true, true);
@@ -55,10 +57,145 @@ class admin_email extends fs_controller
 
             if ($action === 'test') {
                 $this->testConnection();
+            } elseif ($action === 'use_mailpit') {
+                $this->useMailpit();
+            } elseif ($action === 'send_test') {
+                $this->sendTestEmail();
             } else {
                 $this->saveConfig();
             }
         }
+
+        $this->emailSystemInfo = $this->getEmailSystemInfo();
+    }
+
+    /**
+     * Configura Mailpit de DDEV para pruebas.
+     */
+    private function useMailpit(): void
+    {
+        $config = [
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'localhost',
+            'mail_port' => 1025,
+            'mail_user' => '',
+            'mail_password' => '',
+            'mail_enc' => '',
+            'mail_low_security' => false,
+            'mail_from_email' => 'noreply@test.local',
+            'mail_from_name' => 'Sistema de Pruebas',
+        ];
+
+        if ($this->mailService->saveConfig($config)) {
+            $this->new_message('Configuración de Mailpit activada. Los emails se capturarán en Mailpit (puerto 8026).');
+            $this->emailConfig = $this->mailService->getConfig();
+            MailService::clearCache();
+        } else {
+            $this->new_error_msg('Error al configurar Mailpit.');
+        }
+    }
+
+    /**
+     * Envía un email de prueba.
+     */
+    private function sendTestEmail(): void
+    {
+        $testEmail = trim((string) $this->request->request->get('test_email', ''));
+        
+        if (empty($testEmail) || !filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
+            $this->new_error_msg('Por favor, introduce una dirección de email válida para la prueba.');
+            return;
+        }
+
+        $config = $this->emailConfig;
+        $subject = 'Email de prueba - ' . date('d/m/Y H:i:s');
+        $body = $this->buildTestEmailBody($config);
+
+        try {
+            $result = $this->mailService->send($testEmail, $subject, $body);
+            
+            if ($result) {
+                $this->new_message("Email de prueba enviado correctamente a {$testEmail}. Revisa tu bandeja de entrada (o Mailpit si usas DDEV).");
+            } else {
+                $this->new_error_msg("No se pudo enviar el email de prueba a {$testEmail}. Revisa los logs del servidor.");
+            }
+        } catch (\Throwable $e) {
+            $this->new_error_msg("Error al enviar email de prueba: " . $e->getMessage());
+        }
+    }
+
+    private function buildTestEmailBody(array $config): string
+    {
+        $host = $this->no_html($config['mail_host'] ?: '(no configurado)');
+        $port = $this->no_html($config['mail_port'] ?: '(no configurado)');
+        $mailer = $this->no_html($config['mail_mailer'] ?: 'smtp');
+        $from = $this->no_html($config['mail_from_email'] ?: '(no configurado)');
+        $date = $this->no_html(date('d/m/Y H:i:s'));
+
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; padding: 20px;">
+    <h2 style="color: #0196d2;">Email de prueba</h2>
+    <p>Este es un email de prueba enviado desde el sistema.</p>
+    <hr style="border: 1px solid #eee;">
+    <h3>Configuración actual:</h3>
+    <ul>
+        <li><strong>Mailer:</strong> {$mailer}</li>
+        <li><strong>Host:</strong> {$host}</li>
+        <li><strong>Puerto:</strong> {$port}</li>
+        <li><strong>Remitente:</strong> {$from}</li>
+    </ul>
+    <p style="color: #666; font-size: 12px;">Enviado el {$date}</p>
+</body>
+</html>
+HTML;
+    }
+
+    /**
+     * Obtiene información del sistema de email actual para mostrar en la UI.
+     */
+    public function getEmailSystemInfo(): array
+    {
+        $config = $this->emailConfig;
+        $mailer = $config['mail_mailer'] ?? 'smtp';
+        $host = $config['mail_host'] ?? '';
+        $port = $config['mail_port'] ?? 587;
+
+        if ($mailer === 'smtp' && $host === 'localhost' && $port == 1025) {
+            return [
+                'name' => 'Mailpit (DDEV)',
+                'icon' => 'flask',
+                'class' => 'info',
+                'description' => 'Los emails se capturan en Mailpit para pruebas.',
+            ];
+        }
+
+        if ($mailer === 'smtp' && !empty($host)) {
+            return [
+                'name' => 'SMTP: ' . $host,
+                'icon' => 'server',
+                'class' => 'success',
+                'description' => "Servidor SMTP en puerto {$port}.",
+            ];
+        }
+
+        if ($mailer === 'mail') {
+            return [
+                'name' => 'PHP mail()',
+                'icon' => 'envelope',
+                'class' => 'warning',
+                'description' => 'Usando función mail() nativa de PHP.',
+            ];
+        }
+
+        return [
+            'name' => 'No configurado',
+            'icon' => 'exclamation-triangle',
+            'class' => 'danger',
+            'description' => 'El sistema de email no está configurado.',
+        ];
     }
 
     /**

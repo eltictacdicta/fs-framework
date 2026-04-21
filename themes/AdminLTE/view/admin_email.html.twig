@@ -27,6 +27,50 @@
 </div>
 
 <div class="container-fluid" style="margin-top: 20px;">
+    {% set mailpit_url = 'https://' ~ app.request.server.get('SERVER_NAME') ~ ':8026' %}
+    {# Indicador del sistema de email actual #}
+    <div class="alert alert-{{ fsc.emailSystemInfo.class }}" style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <i class="fa fa-{{ fsc.emailSystemInfo.icon }} fa-lg"></i>&nbsp;&nbsp;
+            <strong>{{ 'email-active-system'|trans }}</strong> {{ fsc.emailSystemInfo.name }}
+            <span class="text-muted" style="margin-left: 15px;">{{ fsc.emailSystemInfo.description }}</span>
+        </div>
+        {% if fsc.emailSystemInfo.class == 'info' %}
+        <a href="{{ mailpit_url }}" target="_blank" class="btn btn-sm btn-info">
+            <i class="fa fa-external-link"></i> {{ 'email-view-mailpit'|trans }}
+        </a>
+        {% endif %}
+    </div>
+
+    {# Panel de configuración rápida para DDEV/Mailpit #}
+    <div class="panel panel-info" id="ddev_panel">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                <i class="fa fa-flask"></i>&nbsp;
+                {{ 'email-ddev-test-mode-title'|trans }}
+            </h3>
+        </div>
+        <div class="panel-body">
+            <p class="text-muted">
+                <i class="fa fa-info-circle"></i>
+                {{ 'email-ddev-mailpit-intro'|trans }}
+                {{ 'email-ddev-mailpit-view-prefix'|trans }}<a href="{{ mailpit_url }}" target="_blank">{{ 'email-mailpit-product'|trans }}</a>.
+            </p>
+            <form method="post" action="{{ fsc.url()|raw }}" style="display: inline;">
+                {{ csrf_field() }}
+                <input type="hidden" name="action" value="use_mailpit"/>
+                <button type="submit" class="btn btn-info" onclick="return confirm('{{ 'email-mailpit-config-confirm'|trans|e('js') }}');">
+                    <i class="fa fa-magic"></i>&nbsp;
+                    {{ 'email-use-mailpit-ddev'|trans }}
+                </button>
+            </form>
+            <a href="{{ mailpit_url }}" target="_blank" class="btn btn-default">
+                <i class="fa fa-external-link"></i>&nbsp;
+                {{ 'email-open-mailpit'|trans }}
+            </a>
+        </div>
+    </div>
+
     <form method="post" action="{{ fsc.url()|raw }}">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="save"/>
@@ -217,6 +261,40 @@
         {{ 'email-config-incomplete'|trans }}
     </div>
     {% endif %}
+
+    {# Panel de envío de email de prueba #}
+    <div class="panel panel-success" style="margin-top: 20px;">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                <i class="fa fa-paper-plane"></i>&nbsp;
+                {{ 'email-send-test-title'|trans }}
+            </h3>
+        </div>
+        <div class="panel-body">
+            <p class="help-block">
+                <i class="fa fa-info-circle"></i>
+                {{ 'email-send-test-help'|trans }}
+            </p>
+            <form method="post" action="{{ fsc.url()|raw }}" class="form-inline">
+                {{ csrf_field() }}
+                <input type="hidden" name="action" value="send_test"/>
+                <div class="form-group">
+                    <label for="test_email" class="sr-only">{{ 'email-test-destination-label'|trans }}</label>
+                    <div class="input-group">
+                        <span class="input-group-addon">
+                            <i class="fa fa-envelope"></i>
+                        </span>
+                        <input type="email" class="form-control" id="test_email" name="test_email" 
+                               placeholder="{{ 'email-test-email-placeholder'|trans }}" style="width: 300px;" required/>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success">
+                    <i class="fa fa-paper-plane"></i>&nbsp;
+                    {{ 'email-send-test-submit'|trans }}
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
 
 <script>

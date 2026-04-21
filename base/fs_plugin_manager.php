@@ -822,7 +822,7 @@ class fs_plugin_manager
     private function applyPluginCompatibility(array &$plugin, $isFsFrameworkIni)
     {
         if ($isFsFrameworkIni) {
-            if ($this->version >= $plugin['min_version']) {
+            if (version_compare($this->version, $plugin['min_version'], '>=')) {
                 $plugin['compatible'] = true;
             } else {
                 $plugin['error_msg'] = 'Requiere FSFramework ' . $plugin['min_version'];
@@ -831,7 +831,7 @@ class fs_plugin_manager
             return;
         }
 
-        if ($plugin['min_version'] >= 2025) {
+        if (version_compare($plugin['min_version'], '2025', '>=')) {
             $this->applyFs2025PluginCompatibility($plugin);
             return;
         }
@@ -880,7 +880,7 @@ class fs_plugin_manager
         } else {
             $plugin['version'] = (int) $plugin['version'];
         }
-        $plugin['min_version'] = (float) $plugin['min_version'];
+        $plugin['min_version'] = (string) $plugin['min_version'];
 
         $this->applyPluginCompatibility($plugin, $isFsFrameworkIni);
 
@@ -1098,7 +1098,7 @@ class fs_plugin_manager
     /**
      * Valida la compatibilidad de un plugin FS2017 delegando al plugin legacy_support.
      * 
-     * @param float $min_version Versión mínima requerida por el plugin
+     * @param string $min_version Versión mínima requerida por el plugin
      * @return bool True si es compatible, false en caso contrario
      */
     private function validate_fs2017_compatibility($min_version)
@@ -1121,8 +1121,8 @@ class fs_plugin_manager
         // Si no existe el validador, intentar leer VERSION-FS2017 del plugin
         $version_file = FS_FOLDER . '/plugins/legacy_support/VERSION-FS2017';
         if (file_exists($version_file)) {
-            $version = (float) trim(file_get_contents($version_file));
-            return $version >= $min_version;
+            $version = trim(file_get_contents($version_file));
+            return version_compare($version, $min_version, '>=');
         }
 
         // Fallback final: asumir compatible si el plugin de soporte está activo
@@ -1132,7 +1132,7 @@ class fs_plugin_manager
     /**
      * Valida la compatibilidad de un plugin FS2025 delegando al plugin facturascripts_support.
      * 
-     * @param float $min_version Versión mínima requerida por el plugin
+     * @param string $min_version Versión mínima requerida por el plugin
      * @return bool True si es compatible, false en caso contrario
      */
     private function validate_fs2025_compatibility($min_version)
@@ -1155,8 +1155,8 @@ class fs_plugin_manager
         // Si no existe el validador, intentar leer VERSION-FS2025 del plugin
         $version_file = FS_FOLDER . '/plugins/facturascripts_support/VERSION-FS2025';
         if (file_exists($version_file)) {
-            $version = (float) trim(file_get_contents($version_file));
-            return $version >= $min_version;
+            $version = trim(file_get_contents($version_file));
+            return version_compare($version, $min_version, '>=');
         }
 
         // Fallback final: asumir compatible si el plugin de soporte está activo

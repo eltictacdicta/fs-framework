@@ -398,6 +398,20 @@ email-config-incomplete: "El sistema no tiene configuración de email completa. 
 email-gmail-tip: "Si usas <b>Gmail</b>, debes crear una <a href='https://support.google.com/accounts/answer/185833?hl=es' target='_blank'>contraseña de aplicación</a> en lugar de tu contraseña normal."
 email-connection-success: "Conexión SMTP exitosa."
 email-connection-error: "Error de conexión SMTP"
+email-active-system: "Sistema activo:"
+email-view-mailpit: "Ver Mailpit"
+email-open-mailpit: "Abrir Mailpit"
+email-ddev-test-mode-title: "Modo de pruebas (DDEV / Mailpit)"
+email-ddev-mailpit-intro: "Si estás en un entorno DDEV, puedes usar Mailpit para capturar todos los emails sin enviarlos realmente. "
+email-ddev-mailpit-view-prefix: "Los emails se pueden ver en "
+email-mailpit-product: "Mailpit"
+email-use-mailpit-ddev: "Usar Mailpit (DDEV)"
+email-mailpit-config-confirm: "¿Configurar Mailpit de DDEV? Esto sobrescribirá la configuración SMTP actual."
+email-send-test-title: "Enviar email de prueba"
+email-send-test-help: "Envía un email de prueba para verificar que la configuración funciona correctamente. El email incluirá información sobre la configuración actual del servidor."
+email-test-destination-label: "Email de destino"
+email-test-email-placeholder: "tu@email.com"
+email-send-test-submit: "Enviar prueba"
 
 # ==========================================
 # Cambio de contraseña forzado
