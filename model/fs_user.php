@@ -24,7 +24,8 @@ require_once 'model/core/fs_user.php';
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
-class fs_user extends FSFramework\model\fs_user
-{
-    
+if (!class_exists('fs_user', false)) {
+    class fs_user extends FSFramework\model\fs_user
+    {
+    }
 }

@@ -47,14 +47,14 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         $fields = ['DB_TYPE', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS', 'CACHE_HOST', 'CACHE_PORT', 'CACHE_PREFIX'];
         foreach ($fields as $name) {
             $value = filter_input(INPUT_POST, strtolower($name)) ?? '';
-            $escapedValue = addslashes($value);
-            fwrite($archivo, "define('FS_" . $name . "', '" . $escapedValue . "');\n");
+            $exportedValue = var_export($value, true);
+            fwrite($archivo, "define('FS_" . $name . "', " . $exportedValue . ");\n");
         }
         fwrite($archivo, "define('FS_DB_BACKEND', 'legacy'); // legacy | doctrine_dbal\n");
 
         if (filter_input(INPUT_POST, 'db_type') == 'MYSQL' && filter_input(INPUT_POST, 'mysql_socket') != '') {
-            $socketValue = addslashes(filter_input(INPUT_POST, 'mysql_socket') ?? '');
-            fwrite($archivo, "ini_set('mysqli.default_socket', '" . $socketValue . "');\n");
+            $socketValue = var_export(filter_input(INPUT_POST, 'mysql_socket') ?? '', true);
+            fwrite($archivo, "ini_set('mysqli.default_socket', " . $socketValue . ");\n");
         }
 
         fwrite($archivo, "\n// Configuración general\n");
@@ -81,12 +81,12 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         }
 
         if (filter_input(INPUT_POST, 'proxy_type')) {
-            $proxyType = addslashes(filter_input(INPUT_POST, 'proxy_type') ?? '');
-            $proxyHost = addslashes(filter_input(INPUT_POST, 'proxy_host') ?? '');
-            $proxyPort = addslashes(filter_input(INPUT_POST, 'proxy_port') ?? '');
-            fwrite($archivo, "define('FS_PROXY_TYPE', '" . $proxyType . "');\n");
-            fwrite($archivo, "define('FS_PROXY_HOST', '" . $proxyHost . "');\n");
-            fwrite($archivo, "define('FS_PROXY_PORT', '" . $proxyPort . "');\n");
+            $proxyType = var_export(filter_input(INPUT_POST, 'proxy_type') ?? '', true);
+            $proxyHost = var_export(filter_input(INPUT_POST, 'proxy_host') ?? '', true);
+            $proxyPort = var_export(filter_input(INPUT_POST, 'proxy_port') ?? '', true);
+            fwrite($archivo, "define('FS_PROXY_TYPE', " . $proxyType . ");\n");
+            fwrite($archivo, "define('FS_PROXY_HOST', " . $proxyHost . ");\n");
+            fwrite($archivo, "define('FS_PROXY_PORT', " . $proxyPort . ");\n");
         }
 
         fclose($archivo);

@@ -76,6 +76,14 @@ try {
 /// Boot del Kernel moderno (inicializa plugins de FS2025)
 \FSFramework\Core\Kernel::boot();
 
+/// --- Security Headers ---
+if (!headers_sent()) {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+}
+
 /// --- Stealth Mode Gate ---
 require_once FS_FOLDER . '/src/Core/StealthMode.php';
 require_once FS_FOLDER . '/src/Core/PublicAccessGate.php';

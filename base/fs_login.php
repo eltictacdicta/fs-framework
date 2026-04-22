@@ -455,6 +455,13 @@ class fs_login
      */
     private function save_session_data($user)
     {
+        // 0. Regenerar session ID para prevenir session fixation
+        if ($this->session->isStarted()) {
+            $this->session->migrate(true);
+        } elseif (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+
         // 1. Guardar en Session (robustez)
         $this->session->set('user_nick', $user->nick);
         $this->session->set('user_logkey', $user->log_key);

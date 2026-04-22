@@ -27,7 +27,7 @@
          {% if ext.type == 'hidden_iframe' %}
          <script>
             $(function() {
-               FSAjaxLoader.backgroundTask('index.php?page={{ ext.from }}{{ ext.params|raw }}&ajax=1');
+               FSAjaxLoader.backgroundTask('index.php?page={{ ext.from|e('js') }}{{ ext.params|e('js') }}&ajax=1');
             });
          </script>
          {% endif %}
@@ -38,7 +38,7 @@
          {% if ext.type == 'hidden_iframe' %}
          <script>
             $(function() {
-               FSAjaxLoader.backgroundTask('index.php?page={{ ext.from }}{{ ext.params|raw }}&ajax=1');
+               FSAjaxLoader.backgroundTask('index.php?page={{ ext.from|e('js') }}{{ ext.params|e('js') }}&ajax=1');
             });
          </script>
          {% endif %}

@@ -15,6 +15,7 @@ require_once __DIR__ . '/fs_core_log.php';
 use FSFramework\Security\LegacyAuthBridge;
 use FSFramework\Security\LegacyUserService;
 use FSFramework\Security\PasswordHasherService;
+use FSFramework\Security\SafeRedirect;
 use FSFramework\Security\SessionManager;
 
 /**
@@ -290,7 +291,8 @@ class fs_auth
     public static function requireAuth($redirectTo = 'index.php?page=login')
     {
         if (!self::check()) {
-            header("Location: {$redirectTo}");
+            $safeUrl = SafeRedirect::validate($redirectTo, 'index.php?page=login');
+            header("Location: {$safeUrl}");
             exit;
         }
     }
@@ -307,7 +309,8 @@ class fs_auth
         self::requireAuth();
 
         if (!self::can($pageName)) {
-            header("Location: {$redirectTo}");
+            $safeUrl = SafeRedirect::validate($redirectTo, self::ADMIN_HOME_URL);
+            header("Location: {$safeUrl}");
             exit;
         }
     }
@@ -323,7 +326,8 @@ class fs_auth
         self::requireAuth();
 
         if (!self::isAdmin()) {
-            header("Location: {$redirectTo}");
+            $safeUrl = SafeRedirect::validate($redirectTo, self::ADMIN_HOME_URL);
+            header("Location: {$safeUrl}");
             exit;
         }
     }
@@ -388,7 +392,8 @@ class fs_auth
     {
         if (self::attempt($nick, $password)) {
             $redirect = self::getIntendedUrl($redirectTo);
-            header("Location: {$redirect}");
+            $safeUrl = SafeRedirect::validate($redirect, self::ADMIN_HOME_URL);
+            header("Location: {$safeUrl}");
             exit;
         }
         return false;
