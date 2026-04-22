@@ -91,34 +91,21 @@ class login extends fs_controller
 
         $this->core_log->new_message(
             '<strong>¡Instalación completada!</strong><br>' .
-            'Usuario: <code>' . htmlspecialchars($credentials['nick'], ENT_QUOTES, 'UTF-8') . '</code><br>' .
-            'Contraseña temporal: <code>' . htmlspecialchars($credentials['password'], ENT_QUOTES, 'UTF-8') . '</code><br>' .
+            'Usuario: <code>' . $this->no_html($credentials['nick']) . '</code><br>' .
+            '<em>Se ha creado una contraseña temporal.</em><br>' .
             '<small class="text-warning"><i class="fa fa-exclamation-triangle"></i> ' .
-            'Cambia esta contraseña inmediatamente después del primer acceso.</small>'
+            'Por seguridad, la contraseña se muestra únicamente en el archivo de credenciales. ' .
+            'Cámbiala inmediatamente después del primer acceso.</small>'
         );
     }
 
     /**
      * Lee las credenciales iniciales directamente del archivo.
+     * Delega al método estático de fs_user que maneja el descifrado.
      */
     private function getInitialCredentialsFromFile(): ?array
     {
-        $filePath = FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'initial_credentials.json';
-        if (!file_exists($filePath)) {
-            return null;
-        }
-
-        $content = @file_get_contents($filePath);
-        if ($content === false) {
-            return null;
-        }
-
-        $data = json_decode($content, true);
-        if (!is_array($data) || !isset($data['nick'], $data['password'])) {
-            return null;
-        }
-
-        return $data;
+        return \fs_user::getInitialCredentials();
     }
 
     private function restoreBufferedVariables()
