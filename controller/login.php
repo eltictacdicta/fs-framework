@@ -75,6 +75,37 @@ class login extends fs_controller
         if (isset($_GET['logout'])) {
             $this->user->logout();
         }
+
+        $this->showInitialCredentialsIfAvailable();
+    }
+
+    /**
+     * Muestra las credenciales iniciales en la página de login si es la primera vez.
+     */
+    private function showInitialCredentialsIfAvailable(): void
+    {
+        $credentials = $this->getInitialCredentialsFromFile();
+        if ($credentials === null) {
+            return;
+        }
+
+        $this->core_log->new_message(
+            '<strong>¡Instalación completada!</strong><br>' .
+            'Usuario: <code>' . $this->no_html($credentials['nick']) . '</code><br>' .
+            '<em>Se ha creado una contraseña temporal.</em><br>' .
+            '<small class="text-warning"><i class="fa fa-exclamation-triangle"></i> ' .
+            'Por seguridad, la contraseña se muestra únicamente en el archivo de credenciales. ' .
+            'Cámbiala inmediatamente después del primer acceso.</small>'
+        );
+    }
+
+    /**
+     * Lee las credenciales iniciales directamente del archivo.
+     * Delega al método estático de fs_user que maneja el descifrado.
+     */
+    private function getInitialCredentialsFromFile(): ?array
+    {
+        return \fs_user::getInitialCredentials();
     }
 
     private function restoreBufferedVariables()
@@ -128,6 +159,8 @@ class login extends fs_controller
             return true;
         }
 
+        \fs_user::clearInitialCredentials();
+
         if (isset($_POST['keep_login_on']) && $_POST['keep_login_on'] === 'TRUE') {
             $this->user->set_cookie();
         }
@@ -140,6 +173,8 @@ class login extends fs_controller
         if (!isset($_GET['autologin']) || !$this->user->login_from_cookie($_GET['autologin'])) {
             return false;
         }
+
+        \fs_user::clearInitialCredentials();
 
         $this->redirectToSafeUrl($defaultRedirectUrl);
     }

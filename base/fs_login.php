@@ -466,6 +466,7 @@ class fs_login
         $this->session->set('user_nick', $user->nick);
         $this->session->set('user_logkey', $user->log_key);
         $this->session->set('user_logged_in', true);
+        $this->session->set('login_time', time());
 
         // 2. Guardar en Cookies (compatibilidad legacy)
         // usamos el método antiguo para no romper nada que lea $_COOKIE directamente
