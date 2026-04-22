@@ -23,6 +23,7 @@ declare(strict_types=1);
 
 namespace FSFramework\Core;
 
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -52,7 +53,7 @@ class PublicAccessGate
                 return null;
             }
 
-            return $this->stealth->createPublicHomepageResponse();
+            return $this->createStealthResponse();
         }
 
         if ($this->stealth->isLegacyLoginRequest() || $this->stealth->isLegacyLoginSubmission()) {
@@ -60,5 +61,47 @@ class PublicAccessGate
         }
 
         return $this->stealth->createLegacyLoginRedirectResponse();
+    }
+
+    /**
+     * Create the response for stealth mode: either redirect to a plugin-registered
+     * override URL, or show the default public homepage.
+     */
+    private function createStealthResponse(): Response
+    {
+        $overrideUrl = Plugins::getStealthHomeOverride();
+
+        if ($overrideUrl !== null && $this->isValidLocalPath($overrideUrl)) {
+            $base = defined('FS_PATH') ? rtrim((string) FS_PATH, '/') : '';
+            $path = '/' . ltrim($overrideUrl, '/');
+            return new RedirectResponse($base . $path);
+        }
+
+        return $this->stealth->createPublicHomepageResponse();
+    }
+
+    private function isValidLocalPath(string $url): bool
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return false;
+        }
+
+        if (str_starts_with($url, '//')) {
+            return false;
+        }
+
+        $parsedScheme = parse_url($url, PHP_URL_SCHEME);
+        $parsedHost = parse_url($url, PHP_URL_HOST);
+
+        if ($parsedScheme !== null || $parsedHost !== null) {
+            return false;
+        }
+
+        if (!str_starts_with($url, '/')) {
+            return false;
+        }
+
+        return true;
     }
 }

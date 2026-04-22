@@ -46,12 +46,15 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         fwrite($archivo, "// Configuración de base de datos\n");
         $fields = ['DB_TYPE', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS', 'CACHE_HOST', 'CACHE_PORT', 'CACHE_PREFIX'];
         foreach ($fields as $name) {
-            fwrite($archivo, "define('FS_" . $name . "', '" . filter_input(INPUT_POST, strtolower($name)) . "');\n");
+            $value = filter_input(INPUT_POST, strtolower($name)) ?? '';
+            $escapedValue = addslashes($value);
+            fwrite($archivo, "define('FS_" . $name . "', '" . $escapedValue . "');\n");
         }
         fwrite($archivo, "define('FS_DB_BACKEND', 'legacy'); // legacy | doctrine_dbal\n");
 
         if (filter_input(INPUT_POST, 'db_type') == 'MYSQL' && filter_input(INPUT_POST, 'mysql_socket') != '') {
-            fwrite($archivo, "ini_set('mysqli.default_socket', '" . filter_input(INPUT_POST, 'mysql_socket') . "');\n");
+            $socketValue = addslashes(filter_input(INPUT_POST, 'mysql_socket') ?? '');
+            fwrite($archivo, "ini_set('mysqli.default_socket', '" . $socketValue . "');\n");
         }
 
         fwrite($archivo, "\n// Configuración general\n");
@@ -78,9 +81,12 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         }
 
         if (filter_input(INPUT_POST, 'proxy_type')) {
-            fwrite($archivo, "define('FS_PROXY_TYPE', '" . filter_input(INPUT_POST, 'proxy_type') . "');\n");
-            fwrite($archivo, "define('FS_PROXY_HOST', '" . filter_input(INPUT_POST, 'proxy_host') . "');\n");
-            fwrite($archivo, "define('FS_PROXY_PORT', '" . filter_input(INPUT_POST, 'proxy_port') . "');\n");
+            $proxyType = addslashes(filter_input(INPUT_POST, 'proxy_type') ?? '');
+            $proxyHost = addslashes(filter_input(INPUT_POST, 'proxy_host') ?? '');
+            $proxyPort = addslashes(filter_input(INPUT_POST, 'proxy_port') ?? '');
+            fwrite($archivo, "define('FS_PROXY_TYPE', '" . $proxyType . "');\n");
+            fwrite($archivo, "define('FS_PROXY_HOST', '" . $proxyHost . "');\n");
+            fwrite($archivo, "define('FS_PROXY_PORT', '" . $proxyPort . "');\n");
         }
 
         fclose($archivo);
@@ -242,11 +248,23 @@ function random_secret_key($length = 64)
     return random_string($length);
 }
 /**
- * Buscamos errores
+ * Security: Block installer if already configured
  */
 if (file_exists('config.php')) {
-    header('Location: index.php');
-} else if (floatval(substr(phpversion(), 0, 3)) < 5.6) {
+    http_response_code(403);
+    echo '<!DOCTYPE html><html><head><title>Instalador bloqueado</title></head><body>';
+    echo '<h1>Instalador no disponible</h1>';
+    echo '<p>La aplicacion ya esta configurada. El instalador ha sido deshabilitado por seguridad.</p>';
+    echo '<p>Si necesita reinstalar, elimine el archivo <code>config.php</code> manualmente.</p>';
+    echo '<p><a href="index.php">Ir a la aplicacion</a></p>';
+    echo '</body></html>';
+    exit(0);
+}
+
+/**
+ * Buscamos errores
+ */
+if (floatval(substr(phpversion(), 0, 3)) < 5.6) {
     $errors[] = 'php';
 } else if (floatval('3,1') >= floatval('3.1')) {
     $errors[] = "floatval";

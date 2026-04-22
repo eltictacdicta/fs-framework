@@ -232,6 +232,84 @@ class PublicAccessGateTest extends TestCase
         $this->assertNull($response);
     }
 
+    public function testInterceptRedirectsToPluginOverrideWhenStealthEnabledAndOverrideRegistered(): void
+    {
+        Plugins::registerStealthHomeOverride('TestPlugin', '/custom/login', 10);
+        $GLOBALS['plugins'] = ['TestPlugin'];
+
+        $stealth = new StealthMode($this->createDbStub([
+            'stealth_enabled' => '1',
+            'stealth_param_name' => 'adminpanel',
+            'stealth_param_value' => 'secret-token',
+        ]));
+        $gate = new PublicAccessGate($stealth);
+
+        $response = $gate->intercept(Request::create('/'));
+
+        $this->assertNotNull($response);
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertSame('/custom/login', $response->headers->get('Location'));
+    }
+
+    public function testInterceptShowsHomepageWhenStealthEnabledButNoOverrideRegistered(): void
+    {
+        $GLOBALS['plugins'] = [];
+
+        $stealth = new StealthMode($this->createDbStub([
+            'stealth_enabled' => '1',
+            'stealth_param_name' => 'adminpanel',
+            'stealth_param_value' => 'secret-token',
+        ]));
+        $gate = new PublicAccessGate($stealth);
+
+        $response = $gate->intercept(Request::create('/'));
+
+        $this->assertNotNull($response);
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringContainsString('<html lang="es">', (string) $response->getContent());
+    }
+
+    public function testInterceptUsesHighestPriorityOverrideWhenMultipleRegistered(): void
+    {
+        Plugins::registerStealthHomeOverride('PluginA', '/plugin-a/login', 5);
+        Plugins::registerStealthHomeOverride('PluginB', '/plugin-b/login', 20);
+        Plugins::registerStealthHomeOverride('PluginC', '/plugin-c/login', 10);
+        $GLOBALS['plugins'] = ['PluginA', 'PluginB', 'PluginC'];
+
+        $stealth = new StealthMode($this->createDbStub([
+            'stealth_enabled' => '1',
+            'stealth_param_name' => 'adminpanel',
+            'stealth_param_value' => 'secret-token',
+        ]));
+        $gate = new PublicAccessGate($stealth);
+
+        $response = $gate->intercept(Request::create('/'));
+
+        $this->assertNotNull($response);
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertSame('/plugin-b/login', $response->headers->get('Location'));
+    }
+
+    public function testInterceptIgnoresOverrideFromDisabledPlugin(): void
+    {
+        Plugins::registerStealthHomeOverride('DisabledPlugin', '/disabled/login', 100);
+        Plugins::registerStealthHomeOverride('EnabledPlugin', '/enabled/login', 10);
+        $GLOBALS['plugins'] = ['EnabledPlugin'];
+
+        $stealth = new StealthMode($this->createDbStub([
+            'stealth_enabled' => '1',
+            'stealth_param_name' => 'adminpanel',
+            'stealth_param_value' => 'secret-token',
+        ]));
+        $gate = new PublicAccessGate($stealth);
+
+        $response = $gate->intercept(Request::create('/'));
+
+        $this->assertNotNull($response);
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertSame('/enabled/login', $response->headers->get('Location'));
+    }
+
     /**
      * @return \fs_db2&object
      */

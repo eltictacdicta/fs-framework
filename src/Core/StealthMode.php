@@ -430,7 +430,7 @@ class StealthMode
     // -- Sesión --
 
     /**
-     * Comprueba si hay una sesión de login activa (Symfony Session o cookies legacy).
+     * Comprueba si hay una sesión de login activa (Symfony Session o cookies legacy validadas).
      */
     private function isUserLoggedIn(): bool
     {
@@ -444,10 +444,50 @@ class StealthMode
         }
 
         if (!empty($_COOKIE['user']) && !empty($_COOKIE['logkey'])) {
-            return true;
+            return $this->validateLegacyCookies(
+                (string) $_COOKIE['user'],
+                (string) $_COOKIE['logkey'],
+                (string) ($_COOKIE['auth_sig'] ?? '')
+            );
         }
 
         return false;
+    }
+
+    /**
+     * Validates legacy authentication cookies.
+     *
+     * This method checks:
+     * 1. If there's an auth_sig cookie, verify it with CookieSigner (HMAC validation)
+     * 2. If no auth_sig, verify the logkey exists in the database for the user
+     */
+    private function validateLegacyCookies(string $user, string $logkey, string $authSig): bool
+    {
+        if ($user === '' || $logkey === '') {
+            return false;
+        }
+
+        if ($authSig !== '' && class_exists('\FSFramework\Security\CookieSigner')) {
+            return \FSFramework\Security\CookieSigner::verifyRememberMe($user, $logkey, $authSig);
+        }
+
+        if (!$this->db->connected() && !$this->db->connect()) {
+            return false;
+        }
+
+        try {
+            $escapedUser = $this->db->escape_string($user);
+            $escapedLogkey = $this->db->escape_string($logkey);
+
+            $result = $this->db->select(
+                "SELECT nick FROM fs_users WHERE nick = '" . $escapedUser . "' AND log_key = '" . $escapedLogkey . "' AND enabled = TRUE LIMIT 1"
+            );
+
+            return !empty($result);
+        } catch (\Throwable $e) {
+            error_log('StealthMode::validateLegacyCookies error: ' . $e->getMessage());
+            return false;
+        }
     }
 
     private function isHiddenLoginAllowed(): bool
