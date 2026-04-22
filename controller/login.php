@@ -75,6 +75,50 @@ class login extends fs_controller
         if (isset($_GET['logout'])) {
             $this->user->logout();
         }
+
+        $this->showInitialCredentialsIfAvailable();
+    }
+
+    /**
+     * Muestra las credenciales iniciales en la página de login si es la primera vez.
+     */
+    private function showInitialCredentialsIfAvailable(): void
+    {
+        $credentials = $this->getInitialCredentialsFromFile();
+        if ($credentials === null) {
+            return;
+        }
+
+        $this->core_log->new_message(
+            '<strong>¡Instalación completada!</strong><br>' .
+            'Usuario: <code>' . htmlspecialchars($credentials['nick'], ENT_QUOTES, 'UTF-8') . '</code><br>' .
+            'Contraseña temporal: <code>' . htmlspecialchars($credentials['password'], ENT_QUOTES, 'UTF-8') . '</code><br>' .
+            '<small class="text-warning"><i class="fa fa-exclamation-triangle"></i> ' .
+            'Cambia esta contraseña inmediatamente después del primer acceso.</small>'
+        );
+    }
+
+    /**
+     * Lee las credenciales iniciales directamente del archivo.
+     */
+    private function getInitialCredentialsFromFile(): ?array
+    {
+        $filePath = FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'initial_credentials.json';
+        if (!file_exists($filePath)) {
+            return null;
+        }
+
+        $content = @file_get_contents($filePath);
+        if ($content === false) {
+            return null;
+        }
+
+        $data = json_decode($content, true);
+        if (!is_array($data) || !isset($data['nick'], $data['password'])) {
+            return null;
+        }
+
+        return $data;
     }
 
     private function restoreBufferedVariables()
@@ -128,6 +172,8 @@ class login extends fs_controller
             return true;
         }
 
+        \fs_user::clearInitialCredentials();
+
         if (isset($_POST['keep_login_on']) && $_POST['keep_login_on'] === 'TRUE') {
             $this->user->set_cookie();
         }
@@ -140,6 +186,8 @@ class login extends fs_controller
         if (!isset($_GET['autologin']) || !$this->user->login_from_cookie($_GET['autologin'])) {
             return false;
         }
+
+        \fs_user::clearInitialCredentials();
 
         $this->redirectToSafeUrl($defaultRedirectUrl);
     }

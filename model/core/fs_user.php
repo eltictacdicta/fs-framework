@@ -210,6 +210,9 @@ class fs_user extends \fs_model
             htmlspecialchars($defaultPassword, ENT_QUOTES, 'UTF-8') . 
             '</code><br><b>¡IMPORTANTE!</b> Cambia esta contraseña inmediatamente después del primer acceso.'
         );
+
+        $this->saveInitialCredentialsFile($defaultPassword);
+
         $adminHash = password_hash($defaultPassword, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
         if ($this->db->select("SELECT * FROM agentes WHERE codagente = '1';")) {
             return "INSERT INTO " . $this->table_name . " (nick,password,log_key,codagente,admin,enabled)
@@ -218,6 +221,71 @@ class fs_user extends \fs_model
 
         return "INSERT INTO " . $this->table_name . " (nick,password,log_key,codagente,admin,enabled)
             VALUES ('admin'," . $this->var2str($adminHash) . ",NULL,NULL,TRUE,TRUE);";
+    }
+
+    /**
+     * Guarda las credenciales iniciales en un archivo temporal para mostrarlas en el primer login.
+     * El archivo se elimina automáticamente después del primer login exitoso.
+     */
+    private function saveInitialCredentialsFile(string $password): void
+    {
+        $filePath = self::getInitialCredentialsFilePath();
+        $dir = dirname($filePath);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0750, true);
+        }
+
+        $data = [
+            'nick' => 'admin',
+            'password' => $password,
+            'created_at' => date('Y-m-d H:i:s'),
+        ];
+
+        @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
+        @chmod($filePath, 0600);
+    }
+
+    /**
+     * Obtiene la ruta del archivo de credenciales iniciales.
+     */
+    public static function getInitialCredentialsFilePath(): string
+    {
+        return FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'initial_credentials.json';
+    }
+
+    /**
+     * Lee las credenciales iniciales si el archivo existe.
+     * @return array|null Array con 'nick' y 'password', o null si no existe
+     */
+    public static function getInitialCredentials(): ?array
+    {
+        $filePath = self::getInitialCredentialsFilePath();
+        if (!file_exists($filePath)) {
+            return null;
+        }
+
+        $content = @file_get_contents($filePath);
+        if ($content === false) {
+            return null;
+        }
+
+        $data = json_decode($content, true);
+        if (!is_array($data) || !isset($data['nick'], $data['password'])) {
+            return null;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Elimina el archivo de credenciales iniciales (llamar después del primer login exitoso).
+     */
+    public static function clearInitialCredentials(): void
+    {
+        $filePath = self::getInitialCredentialsFilePath();
+        if (file_exists($filePath)) {
+            @unlink($filePath);
+        }
     }
 
     public function url()
