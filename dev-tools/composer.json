@@ -4,7 +4,7 @@
     "type": "project",
     "require": {
         "php": ">=8.2",
-        "phpunit/phpunit": "^11.0",
+        "phpunit/phpunit": "^12.5",
         "symfony/phpunit-bridge": "^7.4",
         "phpstan/phpstan": "^2.1",
         "phpstan/phpstan-symfony": "^2.0",
