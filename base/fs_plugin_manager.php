@@ -17,6 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 require_once 'base/fs_file_manager.php';
+require_once 'base/fs_plugin_downloader.php';
 
 /**
  * Description of fs_plugin_manager
@@ -32,6 +33,7 @@ class fs_plugin_manager
     private const FS_VAR_MODEL = 'model/fs_var.php';
     private const TMP_PLUGIN_UPLOAD_PATH = '/tmp/plugin_upload_temp/';
     private const TMP_PLUGIN_DETECT_PATH = '/tmp/plugin_detect_temp/';
+    private const AUDIT_LOG_FILE = 'plugin_audit.log';
 
     /**
      *
@@ -98,6 +100,45 @@ class fs_plugin_manager
             }
         } elseif (class_exists('FSFramework\\Core\\Kernel')) {
             $this->version = \FSFramework\Core\Kernel::version();
+        }
+    }
+
+    /**
+     * Log plugin operations for security auditing.
+     *
+     * @param string $action Action performed (enable, disable, install, remove, download, etc.)
+     * @param string $pluginName Name of the plugin
+     * @param array $context Additional context data
+     */
+    private function auditLog(string $action, string $pluginName, array $context = []): void
+    {
+        $logEntry = [
+            'timestamp' => date('c'),
+            'action' => $action,
+            'plugin' => $pluginName,
+            'user' => $_SESSION['user']['nick'] ?? 'system',
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'cli',
+            'framework_version' => $this->version,
+            'context' => $context,
+        ];
+
+        $tmpDirName = trim((string) FS_TMP_NAME, '/\\');
+        $logDir = FS_FOLDER . DIRECTORY_SEPARATOR . ($tmpDirName === '' ? 'tmp' : $tmpDirName);
+        if (!is_dir($logDir) && !mkdir($logDir, 0750, true) && !is_dir($logDir)) {
+            error_log('fs_plugin_manager: Cannot create audit log directory: ' . $logDir);
+            return;
+        }
+
+        $logFile = $logDir . DIRECTORY_SEPARATOR . self::AUDIT_LOG_FILE;
+        $payload = json_encode($logEntry) . PHP_EOL;
+
+        if (file_put_contents($logFile, $payload, FILE_APPEND | LOCK_EX) === false) {
+            error_log('fs_plugin_manager: Cannot write audit log file: ' . $logFile);
+            return;
+        }
+
+        if (defined('FS_DEBUG') && FS_DEBUG) {
+            error_log("Plugin audit: $action on $pluginName");
         }
     }
 
@@ -227,8 +268,10 @@ class fs_plugin_manager
         if ($this->save()) {
             $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> desactivado correctamente.');
             $this->core_log->save('Plugin ' . $plugin_name . ' desactivado correctamente.', 'msg');
+            $this->auditLog('disable', $plugin_name, ['success' => true]);
         } else {
             $this->core_log->new_error('Imposible desactivar el plugin <b>' . $plugin_name . '</b>.');
+            $this->auditLog('disable', $plugin_name, ['success' => false, 'reason' => 'save_failed']);
             return false;
         }
 
@@ -411,6 +454,7 @@ class fs_plugin_manager
 
         if (!$install) {
             $this->core_log->new_error('Imposible activar el plugin <b>' . $name . '</b>.');
+            $this->auditLog('enable', $name, ['success' => false, 'reason' => 'missing_dependencies']);
             return false;
         }
 
@@ -419,6 +463,7 @@ class fs_plugin_manager
         $GLOBALS['plugins'][] = $name;
         if (!$this->save()) {
             $this->core_log->new_error('Imposible activar el plugin <b>' . $name . '</b>.');
+            $this->auditLog('enable', $name, ['success' => false, 'reason' => 'save_failed']);
             return false;
         }
 
@@ -429,6 +474,7 @@ class fs_plugin_manager
         if ($wizard) {
             $this->core_log->new_advice('Ya puedes <a href="index.php?page=' . $wizard . '">configurar el plugin</a>.');
             header('Location: index.php?page=' . $wizard);
+            $this->auditLog('enable', $name, ['success' => true, 'wizard' => $wizard]);
             $this->clean_cache();
             return true;
         }
@@ -436,6 +482,7 @@ class fs_plugin_manager
         $this->enable_plugin_controllers($name);
         $this->core_log->new_message('Plugin <b>' . $name . '</b> activado correctamente.');
         $this->core_log->save('Plugin ' . $name . ' activado correctamente.', 'msg');
+        $this->auditLog('enable', $name, ['success' => true]);
         $this->clean_cache();
         return true;
     }
@@ -460,6 +507,7 @@ class fs_plugin_manager
     {
         if ($this->disable_add_plugins) {
             $this->core_log->new_error('La subida de plugins está desactivada. Contacta con tu proveedor de hosting.');
+            $this->auditLog('install', $name ?? 'unknown', ['success' => false, 'reason' => 'plugins_disabled']);
             return false;
         }
 
@@ -469,6 +517,7 @@ class fs_plugin_manager
 
         if (!fs_file_manager::extract_zip_safe($path, $temp_dir)) {
             $this->core_log->new_error('Error al extraer el archivo ZIP.');
+            $this->auditLog('install', $name ?? 'unknown', ['success' => false, 'reason' => 'zip_extraction_failed']);
             return false;
         }
 
@@ -477,15 +526,18 @@ class fs_plugin_manager
         if (empty($plugin_folder_name)) {
             fs_file_manager::del_tree($temp_dir);
             $this->core_log->new_error('El archivo ZIP no contiene ninguna carpeta de plugin válida.');
+            $this->auditLog('install', $name ?? 'unknown', ['success' => false, 'reason' => 'invalid_zip_structure']);
             return false;
         }
 
         $plugin_name = $this->rename_plugin($plugin_folder_name);
 
         // Si el plugin ya existe y se solicita backup, crearlo
-        if ($create_backup && file_exists(FS_FOLDER . self::PLUGINS_PATH . $plugin_name)) {
+        $was_update = file_exists(FS_FOLDER . self::PLUGINS_PATH . $plugin_name);
+        if ($create_backup && $was_update) {
             if (!$this->create_backup($plugin_name)) {
                 fs_file_manager::del_tree($temp_dir);
+                $this->auditLog('install', $plugin_name, ['success' => false, 'reason' => 'backup_failed']);
                 return false;
             }
         }
@@ -503,6 +555,7 @@ class fs_plugin_manager
         if (!rename($source, $destination)) {
             fs_file_manager::del_tree($temp_dir);
             $this->core_log->new_error('Error al mover el plugin a la carpeta de plugins.');
+            $this->auditLog('install', $plugin_name, ['success' => false, 'reason' => 'move_failed']);
             return false;
         }
 
@@ -510,6 +563,11 @@ class fs_plugin_manager
         fs_file_manager::del_tree($temp_dir);
 
         $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> añadido correctamente. Ya puede activarlo.');
+        $this->auditLog('install', $plugin_name, [
+            'success' => true,
+            'was_update' => $was_update,
+            'backup_created' => $create_backup && $was_update,
+        ]);
         $this->clean_cache();
         return $plugin_name;
     }
@@ -542,22 +600,26 @@ class fs_plugin_manager
     {
         if ($this->disable_rm_plugins) {
             $this->core_log->new_error('No tienes permiso para eliminar plugins.');
+            $this->auditLog('remove', $plugin_name, ['success' => false, 'reason' => 'removal_disabled']);
             return false;
         }
 
         if (!is_writable(FS_FOLDER . self::PLUGINS_PATH . $plugin_name)) {
             $this->core_log->new_error(self::ERR_NO_WRITE_PERMS . $plugin_name);
+            $this->auditLog('remove', $plugin_name, ['success' => false, 'reason' => 'no_write_permission']);
             return false;
         }
 
         if (fs_file_manager::del_tree(FS_FOLDER . self::PLUGINS_PATH . $plugin_name)) {
             $this->core_log->new_message('Plugin ' . $plugin_name . ' eliminado correctamente.');
             $this->core_log->save('Plugin ' . $plugin_name . ' eliminado correctamente.');
+            $this->auditLog('remove', $plugin_name, ['success' => true]);
             $this->clean_cache();
             return true;
         }
 
         $this->core_log->new_error('Imposible eliminar el plugin ' . $plugin_name);
+        $this->auditLog('remove', $plugin_name, ['success' => false, 'reason' => 'del_tree_failed']);
         return false;
     }
 
@@ -1180,6 +1242,24 @@ class fs_plugin_manager
         }
 
         $this->core_log->new_error('No se pudo preparar el directorio temporal: ' . $path);
+        return false;
+    }
+
+    /**
+     * Returns the first direct child directory name from a path.
+     *
+     * @param string $path
+     * @return string|false
+     */
+    private function getFirstDirectoryFromPath($path)
+    {
+        $normalizedPath = rtrim($path, '/\\');
+        foreach (fs_file_manager::scan_folder($normalizedPath) as $item) {
+            if (is_dir($normalizedPath . DIRECTORY_SEPARATOR . $item)) {
+                return $item;
+            }
+        }
+
         return false;
     }
 

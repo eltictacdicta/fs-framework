@@ -17,6 +17,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Filesystem\Exception\IOExceptionInterface;
+
 /**
  * Description of fs_file_manager
  *
@@ -24,6 +27,15 @@
  */
 class fs_file_manager
 {
+    private static ?Filesystem $filesystem = null;
+
+    private static function getFilesystem(): Filesystem
+    {
+        if (self::$filesystem === null) {
+            self::$filesystem = new Filesystem();
+        }
+        return self::$filesystem;
+    }
 
     /**
      * Check and copy .htaccess files
@@ -60,7 +72,7 @@ class fs_file_manager
         $twigCacheDir = FS_FOLDER . '/tmp/twig_cache';
         if (file_exists($twigCacheDir) && is_dir($twigCacheDir)) {
             self::del_tree($twigCacheDir);
-            @mkdir($twigCacheDir, 0777, true);
+            @mkdir($twigCacheDir, 0755, true);
         }
     }
 
@@ -126,24 +138,55 @@ class fs_file_manager
      *
      * @param string $src
      * @param string $dst
+     * @param string|null $allowedBaseDir If set, validates dst is within this directory
      * 
      * @return bool
      */
-    public static function recurse_copy($src, $dst)
+    public static function recurse_copy($src, $dst, ?string $allowedBaseDir = null)
     {
-        $folder = opendir($src);
+        if ($allowedBaseDir !== null) {
+            $realBase = realpath($allowedBaseDir);
+            if ($realBase === false) {
+                return false;
+            }
 
-        if (!file_exists($dst) && !@mkdir($dst)) {
+            $realBase = static::normalize_absolute_path($realBase);
+            $resolvedDst = static::resolve_path_for_base_check($dst);
+            $dstParent = $resolvedDst !== null ? static::normalize_absolute_path(dirname($resolvedDst)) : null;
+            $safeDstForLog = $resolvedDst ?? static::normalize_path($dst);
+
+            if ($realBase === null || $dstParent === null || !static::is_base_path_allowed($dstParent, $realBase)) {
+                error_log("SECURITY: Attempted copy outside allowed base: $safeDstForLog");
+                return false;
+            }
+        }
+
+        $folder = opendir($src);
+        if ($folder === false) {
+            return false;
+        }
+
+        if (!file_exists($dst) && !@mkdir($dst, 0755)) {
+            closedir($folder);
             return false;
         }
 
         while (false !== ($file = readdir($folder))) {
             if ($file === '.' || $file === '..') {
                 continue;
-            } elseif (is_dir($src . DIRECTORY_SEPARATOR . $file)) {
-                static::recurse_copy($src . DIRECTORY_SEPARATOR . $file, $dst . DIRECTORY_SEPARATOR . $file);
+            }
+
+            $srcPath = $src . DIRECTORY_SEPARATOR . $file;
+            $dstPath = $dst . DIRECTORY_SEPARATOR . $file;
+
+            if (!static::is_symlink_safe($srcPath, $src)) {
+                continue;
+            }
+
+            if (is_dir($srcPath)) {
+                static::recurse_copy($srcPath, $dstPath, $allowedBaseDir);
             } else {
-                copy($src . DIRECTORY_SEPARATOR . $file, $dst . DIRECTORY_SEPARATOR . $file);
+                copy($srcPath, $dstPath);
             }
         }
 
@@ -247,6 +290,80 @@ class fs_file_manager
         return $res;
     }
 
+    /**
+     * Secure recursive delete using Symfony Filesystem.
+     * Provides atomic operations and better error handling.
+     *
+     * @param string $folder Directory to remove
+     * @return bool
+     */
+    public static function del_tree_safe(string $folder): bool
+    {
+        $folder = static::normalize_path($folder);
+        if (!static::is_removal_target_safe($folder)) {
+            return false;
+        }
+
+        if (!file_exists($folder)) {
+            return true;
+        }
+
+        try {
+            self::getFilesystem()->remove($folder);
+            return true;
+        } catch (IOExceptionInterface $e) {
+            error_log("fs_file_manager: Error removing directory: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Secure directory mirroring using Symfony Filesystem.
+     * Validates destination is within allowed base directory.
+     *
+     * @param string $src Source directory
+     * @param string $dst Destination directory
+     * @param string $allowedBase Base directory that dst must be within
+     * @return bool
+     */
+    public static function mirror_safe(string $src, string $dst, string $allowedBase): bool
+    {
+        $realBase = realpath($allowedBase);
+        if ($realBase === false) {
+            error_log("fs_file_manager: Invalid allowed base directory: $allowedBase");
+            return false;
+        }
+
+        $realBase = static::normalize_absolute_path($realBase);
+        $resolvedDst = static::resolve_path_for_base_check($dst);
+        $dstParent = $resolvedDst !== null ? static::normalize_absolute_path(dirname($resolvedDst)) : null;
+        if (
+            $realBase === null
+            || $resolvedDst === null
+            || $dstParent === null
+            || !static::is_base_path_allowed($resolvedDst, $realBase)
+        ) {
+            error_log("SECURITY: Attempted mirror outside allowed base: " . ($resolvedDst ?? static::normalize_path($dst)));
+            return false;
+        }
+
+        if (!static::is_symlink_safe($src, dirname($src))) {
+            error_log("SECURITY: Source contains unsafe symlink: $src");
+            return false;
+        }
+
+        try {
+            self::getFilesystem()->mirror($src, $dst, null, [
+                'override' => true,
+                'delete' => false,
+            ]);
+            return true;
+        } catch (IOExceptionInterface $e) {
+            error_log("fs_file_manager: Error mirroring directory: " . $e->getMessage());
+            return false;
+        }
+    }
+
     private static function normalize_path($path)
     {
         if (!is_scalar($path)) {
@@ -256,6 +373,95 @@ class fs_file_manager
         $path = str_replace('\\', '/', (string) $path);
         $path = preg_replace('#/+#', '/', $path);
         return rtrim($path, '/');
+    }
+
+    private static function normalize_absolute_path($path)
+    {
+        $path = static::normalize_path($path);
+        if ($path === '') {
+            return null;
+        }
+
+        $prefix = '';
+        if ($path[0] === '/') {
+            $prefix = '/';
+            $path = ltrim($path, '/');
+        } elseif (preg_match('#^[A-Za-z]:/#', $path) === 1) {
+            $prefix = substr($path, 0, 2) . '/';
+            $path = substr($path, 3);
+        } else {
+            return null;
+        }
+
+        $segments = [];
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+
+            if ($segment === '..') {
+                if (empty($segments)) {
+                    return null;
+                }
+
+                array_pop($segments);
+                continue;
+            }
+
+            $segments[] = $segment;
+        }
+
+        if (empty($segments)) {
+            return rtrim($prefix, '/');
+        }
+
+        return $prefix . implode('/', $segments);
+    }
+
+    private static function resolve_path_for_base_check($path)
+    {
+        $candidate = static::normalize_absolute_path($path);
+        if ($candidate === null) {
+            return null;
+        }
+
+        $suffix = [];
+        $probe = $candidate;
+
+        while (true) {
+            $resolved = realpath($probe);
+            if ($resolved !== false) {
+                $resolved = static::normalize_absolute_path($resolved);
+                if ($resolved === null) {
+                    return null;
+                }
+
+                if (empty($suffix)) {
+                    return $resolved;
+                }
+
+                return static::normalize_absolute_path($resolved . '/' . implode('/', array_reverse($suffix)));
+            }
+
+            $parent = dirname($probe);
+            if ($parent === $probe) {
+                return null;
+            }
+
+            $suffix[] = basename($probe);
+            $probe = $parent;
+        }
+    }
+
+    private static function is_base_path_allowed($path, $base)
+    {
+        $path = static::normalize_absolute_path($path);
+        $base = static::normalize_absolute_path($base);
+        if ($path === null || $base === null) {
+            return false;
+        }
+
+        return strpos($path . '/', $base . '/') === 0 || $path === $base;
     }
 
     private static function is_path_within_base($path, $base)
@@ -270,9 +476,38 @@ class fs_file_manager
         return $path !== '' && $path !== '/' && !preg_match('#^[A-Za-z]:$#', $path);
     }
 
+    /**
+     * Check if a path is a symlink pointing outside its base directory.
+     * Prevents symlink escape attacks.
+     *
+     * @param string $path Path to check
+     * @param string $base Base directory the path should be within
+     * @return bool True if safe (not a symlink or points within base), false otherwise
+     */
+    private static function is_symlink_safe($path, $base): bool
+    {
+        if (!is_link($path)) {
+            return true;
+        }
+
+        $realPath = realpath($path);
+        $realBase = realpath($base);
+
+        if ($realPath === false || $realBase === false) {
+            return false;
+        }
+
+        return strpos($realPath . '/', $realBase . '/') === 0;
+    }
+
     private static function safe_unlink($path, $base)
     {
         if (!static::is_path_within_base($path, $base) || !is_file($path)) {
+            return false;
+        }
+
+        if (!static::is_symlink_safe($path, $base)) {
+            error_log("SECURITY: Attempted to unlink unsafe symlink: $path");
             return false;
         }
 
