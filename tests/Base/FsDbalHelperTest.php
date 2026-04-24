@@ -88,6 +88,7 @@ PHP;
             public function check_table_aux($table_name) { return true; }
             public function close() { return true; }
             public function commit() { return true; }
+            public function affected_rows() { return 0; }
             public function compare_columns($table_name, $xml_cols, $db_cols) { return ''; }
             public function compare_constraints($table_name, $xml_cons, $db_cons, $delete_only = FALSE) { return ''; }
             public function connect() { return true; }
@@ -156,6 +157,7 @@ PHP;
             public function check_table_aux($table_name) { return true; }
             public function close() { return true; }
             public function commit() { return true; }
+            public function affected_rows() { return 0; }
             public function compare_columns($table_name, $xml_cols, $db_cols) { return ''; }
             public function compare_constraints($table_name, $xml_cons, $db_cons, $delete_only = FALSE) { return ''; }
             public function connect() { return true; }
@@ -203,6 +205,7 @@ PHP;
             public function check_table_aux($table_name) { return true; }
             public function close() { return true; }
             public function commit() { return true; }
+            public function affected_rows() { return 0; }
             public function compare_columns($table_name, $xml_cols, $db_cols) { return ''; }
             public function compare_constraints($table_name, $xml_cons, $db_cons, $delete_only = FALSE) { return ''; }
             public function connect() { return true; }
@@ -256,6 +259,7 @@ PHP;
             public function check_table_aux($table_name) { return true; }
             public function close() { return true; }
             public function commit() { return true; }
+            public function affected_rows() { return 0; }
             public function compare_columns($table_name, $xml_cols, $db_cols) { return ''; }
             public function compare_constraints($table_name, $xml_cons, $db_cons, $delete_only = FALSE) { return ''; }
             public function connect() { return true; }

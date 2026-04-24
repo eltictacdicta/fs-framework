@@ -122,28 +122,40 @@ class SecurityHelpersTest extends TestCase
 
     public function testUserAdapterCanBeCreatedFromLegacyNickLookup(): void
     {
-        if (!class_exists('fs_user', false)) {
-            eval(<<<'PHP'
-class fs_user {
-    public function get(string $nick): object|false
-    {
-        if ($nick !== 'demo') {
-            return false;
+        $this->loadLegacyUserModel();
+
+        $nick = 'adapter' . substr(bin2hex(random_bytes(4)), 0, 5);
+        $user = new \fs_user();
+        $user->nick = $nick;
+        $user->email = $nick . '@example.test';
+        $user->enabled = true;
+        $user->admin = false;
+
+        if (!$user->set_password('AdapterTest123')) {
+            $this->markTestSkipped('Could not prepare legacy user fixture password.');
         }
 
-        return (object) [
-            'nick' => 'demo',
-            'admin' => false,
-        ];
+        if (!$user->save()) {
+            $this->markTestSkipped('Could not persist legacy user fixture.');
+        }
+
+        try {
+            $adapter = UserAdapter::fromNick($nick);
+
+            $this->assertInstanceOf(UserAdapter::class, $adapter);
+            $this->assertSame($nick, $adapter->getUserIdentifier());
+            $this->assertNull(UserAdapter::fromNick('missing'));
+        } finally {
+            $persistedUser = (new \fs_user())->get($nick);
+            if ($persistedUser) {
+                $persistedUser->delete();
+            }
+        }
     }
-}
-PHP);
-        }
 
-        $adapter = UserAdapter::fromNick('demo');
-
-        $this->assertInstanceOf(UserAdapter::class, $adapter);
-        $this->assertSame('demo', $adapter->getUserIdentifier());
-        $this->assertNull(UserAdapter::fromNick('missing'));
+    private function loadLegacyUserModel(): void
+    {
+        require_once FS_FOLDER . '/base/fs_model.php';
+        require_once FS_FOLDER . '/model/fs_user.php';
     }
 }

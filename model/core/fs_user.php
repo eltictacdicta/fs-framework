@@ -192,6 +192,10 @@ class fs_user extends \fs_model
         $this->reset_token_expires = NULL;
     }
 
+    private const INITIAL_SETUP_VAR = 'initial_admin_setup';
+    private const INITIAL_SETUP_PENDING = 'pending';
+    private const INITIAL_SETUP_COMPLETED = 'completed';
+
     /**
      * Inserta valores por defecto a la tabla, en el proceso de creación de la misma.
      * @return string
@@ -206,19 +210,16 @@ class fs_user extends \fs_model
 
         $defaultPassword = rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
 
-        try {
-            $this->saveInitialCredentialsFile($defaultPassword);
-            $this->new_message(
-                'Se ha creado el usuario <b>admin</b> con una contraseña temporal.<br>' .
-                '<b>¡IMPORTANTE!</b> Las credenciales se guardan de forma segura. ' .
-                'Cambia la contraseña inmediatamente después del primer acceso.'
-            );
-        } catch (\RuntimeException $e) {
-            error_log('[FSFramework] Error al guardar credenciales iniciales: ' . $e->getMessage());
-            $this->new_error_msg(
-                'Error al guardar las credenciales iniciales. Consulta los logs del servidor.'
-            );
-        }
+        $this->new_message(
+            '<strong>¡Instalación completada!</strong><br>' .
+            'Usuario: <code>admin</code><br>' .
+            'Contraseña temporal: <code>' . htmlspecialchars($defaultPassword, ENT_QUOTES, 'UTF-8') . '</code><br>' .
+            '<small class="text-warning"><i class="fa fa-exclamation-triangle"></i> ' .
+            '<b>¡IMPORTANTE!</b> Esta contraseña se muestra SOLO UNA VEZ. ' .
+            'Anótala y cámbiala inmediatamente después de iniciar sesión.</small>'
+        );
+
+        self::markInitialSetupPending();
 
         $adminHash = password_hash($defaultPassword, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
         if ($this->db->select("SELECT * FROM agentes WHERE codagente = '1';")) {
@@ -231,162 +232,70 @@ class fs_user extends \fs_model
     }
 
     /**
-     * Guarda las credenciales iniciales en un archivo temporal para mostrarlas en el primer login.
-     * El archivo se elimina automáticamente después del primer login exitoso.
-     *
-     * Seguridad implementada:
-     * - Directorio con permisos 0700
-     * - Escritura atómica (tmp + rename)
-     * - Credenciales cifradas con EncryptionService (Sodium)
-     * - Sin supresión de errores (@)
-     *
-     * @throws \RuntimeException si no se puede crear el directorio o escribir el archivo
+     * Marca que la configuración inicial del admin está pendiente.
+     * Solo se puede marcar como pendiente si no existe un estado previo.
      */
-    private function saveInitialCredentialsFile(string $password): void
+    private static function markInitialSetupPending(): void
     {
-        $filePath = self::getInitialCredentialsFilePath();
-        $dir = dirname($filePath);
+        $fsVar = new \fs_var();
+        $currentValue = $fsVar->simple_get(self::INITIAL_SETUP_VAR);
 
-        if (!is_dir($dir)) {
-            if (!mkdir($dir, 0700, true)) {
-                throw new \RuntimeException(
-                    'No se pudo crear el directorio de credenciales: ' . $dir
-                );
-            }
-        }
-
-        if (!is_writable($dir)) {
-            throw new \RuntimeException(
-                'El directorio de credenciales no tiene permisos de escritura: ' . $dir
-            );
-        }
-
-        $data = [
-            'nick' => 'admin',
-            'created_at' => date('Y-m-d H:i:s'),
-        ];
-
-        $encryption = new \FSFramework\Security\EncryptionService();
-        if ($encryption->isAvailable()) {
-            $data['password_encrypted'] = $encryption->encrypt($password);
-        } else {
-            $data['password_hash'] = password_hash($password, PASSWORD_ARGON2ID, [
-                'memory_cost' => 65536,
-                'time_cost' => 4
-            ]);
-            $data['password_hint'] = 'La contraseña no pudo cifrarse. Consulta los logs del servidor.';
-            error_log('[FSFramework] Advertencia: Sodium no disponible. La contraseña inicial no se pudo cifrar de forma reversible.');
-        }
-
-        $tempFile = $dir . '/' . bin2hex(random_bytes(8)) . '.tmp';
-
-        $handle = fopen($tempFile, 'x');
-        if ($handle === false) {
-            throw new \RuntimeException(
-                'No se pudo crear el archivo temporal de credenciales: ' . $tempFile
-            );
-        }
-
-        if (!chmod($tempFile, 0660)) {
-            fclose($handle);
-            unlink($tempFile);
-            throw new \RuntimeException(
-                'No se pudo establecer permisos seguros en el archivo temporal: ' . $tempFile
-            );
-        }
-
-        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        if ($json === false) {
-            fclose($handle);
-            unlink($tempFile);
-            throw new \RuntimeException('No se pudo codificar las credenciales a JSON.');
-        }
-
-        $written = fwrite($handle, $json);
-        if ($written === false || $written !== strlen($json)) {
-            fclose($handle);
-            unlink($tempFile);
-            throw new \RuntimeException(
-                'No se pudo escribir completamente el archivo de credenciales.'
-            );
-        }
-
-        fflush($handle);
-        fclose($handle);
-
-        if (!rename($tempFile, $filePath)) {
-            unlink($tempFile);
-            throw new \RuntimeException(
-                'No se pudo mover el archivo de credenciales a su ubicación final: ' . $filePath
-            );
-        }
-    }
-
-    /**
-     * Obtiene la ruta del archivo de credenciales iniciales.
-     */
-    public static function getInitialCredentialsFilePath(): string
-    {
-        return FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'initial_credentials.json';
-    }
-
-    /**
-     * Lee las credenciales iniciales si el archivo existe.
-     * Descifra la contraseña si está cifrada con EncryptionService.
-     *
-     * @return array|null Array con 'nick' y 'password' (descifrada), o null si no existe/error
-     */
-    public static function getInitialCredentials(): ?array
-    {
-        $filePath = self::getInitialCredentialsFilePath();
-        if (!file_exists($filePath)) {
-            return null;
-        }
-
-        $content = file_get_contents($filePath);
-        if ($content === false) {
-            error_log('[FSFramework] No se pudo leer el archivo de credenciales: ' . $filePath);
-            return null;
-        }
-
-        $data = json_decode($content, true);
-        if (!is_array($data) || !isset($data['nick'])) {
-            return null;
-        }
-
-        if (isset($data['password_encrypted'])) {
-            try {
-                $encryption = new \FSFramework\Security\EncryptionService();
-                $data['password'] = $encryption->decrypt($data['password_encrypted']);
-                unset($data['password_encrypted']);
-            } catch (\RuntimeException $e) {
-                error_log('[FSFramework] Error al descifrar credenciales: ' . $e->getMessage());
-                return null;
-            }
-        } elseif (!isset($data['password'])) {
-            return null;
-        }
-
-        return $data;
-    }
-
-    /**
-     * Elimina el archivo de credenciales iniciales (llamar después del primer login exitoso).
-     */
-    public static function clearInitialCredentials(): void
-    {
-        $filePath = self::getInitialCredentialsFilePath();
-        if (!file_exists($filePath)) {
+        if ($currentValue === self::INITIAL_SETUP_COMPLETED) {
             return;
         }
 
-        if (!is_writable($filePath)) {
-            @chmod($filePath, 0666);
+        if ($currentValue === false) {
+            $fsVar->simple_save(self::INITIAL_SETUP_VAR, self::INITIAL_SETUP_PENDING);
+        }
+    }
+
+    /**
+     * Verifica si la configuración inicial del admin está pendiente.
+     * Esto significa que el admin debe cambiar su contraseña temporal.
+     */
+    public static function isInitialSetupPending(): bool
+    {
+        self::cleanupLegacyCredentialsFile();
+
+        $fsVar = new \fs_var();
+        return $fsVar->simple_get(self::INITIAL_SETUP_VAR) === self::INITIAL_SETUP_PENDING;
+    }
+
+    /**
+     * Marca la configuración inicial como completada.
+     * Una vez completada, NO se puede revertir a pendiente (seguridad).
+     */
+    public static function completeInitialSetup(): bool
+    {
+        self::cleanupLegacyCredentialsFile();
+
+        $fsVar = new \fs_var();
+        $currentValue = $fsVar->simple_get(self::INITIAL_SETUP_VAR);
+
+        if ($currentValue !== self::INITIAL_SETUP_PENDING) {
+            return $currentValue === self::INITIAL_SETUP_COMPLETED;
         }
 
-        if (!@unlink($filePath)) {
-            error_log('[FSFramework] No se pudo eliminar el archivo de credenciales: ' . $filePath . 
-                ' (propietario: ' . fileowner($filePath) . ', permisos: ' . decoct(fileperms($filePath) & 0777) . ')');
+        return $fsVar->simple_save(self::INITIAL_SETUP_VAR, self::INITIAL_SETUP_COMPLETED);
+    }
+
+    /**
+     * Elimina archivos de credenciales del mecanismo legacy (pre-2025).
+     * Se ejecuta durante el login para limpiar instalaciones actualizadas.
+     */
+    private static function cleanupLegacyCredentialsFile(): void
+    {
+        $legacyPath = FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'initial_credentials.json';
+
+        if (!file_exists($legacyPath)) {
+            return;
+        }
+
+        if (@unlink($legacyPath)) {
+            error_log('[FSFramework] Archivo de credenciales legacy eliminado: ' . $legacyPath);
+        } else {
+            @file_put_contents($legacyPath, '{"error":"legacy_removed"}', LOCK_EX);
+            error_log('[FSFramework] ADVERTENCIA: No se pudo eliminar archivo legacy, contenido sobrescrito: ' . $legacyPath);
         }
     }
 

@@ -25,28 +25,53 @@ namespace Tests\Core;
 
 use PHPUnit\Framework\TestCase;
 
-require_once dirname(__DIR__, 2) . '/base/fs_controller.php';
-require_once dirname(__DIR__, 2) . '/controller/login.php';
+require_once dirname(__DIR__, 2) . '/model/core/fs_user.php';
+require_once dirname(__DIR__, 2) . '/model/fs_var.php';
 
+/**
+ * Tests para verificar que el mensaje de login no expone la contraseña temporal.
+ * La contraseña solo se muestra UNA VEZ durante la instalación.
+ */
 final class LoginInitialCredentialsMessageTest extends TestCase
 {
-    public function testInitialCredentialsMessageIncludesTemporaryPassword(): void
-    {
-        $message = LoginMessageHarness::buildMessage([
-            'nick' => 'admin',
-            'password' => 'Secret<123>',
-        ]);
+    private const VAR_NAME = 'initial_admin_setup';
 
-        self::assertStringContainsString('Usuario: <code>admin</code>', $message);
-        self::assertStringContainsString('Contraseña temporal: <code>Secret&lt;123&gt;</code>', $message);
-        self::assertStringContainsString('solo hasta el primer acceso correcto', $message);
+    protected function setUp(): void
+    {
+        $fsVar = new \fs_var();
+        $fsVar->simple_delete(self::VAR_NAME);
     }
-}
 
-final class LoginMessageHarness extends \login
-{
-    public static function buildMessage(array $credentials): string
+    protected function tearDown(): void
     {
-        return parent::buildInitialCredentialsMessage($credentials);
+        $fsVar = new \fs_var();
+        $fsVar->simple_delete(self::VAR_NAME);
+    }
+
+    public function testInitialSetupPendingDoesNotExposePassword(): void
+    {
+        $fsVar = new \fs_var();
+        $fsVar->simple_save(self::VAR_NAME, 'pending');
+
+        self::assertTrue(\fs_user::isInitialSetupPending());
+    }
+
+    public function testAfterLoginCompletesSetup(): void
+    {
+        $fsVar = new \fs_var();
+        $fsVar->simple_save(self::VAR_NAME, 'pending');
+
+        \fs_user::completeInitialSetup();
+
+        self::assertFalse(\fs_user::isInitialSetupPending());
+        self::assertSame('completed', $fsVar->simple_get(self::VAR_NAME));
+    }
+
+    public function testCompletedSetupNeverShowsMessageAgain(): void
+    {
+        $fsVar = new \fs_var();
+        $fsVar->simple_save(self::VAR_NAME, 'completed');
+
+        self::assertFalse(\fs_user::isInitialSetupPending());
     }
 }

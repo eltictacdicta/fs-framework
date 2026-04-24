@@ -1162,4 +1162,40 @@ class fs_plugin_manager
         // Fallback final: asumir compatible si el plugin de soporte está activo
         return true;
     }
+
+    /**
+     * Ensure a directory exists.
+     *
+     * @param string $path
+     * @return bool
+     */
+    private function ensureDirectory($path)
+    {
+        if (is_dir($path)) {
+            return true;
+        }
+
+        if (@mkdir($path, 0755, true) || is_dir($path)) {
+            return true;
+        }
+
+        $this->core_log->new_error('No se pudo preparar el directorio temporal: ' . $path);
+        return false;
+    }
+
+    /**
+     * Recreate a directory from scratch.
+     *
+     * @param string $path
+     * @return bool
+     */
+    private function clearAndEnsureDirectory($path)
+    {
+        if (file_exists($path) && !fs_file_manager::del_tree($path)) {
+            $this->core_log->new_error('No se pudo limpiar el directorio temporal: ' . $path);
+            return false;
+        }
+
+        return $this->ensureDirectory($path);
+    }
 }

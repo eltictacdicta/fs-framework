@@ -26,6 +26,11 @@ require_once 'base/fs_db_engine.php';
  */
 class fs_postgresql extends fs_db_engine
 {
+    /**
+     * Nº de filas afectadas por la última sentencia de escritura.
+     * @var integer
+     */
+    private static $last_affected_rows = 0;
 
     /**
      * Inicia una transacción SQL.
@@ -34,6 +39,11 @@ class fs_postgresql extends fs_db_engine
     public function begin_transaction()
     {
         return self::$link ? (bool) pg_query(self::$link, 'BEGIN TRANSACTION;') : FALSE;
+    }
+
+    public function affected_rows()
+    {
+        return self::$last_affected_rows;
     }
 
     /**
@@ -219,6 +229,7 @@ class fs_postgresql extends fs_db_engine
     public function exec($sql, $transaction = TRUE, $params = [])
     {
         $result = FALSE;
+        self::$last_affected_rows = 0;
 
         if (self::$link) {
             /// añadimos la consulta sql al historial
@@ -235,6 +246,7 @@ class fs_postgresql extends fs_db_engine
             }
 
             if ($aux) {
+                self::$last_affected_rows = pg_affected_rows($aux);
                 pg_free_result($aux);
                 $result = TRUE;
             } else {

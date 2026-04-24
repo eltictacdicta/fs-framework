@@ -50,6 +50,13 @@ class fs_dbal_engine extends fs_db_engine
     private static $last_error = '';
 
     /**
+     * Nº de filas afectadas por la última sentencia de escritura.
+     *
+     * @var integer
+     */
+    private static $last_affected_rows = 0;
+
+    /**
      * Motor legacy de apoyo para operaciones de esquema y fallback.
      *
      * @var fs_mysql|fs_postgresql|fs_db_engine
@@ -83,6 +90,11 @@ class fs_dbal_engine extends fs_db_engine
         } catch (\Throwable $e) {
             return $this->log_error_message('No se pudo iniciar la transacción DBAL: ' . $e->getMessage());
         }
+    }
+
+    public function affected_rows()
+    {
+        return self::$last_affected_rows;
     }
 
     public function check_table_aux($table_name)
@@ -175,7 +187,9 @@ class fs_dbal_engine extends fs_db_engine
     public function exec($sql, $transaction = TRUE, $params = [])
     {
         if (!$this->can_use_dbal_for_sql($sql, $params)) {
-            return $this->legacyEngine->exec($sql, $transaction, $params);
+            $result = $this->legacyEngine->exec($sql, $transaction, $params);
+            self::$last_affected_rows = $this->legacyEngine->affected_rows();
+            return $result;
         }
 
         $connection = $this->get_connection();
@@ -184,6 +198,7 @@ class fs_dbal_engine extends fs_db_engine
         }
 
         self::$core_log->new_sql($sql);
+        self::$last_affected_rows = 0;
 
         $transaction_started = FALSE;
         if ($transaction) {
@@ -198,7 +213,7 @@ class fs_dbal_engine extends fs_db_engine
         }
 
         try {
-            $connection->executeStatement($sql, $params);
+            self::$last_affected_rows = (int) $connection->executeStatement($sql, $params);
             $result = TRUE;
         } catch (\Throwable $e) {
             $result = $this->log_exception($e);

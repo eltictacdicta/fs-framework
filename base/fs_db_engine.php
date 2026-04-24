@@ -58,6 +58,8 @@ abstract class fs_db_engine
 
     abstract public function commit();
 
+    abstract public function affected_rows();
+
     abstract public function compare_columns($table_name, $xml_cols, $db_cols);
 
     abstract public function compare_constraints($table_name, $xml_cons, $db_cons, $delete_only = FALSE);

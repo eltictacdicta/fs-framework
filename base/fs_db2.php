@@ -125,6 +125,15 @@ class fs_db2
     }
 
     /**
+     * Devuelve el nº de filas afectadas por la última sentencia de escritura.
+     * @return integer
+     */
+    public function affected_rows()
+    {
+        return self::$engine->affected_rows();
+    }
+
+    /**
      * Compara dos arrays de columnas, devuelve una sentencia sql en caso de encontrar diferencias.
      * @param string $table_name
      * @param array $xml_cols

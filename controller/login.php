@@ -76,42 +76,26 @@ class login extends fs_controller
             $this->user->logout();
         }
 
-        $this->showInitialCredentialsIfAvailable();
+        $this->showInitialSetupMessageIfPending();
     }
 
     /**
-     * Muestra las credenciales iniciales en la página de login si es la primera vez.
+     * Muestra un mensaje si la configuración inicial está pendiente.
+     * NO muestra la contraseña - esa solo se mostró durante la instalación.
      */
-    private function showInitialCredentialsIfAvailable(): void
+    private function showInitialSetupMessageIfPending(): void
     {
-        $credentials = $this->getInitialCredentialsFromFile();
-        if ($credentials === null) {
+        if (!\fs_user::isInitialSetupPending()) {
             return;
         }
 
-        $this->core_log->new_message(self::buildInitialCredentialsMessage($credentials));
-    }
-
-    protected static function buildInitialCredentialsMessage(array $credentials): string
-    {
-        $nick = htmlspecialchars((string) ($credentials['nick'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $password = htmlspecialchars((string) ($credentials['password'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-
-        return '<strong>¡Instalación completada!</strong><br>' .
-            'Usuario: <code>' . $nick . '</code><br>' .
-            'Contraseña temporal: <code>' . $password . '</code><br>' .
-            '<small class="text-warning"><i class="fa fa-exclamation-triangle"></i> ' .
-            'Esta contraseña se muestra solo hasta el primer acceso correcto. ' .
-            'Cámbiala inmediatamente después de iniciar sesión.</small>';
-    }
-
-    /**
-     * Lee las credenciales iniciales directamente del archivo.
-     * Delega al método estático de fs_user que maneja el descifrado.
-     */
-    private function getInitialCredentialsFromFile(): ?array
-    {
-        return \fs_user::getInitialCredentials();
+        $this->core_log->new_message(
+            '<i class="fa fa-info-circle"></i> ' .
+            '<b>Configuración inicial pendiente.</b><br>' .
+            'Inicia sesión con el usuario <code>admin</code> y la contraseña temporal ' .
+            'que se mostró durante la instalación.<br>' .
+            '<small class="text-warning">Recuerda cambiar la contraseña después de iniciar sesión.</small>'
+        );
     }
 
     private function restoreBufferedVariables()
@@ -165,7 +149,7 @@ class login extends fs_controller
             return true;
         }
 
-        \fs_user::clearInitialCredentials();
+        \fs_user::completeInitialSetup();
 
         $rememberMe = isset($_POST['remember_me']) && $_POST['remember_me'] === '1';
         fs_session_manager::set('remember_me', $rememberMe);
@@ -179,7 +163,7 @@ class login extends fs_controller
             return false;
         }
 
-        \fs_user::clearInitialCredentials();
+        \fs_user::completeInitialSetup();
 
         $this->redirectToSafeUrl($defaultRedirectUrl);
     }

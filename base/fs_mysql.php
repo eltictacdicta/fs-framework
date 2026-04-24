@@ -37,6 +37,12 @@ class fs_mysql extends fs_db_engine
      */
     private static $last_error = '';
 
+    /**
+     * Nº de filas afectadas por la última sentencia de escritura.
+     * @var integer
+     */
+    private static $last_affected_rows = 0;
+
 
     /**
      * Inicia una transacción SQL.
@@ -49,6 +55,11 @@ class fs_mysql extends fs_db_engine
          * para mayor compatibilidad.
          */
         return $this->execute_transaction_command('START TRANSACTION;');
+    }
+
+    public function affected_rows()
+    {
+        return self::$last_affected_rows;
     }
 
     /**
@@ -558,12 +569,16 @@ class fs_mysql extends fs_db_engine
         }
 
         self::$core_log->new_sql($sql);
+        self::$last_affected_rows = 0;
         if ($transaction) {
             $this->begin_transaction();
         }
 
         $queryIndex = 0;
-        $result = $this->execute_statement($sql, $params, $queryIndex);
+        $affectedRows = 0;
+        $result = $this->execute_statement($sql, $params, $queryIndex, $affectedRows);
+        self::$last_affected_rows = $affectedRows;
+
         if (self::$link->errno && !$result) {
             self::$last_error = self::$link->error;
             $this->log_exec_error($queryIndex, self::$last_error);
@@ -578,27 +593,69 @@ class fs_mysql extends fs_db_engine
         return $result;
     }
 
-    private function execute_statement($sql, $params, &$queryIndex)
+    private function execute_statement($sql, $params, &$queryIndex, &$affectedRows)
     {
         try {
+            $queryIndex = 1;
+
             if (!empty($params) && method_exists(self::$link, 'execute_query')) {
                 $result = self::$link->execute_query($sql, $params);
+                $affectedRows = $result !== FALSE ? (int) self::$link->affected_rows : -1;
                 return $result !== FALSE;
             }
 
             if (!self::$link->multi_query($sql)) {
+                $affectedRows = -1;
                 return FALSE;
             }
 
-            do {
-                $queryIndex++;
-            } while (self::$link->more_results() && self::$link->next_result());
-
-            return TRUE;
+            return $this->consume_multi_query_results($queryIndex, $affectedRows);
         } catch (mysqli_sql_exception $e) {
             self::$last_error = $e->getMessage();
+            $affectedRows = -1;
             $this->log_exec_error($queryIndex, self::$last_error);
             return FALSE;
+        }
+    }
+
+    private function consume_multi_query_results(&$queryIndex, &$affectedRows)
+    {
+        $totalAffectedRows = 0;
+
+        while (TRUE) {
+            $currentAffectedRows = (int) self::$link->affected_rows;
+            $storedResult = self::$link->store_result();
+            if ($storedResult !== FALSE) {
+                if ($currentAffectedRows === -1 && property_exists($storedResult, 'num_rows')) {
+                    $currentAffectedRows = (int) $storedResult->num_rows;
+                }
+
+                $storedResult->free();
+            } elseif (self::$link->errno) {
+                $affectedRows = -1;
+                return FALSE;
+            }
+
+            if ($currentAffectedRows === -1) {
+                $affectedRows = -1;
+                return FALSE;
+            }
+
+            $totalAffectedRows += $currentAffectedRows;
+
+            if (!self::$link->more_results()) {
+                $affectedRows = $totalAffectedRows;
+                return TRUE;
+            }
+
+            $nextQueryIndex = $queryIndex + 1;
+            if (!self::$link->next_result()) {
+                $queryIndex = $nextQueryIndex;
+                $affectedRows = -1;
+                return FALSE;
+            }
+
+            $queryIndex = $nextQueryIndex;
         }
     }
 
