@@ -36,6 +36,7 @@ logs/api_security.log
 
 # Excluir directorio imgs y subdirectorios
 /imgs/
+/images/
 .ddev/config.yaml
 .ddev/
 AdminLTE-2.4.18
