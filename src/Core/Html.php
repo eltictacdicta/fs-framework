@@ -275,6 +275,28 @@ class Html
         ));
 
         $twig->addFunction(new \Twig\TwigFunction(
+            'system_logo_url',
+            function () {
+                if (!class_exists('fs_settings', false)) {
+                    require_once FS_FOLDER . '/base/fs_settings.php';
+                }
+                $settings = new \fs_settings();
+                return $settings->getSystemLogoFullUrl();
+            }
+        ));
+
+        $twig->addFunction(new \Twig\TwigFunction(
+            'system_name',
+            function () {
+                if (!class_exists('fs_settings', false)) {
+                    require_once FS_FOLDER . '/base/fs_settings.php';
+                }
+                $settings = new \fs_settings();
+                return $settings->get('system_name', 'FSFramework');
+            }
+        ));
+
+        $twig->addFunction(new \Twig\TwigFunction(
             'bytes',
             function ($bytes, $precision = 2) {
                 $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];

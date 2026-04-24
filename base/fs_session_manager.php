@@ -96,25 +96,25 @@ class fs_session_manager
 
     private static function initializeLegacySession(): void
     {
-        // Configuración de cookies segura
-        $lifetime = defined('FS_SESSION_LIFETIME') ? FS_SESSION_LIFETIME : 7200;
+        $idleTimeout = class_exists('FSFramework\\Security\\SessionPolicy')
+            ? \FSFramework\Security\SessionPolicy::getIdleTimeout()
+            : (defined('FS_SESSION_LIFETIME') ? (int) FS_SESSION_LIFETIME : 7200);
+        $gcLifetime = class_exists('FSFramework\\Security\\SessionPolicy')
+            ? \FSFramework\Security\SessionPolicy::getAbsoluteTimeout()
+            : $idleTimeout;
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
 
-        // PHP 7.3+ soporta SameSite en session_set_cookie_params con array
-        if (PHP_VERSION_ID >= 70300) {
-            $cookieParams = [
-                'lifetime' => $lifetime,
-                'path' => '/',
-                'domain' => '',
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ];
-            session_set_cookie_params($cookieParams);
-        } else {
-            // PHP < 7.3 - configuración tradicional
-            session_set_cookie_params($lifetime, '/; SameSite=Lax', '', $secure, true);
-        }
+        $cookieParams = [
+            'lifetime' => $idleTimeout,
+            'path' => '/',
+            'domain' => '',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ];
+        session_set_cookie_params($cookieParams);
+
+        ini_set('session.gc_maxlifetime', (string) $gcLifetime);
 
         $sessionName = defined('FS_SESSION_NAME') ? FS_SESSION_NAME : 'FSSESSION';
         session_name($sessionName);
@@ -165,25 +165,24 @@ class fs_session_manager
     {
         self::initialize();
 
-        // Usar moderno si está disponible
         if (self::canUseModern()) {
             return self::getModern()->isLoggedIn();
         }
 
-        // Verificar sesión PHP
-        $isLoggedIn = isset($_SESSION['user_nick']) && !empty($_SESSION['user_nick']);
+        $hasNick = isset($_SESSION['user_nick']) && !empty($_SESSION['user_nick']);
 
-        // Verificar cookies legacy y sincronizar si es válido
-        if (!$isLoggedIn) {
-            $cookieUser = isset($_COOKIE['user']) ? filter_var($_COOKIE['user'], FILTER_SANITIZE_FULL_SPECIAL_CHARS) : null;
-            $cookieLogkey = isset($_COOKIE['logkey']) ? filter_var($_COOKIE['logkey'], FILTER_SANITIZE_FULL_SPECIAL_CHARS) : null;
-
-            if ($cookieUser && $cookieLogkey) {
-                $isLoggedIn = FsSessionLegacyFallback::syncFromLegacyCookies($cookieUser, $cookieLogkey);
-            }
+        if ($hasNick && self::isValid()) {
+            return true;
         }
 
-        return $isLoggedIn;
+        $cookieUser = isset($_COOKIE['user']) ? filter_var($_COOKIE['user'], FILTER_SANITIZE_FULL_SPECIAL_CHARS) : null;
+        $cookieLogkey = isset($_COOKIE['logkey']) ? filter_var($_COOKIE['logkey'], FILTER_SANITIZE_FULL_SPECIAL_CHARS) : null;
+
+        if ($cookieUser && $cookieLogkey) {
+            return FsSessionLegacyFallback::syncFromLegacyCookies($cookieUser, $cookieLogkey);
+        }
+
+        return false;
     }
 
     /**
@@ -229,6 +228,23 @@ class fs_session_manager
     }
 
     /**
+     * Records user activity to slide the idle timeout forward.
+     *
+     * @return void
+     */
+    public static function touch()
+    {
+        self::initialize();
+
+        if (self::canUseModern()) {
+            self::getModern()->touch();
+            return;
+        }
+
+        $_SESSION['last_activity'] = time();
+    }
+
+    /**
      * Verifica si la sesión es válida (no expirada)
      *
      * @return bool
@@ -241,15 +257,19 @@ class fs_session_manager
             return self::getModern()->isValid();
         }
 
-        $isValid = isset($_SESSION['user_nick']) && !empty($_SESSION['user_nick']);
-
-        if ($isValid) {
-            $maxLifetime = defined('FS_SESSION_LIFETIME') ? FS_SESSION_LIFETIME : 7200;
-            $loginTime = isset($_SESSION['login_time']) ? (int) $_SESSION['login_time'] : 0;
-            $isValid = (time() - $loginTime) <= $maxLifetime;
+        if (!isset($_SESSION['user_nick']) || empty($_SESSION['user_nick'])) {
+            return false;
         }
 
-        return $isValid;
+        $loginTime = isset($_SESSION['login_time']) ? (int) $_SESSION['login_time'] : 0;
+        $lastActivity = isset($_SESSION['last_activity']) ? (int) $_SESSION['last_activity'] : $loginTime;
+
+        if (class_exists('FSFramework\\Security\\SessionPolicy')) {
+            return !\FSFramework\Security\SessionPolicy::isExpired($loginTime, $lastActivity);
+        }
+
+        $maxLifetime = defined('FS_SESSION_LIFETIME') ? (int) FS_SESSION_LIFETIME : 7200;
+        return (time() - $lastActivity) <= $maxLifetime;
     }
 
     /**
@@ -270,13 +290,19 @@ class fs_session_manager
 
         self::regenerateId();
 
+        $now = time();
         $_SESSION['user_nick'] = $userData['nick'];
         $_SESSION['user_email'] = isset($userData['email']) ? $userData['email'] : null;
         $_SESSION['user_role'] = isset($userData['role']) ? $userData['role'] : 'user';
         $_SESSION['user_admin'] = isset($userData['admin']) ? (bool) $userData['admin'] : false;
-        $_SESSION['login_time'] = time();
+        $_SESSION['login_time'] = $now;
+        $_SESSION['last_activity'] = $now;
         $_SESSION['user_logkey'] = isset($userData['logkey']) ? $userData['logkey'] : null;
         $_SESSION['user_logged_in'] = true;
+
+        if (array_key_exists('remember_me', $userData)) {
+            $_SESSION['remember_me'] = (bool) $userData['remember_me'];
+        }
     }
 
     /**
@@ -584,11 +610,13 @@ final class FsSessionLegacyFallback
      */
     private static function hydrateLegacySession(object $user, string $logkey): void
     {
+        $now = time();
         $_SESSION['user_nick'] = $user->nick;
         $_SESSION['user_email'] = isset($user->email) ? $user->email : null;
         $_SESSION['user_role'] = $user->admin ? 'admin' : 'user';
         $_SESSION['user_admin'] = (bool) $user->admin;
-        $_SESSION['login_time'] = time();
+        $_SESSION['login_time'] = $now;
+        $_SESSION['last_activity'] = $now;
         $_SESSION['user_logkey'] = $logkey;
         $_SESSION['user_logged_in'] = true;
     }

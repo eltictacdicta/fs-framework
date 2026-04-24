@@ -22,6 +22,179 @@
  */
 class fs_settings
 {
+    /**
+     * Path for system logo storage
+     */
+    private const SYSTEM_LOGO_PATH = 'images/system_logo';
+
+    /**
+     * Allowed logo extensions
+     */
+    private const ALLOWED_LOGO_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg'];
+
+    /**
+     * Get a setting value from config2
+     *
+     * @param string $key Setting key
+     * @param mixed $default Default value if not found
+     * @return mixed
+     */
+    public function get(string $key, $default = null)
+    {
+        return $GLOBALS['config2'][$key] ?? $default;
+    }
+
+    /**
+     * Set a setting value in config2
+     *
+     * @param string $key Setting key
+     * @param mixed $value Setting value
+     * @return void
+     */
+    public function set(string $key, $value): void
+    {
+        $GLOBALS['config2'][$key] = $value;
+    }
+
+    /**
+     * Check if a setting exists
+     *
+     * @param string $key Setting key
+     * @return bool
+     */
+    public function has(string $key): bool
+    {
+        return isset($GLOBALS['config2'][$key]);
+    }
+
+    /**
+     * Remove a setting from config2
+     *
+     * @param string $key Setting key
+     * @return void
+     */
+    public function remove(string $key): void
+    {
+        unset($GLOBALS['config2'][$key]);
+    }
+
+    /**
+     * Get the system logo URL
+     *
+     * Priority:
+        * 1. Configured system logo in settings if the file exists in FS_MYDOCS
+        * 2. Stored system logo files using self::SYSTEM_LOGO_PATH and self::ALLOWED_LOGO_EXTENSIONS in FS_MYDOCS
+        * 3. Legacy images/logo.png or images/logo.jpg in FS_MYDOCS
+     *
+        * @return string|null Logo URL or null when no system logo exists
+     */
+    public function getSystemLogoUrl(): ?string
+    {
+        $configured = $this->get('system_logo');
+        if ($configured && file_exists(FS_MYDOCS . $configured)) {
+            return $configured;
+        }
+
+        foreach (self::ALLOWED_LOGO_EXTENSIONS as $ext) {
+            $path = self::SYSTEM_LOGO_PATH . '.' . $ext;
+            if (file_exists(FS_MYDOCS . $path)) {
+                return $path;
+            }
+        }
+
+        if (file_exists(FS_MYDOCS . 'images/logo.png')) {
+            return 'images/logo.png';
+        }
+
+        if (file_exists(FS_MYDOCS . 'images/logo.jpg')) {
+            return 'images/logo.jpg';
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the full system logo URL with FS_PATH prefix
+     *
+     * @return string|null Full URL or null if no logo
+     */
+    public function getSystemLogoFullUrl(): ?string
+    {
+        $logoUrl = $this->getSystemLogoUrl();
+        if ($logoUrl === null) {
+            return null;
+        }
+
+        $basePath = defined('FS_PATH') ? rtrim((string) constant('FS_PATH'), '/') : '';
+        return $basePath . '/' . ltrim($logoUrl, '/');
+    }
+
+    /**
+     * Save system logo from uploaded file
+     *
+     * @param array $uploadedFile $_FILES array element
+     * @return array{success: bool, error?: string, path?: string}
+     */
+    public function saveSystemLogo(array $uploadedFile): array
+    {
+        if (!isset($uploadedFile['tmp_name']) || !is_uploaded_file($uploadedFile['tmp_name'])) {
+            return ['success' => false, 'error' => 'No se ha subido ningún archivo'];
+        }
+
+        $extension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
+        if (!in_array($extension, self::ALLOWED_LOGO_EXTENSIONS, true)) {
+            return ['success' => false, 'error' => 'Extensión no permitida. Use: ' . implode(', ', self::ALLOWED_LOGO_EXTENSIONS)];
+        }
+
+        $mimeType = mime_content_type($uploadedFile['tmp_name']);
+        $allowedMimes = ['image/png', 'image/jpeg', 'image/svg+xml'];
+        if (!in_array($mimeType, $allowedMimes, true)) {
+            return ['success' => false, 'error' => 'Tipo de archivo no permitido'];
+        }
+
+        $imagesDirectory = FS_MYDOCS . 'images';
+        if (!is_dir($imagesDirectory) && !mkdir($imagesDirectory, 0755, true) && !is_dir($imagesDirectory)) {
+            error_log('Unable to create system logo directory: ' . $imagesDirectory);
+            return ['success' => false, 'error' => 'Error al preparar el directorio de logos'];
+        }
+
+        $this->deleteSystemLogo();
+
+        $targetPath = self::SYSTEM_LOGO_PATH . '.' . $extension;
+        $fullPath = FS_MYDOCS . $targetPath;
+
+        if (!move_uploaded_file($uploadedFile['tmp_name'], $fullPath)) {
+            return ['success' => false, 'error' => 'Error al guardar el archivo'];
+        }
+
+        $this->set('system_logo', $targetPath);
+        $this->save();
+
+        return ['success' => true, 'path' => $targetPath];
+    }
+
+    /**
+     * Delete the system logo
+     *
+     * @return bool True if deleted, false otherwise
+     */
+    public function deleteSystemLogo(): bool
+    {
+        $deleted = false;
+
+        foreach (self::ALLOWED_LOGO_EXTENSIONS as $ext) {
+            $path = FS_MYDOCS . self::SYSTEM_LOGO_PATH . '.' . $ext;
+            if (file_exists($path)) {
+                unlink($path);
+                $deleted = true;
+            }
+        }
+
+        $this->remove('system_logo');
+        $this->save();
+
+        return $deleted;
+    }
 
     /**
      * Timezones list with GMT offset

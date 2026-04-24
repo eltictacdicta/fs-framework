@@ -33,18 +33,7 @@ class DireccionClienteModelTest extends TestCase
         $this->model = new class() extends \FSFramework\model\direccion_cliente {
             public function __construct()
             {
-                $this->id = null;
-                $this->codcliente = null;
-                $this->codpais = null;
-                $this->direccion = null;
-                $this->apartado = null;
-                $this->provincia = null;
-                $this->ciudad = null;
-                $this->codpostal = null;
-                $this->domenvio = true;
-                $this->domfacturacion = true;
-                $this->descripcion = 'Principal';
-                $this->fecha = date('d-m-Y');
+                parent::__construct(false);
             }
             public function delete()
             {
@@ -75,7 +64,6 @@ class DireccionClienteModelTest extends TestCase
 
     public function testTestRequiresCodcliente(): void
     {
-        $this->model->codcliente = null;
         $this->model->direccion = 'Calle Test 1';
         
         $this->assertFalse($this->model->test());

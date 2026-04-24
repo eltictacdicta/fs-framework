@@ -6,8 +6,3 @@ parameters:
 			count: 1
 			path: src/Core/StealthMode.php
 
-		-
-			message: '#^Method fs_db2@anonymous/tests/Components/PublicAccessGateTest\.php\:240\:\:select\(\) never returns false so it can be removed from the return type\.$#'
-			identifier: return.unusedType
-			count: 1
-			path: tests/Components/PublicAccessGateTest.php

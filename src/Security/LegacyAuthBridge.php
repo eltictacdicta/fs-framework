@@ -75,7 +75,8 @@ final readonly class LegacyAuthBridge
             return;
         }
 
-        $expire = time() + (defined('FS_COOKIES_EXPIRE') ? FS_COOKIES_EXPIRE : 31536000);
+        $rememberMe = (bool) ($this->session->get('remember_me') ?? false);
+        $expire = SessionPolicy::cookieExpireFor($rememberMe);
         $signature = CookieSigner::signRememberMe($nick, $logkey);
 
         $this->writeLegacyCookies($nick, $logkey, $signature, $expire);

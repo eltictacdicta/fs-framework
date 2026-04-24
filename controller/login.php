@@ -89,14 +89,20 @@ class login extends fs_controller
             return;
         }
 
-        $this->core_log->new_message(
-            '<strong>¡Instalación completada!</strong><br>' .
-            'Usuario: <code>' . $this->no_html($credentials['nick']) . '</code><br>' .
-            '<em>Se ha creado una contraseña temporal.</em><br>' .
+        $this->core_log->new_message(self::buildInitialCredentialsMessage($credentials));
+    }
+
+    protected static function buildInitialCredentialsMessage(array $credentials): string
+    {
+        $nick = htmlspecialchars((string) ($credentials['nick'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $password = htmlspecialchars((string) ($credentials['password'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        return '<strong>¡Instalación completada!</strong><br>' .
+            'Usuario: <code>' . $nick . '</code><br>' .
+            'Contraseña temporal: <code>' . $password . '</code><br>' .
             '<small class="text-warning"><i class="fa fa-exclamation-triangle"></i> ' .
-            'Por seguridad, la contraseña se muestra únicamente en el archivo de credenciales. ' .
-            'Cámbiala inmediatamente después del primer acceso.</small>'
-        );
+            'Esta contraseña se muestra solo hasta el primer acceso correcto. ' .
+            'Cámbiala inmediatamente después de iniciar sesión.</small>';
     }
 
     /**
@@ -161,9 +167,8 @@ class login extends fs_controller
 
         \fs_user::clearInitialCredentials();
 
-        if (isset($_POST['keep_login_on']) && $_POST['keep_login_on'] === 'TRUE') {
-            $this->user->set_cookie();
-        }
+        $rememberMe = isset($_POST['remember_me']) && $_POST['remember_me'] === '1';
+        fs_session_manager::set('remember_me', $rememberMe);
 
         $this->redirectToSafeUrl($defaultRedirectUrl);
     }

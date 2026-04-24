@@ -29,9 +29,7 @@ class GrupoClientesModelTest extends TestCase
         $this->model = new class() extends \FSFramework\model\grupo_clientes {
             public function __construct()
             {
-                $this->codgrupo = null;
-                $this->nombre = null;
-                $this->codtarifa = null;
+                parent::__construct(false);
             }
             public function delete()
             {
@@ -63,7 +61,6 @@ class GrupoClientesModelTest extends TestCase
 
     public function testUrlWithoutCode(): void
     {
-        $this->model->codgrupo = null;
         $this->assertSame('index.php?page=ventas_clientes#grupos', $this->model->url());
     }
 

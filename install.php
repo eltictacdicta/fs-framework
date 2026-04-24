@@ -60,6 +60,8 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         fwrite($archivo, "\n// Configuración general\n");
         fwrite($archivo, "define('FS_TMP_NAME', '" . random_string(20) . "/');\n");
         fwrite($archivo, "define('FS_COOKIES_EXPIRE', 604800);\n");
+        fwrite($archivo, "define('FS_SESSION_IDLE_TIMEOUT', 7200);\n");
+        fwrite($archivo, "define('FS_SESSION_ABSOLUTE_TIMEOUT', 28800);\n");
         fwrite($archivo, "define('FS_ITEM_LIMIT', 50);\n");
         fwrite($archivo, "define('FS_SECRET_KEY', '" . random_secret_key() . "');\n");
 

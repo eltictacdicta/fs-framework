@@ -153,7 +153,7 @@ class SqlInjectionPreventionTest extends TestCase
         if (strpos($content, 'function save') !== false) {
             $this->assertStringContainsString('var2str', $content);
         } else {
-            $this->assertTrue(true, 'Model does not have save method');
+            $this->markTestSkipped('oidc_user_profile.php does not define a save() method in the current implementation');
         }
     }
 

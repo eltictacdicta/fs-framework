@@ -29,6 +29,10 @@ if (!defined('FS_DB_TYPE')) {
     define('FS_DB_TYPE', 'MYSQL');
 }
 
+if (!defined('FS_DB_INTEGER')) {
+    define('FS_DB_INTEGER', 'INT(11)');
+}
+
 if (!defined('FS_DB_HOST')) {
     define('FS_DB_HOST', 'localhost');
 }
@@ -107,6 +111,10 @@ if (!defined('FS_DEMO')) {
 
 if (!defined('FS_SECRET_KEY')) {
     define('FS_SECRET_KEY', 'phpunit-test-secret-key');
+}
+
+if (!isset($GLOBALS['plugins']) || !is_array($GLOBALS['plugins'])) {
+    $GLOBALS['plugins'] = [];
 }
 
 // Asegurar que el directorio tmp existe para tests que lo necesiten

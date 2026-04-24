@@ -27,9 +27,7 @@ class SessionFixationPreventionTest extends TestCase
         }
 
         $manager = SessionManager::getInstance();
-
-        $this->assertTrue(method_exists($manager, 'regenerateId'));
-        $this->assertTrue(method_exists($manager, 'login'));
+        $this->assertInstanceOf(Session::class, $manager->getSymfonySession());
     }
 
     public function testSessionManagerHasPeriodicRegenerationLogic(): void
@@ -118,7 +116,7 @@ class SessionFixationPreventionTest extends TestCase
             $this->markTestSkipped('Legacy session manager not available');
         }
 
-        $this->assertTrue(method_exists('fs_session_manager', 'regenerateId'));
+        $this->assertTrue((new \ReflectionClass(\fs_session_manager::class))->hasMethod('regenerateId'));
     }
 
     public function testSessionIsValidChecksLoginTime(): void
@@ -128,8 +126,15 @@ class SessionFixationPreventionTest extends TestCase
         }
 
         $manager = SessionManager::getInstance();
+        $this->assertFalse($manager->isValid());
 
-        $this->assertTrue(method_exists($manager, 'isValid'));
+        $manager->login([
+            'nick' => 'validity_test_user',
+            'email' => 'validity@example.com',
+            'admin' => false,
+        ]);
+
+        $this->assertTrue($manager->isValid());
     }
 
     public function testCsrfTokenIsRegeneratedWithSession(): void
@@ -143,7 +148,7 @@ class SessionFixationPreventionTest extends TestCase
         $csrfToken = $manager->getCsrfToken();
 
         $this->assertNotEmpty($csrfToken);
-        $this->assertIsString($csrfToken);
+        $this->assertGreaterThanOrEqual(32, strlen($csrfToken));
     }
 
     public function testBuffet3dSessionManagerDestroysSessionCompletely(): void
@@ -154,7 +159,7 @@ class SessionFixationPreventionTest extends TestCase
 
         $sessionManager = new \Buffet3d\Security\SessionManager();
 
-        $this->assertTrue(method_exists($sessionManager, 'destroySession'));
+        $this->assertTrue((new \ReflectionObject($sessionManager))->hasMethod('destroySession'));
     }
 
     public function testSymfonySessionMigrateIsUsedForRegeneration(): void

@@ -37,14 +37,13 @@
    <div class="login-box">
       <div class="login-logo">
          <a href="index.php">
-            {% if file_exists(theme_path ~ '/img/logo.png') %}
+            {% set logo_url = system_logo_url() %}
+            {% if logo_url %}
+            <img src="{{ logo_url }}" style="max-width: 200px;" alt="{{ system_name() }}"/>
+            {% elseif file_exists(theme_path ~ '/img/logo.png') %}
             <img src="{{ constant('FS_PATH') }}{{ theme_path }}/img/logo.png" style="max-width: 200px;" alt="Logo"/>
-            {% elseif file_exists(constant('FS_MYDOCS') ~ 'images/logo.png') %}
-            <img src="images/logo.png" style="max-width: 200px;" alt="Logo"/>
-            {% elseif file_exists(constant('FS_MYDOCS') ~ 'images/logo.jpg') %}
-            <img src="images/logo.jpg" style="max-width: 200px;" alt="Logo"/>
             {% else %}
-            <b>Factura</b>Scripts
+            <b>{{ system_name() }}</b>
             {% endif %}
          </a>
       </div>
@@ -92,7 +91,15 @@
                <span class="fa fa-lock form-control-feedback"></span>
             </div>
             {% endif %}
-            
+
+            {% if not constant('FS_DEMO') %}
+            <div class="checkbox" style="margin-bottom: 10px;">
+               <label>
+                  <input type="checkbox" name="remember_me" value="1" checked> {{ trans('remember-session') }}
+               </label>
+            </div>
+            {% endif %}
+
             <div class="row">
                <div class="col-xs-12">
                   <button type="submit" class="btn btn-primary btn-block btn-flat" id="login">

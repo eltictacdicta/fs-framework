@@ -66,6 +66,15 @@ class SessionManager
         return self::$instance;
     }
 
+    public static function reset(): void
+    {
+        if (self::$instance instanceof self) {
+            self::$instance->getSymfonySession()->clear();
+        }
+
+        self::$instance = null;
+    }
+
     /**
      * Inicializa la sesión con Symfony
      */
@@ -88,19 +97,18 @@ class SessionManager
             return;
         }
 
-        // Configurar storage con opciones seguras
-        $lifetime = defined('FS_SESSION_LIFETIME') ? FS_SESSION_LIFETIME : 7200;
+        $idleTimeout = SessionPolicy::getIdleTimeout();
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
         $sessionName = defined('FS_SESSION_NAME') ? FS_SESSION_NAME : 'FSSESSION';
 
         $options = [
             'name' => $sessionName,
-            'cookie_lifetime' => $lifetime,
+            'cookie_lifetime' => $idleTimeout,
             'cookie_path' => '/',
             'cookie_secure' => $secure,
             'cookie_httponly' => true,
             'cookie_samesite' => 'Lax',
-            'gc_maxlifetime' => $lifetime,
+            'gc_maxlifetime' => SessionPolicy::getAbsoluteTimeout(),
             'use_strict_mode' => true,
         ];
 
@@ -143,11 +151,17 @@ class SessionManager
     }
 
     /**
-     * Verifica si hay una sesión de usuario activa
+     * Verifica si hay una sesión de usuario activa.
+     *
+     * When the PHP session still contains user_nick but isValid()
+     * fails (idle/absolute expired), we try to re-hydrate from
+     * legacy cookies before giving up — fixing the "death window".
      */
     public function isLoggedIn(): bool
     {
-        if ($this->session->has('user_nick') && $this->session->get('user_nick')) {
+        $hasNick = $this->session->has('user_nick') && $this->session->get('user_nick');
+
+        if ($hasNick && $this->isValid()) {
             return true;
         }
 
@@ -161,19 +175,34 @@ class SessionManager
     }
 
     /**
+     * Records user activity — call on every authenticated request
+     * so the idle timeout keeps sliding forward.
+     */
+    public function touch(): void
+    {
+        $this->session->set('last_activity', time());
+    }
+
+    /**
      * Inicia sesión para un usuario
      */
     public function login(array $userData): void
     {
         $this->regenerateId();
 
+        $now = time();
         $this->session->set('user_nick', $userData['nick']);
         $this->session->set('user_email', $userData['email'] ?? null);
         $this->session->set('user_role', ($userData['admin'] ?? false) ? 'admin' : 'user');
         $this->session->set('user_admin', (bool) ($userData['admin'] ?? false));
-        $this->session->set('login_time', time());
+        $this->session->set('login_time', $now);
+        $this->session->set('last_activity', $now);
         $this->session->set('user_logkey', $userData['logkey'] ?? null);
         $this->session->set('user_logged_in', true);
+
+        if (array_key_exists('remember_me', $userData)) {
+            $this->session->set('remember_me', (bool) $userData['remember_me']);
+        }
     }
 
     /**
@@ -292,10 +321,15 @@ class SessionManager
             return false;
         }
 
-        $maxLifetime = defined('FS_SESSION_LIFETIME') ? FS_SESSION_LIFETIME : 7200;
-        $loginTime = $this->session->get('login_time', 0);
+        $loginTime = (int) $this->session->get('login_time', 0);
+        $lastActivity = (int) $this->session->get('last_activity', $loginTime);
 
-        return (time() - $loginTime) <= $maxLifetime;
+        return !SessionPolicy::isExpired($loginTime, $lastActivity);
+    }
+
+    public function isRememberMe(): bool
+    {
+        return (bool) $this->session->get('remember_me', false);
     }
 
     /**

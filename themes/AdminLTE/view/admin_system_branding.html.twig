@@ -1,0 +1,193 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * Admin System Branding - Logo and brand configuration
+ */
+#}
+{{ include('header.html.twig') }}
+
+<div class="container-fluid" style="margin-top: 10px;">
+    <div class="row">
+        <div class="col-xs-6">
+            <div class="btn-group">
+                <a class="btn btn-sm btn-default" href="{{ fsc.url()|raw }}" title="{{ 'reload'|trans }}">
+                    <span class="glyphicon glyphicon-refresh"></span>
+                </a>
+            </div>
+        </div>
+        <div class="col-xs-6 text-right">
+            <h2 style="margin-top: 0px;">
+                <i class="fa fa-picture-o"></i>&nbsp;
+                {{ 'system-branding'|trans }}
+            </h2>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid" style="margin-top: 20px;">
+    {# Panel de logo actual #}
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                <i class="fa fa-image"></i>&nbsp;
+                {{ 'system-logo'|trans }}
+            </h3>
+        </div>
+        <div class="panel-body">
+            <p class="help-block">
+                <i class="fa fa-info-circle"></i>
+                {{ 'system-logo-description'|trans }}
+            </p>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="thumbnail" style="min-height: 200px; display: flex; align-items: center; justify-content: center; background: #f5f5f5;">
+                        {% if fsc.has_logo() %}
+                            <img src="{{ fsc.get_logo_display_url() }}?v={{ 'now'|date('U') }}" 
+                                 alt="{{ 'system-logo'|trans }}" 
+                                 style="max-width: 100%; max-height: 180px; object-fit: contain;"/>
+                        {% else %}
+                            <div class="text-center text-muted">
+                                <i class="fa fa-picture-o fa-4x"></i>
+                                <p style="margin-top: 10px;">{{ 'no-logo-configured'|trans }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if fsc.has_logo() %}
+                    <form method="post" action="{{ fsc.url()|raw }}" style="margin-top: 10px;">
+                        {{ csrf_field() }}
+                        <button type="submit" name="delete_logo" value="1" class="btn btn-danger btn-block"
+                                onclick="return confirm('{{ 'confirm-delete-logo'|trans|e('js') }}');">
+                            <i class="fa fa-trash"></i>&nbsp;
+                            {{ 'delete-logo'|trans }}
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-8">
+                    <form method="post" action="{{ fsc.url()|raw }}" enctype="multipart/form-data">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="upload_logo" value="1"/>
+                        
+                        <div class="form-group">
+                            <label for="logo_file">{{ 'upload-new-logo'|trans }}</label>
+                            <input type="file" id="logo_file" name="logo_file" 
+                                   accept="image/png, image/jpeg, image/jpg, image/svg+xml"
+                                   class="form-control" required/>
+                            <p class="help-block small">
+                                {{ 'logo-formats-allowed'|trans }}: PNG, JPG, JPEG, SVG.
+                                {{ 'logo-recommended-size'|trans }}: 400x100px.
+                            </p>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa fa-upload"></i>&nbsp;
+                                {{ 'upload-logo'|trans }}
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr/>
+
+                    <div class="alert alert-info">
+                        <i class="fa fa-lightbulb-o"></i>&nbsp;
+                        <strong>{{ 'tip'|trans }}:</strong>
+                        {{ 'logo-usage-info'|trans }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Panel de nombre del sistema #}
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                <i class="fa fa-font"></i>&nbsp;
+                {{ 'system-name'|trans }}
+            </h3>
+        </div>
+        <div class="panel-body">
+            <form method="post" action="{{ fsc.url()|raw }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="save_branding" value="1"/>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="system_name">{{ 'system-name-label'|trans }}</label>
+                            <input type="text" id="system_name" name="system_name" 
+                                   class="form-control" 
+                                   value="{{ fsc.system_name }}"
+                                   placeholder="FSFramework"/>
+                            <p class="help-block small">
+                                {{ 'system-name-help'|trans }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa fa-save"></i>&nbsp;
+                    {{ 'save'|trans }}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {# Preview panel #}
+    <div class="panel panel-success">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                <i class="fa fa-eye"></i>&nbsp;
+                {{ 'preview'|trans }}
+            </h3>
+        </div>
+        <div class="panel-body">
+            <p class="help-block">
+                {{ 'preview-description'|trans }}
+            </p>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="well text-center" style="background: #f8f9fa; padding: 30px;">
+                        <h4>{{ 'login-preview'|trans }}</h4>
+                        <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                            {% if fsc.has_logo() %}
+                                <img src="{{ fsc.get_logo_display_url() }}?v={{ 'now'|date('U') }}" 
+                                     alt="Logo" 
+                                     style="max-width: 200px; max-height: 80px; object-fit: contain;"/>
+                            {% else %}
+                                <span style="font-size: 24px; font-weight: bold;">{{ fsc.system_name }}</span>
+                            {% endif %}
+                            <p class="text-muted" style="margin-top: 15px; margin-bottom: 0;">
+                                {{ 'login-welcome-text'|trans }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="well" style="background: #3c8dbc; padding: 15px 20px;">
+                        <h4 style="color: white; margin: 0;">{{ 'header-preview'|trans }}</h4>
+                        <div style="margin-top: 10px; display: flex; align-items: center;">
+                            {% if fsc.has_logo() %}
+                                <img src="{{ fsc.get_logo_display_url() }}?v={{ 'now'|date('U') }}" 
+                                     alt="Logo" 
+                                     style="max-height: 40px; object-fit: contain; background: white; padding: 5px; border-radius: 4px;"/>
+                            {% else %}
+                                <span style="color: white; font-size: 18px; font-weight: bold;">{{ fsc.system_name }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ include('footer.html.twig') }}

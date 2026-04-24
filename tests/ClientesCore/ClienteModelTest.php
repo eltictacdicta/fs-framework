@@ -12,6 +12,12 @@ class ClienteModelTest extends TestCase
 {
     private object $model;
 
+    private function setModelProperty(string $property, mixed $value): void
+    {
+        $reflection = new \ReflectionObject($this->model);
+        $reflection->getProperty($property)->setValue($this->model, $value);
+    }
+
     protected function setUp(): void
     {
         require_once FS_FOLDER . '/base/fs_core_log.php';
@@ -36,19 +42,7 @@ class ClienteModelTest extends TestCase
         $this->model = new class() extends \FSFramework\model\cliente {
             public function __construct()
             {
-                $this->nombre = '';
-                $this->razonsocial = '';
-                $this->cifnif = '';
-                $this->regimeniva = 'General';
-                $this->debaja = false;
-                $this->recargo = false;
-                $this->personafisica = true;
-                $this->codcliente = null;
-                $this->fechabaja = null;
-                $this->codgrupo = null;
-                $this->codproveedor = null;
-                $this->observaciones = null;
-                $this->diaspago = null;
+                parent::__construct(false);
             }
             public function delete()
             {
@@ -108,7 +102,6 @@ class ClienteModelTest extends TestCase
 
     public function testUrlWithoutCode(): void
     {
-        $this->model->codcliente = null;
         $this->assertSame('index.php?page=ventas_clientes', $this->model->url());
     }
 
@@ -177,7 +170,7 @@ class ClienteModelTest extends TestCase
         $this->model->cifnif = '';
         $this->model->observaciones = '';
         $this->model->debaja = true;
-        $this->model->fechabaja = null;
+        $this->setModelProperty('fechabaja', null);
         $this->model->diaspago = '';
 
         $this->model->test();
@@ -225,7 +218,7 @@ class ClienteModelTest extends TestCase
         $this->model->cifnif = '';
         $this->model->observaciones = '';
         $this->model->debaja = false;
-        $this->model->diaspago = null;
+        $this->setModelProperty('diaspago', null);
 
         $this->assertTrue($this->model->test());
         $this->assertNull($this->model->diaspago);

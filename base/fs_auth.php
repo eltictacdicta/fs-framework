@@ -162,6 +162,10 @@ class fs_auth
     private static function isPasswordValid($user, string $password): bool
     {
         $storedHash = (string) $user->password;
+        if (self::isLowercasedLegacySha1Bypass($storedHash, $password)) {
+            return false;
+        }
+
         $hasher = new PasswordHasherService();
         if (!$hasher->verifyAndMigrate($storedHash, $password)) {
             return false;
@@ -182,6 +186,20 @@ class fs_auth
         }
 
         return true;
+    }
+
+    private static function isLowercasedLegacySha1Bypass(string $storedHash, string $password): bool
+    {
+        if (!preg_match('/^[a-f0-9]{40}$/', $storedHash)) {
+            return false;
+        }
+
+        $exactSha1 = sha1($password);
+        if (hash_equals($storedHash, $exactSha1)) {
+            return false;
+        }
+
+        return hash_equals($storedHash, sha1(mb_strtolower($password, 'UTF8')));
     }
 
     /**
@@ -455,7 +473,10 @@ class fs_auth
             return;
         }
 
-        $expire = time() + (defined('FS_COOKIES_EXPIRE') ? FS_COOKIES_EXPIRE : 31536000);
+        $rememberMe = (bool) fs_session_manager::get('remember_me', true);
+        $expire = class_exists('FSFramework\\Security\\SessionPolicy')
+            ? \FSFramework\Security\SessionPolicy::cookieExpireFor($rememberMe)
+            : time() + (defined('FS_COOKIES_EXPIRE') ? FS_COOKIES_EXPIRE : 31536000);
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
         $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, $logKey);
         setcookie('user', $user->nick, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);

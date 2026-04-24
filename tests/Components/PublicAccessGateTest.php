@@ -340,6 +340,10 @@ class PublicAccessGateTest extends TestCase
 
             public function select($sql, $params = [])
             {
+                if ($sql === '') {
+                    return false;
+                }
+
                 if (str_contains($sql, 'WHERE name IN')) {
                     $rows = [];
                     foreach ((array) $this->settings as $name => $value) {

@@ -462,11 +462,12 @@ class fs_login
             session_regenerate_id(true);
         }
 
-        // 1. Guardar en Session (robustez)
+        $now = time();
         $this->session->set('user_nick', $user->nick);
         $this->session->set('user_logkey', $user->log_key);
         $this->session->set('user_logged_in', true);
-        $this->session->set('login_time', time());
+        $this->session->set('login_time', $now);
+        $this->session->set('last_activity', $now);
 
         // 2. Guardar en Cookies (compatibilidad legacy)
         // usamos el método antiguo para no romper nada que lea $_COOKIE directamente
@@ -480,7 +481,21 @@ class fs_login
     private function save_cookie($user)
     {
         $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, (string) $user->log_key);
+
+        $rememberMe = (bool) $this->session->get('remember_me', false);
         $expire = time() + FS_COOKIES_EXPIRE;
+
+        if (class_exists('FSFramework\\Security\\SessionPolicy')
+            && method_exists('FSFramework\\Security\\SessionPolicy', 'cookieExpireFor')) {
+            try {
+                $method = new \ReflectionMethod('FSFramework\\Security\\SessionPolicy', 'cookieExpireFor');
+                if ($method->isStatic() && $method->getNumberOfParameters() >= 1) {
+                    $expire = (int) \FSFramework\Security\SessionPolicy::cookieExpireFor($rememberMe);
+                }
+            } catch (\ReflectionException | \TypeError | \ArgumentCountError $exception) {
+                $expire = time() + FS_COOKIES_EXPIRE;
+            }
+        }
 
         $this->setLegacyCookie('user', $user->nick, $expire);
         $this->setLegacyCookie('logkey', $user->log_key, $expire);
