@@ -77,6 +77,41 @@ class MailServiceTest extends TestCase
         $this->assertArrayNotHasKey('mail_password', $fsVar->saved);
     }
 
+    public function testSaveConfigClearsPasswordWhenEmptyPasswordIsSubmitted(): void
+    {
+        $fsVar = new class() extends \fs_var {
+            public array $saved = [];
+            public int $encryptedSaves = 0;
+
+            public function __construct()
+            {
+                // Skip fs_var DB initialization; this double only records save calls.
+            }
+
+            public function simple_save($name, $value)
+            {
+                $this->saved[$name] = $value;
+                return true;
+            }
+
+            public function simple_save_encrypted($name, $value)
+            {
+                $this->encryptedSaves++;
+                return true;
+            }
+        };
+
+        $service = new MailService($fsVar);
+
+        $result = $service->saveConfig([
+            'mail_password' => '',
+        ]);
+
+        $this->assertTrue($result);
+        $this->assertSame('', $fsVar->saved['mail_password']);
+        $this->assertSame(0, $fsVar->encryptedSaves);
+    }
+
     public function testCanSendMailRejectsAuthenticatedSmtpWithoutUser(): void
     {
         $service = new MailService($this->createFsVarDouble([
@@ -130,6 +165,57 @@ class MailServiceTest extends TestCase
         ]));
 
         $this->assertTrue($service->canSendMail());
+    }
+
+    public function testSaveConfigNormalizesTlsOnPort465ToSsl(): void
+    {
+        $fsVar = new class() extends \fs_var {
+            public array $saved = [];
+
+            public function __construct()
+            {
+                // Skip fs_var DB initialization; this double only records save calls.
+            }
+
+            public function simple_save($name, $value)
+            {
+                $this->saved[$name] = $value;
+                return true;
+            }
+        };
+
+        $service = new MailService($fsVar);
+        $result = $service->saveConfig([
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+            'mail_port' => 465,
+            'mail_user' => 'user@example.com',
+            'mail_password' => 'secret',
+            'mail_enc' => 'tls',
+            'mail_low_security' => false,
+            'mail_from_email' => 'noreply@example.com',
+            'mail_from_name' => 'Example',
+        ]);
+
+        $this->assertTrue($result);
+        $this->assertSame('ssl', $fsVar->saved['mail_enc']);
+    }
+
+    public function testCreateMailerNormalizesTlsOnPort465ToSsl(): void
+    {
+        $service = new MailService($this->createFsVarDouble([
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+            'mail_port' => '465',
+            'mail_user' => 'user@example.com',
+            'mail_password' => 'secret',
+            'mail_enc' => 'tls',
+            'mail_low_security' => '0',
+            'mail_from_email' => 'noreply@example.com',
+            'mail_from_name' => 'Example',
+        ]));
+
+        $this->assertSame('ssl', $service->createMailer()->SMTPSecure);
     }
 
     private function createFsVarDouble(array $values): \fs_var

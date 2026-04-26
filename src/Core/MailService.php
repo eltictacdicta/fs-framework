@@ -104,6 +104,7 @@ class MailService
             return false;
         }
 
+        $config = $this->normalizeConfig($config);
         $success = true;
         foreach (self::CONFIG_KEYS as $key => $default) {
             if (!isset($config[$key])) {
@@ -113,7 +114,10 @@ class MailService
             $value = $config[$key];
 
             if ($key === 'mail_password') {
-                if (!$this->fsVar->simple_save_encrypted($key, $value)) {
+                $saved = $value === ''
+                    ? $this->fsVar->simple_save($key, '')
+                    : $this->fsVar->simple_save_encrypted($key, $value);
+                if (!$saved) {
                     $success = false;
                 }
             } elseif ($key === 'mail_low_security') {
@@ -194,7 +198,7 @@ class MailService
             }
 
             if (!empty($config['mail_enc'])) {
-                $mail->SMTPSecure = $config['mail_enc'];
+                $mail->SMTPSecure = $this->normalizeSmtpEncryption((int) $config['mail_port'], (string) $config['mail_enc']);
             }
 
             if ($config['mail_low_security']) {
@@ -251,7 +255,13 @@ class MailService
             $mail->Body = $body;
             $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $body));
 
-            return $mail->send();
+            $sent = $mail->send();
+            if (!$sent) {
+                $this->lastError = $mail->ErrorInfo ?: 'PHPMailer no devolvió detalle del error.';
+                error_log('FSFramework MailService: Error enviando email: ' . $this->lastError);
+            }
+
+            return $sent;
         } catch (PHPMailerException $e) {
             $this->lastError = $e->getMessage();
             error_log('FSFramework MailService: Error enviando email: ' . $this->lastError);
@@ -308,7 +318,8 @@ class MailService
 
             return [
                 'success' => false,
-                'message' => 'No se pudo conectar al servidor SMTP. Verifica los datos de configuración.'
+                'message' => 'No se pudo conectar al servidor SMTP. '
+                    . ($mail->ErrorInfo ?: 'Verifica los datos de configuración.')
             ];
         } catch (PHPMailerException $e) {
             return [
@@ -427,6 +438,26 @@ class MailService
         }
 
         return 'La configuración de email está incompleta.';
+    }
+
+    private function normalizeConfig(array $config): array
+    {
+        if (isset($config['mail_port'], $config['mail_enc'])) {
+            $config['mail_enc'] = $this->normalizeSmtpEncryption((int) $config['mail_port'], (string) $config['mail_enc']);
+        }
+
+        return $config;
+    }
+
+    private function normalizeSmtpEncryption(int $port, string $encryption): string
+    {
+        $normalized = strtolower(trim($encryption));
+
+        if ($port === 465 && $normalized === PHPMailer::ENCRYPTION_STARTTLS) {
+            return PHPMailer::ENCRYPTION_SMTPS;
+        }
+
+        return $normalized;
     }
 
     /**
