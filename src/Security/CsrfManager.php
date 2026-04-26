@@ -187,6 +187,9 @@ class CsrfManager
             '<input type="hidden" name="%s" value="%s">',
             self::FIELD_NAME,
             $escapedToken
+        ) . sprintf(
+            '<input type="hidden" name="_token" value="%s">',
+            $escapedToken
         );
     }
 
@@ -216,6 +219,10 @@ class CsrfManager
     {
         // Primero buscar en POST
         $token = $request->request->get(self::FIELD_NAME);
+
+        if (empty($token)) {
+            $token = $request->request->get('_token');
+        }
         
         // Si no está en POST, buscar en header (para AJAX)
         if (empty($token)) {

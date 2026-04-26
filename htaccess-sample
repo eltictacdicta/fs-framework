@@ -17,3 +17,12 @@ Options -Indexes
    Header always set X-Frame-Options SAMEORIGIN
    Header always set X-Content-Type-Options nosniff
 </ifModule>
+
+<IfModule mod_rewrite.c>
+   RewriteEngine On
+
+   # Send public Symfony/OIDC routes such as /oauth/login to index.php.
+   RewriteCond %{REQUEST_FILENAME} !-f
+   RewriteCond %{REQUEST_FILENAME} !-d
+   RewriteRule ^ index.php [L,QSA]
+</IfModule>
