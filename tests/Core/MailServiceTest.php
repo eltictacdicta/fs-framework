@@ -29,6 +29,11 @@ use PHPUnit\Framework\TestCase;
 
 class MailServiceTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        MailService::clearCache();
+    }
+
     public function testSaveConfigSkipsPasswordEncryptionWhenPasswordIsNotSubmitted(): void
     {
         $fsVar = new class() extends \fs_var {
@@ -70,5 +75,80 @@ class MailServiceTest extends TestCase
         $this->assertSame(0, $fsVar->encryptedSaves);
         $this->assertSame('smtp.example.com', $fsVar->saved['mail_host']);
         $this->assertArrayNotHasKey('mail_password', $fsVar->saved);
+    }
+
+    public function testCanSendMailRejectsAuthenticatedSmtpWithoutUser(): void
+    {
+        $service = new MailService($this->createFsVarDouble([
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+            'mail_port' => '465',
+            'mail_user' => '',
+            'mail_password' => 'secret',
+            'mail_enc' => 'ssl',
+            'mail_low_security' => '0',
+            'mail_from_email' => 'noreply@example.com',
+            'mail_from_name' => 'Example',
+        ]));
+
+        $this->assertFalse($service->canSendMail());
+        $this->assertSame(
+            'La configuración SMTP está incompleta: indica usuario y contraseña SMTP.',
+            $service->testConnection()['message']
+        );
+    }
+
+    public function testCanSendMailAcceptsAuthenticatedSmtpWithCredentials(): void
+    {
+        $service = new MailService($this->createFsVarDouble([
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+            'mail_port' => '465',
+            'mail_user' => 'user@example.com',
+            'mail_password' => 'secret',
+            'mail_enc' => 'ssl',
+            'mail_low_security' => '0',
+            'mail_from_email' => 'noreply@example.com',
+            'mail_from_name' => 'Example',
+        ]));
+
+        $this->assertTrue($service->canSendMail());
+    }
+
+    public function testCanSendMailAllowsLocalMailpitWithoutCredentials(): void
+    {
+        $service = new MailService($this->createFsVarDouble([
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'localhost',
+            'mail_port' => '1025',
+            'mail_user' => '',
+            'mail_password' => '',
+            'mail_enc' => '',
+            'mail_low_security' => '0',
+            'mail_from_email' => 'noreply@test.local',
+            'mail_from_name' => 'Sistema de Pruebas',
+        ]));
+
+        $this->assertTrue($service->canSendMail());
+    }
+
+    private function createFsVarDouble(array $values): \fs_var
+    {
+        return new class($values) extends \fs_var {
+            public function __construct(private array $values)
+            {
+                // Skip fs_var DB initialization; this double reads from memory.
+            }
+
+            public function simple_get($name)
+            {
+                return $this->values[$name] ?? false;
+            }
+
+            public function simple_get_decrypted($name)
+            {
+                return $this->simple_get($name);
+            }
+        };
     }
 }

@@ -117,7 +117,12 @@ class admin_email extends fs_controller
             if ($result) {
                 $this->new_message("Email de prueba enviado correctamente a {$testEmail}. Revisa tu bandeja de entrada (o Mailpit si usas DDEV).");
             } else {
-                $this->new_error_msg("No se pudo enviar el email de prueba a {$testEmail}. Revisa los logs del servidor.");
+                $detail = $this->mailService->getLastError();
+                $message = "No se pudo enviar el email de prueba a {$testEmail}.";
+                if ($detail !== '') {
+                    $message .= " Detalle: {$detail}";
+                }
+                $this->new_error_msg($message);
             }
         } catch (\Throwable $e) {
             $this->new_error_msg("Error al enviar email de prueba: " . $e->getMessage());

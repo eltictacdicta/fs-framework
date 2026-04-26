@@ -71,7 +71,7 @@
         </div>
     </div>
 
-    <form method="post" action="{{ fsc.url()|raw }}">
+    <form method="post" action="{{ fsc.url()|raw }}" id="email_config_form">
         {{ csrf_field() }}
         <input type="hidden" name="action" value="save"/>
 
@@ -299,7 +299,7 @@
 
 <script>
 function testConnection() {
-    var form = document.querySelector('form');
+    var form = document.getElementById('email_config_form');
     var actionInput = form.querySelector('input[name="action"]');
     actionInput.value = 'test';
     form.submit();

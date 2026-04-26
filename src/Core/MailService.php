@@ -44,6 +44,8 @@ class MailService
     /** @var array|null Configuración cacheada */
     private static ?array $configCache = null;
 
+    private string $lastError = '';
+
     public function __construct(private ?\fs_var $fsVar = null)
     {
         if ($this->fsVar === null && class_exists('fs_var')) {
@@ -137,7 +139,18 @@ class MailService
     public function canSendMail(): bool
     {
         $config = $this->getConfig();
-        return !empty($config['mail_host']) || $config['mail_mailer'] === 'mail';
+        $mailer = (string) ($config['mail_mailer'] ?? 'smtp');
+
+        if (in_array($mailer, ['mail', 'sendmail'], true)) {
+            return true;
+        }
+
+        if ($mailer !== 'smtp' || !$this->hasSmtpConfig()) {
+            return false;
+        }
+
+        return $this->allowsSmtpWithoutAuth($config)
+            || ($config['mail_user'] !== '' && $config['mail_password'] !== '');
     }
 
     /**
@@ -148,7 +161,9 @@ class MailService
     public function hasSmtpConfig(): bool
     {
         $config = $this->getConfig();
-        return !empty($config['mail_host']) && $config['mail_mailer'] === 'smtp';
+        return !empty($config['mail_host'])
+            && $config['mail_mailer'] === 'smtp'
+            && (int) $config['mail_port'] > 0;
     }
 
     /**
@@ -220,6 +235,14 @@ class MailService
         ?string $fromEmail = null,
         ?string $fromName = null
     ): bool {
+        $this->lastError = '';
+
+        if (!$this->canSendMail()) {
+            $this->lastError = $this->getMissingConfigurationMessage();
+            error_log('FSFramework MailService: ' . $this->lastError);
+            return false;
+        }
+
         try {
             $mail = $this->createMailer($fromEmail, $fromName);
             $mail->addAddress($to, $toName ?? '');
@@ -230,7 +253,8 @@ class MailService
 
             return $mail->send();
         } catch (PHPMailerException $e) {
-            error_log('FSFramework MailService: Error enviando email: ' . $e->getMessage());
+            $this->lastError = $e->getMessage();
+            error_log('FSFramework MailService: Error enviando email: ' . $this->lastError);
             return false;
         }
     }
@@ -242,6 +266,13 @@ class MailService
      */
     public function testConnection(): array
     {
+        if (!$this->canSendMail()) {
+            return [
+                'success' => false,
+                'message' => $this->getMissingConfigurationMessage()
+            ];
+        }
+
         if (!$this->hasSmtpConfig()) {
             if ($this->getConfig()['mail_mailer'] === 'mail') {
                 return [
@@ -361,6 +392,41 @@ class MailService
     public static function clearCache(): void
     {
         self::$configCache = null;
+    }
+
+    public function getLastError(): string
+    {
+        return $this->lastError;
+    }
+
+    private function allowsSmtpWithoutAuth(array $config): bool
+    {
+        $host = strtolower(trim((string) ($config['mail_host'] ?? '')));
+        $port = (int) ($config['mail_port'] ?? 0);
+
+        return $port === 1025 && in_array($host, ['localhost', '127.0.0.1', 'mailpit'], true);
+    }
+
+    private function getMissingConfigurationMessage(): string
+    {
+        $config = $this->getConfig();
+        $mailer = (string) ($config['mail_mailer'] ?? 'smtp');
+
+        if ($mailer !== 'smtp') {
+            return 'El método de envío seleccionado no está configurado correctamente.';
+        }
+
+        if (!$this->hasSmtpConfig()) {
+            return 'La configuración SMTP está incompleta: indica servidor y puerto.';
+        }
+
+        if (!$this->allowsSmtpWithoutAuth($config)
+            && ($config['mail_user'] === '' || $config['mail_password'] === '')
+        ) {
+            return 'La configuración SMTP está incompleta: indica usuario y contraseña SMTP.';
+        }
+
+        return 'La configuración de email está incompleta.';
     }
 
     /**
