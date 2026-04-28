@@ -1,0 +1,204 @@
+# =============================================================================
+# FSFramework Security Configuration
+# Apache 2.4+ required
+# =============================================================================
+
+# Disable directory listing and enable symlinks
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+Options +FollowSymLinks -ExecCGI
+
+# =============================================================================
+# SECURITY HEADERS
+# =============================================================================
+<IfModule mod_headers.c>
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Prevent MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # XSS Protection (legacy browsers)
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Permissions Policy (disable dangerous features)
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+    
+    # Prevent caching of sensitive pages
+    <FilesMatch "\.(php)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+    </FilesMatch>
+    
+    # Remove PHP disclosure (Server banner cannot be stripped here reliably; set ServerTokens Prod in apache2.conf/httpd.conf)
+    Header unset X-Powered-By
+</IfModule>
+
+# =============================================================================
+# PROTECT SENSITIVE FILES (CRITICAL)
+# =============================================================================
+# Protect configuration and metadata files
+<FilesMatch "^(config\.php|config2\.php|\.env|composer\.(json|lock)|package\.json|phpunit\.xml|phpstan\.neon|rector\.php|\.gitignore|VERSION|VERSION-FS2017|VERSION-FS2025|fsframework\.ini|facturascripts\.ini|Makefile|build\.sh|tailwind\.config\.js)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block backup files, logs, and source control
+<FilesMatch "\.(bak|backup|old|orig|save|swp|tmp|log|sql|sqlite|db|inc|tpl|cache|dist|example|sample|~)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block hidden files (except .well-known for OIDC/ACME)
+<FilesMatch "^\.(?!well-known)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# =============================================================================
+# PROTECT DANGEROUS PHP FILES IN ROOT
+# =============================================================================
+# Block direct access to install/update/debug scripts
+# IMPORTANT: Remove these files after setup, or uncomment "Require all denied" for full block
+<FilesMatch "^(install\.php|updater\.php|debug_loader\.php|emergency_admin_reset\.php|reset_admin_password\.php|visual_flow_demo\.php)$">
+    <IfModule mod_authz_core.c>
+        # Option 1: Block completely (recommended for production)
+        # Require all denied
+        
+        # Option 2: Allow only localhost (for maintenance)
+        <RequireAny>
+            Require ip 127.0.0.1
+            Require ip ::1
+        </RequireAny>
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+        Allow from 127.0.0.1
+        Allow from ::1
+    </IfModule>
+</FilesMatch>
+
+# Restrict cron.php to local/server access (or configure your cron service IP)
+<FilesMatch "^cron\.php$">
+    <IfModule mod_authz_core.c>
+        <RequireAny>
+            Require ip 127.0.0.1
+            Require ip ::1
+            # Add your cron server IP if needed:
+            # Require ip YOUR.CRON.SERVER.IP
+        </RequireAny>
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+        Allow from 127.0.0.1
+        Allow from ::1
+    </IfModule>
+</FilesMatch>
+
+# =============================================================================
+# URL REWRITING (mod_rewrite)
+# =============================================================================
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # --- PROTECT SENSITIVE DIRECTORIES ---
+    # Block access to sensitive directories (return 403)
+    # Note: apk/ and imgs/ have their own .htaccess with specific rules
+    RewriteRule ^(base|model|src|config|tests|scripts|docs|dev-tools|extras|\.cursor|\.ddev|\.git|\.github|\.vscode|\.phpunit\.cache|\.playwright-mcp|\.agent)(/.*)?$ - [F,L]
+    
+    # Block vendor directory (except static assets if needed)
+    RewriteRule ^vendor(/.*)?$ - [F,L]
+    
+    # Block tmp directory
+    RewriteRule ^tmp(/.*)?$ - [F,L]
+    
+    # Block backups directory
+    RewriteRule ^backups(/.*)?$ - [F,L]
+    
+    # Block controller directory
+    RewriteRule ^controller(/.*)?$ - [F,L]
+    
+    # Block translations directory
+    RewriteRule ^translations(/.*)?$ - [F,L]
+
+    # Plugins: block PHP source and internals; allow themes/view static assets (*.css|js|fonts|images)
+    RewriteRule ^plugins/.+\.php$ - [F,L]
+    RewriteRule ^plugins/[^/]+/(model|controller|Controller|Model|src|tests|config|translations|Translation)(/|$) - [F,L]
+
+    # --- OIDC / OAuth / API ROUTES (MUST BE ACCESSIBLE) ---
+    # Allow .well-known for OIDC discovery and ACME challenges
+    RewriteCond %{REQUEST_URI} ^/\.well-known/ [NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L,QSA]
+    
+    # Route all non-file/non-directory requests to index.php
+    # This enables: /oauth/*, /api/*, /?page=* and Symfony routes
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# =============================================================================
+# STATIC ASSETS CACHING
+# =============================================================================
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType application/x-javascript "access plus 1 week"
+    ExpiresByType font/woff "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 month"
+    ExpiresByType application/font-woff "access plus 1 month"
+    ExpiresByType application/font-woff2 "access plus 1 month"
+</IfModule>
+
+# =============================================================================
+# COMPRESSION (Optional but recommended)
+# =============================================================================
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/x-javascript
+    AddOutputFilterByType DEFLATE application/json application/xml
+</IfModule>
+
+# =============================================================================
+# PHP SETTINGS
+# =============================================================================
+# LiteSpeed/LSAPI: Configure PHP settings in lsphp.ini or via LiteSpeed admin
+# Apache mod_php: Uncomment the block below
+# PHP-FPM: Configure in php.ini or pool config
+#
+# <IfModule mod_php.c>
+#     php_value max_input_vars 5000
+#     php_value post_max_size 99M
+#     php_value upload_max_filesize 99M
+#     php_flag expose_php Off
+#     php_flag display_errors Off
+#     php_flag log_errors On
+# </IfModule>
