@@ -67,6 +67,25 @@ class FsFunctionsTest extends TestCase
         $this->assertSame('hello', fs_fix_html('  hello  '));
     }
 
+    // =====================================================================
+    // fs_is_absolute_path()
+    // =====================================================================
+
+    public function testFsIsAbsolutePathUnix(): void
+    {
+        $this->assertTrue(fs_is_absolute_path('/var/www/controller/foo.php'));
+        $this->assertFalse(fs_is_absolute_path('controller/foo.php'));
+    }
+
+    public function testFsIsAbsolutePathWindowsDrive(): void
+    {
+        $this->assertTrue(fs_is_absolute_path('C:\\apps\\controller\\foo.php'));
+        $this->assertTrue(fs_is_absolute_path('D:/apps/controller/foo.php'));
+        $this->assertFalse(fs_is_absolute_path(''));
+        $this->assertFalse(fs_is_absolute_path('C:'));
+        $this->assertFalse(fs_is_absolute_path('relative\\path'));
+    }
+
     public function testNormalizeUrlTrimsTrailingWhitespace(): void
     {
         $url = "https://github.com/eltictacdicta/facturacion_base/archive/master.zip \n";

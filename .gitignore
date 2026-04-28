@@ -1,17 +1,36 @@
+# =============================================================================
+# FSFramework .gitignore
+# =============================================================================
+
+# IDE and editor files
 /.idea/
-/doc/
+/.vscode/
 /nbproject/
-/node_modules/
-/tmp/
-/MyFiles/
+*.swp
+*.swo
+*~
 .DS_Store
 .htaccess
-.vscode
-/vendor/dev-tools/
+# Documentation (generated)
+/doc/
+
+# Dependencies (installed via composer/npm)
+/node_modules/
+/vendor/
+
+# Temporary and cache files
+/tmp/*
+!/tmp/index.php
+/MyFiles/
+
+# Configuration (contains credentials)
 config.php
+config.php.bak*
 package-lock.json
 
-# Excluir plugins excepto los del core
+# =============================================================================
+# PLUGINS (exclude all except core)
+# =============================================================================
 /plugins/*
 !/plugins/adminlte/
 !/plugins/AdminLTE/
@@ -25,25 +44,26 @@ package-lock.json
 !/plugins/clientes_core/
 !/plugins/clientes_catalogo/
 !/plugins/clientes_facturacion
-logs/api_security.log
 
-# Excluir imágenes subidas por la API
-/imgs/api_auth/business_cards/*.jpg
-/imgs/api_auth/business_cards/*.jpeg
-/imgs/api_auth/business_cards/*.png
-/imgs/api_auth/business_cards/*.gif
-/imgs/api_auth/business_cards/*.webp
-
-# Excluir directorio imgs y subdirectorios
+# =============================================================================
+# USER UPLOADS AND GENERATED CONTENT
+# =============================================================================
 /imgs/
 /images/
-.ddev/config.yaml
+logs/api_security.log
+
+# =============================================================================
+# DDEV LOCAL ENVIRONMENT
+# =============================================================================
 .ddev/
+
+# Legacy AdminLTE download
 AdminLTE-2.4.18
 
-# Backups directory (excluir contenido, mantener protección)
+# =============================================================================
+# BACKUPS (protect directory, exclude contents)
+# =============================================================================
 /backups/*
-!/backups/.htaccess
 !/backups/index.php
 
 # Update and Backup data (legacy)
@@ -51,25 +71,48 @@ AdminLTE-2.4.18
 !/update-and-backup/data/.htaccess
 !/update-and-backup/data/index.php
 
-# PHPUnit
+# =============================================================================
+# TESTING
+# =============================================================================
 .phpunit.cache/
+.phpunit.result.cache
+coverage/
 
-# Logs (seguridad: evitar exponer logs con datos sensibles)
+# =============================================================================
+# SECURITY: SENSITIVE FILES (NEVER COMMIT)
+# =============================================================================
+# Logs may contain sensitive data
 *.log
-!/backups/.htaccess
 
-# Archivos de base de datos y backups sueltos
+# Database exports and backups
 *.sql
+*.sql.gz
 *.bak
 *.backup
 *.dump
 *.sqlite
+*.db
 
-# Variables de entorno
+# Environment and secrets
 .env
 .env.local
 .env.*.local
-config.php.bak-secret-migration
-
-# Secret key auto-generada (nunca subir)
 .fs_secret_key
+
+# Emergency scripts (upload manually, delete after use)
+emergency_admin_reset.php
+reset_admin_password.php
+
+# Composer auth tokens
+auth.json
+
+# SSH keys accidentally placed in project
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# =============================================================================
+# SECURITY: HTACCESS
+# =============================================================================
+# Rules are centralized in /.htaccess (root). Optional: apk/, imgs/ for MIME/cache.

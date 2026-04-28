@@ -1,10 +1,57 @@
+# FSFramework robots.txt
+# Protect sensitive directories from search engine indexing
+
 User-agent: *
+
+# Core framework directories
 Disallow: /base/
 Disallow: /controller/
-Disallow: /extras/
 Disallow: /model/
-Disallow: /nbproject/
-Disallow: /plugins/
-Disallow: /raintpl/
+Disallow: /src/
+Disallow: /config/
+
+# Dependencies and dev tools
+Disallow: /vendor/
+Disallow: /tests/
+Disallow: /scripts/
+Disallow: /dev-tools/
+Disallow: /docs/
+Disallow: /extras/
+
+# Temporary and cache files
 Disallow: /tmp/
-Disallow: /view/
+Disallow: /backups/
+
+# Plugins internals (allow view assets)
+Disallow: /plugins/*/model/
+Disallow: /plugins/*/controller/
+Disallow: /plugins/*/Controller/
+Disallow: /plugins/*/Model/
+Disallow: /plugins/*/src/
+Disallow: /plugins/*/tests/
+Disallow: /plugins/*/config/
+
+# Legacy directories
+Disallow: /nbproject/
+Disallow: /raintpl/
+
+# Static assets (allowed)
+Allow: /view/css/
+Allow: /view/js/
+Allow: /view/fonts/
+Allow: /images/
+Allow: /imgs/
+Allow: /themes/*/view/css/
+Allow: /themes/*/view/js/
+
+# Admin and sensitive pages
+Disallow: /index.php?page=admin*
+Disallow: /install.php
+Disallow: /updater.php
+Disallow: /cron.php
+Disallow: /api.php
+
+# OIDC endpoints (allow discovery, block admin)
+Allow: /.well-known/
+Disallow: /index.php?page=oidc_admin*
+

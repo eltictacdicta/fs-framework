@@ -29,14 +29,25 @@
     Header set Cache-Control "max-age=3600, public"
 </Files>
 
-# Permitir acceso a archivos de texto, JSON y README
-<FilesMatch "\.(txt|json|md|log)$">
+# Permitir acceso a archivos de texto, JSON y README (excluir logs por seguridad)
+<FilesMatch "\.(txt|json|md)$">
     <IfModule mod_authz_core.c>
         Require all granted
     </IfModule>
     <IfModule !mod_authz_core.c>
         Order allow,deny
         Allow from all
+    </IfModule>
+</FilesMatch>
+
+# Bloquear archivos de log (pueden contener información sensible)
+<FilesMatch "\.log$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
     </IfModule>
 </FilesMatch>
 

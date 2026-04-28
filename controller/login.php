@@ -81,7 +81,9 @@ class login extends fs_controller
 
     /**
      * Muestra un mensaje si la configuración inicial está pendiente.
-     * NO muestra la contraseña - esa solo se mostró durante la instalación.
+     * La contraseña temporal se genera en fs_user::install() y se persiste
+     * en $_SESSION['flash_messages'] para sobrevivir las redirecciones del
+     * PublicAccessGate, por lo que puede aparecer junto a este mensaje.
      */
     private function showInitialSetupMessageIfPending(): void
     {

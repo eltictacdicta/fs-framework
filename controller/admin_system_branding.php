@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-require_once 'base/fs_settings.php';
+require_once dirname(__DIR__) . '/base/fs_settings.php';
 
 /**
  * Controlador para gestionar el branding del sistema (logo, nombre).

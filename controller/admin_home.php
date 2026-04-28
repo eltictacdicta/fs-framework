@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-require_once 'base/fs_plugin_manager.php';
-require_once 'base/fs_settings.php';
+require_once dirname(__DIR__) . '/base/fs_plugin_manager.php';
+require_once dirname(__DIR__) . '/base/fs_settings.php';
 
 /**
  * Panel de control de FSFramework.
@@ -741,7 +741,8 @@ class admin_home extends fs_controller
             return false;
         }
 
-        require_once $class_name;
+        $controllerPath = preg_match('#^/#', $class_name) === 1 ? $class_name : FS_FOLDER . '/' . $class_name;
+        require_once $controllerPath;
         $new_fsc = new $page->name();
         if ($new_fsc instanceof login) {
             $new_fsc->skipLoginLogic();

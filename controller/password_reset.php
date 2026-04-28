@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-require_once 'base/fs_ip_filter.php';
+require_once dirname(__DIR__) . '/base/fs_ip_filter.php';
 
 use FSFramework\Translation\FSTranslator;
 use FSFramework\Core\MailService;

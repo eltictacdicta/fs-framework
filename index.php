@@ -276,9 +276,9 @@ if ($pagename == '') {
             $fsc_error = TRUE;
         }
     } else {
-        // Legacy controller handling
+        // Legacy controller handling — use absolute path so CWD cannot break includes (LiteSpeed/LSAPI)
         $class_path = find_controller($pagename);
-        require_once $class_path;
+        require_once fs_is_absolute_path($class_path) ? $class_path : FS_FOLDER . '/' . $class_path;
 
         try {
             /// ¿No se ha encontrado el controlador?

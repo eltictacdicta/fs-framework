@@ -39,9 +39,19 @@ Options -Indexes
     ExpiresByType image/webp "access plus 30 days"
 </IfModule>
 
-# Headers de seguridad y CORS
+# Headers de seguridad
 <IfModule mod_headers.c>
-    Header set Access-Control-Allow-Origin "*"
     Header set X-Content-Type-Options "nosniff"
 </IfModule>
+
+# Bloquear archivos PHP (prevenir ejecución de código)
+<FilesMatch "\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
 

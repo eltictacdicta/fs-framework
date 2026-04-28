@@ -1,28 +1,61 @@
-Options -Indexes
+# =============================================================================
+# FSFramework .htaccess Sample
+# Copy this file to .htaccess and customize as needed
+# Apache 2.4+ required
+# =============================================================================
 
-<IfModule mod_php5.c>
-   php_value max_input_vars 5000
-   php_value post_max_size 99M
-   php_value upload_max_filesize 99M
+# Disable directory listing
+Options -Indexes -ExecCGI -Includes
+Options +FollowSymLinks
+
+# Disable server signature
+ServerSignature Off
+
+# =============================================================================
+# SECURITY HEADERS
+# =============================================================================
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header unset X-Powered-By
 </IfModule>
 
-<IfModule mod_php7.c>
-   php_value max_input_vars 5000
-   php_value post_max_size 99M
-   php_value upload_max_filesize 99M
-</IfModule>
+# =============================================================================
+# PROTECT SENSITIVE FILES
+# =============================================================================
+<FilesMatch "^(config\.php|\.env|composer\.(json|lock)|phpunit\.xml|\.gitignore|\.htaccess)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
 
-<ifModule mod_headers.c>
-   Header always set X-Frame-Options DENY
-   Header always set X-Frame-Options SAMEORIGIN
-   Header always set X-Content-Type-Options nosniff
-</ifModule>
-
+# =============================================================================
+# URL REWRITING FOR SYMFONY/OIDC ROUTES
+# =============================================================================
 <IfModule mod_rewrite.c>
-   RewriteEngine On
+    RewriteEngine On
+    
+    # Allow .well-known for OIDC discovery
+    RewriteCond %{REQUEST_URI} ^/\.well-known/ [NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L,QSA]
+    
+    # Route all requests to index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
 
-   # Send public Symfony/OIDC routes such as /oauth/login to index.php.
-   RewriteCond %{REQUEST_FILENAME} !-f
-   RewriteCond %{REQUEST_FILENAME} !-d
-   RewriteRule ^ index.php [L,QSA]
+# =============================================================================
+# PHP SETTINGS
+# =============================================================================
+<IfModule mod_php.c>
+    php_value max_input_vars 5000
+    php_value post_max_size 99M
+    php_value upload_max_filesize 99M
+    php_flag expose_php Off
+    php_flag display_errors Off
 </IfModule>

@@ -210,14 +210,25 @@ class fs_user extends \fs_model
 
         $defaultPassword = rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
 
-        $this->new_message(
-            '<strong>¡Instalación completada!</strong><br>' .
+        $installMessage = '<strong>¡Instalación completada!</strong><br>' .
             'Usuario: <code>admin</code><br>' .
             'Contraseña temporal: <code>' . htmlspecialchars($defaultPassword, ENT_QUOTES, 'UTF-8') . '</code><br>' .
             '<small class="text-warning"><i class="fa fa-exclamation-triangle"></i> ' .
             '<b>¡IMPORTANTE!</b> Esta contraseña se muestra SOLO UNA VEZ. ' .
-            'Anótala y cámbiala inmediatamente después de iniciar sesión.</small>'
-        );
+            'Anótala y cámbiala inmediatamente después de iniciar sesión.</small>';
+
+        $this->new_message($installMessage);
+
+        // Persistir en sesión flash para sobrevivir redirecciones del PublicAccessGate
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            @session_start();
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            if (!isset($_SESSION['flash_messages']) || !is_array($_SESSION['flash_messages'])) {
+                $_SESSION['flash_messages'] = [];
+            }
+            $_SESSION['flash_messages'][] = $installMessage;
+        }
 
         self::markInitialSetupPending();
 
@@ -272,11 +283,28 @@ class fs_user extends \fs_model
         $fsVar = new \fs_var();
         $currentValue = $fsVar->simple_get(self::INITIAL_SETUP_VAR);
 
-        if ($currentValue !== self::INITIAL_SETUP_PENDING) {
-            return $currentValue === self::INITIAL_SETUP_COMPLETED;
+        if ($currentValue === self::INITIAL_SETUP_COMPLETED) {
+            return true;
         }
 
-        return $fsVar->simple_save(self::INITIAL_SETUP_VAR, self::INITIAL_SETUP_COMPLETED);
+        if ($currentValue === false || $currentValue === null) {
+            $result = $fsVar->simple_save(self::INITIAL_SETUP_VAR, self::INITIAL_SETUP_COMPLETED);
+            if (!$result) {
+                error_log('[FSFramework] completeInitialSetup: failed to insert initial_admin_setup=completed');
+            }
+            return $result;
+        }
+
+        if ($currentValue === self::INITIAL_SETUP_PENDING) {
+            $result = $fsVar->simple_save(self::INITIAL_SETUP_VAR, self::INITIAL_SETUP_COMPLETED);
+            if (!$result) {
+                error_log('[FSFramework] completeInitialSetup: failed to update initial_admin_setup from pending to completed');
+            }
+            return $result;
+        }
+
+        error_log('[FSFramework] completeInitialSetup: unexpected value for initial_admin_setup: ' . $currentValue);
+        return false;
     }
 
     /**

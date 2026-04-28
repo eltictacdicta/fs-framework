@@ -151,6 +151,6 @@ if (empty($GLOBALS['plugins'])) {
 /// cargamos las funciones de los plugins
 foreach ($GLOBALS['plugins'] as $plug) {
     if (file_exists(FS_FOLDER . '/plugins/' . $plug . '/functions.php')) {
-        require_once 'plugins/' . $plug . '/functions.php';
+        require_once FS_FOLDER . '/plugins/' . $plug . '/functions.php';
     }
 }

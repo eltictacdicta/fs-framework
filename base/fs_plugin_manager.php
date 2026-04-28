@@ -130,9 +130,17 @@ class fs_plugin_manager
         }
 
         $logFile = $logDir . DIRECTORY_SEPARATOR . self::AUDIT_LOG_FILE;
-        $payload = json_encode($logEntry) . PHP_EOL;
+        $payload = json_encode($logEntry);
+        if ($payload === false || json_last_error() !== JSON_ERROR_NONE) {
+            error_log(
+                'fs_plugin_manager: JSON encode failed for audit log: '
+                . json_last_error_msg()
+            );
 
-        if (file_put_contents($logFile, $payload, FILE_APPEND | LOCK_EX) === false) {
+            return;
+        }
+
+        if (file_put_contents($logFile, $payload . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
             error_log('fs_plugin_manager: Cannot write audit log file: ' . $logFile);
             return;
         }
@@ -740,7 +748,7 @@ class fs_plugin_manager
 
         foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/controller'), 'php') as $f) {
             $page_name = substr($f, 0, -4);
-            require_once 'plugins/' . $plugin_name . self::CONTROLLER_PATH . $f;
+            require_once $this->pluginsPath($plugin_name . self::CONTROLLER_PATH . $f);
 
             if (!class_exists($page_name)) {
                 continue;
@@ -802,7 +810,7 @@ class fs_plugin_manager
     {
         /// cargamos el archivo functions.php
         if (file_exists($this->pluginsPath($plugin_name . '/functions.php'))) {
-            require_once 'plugins/' . $plugin_name . '/functions.php';
+            require_once $this->pluginsPath($plugin_name . '/functions.php');
         }
 
         $page_list = [];

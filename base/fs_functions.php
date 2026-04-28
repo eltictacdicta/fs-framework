@@ -112,6 +112,22 @@ function find_controller($name)
 }
 
 /**
+ * Indica si una ruta de fichero es absoluta (Unix con "/" inicial o Windows con unidad "X:\" / "X:/").
+ */
+function fs_is_absolute_path(string $path): bool
+{
+    if ($path === '') {
+        return false;
+    }
+
+    if ($path[0] === '/') {
+        return true;
+    }
+
+    return preg_match('/^[A-Za-z]:[\\\\\\/]/', $path) === 1;
+}
+
+/**
  * Busca información de un controlador FS2025 por nombre de página.
  * @param string $pageName
  * @return array|false Array con 'plugin', 'class', 'file' o false si no encontrado
@@ -657,10 +673,13 @@ function require_all_models()
     }
 
     /// ahora cargamos los del núcleo
-    foreach (scandir('model') as $file_name) {
-        if ($file_name != '.' && $file_name != '..' && substr($file_name, -4) == '.php' && !in_array($file_name, $GLOBALS['models'])) {
-            require_once 'model/' . $file_name;
-            $GLOBALS['models'][] = $file_name;
+    $coreModelDir = FS_FOLDER . '/model';
+    if (is_dir($coreModelDir)) {
+        foreach (scandir($coreModelDir) as $file_name) {
+            if ($file_name != '.' && $file_name != '..' && substr($file_name, -4) == '.php' && !in_array($file_name, $GLOBALS['models'])) {
+                require_once $coreModelDir . '/' . $file_name;
+                $GLOBALS['models'][] = $file_name;
+            }
         }
     }
 }

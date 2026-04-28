@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-require_once 'model/core/fs_user.php';
+require_once __DIR__ . '/core/fs_user.php';
 
 /**
  * Usuario de FSFramework. Puede estar asociado a un agente.
