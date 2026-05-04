@@ -1,0 +1,17 @@
+includes:
+    - vendor/dev-tools/phpstan/phpstan-symfony/extension.neon
+    - vendor/dev-tools/phpstan/phpstan-doctrine/extension.neon
+    - vendor/dev-tools/shipmonk/dead-code-detector/rules.neon
+
+parameters:
+    customRulesetUsed: true
+    reportUnmatchedIgnoredErrors: false
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    tmpDir: tmp/phpstan-dead-code-context
+    scanDirectories:
+        - plugins/OidcProvider
+        - vendor/mrd/oidc-core/src
+    paths:
+        # Analyze oidc-core only; the plugin is scanned just to provide real usage context.
+        - vendor/mrd/oidc-core/src

@@ -36,13 +36,13 @@
 {% macro treeviewMenu(folder, pages, isActive, icon) %}
 {# Esta macro debe usarse dentro de un contenedor <ul> o <ol> #}
 <li class="treeview{% if isActive %} active{% endif %}">
-    <a href="#" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }">
+    <button type="button" class="fs-button-link fs-treeview-toggle">
         <i class="fa fa-{{ icon|default('folder') }}" aria-hidden="true"></i>
         <span class="text-capitalize">{{ folder }}</span>
         <span class="pull-right-container">
             <i class="fa fa-angle-left pull-right"></i>
         </span>
-    </a>
+    </button>
     <ul class="treeview-menu">
         {% for page in pages %}
         <li{% if page.showing is defined and page.showing() %} class="active"{% endif %}>
@@ -69,10 +69,10 @@
 {% macro navbarDropdown(title, icon, items) %}
 {# Esta macro debe usarse dentro de un contenedor <ul> o <ol> #}
 <li class="dropdown">
-    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }">
+    <button type="button" class="dropdown-toggle fs-button-link" data-toggle="dropdown" aria-expanded="false">
         {% if icon %}<i class="fa fa-{{ icon }}" aria-hidden="true"></i>{% endif %}
         {% if title %}<span class="hidden-xs">{{ title }}</span>{% endif %}
-    </a>
+    </button>
     <ul class="dropdown-menu">
         {% for item in items %}
             {% if item.divider is defined and item.divider %}

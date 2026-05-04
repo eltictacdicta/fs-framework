@@ -596,9 +596,12 @@ function fs_get_ip()
 {
     foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $field) {
         if (isset($_SERVER[$field])) {
-            // Si hay varias IPs en X-Forwarded-For, cogemos la primera
-            $ips = explode(',', $_SERVER[$field]);
-            return trim($ips[0]);
+            foreach (explode(',', (string) $_SERVER[$field]) as $candidate) {
+                $ip = trim($candidate);
+                if (filter_var($ip, FILTER_VALIDATE_IP) !== false) {
+                    return $ip;
+                }
+            }
         }
     }
 

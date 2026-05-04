@@ -546,14 +546,22 @@ class fs_user extends \fs_model
     }
 
     /**
+     * Genera una nueva clave de login sin marcar un inicio de sesión.
+     */
+    public function rotate_logkey()
+    {
+        if (is_null($this->log_key) || !FS_DEMO) {
+            $this->log_key = bin2hex(random_bytes(32));
+        }
+    }
+
+    /**
      * Genera una nueva clave de login, para usar en lugar de la contraseña (via cookie),
      * esto impide que dos o más personas utilicen el mismo usuario al mismo tiempo.
      */
     public function new_logkey()
     {
-        if (is_null($this->log_key) || !FS_DEMO) {
-            $this->log_key = bin2hex(random_bytes(32));
-        }
+        $this->rotate_logkey();
 
         $this->logged_on = TRUE;
         $this->last_login = Date('d-m-Y');

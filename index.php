@@ -30,6 +30,22 @@ if (!file_exists('config.php')) {
 
 define('FS_FOLDER', __DIR__);
 
+require_once 'config.php';
+require_once 'base/fs_maintenance_mode.php';
+
+if (fs_maintenance_mode::isActive()) {
+    http_response_code(503);
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Retry-After: ' . fs_maintenance_mode::retryAfter());
+    echo '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<title>Mantenimiento</title><style>body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f7fa;color:#1f2933;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}.card{max-width:640px;background:#fff;border:1px solid #d9e2ec;border-radius:16px;padding:32px;box-shadow:0 12px 30px rgba(15,23,42,.08)}h1{margin:0 0 12px;font-size:clamp(1.8rem,4vw,2.4rem)}p{margin:0;line-height:1.6;color:#52606d}</style></head><body><main class="card"><h1>Mantenimiento en curso</h1><p>'
+        . htmlspecialchars(fs_maintenance_mode::message(), ENT_QUOTES, 'UTF-8')
+        . '</p></main></body></html>';
+    exit;
+}
+
 /// Carga de dependencias
 $composerAutoload = __DIR__ . '/vendor/autoload.php';
 if (!file_exists($composerAutoload)) {
@@ -58,7 +74,6 @@ spl_autoload_register(function ($class) {
 }, true, true);
 
 /// cargamos las constantes de configuración (DEBE ser antes de Kernel::boot para que $GLOBALS['plugins'] esté disponible)
-require_once 'config.php';
 require_once 'base/fs_secret_migrator.php';
 fs_secret_migrator::ensure();
 require_once 'base/config2.php';
@@ -77,12 +92,7 @@ try {
 \FSFramework\Core\Kernel::boot();
 
 /// --- Security Headers ---
-if (!headers_sent()) {
-    header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: SAMEORIGIN');
-    header('Referrer-Policy: strict-origin-when-cross-origin');
-    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
-}
+\FSFramework\Security\SecurityHeaders::applyDefaultHeaders();
 
 /// --- Stealth Mode Gate ---
 require_once FS_FOLDER . '/src/Core/StealthMode.php';

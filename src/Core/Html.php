@@ -5,6 +5,7 @@ namespace FSFramework\Core;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 use FSFramework\Translation\FSTranslator;
+use FSFramework\Security\SecurityHeaders;
 use FSFramework\Twig\TranslationExtension;
 use FSFramework\Security\CsrfManager;
 
@@ -263,6 +264,15 @@ class Html
             function ($asField = true) {
                 return $asField ? CsrfManager::field() : CsrfManager::generateToken();
             },
+            ['is_safe' => ['html']]
+        ));
+        $twig->addFunction(new \Twig\TwigFunction(
+            'csp_nonce',
+            [SecurityHeaders::class, 'nonce']
+        ));
+        $twig->addFunction(new \Twig\TwigFunction(
+            'csp_nonce_attr',
+            [SecurityHeaders::class, 'nonceAttribute'],
             ['is_safe' => ['html']]
         ));
     }

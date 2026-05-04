@@ -73,17 +73,25 @@ class SqlInjectionPreventionTest extends TestCase
         $this->assertStringContainsString('var2str($this->client_id)', $content);
     }
 
-    public function testAuthCodeModelUsesVar2StrInSave(): void
+    public function testAuthCodeRepositoryUsesVar2StrInQueries(): void
     {
-        $modelPath = FS_FOLDER . '/plugins/OidcProvider/model/oidc_auth_code.php';
+        $modelPath = FS_FOLDER . '/plugins/OidcProvider/Service/AuthorizationCodeRepository.php';
 
         if (!file_exists($modelPath)) {
-            $this->markTestSkipped('oidc_auth_code.php not found');
+            $this->markTestSkipped('AuthorizationCodeRepository.php not found');
         }
 
         $content = file_get_contents($modelPath);
 
         $this->assertStringContainsString('var2str', $content);
+        $this->assertMatchesRegularExpression(
+            '/INSERT\s+INTO\s*\'\s*\.\s*self::TABLE.*?var2str/s',
+            $content
+        );
+        $this->assertMatchesRegularExpression(
+            '/UPDATE\s*\'\s*\.\s*self::TABLE.*?var2str/s',
+            $content
+        );
     }
 
     public function testClientModelUsesVar2StrInSave(): void

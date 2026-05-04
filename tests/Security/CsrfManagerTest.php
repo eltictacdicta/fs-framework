@@ -3,6 +3,7 @@
 namespace Tests\Security;
 
 use FSFramework\Security\CsrfManager;
+use FSFramework\Security\SessionManager;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,6 +13,7 @@ class CsrfManagerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        SessionManager::reset();
         $this->resetCsrfState();
         $_FILES = [];
     }
@@ -20,6 +22,7 @@ class CsrfManagerTest extends TestCase
     {
         $_FILES = [];
         $this->resetCsrfState();
+        SessionManager::reset();
         parent::tearDown();
     }
 
@@ -72,6 +75,22 @@ class CsrfManagerTest extends TestCase
 
         $this->assertStringContainsString('name="' . CsrfManager::FIELD_NAME . '"', $field);
         $this->assertStringContainsString('name="_token"', $field);
+    }
+
+    public function testGenerateTokenReusesSessionManagerSessionWhenAvailable(): void
+    {
+        $manager = SessionManager::getInstance();
+        $sharedSession = $manager->getSymfonySession();
+
+        $token = CsrfManager::generateToken('shared_form');
+
+        $this->assertNotSame('', $token);
+
+        $ref = new ReflectionClass(CsrfManager::class);
+        $property = $ref->getProperty('session');
+        $property->setAccessible(true);
+
+        $this->assertSame($sharedSession, $property->getValue());
     }
 
     private function resetCsrfState(): void

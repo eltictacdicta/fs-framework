@@ -60,6 +60,10 @@ class login extends fs_controller
         $this->restoreBufferedVariables();
         $this->switchDatabaseIfRequested();
 
+        if (isset($_GET['logout'])) {
+            $this->user->logout();
+        }
+
         if ($this->user->logged_on) {
             $this->redirectToSafeUrl($defaultRedirectUrl);
         }
@@ -70,10 +74,6 @@ class login extends fs_controller
 
         if ($this->handleAutoLogin($defaultRedirectUrl)) {
             return;
-        }
-
-        if (isset($_GET['logout'])) {
-            $this->user->logout();
         }
 
         $this->showInitialSetupMessageIfPending();
@@ -181,6 +181,7 @@ class login extends fs_controller
     {
         $query = $this->request->query->all();
         unset($query['page']);
+        unset($query['logout']);
         $query['nlogin'] = $query['nlogin'] ?? '';
 
         return 'index.php?' . http_build_query($query);

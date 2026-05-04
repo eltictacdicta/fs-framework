@@ -2,6 +2,12 @@
     "name": "facturascripts/fs-framework-modern",
     "description": "Modernized FS-Framework",
     "type": "project",
+    "repositories": [
+        {
+            "type": "artifact",
+            "url": ".artifacts"
+        }
+    ],
     "license": "LGPL-3.0-or-later",
     "authors": [
         {
@@ -12,6 +18,7 @@
     "require": {
         "php": ">=8.2",
         "doctrine/dbal": "^4.3",
+        "mrd/oidc-core": "^0.2",
         "symfony/http-foundation": "^7.4",
         "symfony/cache": "^7.4",
         "symfony/dotenv": "^7.4",
@@ -59,7 +66,8 @@
         "test": "php vendor/bin/phpunit -c phpunit.xml",
         "phpstan": "php vendor/dev-tools/bin/phpstan analyse --memory-limit=1G",
         "phpstan:baseline": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-baseline-generate.neon --memory-limit=1G --generate-baseline=phpstan-baseline.neon --allow-empty-baseline",
-        "phpstan:dead-code": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-dead-code.neon --memory-limit=1G"
+        "phpstan:dead-code": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-dead-code.neon --memory-limit=1G",
+        "phpstan:dead-code-context": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-dead-code-context.neon --memory-limit=1G"
     },
     "require-dev": {
         "phpunit/phpunit": "^11"

@@ -36,36 +36,36 @@
    {% if file_exists(theme_path ~ '/css/fix-mixed-content.css') %}
    <link rel="stylesheet" href="{{ constant('FS_PATH') }}{{ theme_path }}/css/fix-mixed-content.css" />
    {% endif %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.min.js"></script>
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap.min.js"></script>
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootbox.min.js"></script>
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery-ui.min.js"></script>
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.autocomplete.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootbox.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery-ui.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.autocomplete.min.js"></script>
    {% if file_exists(theme_path ~ '/js/jquery.slimscroll.min.js') %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/jquery.slimscroll.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/jquery.slimscroll.min.js"></script>
    {% endif %}
    {% if file_exists(theme_path ~ '/js/adminlte.min.js') %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/adminlte.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/adminlte.min.js"></script>
    {% elseif file_exists(theme_path ~ '/js/app.min.js') %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/app.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/app.min.js"></script>
    {% endif %}
    {% if file_exists(theme_path ~ '/js/fix-mixed-content.js') %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/fix-mixed-content.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/fix-mixed-content.js"></script>
    {% endif %}
    {% if file_exists(theme_path ~ '/js/backup-scripts.js') %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/backup-scripts.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/backup-scripts.js"></script>
    {% endif %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/base.js?updated={{ fsc.today() }}"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/base.js?updated={{ fsc.today() }}"></script>
    {# business_base.js - injected by business_data plugin for fs_round, Base64, number_format #}
    {% if business_data_js is defined %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}{{ business_data_js }}?v={{ fsc.today() }}"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}{{ business_data_js }}?v={{ fsc.today() }}"></script>
    {% endif %}
-   <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/ajax-loader.js?v={{ fsc.today() }}"></script>
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/ajax-loader.js?v={{ fsc.today() }}"></script>
+   <script {{ csp_nonce_attr() }} src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>
    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
-   <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
-   <script type="text/javascript">
+   <script {{ csp_nonce_attr() }} src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
+   <script {{ csp_nonce_attr() }} type="text/javascript">
       {# Currency variables - injected by business_data plugin via TwigInitEvent #}
       var empresa_coddivisa = '{{ empresa_coddivisa|default('EUR')|e('js') }}';
       var empresa_simbolo = '{{ empresa_simbolo|default('€')|e('js') }}';
@@ -94,8 +94,30 @@
       function show_numero(numero) {
          return number_format(numero, FS_NF0, FS_NF1, FS_NF2);
       }
+
+      document.addEventListener('submit', function(event) {
+         var submitter = event.submitter;
+         if (!submitter || !submitter.matches('[data-submit-once="true"]')) {
+            return;
+         }
+
+         submitter.disabled = true;
+      });
+
+      document.addEventListener('click', function(event) {
+         var trigger = event.target.closest('[data-confirm-message]');
+         if (!trigger) {
+            return;
+         }
+
+         if (!confirm(trigger.getAttribute('data-confirm-message') || '')) {
+            event.preventDefault();
+            event.stopPropagation();
+         }
+      });
+
    </script>
-   <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/i18n/defaults-es_ES.min.js"></script>
+   <script {{ csp_nonce_attr() }} src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/i18n/defaults-es_ES.min.js"></script>
    {% for ext in fsc.extensions %}
    {% if ext.type == 'head' %}{{ ext.text|raw }}{% endif %}
    {% endfor %}
@@ -106,16 +128,16 @@
       <header class="main-header">
    
          <nav class="navbar navbar-static-top" role="navigation">
-            <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }">
+            <button type="button" class="sidebar-toggle fs-button-link" data-toggle="push-menu" aria-label="{{ 'menu'|trans }}">
                <span class="sr-only">{{ 'menu'|trans }}</span>
-            </a>
+            </button>
             <div class="navbar-custom-menu">
                <ul class="nav navbar-nav">
                   <li class="dropdown">
-                     <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }"
+                     <button type="button" class="dropdown-toggle fs-button-link" data-toggle="dropdown" aria-expanded="false"
                         title="{{ 'quick_access'|trans }}">
                         <i class="fa fa-plus-square"></i>
-                     </a>
+                     </button>
                      <ul class="dropdown-menu">
                         {% set menu_ar_vacio = true %}
                         {% for page in fsc.user.get_menu() %}
@@ -141,9 +163,9 @@
 
                   {% if fsc.get_last_changes() %}
                   <li class="dropdown">
-                     <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }">
+                     <button type="button" class="dropdown-toggle fs-button-link" data-toggle="dropdown" aria-label="{{ 'recent_changes'|trans }}">
                         <i class="fa fa-files-o"></i>
-                     </a>
+                     </button>
                      <ul class="dropdown-menu">
                         {% for change in fsc.get_last_changes() %}
                         <li title="{% if change.nuevo %}{{ 'created'|trans }}{% else %}{{ 'modified'|trans }}{% endif %} {{ change.cambio }}">
@@ -182,7 +204,7 @@
                               </a>
                            </div>
                            <div class="pull-right">
-                              <a href="{{ fsc.url()|raw }}&logout=TRUE" class="btn btn-default btn-flat">
+                              <a href="{{ fsc.logoutUrl()|raw }}" class="btn btn-default btn-flat">
                                  <i class="fa fa-sign-out"></i> {{ 'logout'|trans }}
                               </a>
                            </div>

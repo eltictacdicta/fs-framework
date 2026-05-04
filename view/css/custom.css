@@ -67,6 +67,31 @@
     cursor: wait;
 }
 
+/* Button-styled links used by shared navigation templates */
+.fs-button-link {
+    background: transparent;
+    border: 0;
+    color: inherit;
+}
+
+.main-header .navbar .sidebar-toggle.fs-button-link,
+.main-header .navbar .nav > li > .fs-button-link {
+    display: block;
+    line-height: 20px;
+    padding: 15px;
+}
+
+.sidebar-menu > li > .fs-treeview-toggle {
+    display: block;
+    padding: 12px 5px 12px 15px;
+    text-align: left;
+    width: 100%;
+}
+
+.sidebar-menu > li > .fs-treeview-toggle > .pull-right-container {
+    float: right;
+}
+
 /* Alert improvements */
 .alert ul {
     margin-bottom: 0;

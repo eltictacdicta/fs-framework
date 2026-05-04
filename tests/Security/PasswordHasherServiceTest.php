@@ -32,7 +32,7 @@ class PasswordHasherServiceTest extends TestCase
     {
         $hash1 = $this->hasher->hash('password123');
         $hash2 = $this->hasher->hash('password123');
-        // bcrypt genera salt aleatorio, los hashes deben ser diferentes
+        // El hasher moderno genera salt aleatorio, los hashes deben ser diferentes
         $this->assertNotSame($hash1, $hash2);
     }
 
@@ -52,7 +52,7 @@ class PasswordHasherServiceTest extends TestCase
     // isModernHash()
     // =====================================================================
 
-    public function testIsModernHashDetectsBcrypt(): void
+    public function testIsModernHashDetectsArgon2id(): void
     {
         $hash = $this->hasher->hash('test');
         $this->assertTrue($this->hasher->isModernHash($hash));
@@ -117,13 +117,53 @@ class PasswordHasherServiceTest extends TestCase
         $this->assertTrue($this->hasher->isModernHash($storedHash));
     }
 
-    public function testVerifyWithLegacySupportAcceptsLowercaseSha1Variant(): void
+    public function testVerifyAndMigrateDoesNotRewriteAlignedArgon2idHash(): void
+    {
+        $storedHash = password_hash('SecretPass', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+        $originalHash = $storedHash;
+
+        $result = $this->hasher->verifyAndMigrate($storedHash, 'SecretPass');
+
+        $this->assertTrue($result);
+        $this->assertSame($originalHash, $storedHash);
+    }
+
+    public function testVerifyWithLegacySupportRejectsLowercaseSha1Variant(): void
     {
         $legacyHash = sha1(mb_strtolower('SecretPass', 'UTF8'));
 
         $result = $this->hasher->verifyWithLegacySupport($legacyHash, 'SecretPass');
 
-        $this->assertTrue($result);
+        $this->assertFalse($result);
+    }
+
+    public function testVerifyAndMigrateRejectsLowercaseSha1Variant(): void
+    {
+        $storedHash = sha1(mb_strtolower('SecretPass', 'UTF8'));
+
+        $result = $this->hasher->verifyAndMigrate($storedHash, 'SecretPass');
+
+        $this->assertFalse($result);
+        $this->assertSame(sha1(mb_strtolower('SecretPass', 'UTF8')), $storedHash);
+    }
+
+    public function testVerifyWithLegacySupportRejectsUppercaseLowercaseSha1Variant(): void
+    {
+        $legacyHash = strtoupper(sha1(mb_strtolower('SecretPass', 'UTF8')));
+
+        $result = $this->hasher->verifyWithLegacySupport($legacyHash, 'SecretPass');
+
+        $this->assertFalse($result);
+    }
+
+    public function testVerifyAndMigrateRejectsUppercaseLowercaseSha1Variant(): void
+    {
+        $storedHash = strtoupper(sha1(mb_strtolower('SecretPass', 'UTF8')));
+
+        $result = $this->hasher->verifyAndMigrate($storedHash, 'SecretPass');
+
+        $this->assertFalse($result);
+        $this->assertSame(strtoupper(sha1(mb_strtolower('SecretPass', 'UTF8'))), $storedHash);
     }
 
     public function testVerifyWithLegacySupportAcceptsLegacyMd5(): void
@@ -139,7 +179,7 @@ class PasswordHasherServiceTest extends TestCase
     // getHashInfo()
     // =====================================================================
 
-    public function testGetHashInfoBcrypt(): void
+    public function testGetHashInfoModernHash(): void
     {
         $hash = $this->hasher->hash('test');
         $info = $this->hasher->getHashInfo($hash);

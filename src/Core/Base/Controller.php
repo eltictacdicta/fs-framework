@@ -251,6 +251,22 @@ class Controller
         return $this->page->url();
     }
 
+    public function logoutUrl(): string
+    {
+        $fallback = $this->url() . '&logout=TRUE';
+
+        try {
+            $stealth = new \FSFramework\Core\StealthMode();
+            if (!$stealth->isEnabled()) {
+                return $fallback;
+            }
+
+            return $stealth->getHiddenLoginUrl() . '&logout=TRUE';
+        } catch (\Throwable $exception) {
+            return $fallback;
+        }
+    }
+
     public function folders()
     {
         $folders = [];

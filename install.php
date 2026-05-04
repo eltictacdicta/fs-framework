@@ -20,6 +20,8 @@ error_reporting(E_ALL);
 date_default_timezone_set('Europe/Madrid');
 define('FS_COMMUNITY_URL', 'https://github.com/eltictacdicta/fs-framework');
 
+require_once __DIR__ . '/base/install_security.php';
+
 $errors = [];
 $errors2 = [];
 $db_type = 'MYSQL';
@@ -128,7 +130,8 @@ function test_mysql(&$errors, &$errors2)
     }
     if ($connection->connect_error) {
         $errors[] = "db_mysql";
-        $errors2[] = $connection->connect_error;
+        error_log('Installer MySQL connect error: ' . $connection->connect_error);
+        $errors2[] = 'Los datos de conexión a la base de datos son incorrectos. Verifica host, puerto, usuario y contraseña.';
         return;
     }
 
@@ -136,7 +139,7 @@ function test_mysql(&$errors, &$errors2)
     $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_SPECIAL_CHARS);
 
     // Comprobamos que el nombre de la base de datos sea válido
-    if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_name)) {
+    if (!fs_install_is_valid_database_name($db_name)) {
         $errors[] = "db_mysql";
         $errors2[] = "Nombre de base de datos inválido. Solo se permiten letras, números y guiones bajos.";
         return;
@@ -155,10 +158,12 @@ function test_mysql(&$errors, &$errors2)
             mysqli_stmt_close($stmt);
 
             // Creamos la base de datos usando consulta preparada
-            $query = "CREATE DATABASE `" . str_replace('`', '', $db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+            $query = 'CREATE DATABASE ' . fs_install_quote_mysql_identifier($db_name)
+                . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
             if (!mysqli_query($connection, $query)) {
                 $errors[] = "db_mysql";
-                $errors2[] = "Error al crear la base de datos: " . mysqli_error($connection);
+                error_log('Installer MySQL create database error: ' . mysqli_error($connection));
+                $errors2[] = 'Error al crear la base de datos con el usuario indicado.';
                 $errors2[] = "Por favor, crea manualmente la base de datos '" . htmlspecialchars($db_name) . "' o proporciona un usuario con privilegios para crear bases de datos.";
                 $errors2[] = "Comando SQL: CREATE DATABASE `" . htmlspecialchars($db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
                 return;
@@ -170,13 +175,15 @@ function test_mysql(&$errors, &$errors2)
         // Seleccionamos la base de datos
         if (!mysqli_select_db($connection, $db_name)) {
             $errors[] = "db_mysql";
-            $errors2[] = "Error al seleccionar la base de datos: " . mysqli_error($connection);
+            error_log('Installer MySQL select database error: ' . mysqli_error($connection));
+            $errors2[] = 'Error al seleccionar la base de datos indicada.';
             $errors2[] = "Verifica que el usuario tenga permisos sobre la base de datos '" . htmlspecialchars($db_name) . "'.";
             return;
         }
     } catch (Exception $e) {
         $errors[] = "db_mysql";
-        $errors2[] = "Error: " . $e->getMessage();
+        error_log('Installer MySQL exception: ' . $e->getMessage());
+        $errors2[] = 'Se produjo un error al validar o preparar la base de datos.';
         return;
     }
 
@@ -202,7 +209,7 @@ function test_postgresql(&$errors, &$errors2)
     $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_SPECIAL_CHARS);
 
     // Validamos el nombre de la base de datos
-    if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_name)) {
+    if (!fs_install_is_valid_database_name($db_name)) {
         $errors[] = "db_postgresql";
         $errors2[] = "Nombre de base de datos inválido. Solo se permiten letras, números y guiones bajos.";
         return;
@@ -225,14 +232,14 @@ function test_postgresql(&$errors, &$errors2)
     }
 
     // Creamos la base de datos de forma segura
-    $db_name_escaped = pg_escape_string($connection, $db_name);
-    $sqlCrearBD = 'CREATE DATABASE "' . $db_name_escaped . '";';
+    $sqlCrearBD = 'CREATE DATABASE ' . fs_install_quote_pg_identifier($db_name) . ';';
     if (pg_query($connection, $sqlCrearBD)) {
         guarda_config($errors);
         return;
     }
 
     $errors[] = "db_postgresql";
+    error_log('Installer PostgreSQL create database error: ' . pg_last_error($connection));
     $errors2[] = 'Error al crear la base de datos.';
 }
 
@@ -266,6 +273,8 @@ if (file_exists('config.php')) {
 /**
  * Buscamos errores
  */
+$csrfToken = fs_install_get_csrf_token();
+
 if (floatval(substr(phpversion(), 0, 3)) < 5.6) {
     $errors[] = 'php';
 } else if (floatval('3,1') >= floatval('3.1')) {
@@ -286,7 +295,10 @@ if (floatval(substr(phpversion(), 0, 3)) < 5.6) {
 } else if (!is_writable(__DIR__)) {
     $errors[] = "permisos";
 } else if (filter_input(INPUT_POST, 'db_type')) {
-    if (filter_input(INPUT_POST, 'db_type') == 'MYSQL') {
+    if (!fs_install_validate_csrf_token(filter_input(INPUT_POST, '_csrf_token'))) {
+        $errors[] = 'csrf';
+        $errors2[] = 'Token de seguridad inválido. Recarga la página y vuelve a intentarlo.';
+    } else if (filter_input(INPUT_POST, 'db_type') == 'MYSQL') {
         test_mysql($errors, $errors2);
     } else if (filter_input(INPUT_POST, 'db_type') == 'POSTGRESQL') {
         test_postgresql($errors, $errors2);
@@ -960,6 +972,7 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                         <?php } ?>
                         <form name="f_configuracion_inicial" id="f_configuracion_inicial" action="install.php"
                             class="form" role="form" method="post">
+                            <input type="hidden" name="_csrf_token" value="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>" />
                             <div class="row">
                                 <div class="col-sm-12">
                                     <ul class="nav nav-tabs" role="tablist">

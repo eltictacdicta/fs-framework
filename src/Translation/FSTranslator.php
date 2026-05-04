@@ -28,7 +28,9 @@ use FSFramework\Translation\FS2025JsonLoader;
  * FSTranslator - Sistema de internacionalización para FSFramework
  * 
  * Wrapper sobre Symfony Translation Component que proporciona:
- * - Carga automática de traducciones del core y plugins
+ * - Carga YAML del core (`/translations`), luego el catálogo de plugins vía
+ *   `loadAllPluginTranslations()` (lista explícita PLUGINS / $GLOBALS['plugins'] o,
+ *   si no hay lista, escaneo de `plugins/` excluyendo respaldos `*_back`).
  * - Soporte para archivos YAML (nuevo formato) y JSON (compatibilidad FS2025)
  * - Fallback automático de locales (ej: es_AR -> es -> en)
  * - API simplificada con métodos estáticos
@@ -103,8 +105,11 @@ class FSTranslator
         // Configurar fallbacks: locale específico -> idioma base -> idioma por defecto
         self::configureFallbacks();
 
-        // Cargar traducciones del core
+        // Traducciones del core
         self::loadCoreTranslations();
+
+        // Catálogo de plugins: misma política que loadAllPluginTranslations() (delegada en core)
+        self::loadAllPluginTranslations();
 
         self::$initialized = true;
     }
@@ -173,9 +178,9 @@ class FSTranslator
     /**
      * Carga traducciones de un plugin
      * 
-     * Soporta dos formatos:
-     * - Nuevo formato: plugins/MiPlugin/translations/messages.{locale}.yaml
-     * - Formato FS2025: plugins/MiPlugin/Translation/{locale}.json
+     * Rutas físicas conocidas por convención:
+     * - Nuevo formato: plugins/{Nombre}/translations/messages.{locale}.yaml (cualquier dominio *.yaml)
+     * - Formato FS2025: plugins/{Nombre}/Translation/{locale}.json
      * 
      * @param string $pluginName Nombre del plugin
      * @param string|null $pluginPath Ruta al plugin (opcional, autodetecta)
@@ -231,14 +236,18 @@ class FSTranslator
                 self::loadPluginTranslations($pluginName);
             }
         } else {
-            // Cargar todos los plugins del directorio
             foreach (scandir($pluginsPath) as $item) {
                 if ($item === '.' || $item === '..') {
                     continue;
                 }
-                if (is_dir($pluginsPath . '/' . $item)) {
-                    self::loadPluginTranslations($item);
+                if (!is_dir($pluginsPath . '/' . $item)) {
+                    continue;
                 }
+                // Backups y carpetas auxiliares no son plugins activables
+                if (str_ends_with($item, '_back') || str_ends_with($item, '.zip')) {
+                    continue;
+                }
+                self::loadPluginTranslations($item);
             }
         }
     }

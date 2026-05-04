@@ -52,12 +52,18 @@ class PasswordHasherService
      * Algoritmo para nuevas contraseñas.
      * Opciones: 'bcrypt', 'argon2i', 'argon2id', 'sodium'
      */
-    private string $algorithm = 'bcrypt';
+    private string $algorithm = 'argon2id';
     
     /**
      * Costo para bcrypt (4-31, mayor = más seguro pero más lento)
      */
     private int $cost = 13;
+
+    /**
+     * Parámetros Argon2 alineados con fs_user::set_password().
+     */
+    private int $memoryCost = 65536;
+    private int $timeCost = 4;
 
     public function __construct(?string $algorithm = null, ?int $cost = null)
     {
@@ -76,11 +82,19 @@ class PasswordHasherService
      */
     private function initializeHasher(): void
     {
+        $commonConfig = [
+            'algorithm' => $this->algorithm,
+        ];
+
+        if (str_starts_with($this->algorithm, 'argon2')) {
+            $commonConfig['memory_cost'] = $this->memoryCost;
+            $commonConfig['time_cost'] = $this->timeCost;
+        } else {
+            $commonConfig['cost'] = $this->cost;
+        }
+
         $factory = new PasswordHasherFactory([
-            'common' => [
-                'algorithm' => $this->algorithm,
-                'cost' => $this->cost,
-            ],
+            'common' => $commonConfig,
             // Hasher legacy para migración
             'legacy' => [
                 'algorithm' => 'sha1',
@@ -137,6 +151,10 @@ class PasswordHasherService
         string $plainPassword,
         ?string $legacySalt = null
     ): bool {
+        if ($this->isLowercasedLegacySha1Bypass($storedHash, $plainPassword, $legacySalt)) {
+            return false;
+        }
+
         // Intentar verificar con el hasher moderno primero
         if ($this->isModernHash($storedHash)) {
             return $this->verify($storedHash, $plainPassword);
@@ -161,6 +179,10 @@ class PasswordHasherService
         ?string $legacySalt = null,
         ?callable $saveCallback = null
     ): bool {
+        if ($this->isLowercasedLegacySha1Bypass($storedHash, $plainPassword, $legacySalt)) {
+            return false;
+        }
+
         // Si ya es hash moderno
         if ($this->isModernHash($storedHash)) {
             $valid = $this->verify($storedHash, $plainPassword);
@@ -226,6 +248,38 @@ class PasswordHasherService
 
         return hash_equals($storedHash, sha1($plainPassword))
             || hash_equals($storedHash, md5($plainPassword));
+    }
+
+    private function isLowercasedLegacySha1Bypass(string $storedHash, string $plainPassword, ?string $legacySalt = null): bool
+    {
+        if ($legacySalt !== null || strlen($storedHash) !== 40 || !ctype_xdigit($storedHash)) {
+            return false;
+        }
+
+        // Some legacy installations stored SHA1 digests with inconsistent casing.
+        // We normalise before comparison so affected accounts are detected consistently
+        // and can be forced through a password reset flow instead of silently bypassing checks.
+        $normalizedStoredHash = strtolower($storedHash);
+
+        $exactSha1 = sha1($plainPassword);
+        if (hash_equals($normalizedStoredHash, $exactSha1)) {
+            return false;
+        }
+
+        $lowercasedSha1 = sha1(mb_strtolower($plainPassword, 'UTF8'));
+        $isBypassCandidate = hash_equals($normalizedStoredHash, $lowercasedSha1);
+        if ($isBypassCandidate) {
+            $this->logLowercasedLegacySha1Bypass();
+        }
+
+        return $isBypassCandidate;
+    }
+
+    private function logLowercasedLegacySha1Bypass(): void
+    {
+        error_log(
+            'PasswordHasherService: blocked a lowercased legacy SHA1 bypass candidate; mark the affected account for password reset.'
+        );
     }
 
     /**

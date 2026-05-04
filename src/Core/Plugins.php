@@ -161,6 +161,11 @@ class Plugins
     private static function isValidStealthRedirectUrl(string $url): bool
     {
         $decodedUrl = strtolower(rawurldecode($url));
+
+        if (strpbrk($url, "\r\n") !== false || strpbrk($decodedUrl, "\r\n") !== false) {
+            return false;
+        }
+
         $unsafeSchemes = ['javascript:', 'data:', 'vbscript:', 'file:', 'blob:'];
         foreach ($unsafeSchemes as $scheme) {
             if (str_starts_with($decodedUrl, $scheme)) {
@@ -209,14 +214,6 @@ class Plugins
         }
 
         return $bestUrl;
-    }
-
-    /**
-     * Check if any active plugin has registered a stealth home override.
-     */
-    public static function hasStealthHomeOverride(): bool
-    {
-        return self::getStealthHomeOverride() !== null;
     }
 
     public static function resetRuntimeState(): void

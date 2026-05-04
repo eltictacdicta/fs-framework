@@ -70,6 +70,11 @@ class fs_login
         $this->ip_filter = new fs_ip_filter();
         $this->user_model = new fs_user();
 
+        if (class_exists('\FSFramework\Security\SessionManager')) {
+            $this->session = \FSFramework\Security\SessionManager::getInstance()->getSymfonySession();
+            return;
+        }
+
         // Inicializar Sesión de Symfony
         // Detectar si la sesión ya fue iniciada por PHP (por ejemplo, en un plugin o configuración legacy)
         $storage = null;
@@ -79,19 +84,7 @@ class fs_login
             $storage = new \Symfony\Component\HttpFoundation\Session\Storage\NativeSessionStorage();
         }
 
-        try {
-            $this->session = new \Symfony\Component\HttpFoundation\Session\Session($storage);
-        } catch (\Exception $e) {
-            // Fallback seguro en caso de error extremo
-            // Si llegamos aqui y la sesion estaba activa, NativeSessionStorage fallaría
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                $this->session = new \Symfony\Component\HttpFoundation\Session\Session(
-                    new \Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage()
-                );
-            } else {
-                $this->session = new \Symfony\Component\HttpFoundation\Session\Session();
-            }
-        }
+        $this->session = new \Symfony\Component\HttpFoundation\Session\Session($storage);
 
         if (!$this->session->isStarted()) {
             $this->session->start();
@@ -235,7 +228,7 @@ class fs_login
             $this->log_out(TRUE);
             $this->user_model->clean_cache(TRUE);
             $this->cache->clean();
-            return $controller_user->logged_on;
+            return FALSE;
         }
 
         if ($this->applyValidCookieLogin($user, $logkey, $authSig, $controller_user)) {
@@ -248,7 +241,7 @@ class fs_login
 
         $this->handleInvalidCookieSession($user);
 
-        return $controller_user->logged_on;
+        return FALSE;
     }
 
     private function applyValidCookieLogin($user, $logkey, $authSig, &$controller_user)
@@ -377,30 +370,15 @@ class fs_login
             return FALSE;
         }
 
-        /**
-         * Comprobamos la contraseña con el método moderno password_verify
-         * Para compatibilidad con versiones anteriores, también verificamos con SHA1
-         */
-        $password_verified = false;
+        $password_verified = $this->verify_modern_password($user, $password);
 
-        // Verificar con el método moderno (Argon2ID)
-        if (password_verify($password, $user->password)) {
-            $password_verified = true;
-            // Solo hacer rehash si la contraseña cumple requisitos de longitud
-            if (password_needs_rehash($user->password, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4])) {
-                if (mb_strlen($password) >= 8 && mb_strlen($password) <= 32) {
-                    $user->set_password($password);
-                    $user->save();
-                }
-            }
-        }
         // Delegar la compatibilidad SHA1 legacy en legacy_support.
-        elseif (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+        if (!$password_verified && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
             $password_verified = \FSFramework\Plugins\legacy_support\LegacyCompatibility::verifyAndUpgradeLegacyPassword(
                 $user,
                 $password
             );
-        } elseif (method_exists($user, 'is_legacy_sha1_password') && $user->is_legacy_sha1_password()) {
+        } elseif (!$password_verified && method_exists($user, 'is_legacy_sha1_password') && $user->is_legacy_sha1_password()) {
             $password_verified = false;
             $this->core_log->new_error('No se puede migrar la contraseña legacy de este usuario sin activar el plugin legacy_support.');
             $this->core_log->save(
@@ -449,6 +427,28 @@ class fs_login
         return FALSE;
     }
 
+    private function verify_modern_password($user, $password)
+    {
+        $storedHash = (string) ($user->password ?? '');
+        $hasher = new \FSFramework\Security\PasswordHasherService();
+        if (!$hasher->isModernHash($storedHash) || !$hasher->verifyAndMigrate($storedHash, (string) $password)) {
+            return false;
+        }
+
+        if ($storedHash !== (string) $user->password && mb_strlen($password) >= 8 && mb_strlen($password) <= 32) {
+            if (method_exists($user, 'set_password')) {
+                if ($user->set_password($password) !== false) {
+                    $user->save();
+                }
+            } else {
+                $user->password = $storedHash;
+                $user->save();
+            }
+        }
+
+        return true;
+    }
+
     /**
      * Guarda los datos de sesión en Symfony Session y Cookies (para compatibilidad)
      * @param fs_user $user
@@ -464,6 +464,9 @@ class fs_login
 
         $now = time();
         $this->session->set('user_nick', $user->nick);
+        $this->session->set('user_email', $user->email ?? null);
+        $this->session->set('user_role', !empty($user->admin) ? 'admin' : 'user');
+        $this->session->set('user_admin', (bool) ($user->admin ?? false));
         $this->session->set('user_logkey', $user->log_key);
         $this->session->set('user_logged_in', true);
         $this->session->set('login_time', $now);

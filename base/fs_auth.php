@@ -162,9 +162,6 @@ class fs_auth
     private static function isPasswordValid($user, string $password): bool
     {
         $storedHash = (string) $user->password;
-        if (self::isLowercasedLegacySha1Bypass($storedHash, $password)) {
-            return false;
-        }
 
         $hasher = new PasswordHasherService();
         if (!$hasher->verifyAndMigrate($storedHash, $password)) {
@@ -186,20 +183,6 @@ class fs_auth
         }
 
         return true;
-    }
-
-    private static function isLowercasedLegacySha1Bypass(string $storedHash, string $password): bool
-    {
-        if (!preg_match('/^[a-f0-9]{40}$/', $storedHash)) {
-            return false;
-        }
-
-        $exactSha1 = sha1($password);
-        if (hash_equals($storedHash, $exactSha1)) {
-            return false;
-        }
-
-        return hash_equals($storedHash, sha1(mb_strtolower($password, 'UTF8')));
     }
 
     /**

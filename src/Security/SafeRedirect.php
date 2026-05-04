@@ -23,21 +23,21 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Gestiona redirecciones seguras para prevenir ataques Open Redirect.
- * 
+ *
  * Los ataques Open Redirect ocurren cuando una aplicación acepta URLs de
  * redirección controladas por el usuario sin validación, permitiendo a
  * atacantes redirigir a usuarios a sitios maliciosos.
- * 
+ *
  * Esta clase valida que las URLs de redirección sean:
  * - Relativas (rutas internas)
  * - O absolutas hacia el mismo host de la aplicación
- * 
+ *
  * Uso:
  *   // En lugar de: header('Location: ' . $_REQUEST['redir']);
  *   // Usar:
  *   $safeUrl = SafeRedirect::validate($_REQUEST['redir'], $defaultUrl);
  *   header('Location: ' . $safeUrl);
- * 
+ *
  * @author Javier Trujillo <mistertekcom@gmail.com>
  */
 class SafeRedirect
@@ -45,70 +45,41 @@ class SafeRedirect
     /**
      * Lista de hosts permitidos además del host actual.
      * Puede extenderse mediante configuración.
-     * 
+     *
      * @var array<string>
      */
     private static array $allowedHosts = [];
 
     /**
      * Valida una URL de redirección y retorna una URL segura.
-     * 
+     *
      * @param string|null $url URL a validar (puede ser de $_REQUEST, $_GET, etc.)
      * @param string $fallbackUrl URL por defecto si la validación falla
      * @return string URL segura para redirección
      */
     public static function validate(?string $url, string $fallbackUrl = 'index.php'): string
     {
-        // Si no hay URL, usar fallback
-        if (empty($url)) {
-            return $fallbackUrl;
-        }
+        $safeUrl = $fallbackUrl;
 
-        // Sanitizar la URL
-        $url = trim($url);
-        
-        // Bloquear URLs que empiecen con protocolos peligrosos
-        if (self::hasDangerousProtocol($url)) {
-            return $fallbackUrl;
-        }
+        if (!empty($url)) {
+            $url = trim($url);
 
-        // Si es una ruta relativa simple (empieza con / o es un path)
-        if (self::isRelativeUrl($url)) {
-            return self::sanitizeRelativeUrl($url);
-        }
-
-        // Si es una URL absoluta, validar el host
-        if (self::isAbsoluteUrl($url)) {
-            if (self::isAllowedHost($url)) {
-                return $url;
+            if (!self::hasDangerousProtocol($url)) {
+                if (self::isRelativeUrl($url)) {
+                    $safeUrl = self::sanitizeRelativeUrl($url);
+                } elseif (self::isAbsoluteUrl($url) && self::isAllowedHost($url)) {
+                    $safeUrl = $url;
+                }
             }
-            // Host no permitido, usar fallback
-            return $fallbackUrl;
         }
 
-        // URL con formato desconocido o sospechoso, usar fallback
-        return $fallbackUrl;
-    }
-
-    /**
-     * Valida y ejecuta una redirección segura.
-     * Convenience method que hace validate() + header() + exit().
-     *
-     * @param string|null $url URL a validar
-     * @param string $fallbackUrl URL por defecto si la validación falla
-     * @param int $httpCode Código HTTP de redirección (302 por defecto)
-     */
-    public static function redirect(?string $url, string $fallbackUrl = 'index.php', int $httpCode = 302): never
-    {
-        $safeUrl = self::validate($url, $fallbackUrl);
-        header('Location: ' . $safeUrl, true, $httpCode);
-        exit();
+        return $safeUrl;
     }
 
     /**
      * Obtiene una URL de redirección segura desde la petición actual.
      * Busca en parámetros comunes como 'redir', 'redirect', 'return_url'.
-     * 
+     *
      * @param string $fallbackUrl URL por defecto
      * @param array<string> $paramNames Nombres de parámetros a buscar
      * @return string URL segura
@@ -122,14 +93,13 @@ class SafeRedirect
                 return self::validate($_REQUEST[$param], $fallbackUrl);
             }
         }
-        
+
         return $fallbackUrl;
     }
 
     /**
      * Agrega hosts adicionales permitidos para redirección.
-     * Útil para entornos con múltiples subdominios o dominios relacionados.
-     * 
+     *
      * @param string|array<string> $hosts Host(s) a agregar
      */
     public static function addAllowedHosts(string|array $hosts): void
@@ -137,7 +107,7 @@ class SafeRedirect
         if (is_string($hosts)) {
             $hosts = [$hosts];
         }
-        
+
         foreach ($hosts as $host) {
             $host = strtolower(trim($host));
             if (!empty($host) && !in_array($host, self::$allowedHosts, true)) {
@@ -148,7 +118,7 @@ class SafeRedirect
 
     /**
      * Obtiene la lista de hosts permitidos.
-     * 
+        *
      * @return array<string>
      */
     public static function getAllowedHosts(): array
@@ -171,8 +141,8 @@ class SafeRedirect
     private static function hasDangerousProtocol(string $url): bool
     {
         // Normalizar para detectar ofuscación (espacios, tabs, newlines)
-        $normalized = preg_replace('/[\s\x00-\x1f]+/', '', strtolower($url));
-        
+        $normalized = preg_replace('/[\x00-\x20]+/', '', strtolower($url));
+
         $dangerousProtocols = [
             'javascript:',
             'vbscript:',
@@ -181,13 +151,13 @@ class SafeRedirect
             'blob:',
             'about:',
         ];
-        
+
         foreach ($dangerousProtocols as $protocol) {
             if (str_starts_with((string) $normalized, $protocol)) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -212,28 +182,28 @@ class SafeRedirect
     {
         // Remover cualquier intento de path traversal
         $url = str_replace(['../', '..\\'], '', $url);
-        
+
         // Decodificar y re-codificar para normalizar
         $parts = parse_url($url);
-        
+
         if ($parts === false) {
             return 'index.php';
         }
-        
+
         $result = '';
-        
+
         if (isset($parts['path'])) {
             $result .= $parts['path'];
         }
-        
+
         if (isset($parts['query'])) {
             $result .= '?' . $parts['query'];
         }
-        
+
         if (isset($parts['fragment'])) {
             $result .= '#' . $parts['fragment'];
         }
-        
+
         return $result ?: 'index.php';
     }
 
@@ -251,27 +221,18 @@ class SafeRedirect
     private static function isAllowedHost(string $url): bool
     {
         $urlParts = parse_url($url);
-        
+        $currentHost = self::getCurrentHost();
+
         if (!isset($urlParts['host'])) {
             return false;
         }
-        
+
         $targetHost = strtolower($urlParts['host']);
-        
-        // Obtener el host actual de la petición
-        $currentHost = self::getCurrentHost();
-        
-        // Permitir el mismo host
-        if ($targetHost === $currentHost) {
-            return true;
-        }
-        
-        // Verificar hosts adicionales permitidos
-        if (in_array($targetHost, self::$allowedHosts, true)) {
-            return true;
-        }
-        // Verificar si es un subdominio del host actual
-        return $currentHost && str_ends_with($targetHost, '.' . $currentHost);
+        $isCurrentHost = $targetHost === $currentHost;
+        $isAllowedAdditionalHost = in_array($targetHost, self::$allowedHosts, true);
+        $isAllowedSubdomain = $currentHost !== null && str_ends_with($targetHost, '.' . $currentHost);
+
+        return $isCurrentHost || $isAllowedAdditionalHost || $isAllowedSubdomain;
     }
 
     /**
@@ -279,27 +240,24 @@ class SafeRedirect
      */
     private static function getCurrentHost(): ?string
     {
-        // Usar Symfony Request si está disponible
+        $host = null;
+
         if (class_exists(Request::class)) {
             $request = Request::createFromGlobals();
-            $host = $request->getHost();
-            if (!empty($host)) {
-                return strtolower($host);
+            $requestHost = $request->getHost();
+            if (!empty($requestHost)) {
+                $host = $requestHost;
             }
         }
-        
-        // Fallback a $_SERVER
-        if (isset($_SERVER['HTTP_HOST'])) {
-            // Remover puerto si está presente
-            $host = $_SERVER['HTTP_HOST'];
-            $host = preg_replace('/:\d+$/', '', (string) $host);
-            return strtolower($host);
+
+        if ($host === null && isset($_SERVER['HTTP_HOST'])) {
+            $host = preg_replace('/:\d+$/', '', (string) $_SERVER['HTTP_HOST']);
         }
-        
-        if (isset($_SERVER['SERVER_NAME'])) {
-            return strtolower((string) $_SERVER['SERVER_NAME']);
+
+        if ($host === null && isset($_SERVER['SERVER_NAME'])) {
+            $host = (string) $_SERVER['SERVER_NAME'];
         }
-        
-        return null;
+
+        return !empty($host) ? strtolower((string) $host) : null;
     }
 }

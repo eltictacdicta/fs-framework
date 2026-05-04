@@ -676,6 +676,33 @@ class fs_controller extends fs_app
         return $this->page->url();
     }
 
+    public function logoutUrl()
+    {
+        $fallback = $this->url() . '&logout=TRUE';
+
+        if (!class_exists('\FSFramework\Core\StealthMode')) {
+            $stealthPath = FS_FOLDER . '/src/Core/StealthMode.php';
+            if (file_exists($stealthPath)) {
+                require_once $stealthPath;
+            }
+        }
+
+        if (!class_exists('\FSFramework\Core\StealthMode')) {
+            return $fallback;
+        }
+
+        try {
+            $stealth = new \FSFramework\Core\StealthMode();
+            if (!$stealth->isEnabled()) {
+                return $fallback;
+            }
+
+            return $stealth->getHiddenLoginUrl() . '&logout=TRUE';
+        } catch (\Throwable $exception) {
+            return $fallback;
+        }
+    }
+
     /**
      * Procesa los datos de la página o entrada en el menú
      * @param string $name
@@ -808,7 +835,11 @@ class fs_controller extends fs_app
     {
         $this->query = fs_filter_input_req('query');
 
-        // Validar CSRF para peticiones POST (modo soft por defecto)
+        if ($this->user->logged_on && class_exists('\FSFramework\Security\SessionManager')) {
+            \FSFramework\Security\SessionManager::getInstance()->touch();
+        }
+
+        // Validar CSRF para peticiones POST.
         $this->validateCsrf();
 
         /// quitamos extensiones de páginas a las que el usuario no tenga acceso

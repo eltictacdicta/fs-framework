@@ -29,6 +29,58 @@ class LegacyAuthBridgeTest extends TestCase
         $this->assertTrue($this->invokeIsRememberMeSignatureValid($bridge, 'demo', 'logkey', $signature));
     }
 
+    public function testLegacyCookieRestoreRejectedWhenSessionNickDoesNotMatchCookieUser(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $session->set('user_nick', 'portal_cliente');
+        $bridge = new LegacyAuthBridge($session);
+
+        $user = $this->fakeFsUser('admin', true, 'logkeyval');
+
+        $this->assertFalse($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, 'logkeyval'));
+    }
+
+    public function testLegacyCookieRestoreAllowedWhenSessionNickMatchesCookieUser(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $session->set('user_nick', 'sameuser');
+        $bridge = new LegacyAuthBridge($session);
+
+        $user = $this->fakeFsUser('sameuser', true, 'lk');
+
+        $this->assertTrue($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, 'lk'));
+    }
+
+    public function testLegacyCookieRestoreAllowedWhenSessionNickEmpty(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $bridge = new LegacyAuthBridge($session);
+
+        $user = $this->fakeFsUser('admin', true, 'lk2');
+
+        $this->assertTrue($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, 'lk2'));
+    }
+
+    /**
+     * @return object{nick: string, enabled: bool, log_key: string}
+     */
+    private function fakeFsUser(string $nick, bool $enabled, string $logKey): object
+    {
+        return (object) [
+            'nick' => $nick,
+            'enabled' => $enabled,
+            'log_key' => $logKey,
+        ];
+    }
+
+    private function invokeIsLegacyUserEligibleForCookieRestore(LegacyAuthBridge $bridge, object $user, string $logkey): bool
+    {
+        $method = new \ReflectionMethod(LegacyAuthBridge::class, 'isLegacyUserEligibleForCookieRestore');
+        $method->setAccessible(true);
+
+        return (bool) $method->invoke($bridge, $user, $logkey);
+    }
+
     private function invokeIsRememberMeSignatureValid(
         LegacyAuthBridge $bridge,
         string $nick,

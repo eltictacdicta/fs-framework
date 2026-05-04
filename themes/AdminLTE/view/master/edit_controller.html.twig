@@ -70,7 +70,7 @@
     {{ csrf_field() }}
 </form>
 
-<script type="text/javascript">
+<script {{ csp_nonce_attr() }} type="text/javascript">
     $(document).ready(function () {
         $("#btn_delete_model").click(function (event) {
             event.preventDefault();

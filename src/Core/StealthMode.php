@@ -163,6 +163,11 @@ class StealthMode
         $response->headers->set('Content-Type', 'text/html; charset=UTF-8');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
 
+        $csp = \FSFramework\Security\SecurityHeaders::contentSecurityPolicy();
+        if ($csp !== '') {
+            $response->headers->set('Content-Security-Policy', $csp);
+        }
+
         return $response;
     }
 
@@ -434,9 +439,7 @@ class StealthMode
      */
     private function isUserLoggedIn(): bool
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            @session_start();
-        }
+        $this->ensurePhpSessionStarted();
 
         $sfAttrs = $_SESSION['_sf2_attributes'] ?? [];
         if (!empty($sfAttrs['user_logged_in']) && !empty($sfAttrs['user_nick'])) {
@@ -533,11 +536,16 @@ class StealthMode
 
     private function grantAccess(): void
     {
+        $this->ensurePhpSessionStarted();
+
+        $_SESSION[self::SESSION_KEY] = true;
+    }
+
+    private function ensurePhpSessionStarted(): void
+    {
         if (session_status() === PHP_SESSION_NONE) {
             @session_start();
         }
-
-        $_SESSION[self::SESSION_KEY] = true;
     }
 
     private function redirectToHiddenLogin(): RedirectResponse

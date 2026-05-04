@@ -89,6 +89,12 @@ parameters:
             message: '#^Unused FSFramework\\Core\\ThemeManager\:\:getAvailableThemes\b#'
             path: %currentWorkingDirectory%/src/Core/ThemeManager.php
         -
+            message: '#^Property FSFramework\\Api\\Attribute\\ApiField\:\:\$(description|default|format) is never read$#'
+            path: %currentWorkingDirectory%/src/Api/Attribute/ApiField.php
+        -
+            message: '#^Unused Tests\\Base\\FakeMysqliLink\:\:(multi_query|store_result|next_result)\b#'
+            path: %currentWorkingDirectory%/tests/Base/FsMysqlExecMultiQueryTest.php
+        -
             identifier: shipmonk.deadProperty.neverRead
             path: %currentWorkingDirectory%/base/*
         -

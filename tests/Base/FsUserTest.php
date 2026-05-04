@@ -39,6 +39,8 @@ class FsUserTest extends TestCase
         $this->user = $reflection->newInstanceWithoutConstructor();
         $this->user->log_key = '';
         $this->user->logged_on = false;
+        $this->user->last_ip = null;
+        $this->user->last_browser = null;
 
         $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
         $_SERVER['HTTP_USER_AGENT'] = 'PHPUnit';
@@ -67,5 +69,15 @@ class FsUserTest extends TestCase
         $this->user->new_logkey();
 
         $this->assertNotSame($firstToken, $this->user->log_key);
+    }
+
+    public function testRotateLogkeyDoesNotMarkUserAsLoggedIn(): void
+    {
+        $this->user->rotate_logkey();
+
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $this->user->log_key);
+        $this->assertFalse($this->user->logged_on);
+        $this->assertNull($this->user->last_ip);
+        $this->assertNull($this->user->last_browser);
     }
 }

@@ -333,7 +333,7 @@
                         Si el plugin ocupa más, dará error al subirlo, incluso puede que no salga
                         nada.
                     </p>
-                    <button type="submit" class="btn btn-primary" onclick="this.disabled=true;this.form.submit();">
+                    <button type="submit" class="btn btn-primary" data-submit-once="true">
                         <span class="glyphicon glyphicon-import" aria-hidden="true"></span>&nbsp; Añadir
                     </button>
                 </form>
@@ -369,7 +369,7 @@
                     <input type="hidden" name="install" value="TRUE"/>
                     <input type="hidden" name="confirm_overwrite" value="1"/>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" onclick="this.disabled=true;this.form.submit();">
+                    <button type="submit" class="btn btn-primary" data-submit-once="true">
                         <span class="glyphicon glyphicon-ok"></span>&nbsp; Sí, sobrescribir
                     </button>
                 </form>

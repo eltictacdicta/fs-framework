@@ -79,6 +79,42 @@ class FsAuthTest extends TestCase
         $this->assertSame(sha1('secret123'), $user->password);
     }
 
+    public function testIsPasswordValidDoesNotResaveAlignedArgon2idHash(): void
+    {
+        $user = new class() {
+            public string $password;
+            public int $setPasswordCalls = 0;
+            public int $saveCalls = 0;
+
+            public function __construct()
+            {
+                $this->password = password_hash('Secret123', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+            }
+
+            public function set_password($password): bool
+            {
+                $this->setPasswordCalls++;
+                $this->password = password_hash($password, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+                return true;
+            }
+
+            public function save(): bool
+            {
+                $this->saveCalls++;
+                return true;
+            }
+        };
+
+        $originalHash = $user->password;
+
+        $result = $this->invokeIsPasswordValid($user, 'Secret123');
+
+        $this->assertTrue($result);
+        $this->assertSame(0, $user->setPasswordCalls);
+        $this->assertSame(0, $user->saveCalls);
+        $this->assertSame($originalHash, $user->password);
+    }
+
     private function invokeIsPasswordValid(object $user, string $password): bool
     {
         $method = new \ReflectionMethod('fs_auth', 'isPasswordValid');

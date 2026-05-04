@@ -219,8 +219,14 @@ class password_reset extends fs_controller
             return;
         }
 
-        // Cambiar la contraseña
-        $user->set_password($new_password);
+        // Cambiar la contraseña e invalidar sesiones remember-me existentes.
+        if ($user->set_password($new_password) === false) {
+            $this->new_error_msg(FSTranslator::trans('password-reset-error'));
+            $this->token_valid = TRUE;
+            return;
+        }
+
+        $user->rotate_logkey();
         $user->clear_reset_token();
 
         if ($user->save()) {

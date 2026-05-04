@@ -55,7 +55,7 @@ class force_password_change extends fs_controller
 
     private function processPasswordChange(): void
     {
-        if (!$this->validateCsrfStrict()) {
+        if (!$this->validateCsrf()) {
             $this->new_error_msg(FSTranslator::trans('invalid-csrf-token'));
             return;
         }
@@ -83,6 +83,8 @@ class force_password_change extends fs_controller
             return;
         }
 
+        $this->user->rotate_logkey();
+
         if ($this->user->save()) {
             $this->password_changed = true;
 
@@ -97,19 +99,6 @@ class force_password_change extends fs_controller
         }
 
         $this->new_error_msg(FSTranslator::trans('password-change-error'));
-    }
-
-    private function validateCsrfStrict(): bool
-    {
-        $token = $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME)
-            ?? $this->request->request->get('_token')
-            ?? $this->request->request->get('_csrf_token');
-
-        if (empty($token)) {
-            return false;
-        }
-
-        return \FSFramework\Security\CsrfManager::isValid($token);
     }
 
     private function flashMessage(string $message): void
@@ -127,23 +116,17 @@ class force_password_change extends fs_controller
 
     private function getSession()
     {
+        if (class_exists('\FSFramework\Security\SessionManager')) {
+            return \FSFramework\Security\SessionManager::getInstance()->getSymfonySession();
+        }
+
         if (session_status() === PHP_SESSION_ACTIVE) {
             $storage = new \Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage();
         } else {
             $storage = new \Symfony\Component\HttpFoundation\Session\Storage\NativeSessionStorage();
         }
 
-        try {
-            $session = new \Symfony\Component\HttpFoundation\Session\Session($storage);
-        } catch (\Exception $e) {
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                $session = new \Symfony\Component\HttpFoundation\Session\Session(
-                    new \Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage()
-                );
-            } else {
-                $session = new \Symfony\Component\HttpFoundation\Session\Session();
-            }
-        }
+        $session = new \Symfony\Component\HttpFoundation\Session\Session($storage);
 
         if (!$session->isStarted()) {
             $session->start();

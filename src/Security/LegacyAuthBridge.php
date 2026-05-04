@@ -21,11 +21,89 @@ use Symfony\Component\HttpFoundation\Session\Session;
 
 /**
  * Bridge mínimo para compatibilidad de autenticación heredada.
+ *
+ * Los plugins pueden registrar {@see self::registerSkipLegacyCookieRestoreCheck()} para impedir que las cookies
+ * remember-me restauren fs_user cuando la sesión pertenece a otro ámbito de login (p. ej. portal federado).
  */
-final readonly class LegacyAuthBridge
+final class LegacyAuthBridge
 {
-    public function __construct(private Session $session)
+    /**
+     * Devuelve true para NO aplicar cookies legacy en esta petición.
+     *
+     * @var null|callable(array<string,mixed>):bool
+     */
+    private static mixed $skipLegacyCookieRestoreCheck = null;
+
+    public function __construct(private readonly Session $session)
     {
+    }
+
+    /**
+     * Registra una comprobación opcional (p. ej. desde un plugin). Recibe atributos de sesión ya aplanados
+     * (ver {@see self::flattenSessionAttributesForPlugins()}).
+     *
+     * @param ?callable(array<string,mixed>):bool $callback
+     */
+    public static function registerSkipLegacyCookieRestoreCheck(?callable $callback): void
+    {
+        self::$skipLegacyCookieRestoreCheck = $callback;
+    }
+
+    /**
+     * Para tests: limpia el callback registrado.
+     */
+    public static function resetSkipLegacyCookieRestoreCheck(): void
+    {
+        self::$skipLegacyCookieRestoreCheck = null;
+    }
+
+    public function shouldSkipLegacyCookieRestore(): bool
+    {
+        if (self::$skipLegacyCookieRestoreCheck === null) {
+            return false;
+        }
+
+        $flat = self::flattenSessionAttributesForPlugins($this->session->all());
+
+        return (bool) (self::$skipLegacyCookieRestoreCheck)($flat);
+    }
+
+    /**
+     * Misma lógica que {@see shouldSkipLegacyCookieRestore()} para rutas que solo tienen `$_SESSION` (fallback legacy).
+     *
+     * @param array<string,mixed> $rawSession
+     */
+    public static function shouldSkipLegacyCookieRestoreForRawSession(array $rawSession): bool
+    {
+        if (self::$skipLegacyCookieRestoreCheck === null) {
+            return false;
+        }
+
+        $flat = self::flattenSessionAttributesForPlugins($rawSession);
+
+        return (bool) (self::$skipLegacyCookieRestoreCheck)($flat);
+    }
+
+    /**
+     * Une `_sf2_attributes` con el resto para que los plugins encuentren claves como en Session::all().
+     *
+     * @param array<string,mixed> $rawSession
+     *
+     * @return array<string,mixed>
+     */
+    public static function flattenSessionAttributesForPlugins(array $rawSession): array
+    {
+        $flat = $rawSession;
+        unset($flat['_sf2_attributes']);
+        if (isset($rawSession['_sf2_attributes']) && is_array($rawSession['_sf2_attributes'])) {
+            foreach ($rawSession['_sf2_attributes'] as $key => $value) {
+                if (!array_key_exists($key, $flat)) {
+                    $flat[$key] = $value;
+                }
+            }
+        }
+
+        return $flat;
     }
 
     /**
@@ -44,7 +122,7 @@ final readonly class LegacyAuthBridge
                 try {
                     $userModel = new fs_user();
                     $user = $userModel->get($cookieUser);
-                    if ($this->isLegacyUserAuthenticated($user, (string) $cookieLogkey)
+                    if ($this->isLegacyUserEligibleForCookieRestore($user, (string) $cookieLogkey)
                         && $this->isRememberMeSignatureValid((string) $cookieUser, (string) $cookieLogkey, (string) $cookieSig)) {
                         $legacyUserData = [
                             'nick' => $user->nick,
@@ -99,14 +177,25 @@ final readonly class LegacyAuthBridge
     }
 
     /**
+     * Restaura sesión fs_user desde cookies solo cuando no hay conflicto con otro nick ya cargado en sesión.
+     * Antes se exigía session[user_nick] !== usuario cookie (idea equivocada de “refresco”), lo que permitía
+     * sustituir una sesión (p. ej. sujeto OIDC portal o usuario caducado) por otro usuario con cookies válidas
+     * — típicamente escalando a administrador por cookies remember-me antiguas.
+     *
      * @param mixed $user
      */
-    private function isLegacyUserAuthenticated($user, string $logkey): bool
+    private function isLegacyUserEligibleForCookieRestore($user, string $logkey): bool
     {
-        return $user
-            && $user->enabled
-            && $user->log_key === $logkey
-            && $this->session->get('user_nick') !== $user->nick;
+        if (!$user || !$user->enabled || $user->log_key !== $logkey) {
+            return false;
+        }
+
+        $sessionNick = $this->session->get('user_nick');
+        if ($sessionNick === null || $sessionNick === '') {
+            return true;
+        }
+
+        return (string) $sessionNick === (string) $user->nick;
     }
 
     private function isRememberMeSignatureValid(string $nick, string $logkey, string $cookieSig): bool

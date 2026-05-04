@@ -82,7 +82,9 @@ class TranslationHelper
     }
 
     /**
-     * Inicializa el sistema de traducción con configuración del sistema
+     * Inicializa el sistema de traducción con configuración del sistema.
+     * Las traducciones de plugins se resuelven en FSTranslator::initialize()
+     * (lista PLUGINS / $GLOBALS['plugins'] o escaneo de plugins/).
      * 
      * Lee el locale desde:
      * 1. Constante FS_LANG si está definida
@@ -102,8 +104,7 @@ class TranslationHelper
             FSTranslator::setLocale($locale);
         }
 
-        // Cargar traducciones de plugins
-        FSTranslator::loadAllPluginTranslations();
+        // Las traducciones de plugins se cargan dentro de FSTranslator::initialize()
     }
 
     /**

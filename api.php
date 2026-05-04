@@ -29,7 +29,6 @@
  * @author FacturaScripts Team
  */
 
-use FSFramework\Api\Exception\ApiException;
 use FSFramework\DependencyInjection\Container;
 
 // Establecer directorio de trabajo
@@ -40,8 +39,6 @@ chdir(FS_FOLDER);
 // Cargar configuración
 if (file_exists('config.php')) {
     require_once 'config.php';
-    require_once 'base/fs_secret_migrator.php';
-    fs_secret_migrator::ensure();
 } else {
     header(FS_JSON_CONTENT_TYPE);
     http_response_code(500);
@@ -52,9 +49,62 @@ if (file_exists('config.php')) {
     exit;
 }
 
+require_once 'base/fs_maintenance_mode.php';
+
+if (fs_maintenance_mode::isActive()) {
+    header(FS_JSON_CONTENT_TYPE);
+    http_response_code(503);
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Retry-After: ' . fs_maintenance_mode::retryAfter());
+    echo json_encode([
+        'success' => false,
+        'error' => fs_maintenance_mode::message(),
+        'maintenance' => true,
+    ]);
+    exit;
+}
+
 // Cargar autoloader de Composer
 if (file_exists('vendor/autoload.php')) {
     require_once 'vendor/autoload.php';
+}
+
+require_once 'base/fs_secret_migrator.php';
+fs_secret_migrator::ensure();
+require_once 'base/config2.php';
+
+try {
+    \FSFramework\Core\Kernel::boot();
+    $container = Container::getContainer();
+
+    if (!$container->has('api.runtime')) {
+        header(FS_JSON_CONTENT_TYPE);
+        http_response_code(404);
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        echo json_encode([
+            'success' => false,
+            'error' => 'API no habilitada.'
+        ]);
+        exit;
+    }
+} catch (\Throwable $e) {
+    header(FS_JSON_CONTENT_TYPE);
+    http_response_code(500);
+
+    $response = [
+        'success' => false,
+        'error' => 'Error interno del servidor'
+    ];
+
+    if (defined('FS_DEBUG') && FS_DEBUG) {
+        $response['error'] = $e->getMessage();
+        $response['trace'] = explode("\n", $e->getTraceAsString());
+    }
+
+    echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 // Cargar clases base del framework
@@ -83,18 +133,7 @@ try {
     error_log('Core tables self-heal failed in API: ' . $e->getMessage());
 }
 
-// Cargar plugins activos
-require_once 'base/fs_plugin_manager.php';
-$plugin_manager = new fs_plugin_manager();
-$GLOBALS['plugins'] = $plugin_manager->enabled();
-
 try {
-    $container = Container::getContainer();
-
-    if (!$container->has('api.runtime')) {
-        throw new ApiException('El runtime de API no está disponible. Activa el plugin api_base o registra un servicio api.runtime.', 500);
-    }
-
     $container->get('api.runtime')->handle();
 } catch (\Throwable $e) {
     header(FS_JSON_CONTENT_TYPE);

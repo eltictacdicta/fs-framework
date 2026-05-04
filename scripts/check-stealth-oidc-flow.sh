@@ -40,7 +40,12 @@ require_command grep
 require_command sed
 require_command awk
 
-query_output="$(ddev exec mysql --batch --skip-column-names -e "SELECT name, \`varchar\` AS value FROM fs_vars WHERE name IN ('stealth_enabled','stealth_param_name','stealth_param_value');")"
+query_output="$(ddev exec mysql --batch --skip-column-names <<'SQL'
+SELECT name, `varchar` AS value
+FROM fs_vars
+WHERE name IN ('stealth_enabled', 'stealth_param_name', 'stealth_param_value');
+SQL
+)"
 
 stealth_enabled=""
 param_name=""

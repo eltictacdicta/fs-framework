@@ -12,15 +12,18 @@
 
 namespace Tests\Security;
 
+use FSFramework\Security\LegacyAuthBridge;
 use FSFramework\Security\SessionManager;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage;
 
 class SessionManagerTest extends TestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
+        LegacyAuthBridge::resetSkipLegacyCookieRestoreCheck();
         SessionManager::reset();
         $_COOKIE = [];
         $_SESSION = [];
@@ -28,7 +31,20 @@ class SessionManagerTest extends TestCase
 
     protected function tearDown(): void
     {
+        LegacyAuthBridge::resetSkipLegacyCookieRestoreCheck();
         SessionManager::reset();
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_unset();
+
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 3600, $params['path'], $params['domain'], (bool) $params['secure'], (bool) $params['httponly']);
+            }
+
+            session_destroy();
+        }
+
         $_COOKIE = [];
         $_SESSION = [];
 
@@ -40,6 +56,21 @@ class SessionManagerTest extends TestCase
         $manager = SessionManager::getInstance();
 
         $this->assertInstanceOf(Session::class, $manager->getSymfonySession());
+    }
+
+    public function testGetSymfonySessionUsesPhpBridgeWhenPhpSessionAlreadyActive(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        SessionManager::reset();
+        $manager = SessionManager::getInstance();
+        $session = $manager->getSymfonySession();
+        $storageProperty = new \ReflectionProperty(Session::class, 'storage');
+
+        $this->assertInstanceOf(Session::class, $session);
+        $this->assertInstanceOf(PhpBridgeSessionStorage::class, $storageProperty->getValue($session));
     }
 
     public function testLoginSetsLastActivityAndLoginTime(): void
@@ -140,6 +171,39 @@ class SessionManagerTest extends TestCase
     public function testIsLoggedInReturnsFalseForEmptySession(): void
     {
         $manager = SessionManager::getInstance();
+
+        $this->assertFalse($manager->isLoggedIn());
+    }
+
+    public function testCsrfFieldRendersModernAndLegacyTokenNames(): void
+    {
+        $manager = SessionManager::getInstance();
+
+        $field = $manager->csrfField();
+
+        $this->assertStringContainsString('name="_csrf_token"', $field);
+        $this->assertStringContainsString('name="_token"', $field);
+    }
+
+    /**
+     * Si un plugin registra “omitir restauración legacy”, no hay login ERP aunque existan cookies.
+     */
+    public function testIsLoggedInReturnsFalseWhenSkipLegacyGuardMatches(): void
+    {
+        $manager = SessionManager::getInstance();
+        $manager->login([
+            'nick' => 'testuser',
+            'email' => 'test@example.com',
+            'admin' => false,
+            'logkey' => 'abc123',
+        ]);
+
+        LegacyAuthBridge::registerSkipLegacyCookieRestoreCheck(static function (array $attrs): bool {
+            return ($attrs['_fs_test_portal_only'] ?? '') !== '';
+        });
+
+        $session = $manager->getSymfonySession();
+        $session->set('_fs_test_portal_only', '1');
 
         $this->assertFalse($manager->isLoggedIn());
     }

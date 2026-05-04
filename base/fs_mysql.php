@@ -69,10 +69,14 @@ class fs_mysql extends fs_db_engine
      */
     public function check_table_aux($table_name)
     {
+        $tableName = $this->requireIdentifier((string) $table_name, 'table');
+        $tableIdentifier = $this->quoteIdentifier($tableName);
+        $databaseIdentifier = $this->quoteDatabaseIdentifier((string) FS_DB_NAME);
+
         /// ¿La tabla no usa InnoDB?
-        $data = $this->select("SHOW TABLE STATUS FROM `" . FS_DB_NAME . "` LIKE '" . $table_name . "';");
-        if ($data && $data[0]['Engine'] != 'InnoDB' && !$this->exec("ALTER TABLE " . $table_name . " ENGINE=InnoDB;")) {
-            self::$core_log->new_error('Imposible convertir la tabla ' . $table_name . ' a InnoDB.'
+        $data = $this->select('SHOW TABLE STATUS FROM ' . $databaseIdentifier . ' LIKE ' . $this->quoteStringLiteral($tableName) . ';');
+        if ($data && $data[0]['Engine'] != 'InnoDB' && !$this->exec('ALTER TABLE ' . $tableIdentifier . ' ENGINE=InnoDB;')) {
+            self::$core_log->new_error('Imposible convertir la tabla ' . $tableName . ' a InnoDB.'
                 . ' Imprescindible para FacturaScripts.');
             return FALSE;
         }
@@ -119,8 +123,10 @@ class fs_mysql extends fs_db_engine
      */
     public function compare_columns($table_name, $xml_cols, $db_cols)
     {
+        $rawTableName = $this->requireIdentifier((string) $table_name, 'table');
+        $table_name = $this->quoteIdentifier($rawTableName);
         $sql = '';
-        $fk_columns = $this->get_fk_column_names($table_name);
+        $fk_columns = $this->get_fk_column_names($rawTableName);
 
         foreach ($xml_cols as $xml_col) {
             $xml_col['tipo'] = $this->convert_pg_type($xml_col['tipo']);
@@ -220,9 +226,11 @@ class fs_mysql extends fs_db_engine
      */
     public function compare_constraints($table_name, $xml_cons, $db_cons, $delete_only = FALSE)
     {
+        $tableName = $this->requireIdentifier((string) $table_name, 'table');
+        $table_name = $this->quoteIdentifier($tableName);
         $sql = '';
         $xmlSignatures = $this->buildXmlConstraintSignatures($xml_cons);
-        $dbSignatures = $this->buildDbConstraintSignatures($table_name);
+        $dbSignatures = $this->buildDbConstraintSignatures($tableName);
 
         if (!empty($db_cons)) {
             /**
@@ -689,6 +697,7 @@ class fs_mysql extends fs_db_engine
      */
     public function generate_table($table_name, $xml_cols, $xml_cons)
     {
+        $table_name = $this->quoteIdentifier((string) $table_name);
         $fkCollations = $this->get_fk_column_collations($xml_cons);
         $sql = "CREATE TABLE IF NOT EXISTS " . $table_name . " ( ";
 
@@ -922,8 +931,9 @@ class fs_mysql extends fs_db_engine
      */
     public function get_columns($table_name)
     {
+        $tableName = $this->requireIdentifier((string) $table_name, 'table');
         $columns = [];
-        $aux = $this->select("SHOW COLUMNS FROM `" . $table_name . "`;");
+        $aux = $this->select('SHOW COLUMNS FROM ' . $this->quoteIdentifier($tableName) . ';');
         if ($aux) {
             foreach ($aux as $a) {
                 $columns[] = array(
@@ -947,9 +957,10 @@ class fs_mysql extends fs_db_engine
      */
     public function get_constraints($table_name)
     {
+        $tableName = $this->requireIdentifier((string) $table_name, 'table');
         $constraints = [];
         $sql = "SELECT CONSTRAINT_NAME as name, CONSTRAINT_TYPE as type FROM information_schema.table_constraints "
-            . "WHERE table_schema = schema() AND table_name = '" . $table_name . "';";
+            . 'WHERE table_schema = schema() AND table_name = ' . $this->quoteStringLiteral($tableName) . ';';
 
         $aux = $this->select($sql);
         if ($aux) {
@@ -968,6 +979,7 @@ class fs_mysql extends fs_db_engine
      */
     public function get_constraints_extended($table_name)
     {
+        $tableName = $this->requireIdentifier((string) $table_name, 'table');
         $constraints = [];
         $sql = "SELECT t1.constraint_name as name,
             t1.constraint_type as type,
@@ -986,7 +998,7 @@ class fs_mysql extends fs_db_engine
          LEFT JOIN information_schema.referential_constraints t3
             ON t3.constraint_schema = t1.table_schema
             AND t3.constraint_name = t1.constraint_name
-         WHERE t1.table_schema = SCHEMA() AND t1.table_name = '" . $table_name . "'
+            WHERE t1.table_schema = SCHEMA() AND t1.table_name = " . $this->quoteStringLiteral($tableName) . "
             ORDER BY type DESC, name ASC, t2.ordinal_position ASC;";
 
         $aux = $this->select($sql);
@@ -1006,8 +1018,9 @@ class fs_mysql extends fs_db_engine
      */
     public function get_indexes($table_name)
     {
+        $tableName = $this->requireIdentifier((string) $table_name, 'table');
         $indexes = [];
-        $aux = $this->select("SHOW INDEXES FROM " . $table_name . ";");
+        $aux = $this->select('SHOW INDEXES FROM ' . $this->quoteIdentifier($tableName) . ';');
         if ($aux) {
             foreach ($aux as $a) {
                 $indexes[] = array('name' => $a['Key_name']);
@@ -1043,7 +1056,8 @@ class fs_mysql extends fs_db_engine
     public function list_tables()
     {
         $tables = [];
-        $sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = '" . FS_DB_NAME . "';";
+        $sql = 'SELECT table_name FROM information_schema.tables WHERE table_schema = '
+            . $this->quoteStringLiteral((string) FS_DB_NAME) . ';';
         $aux = $this->select($sql);
         if ($aux) {
             foreach ($aux as $a) {
@@ -1313,9 +1327,10 @@ class fs_mysql extends fs_db_engine
      */
     private function get_fk_column_names($table_name)
     {
+        $tableName = $this->requireIdentifier((string) $table_name, 'table');
         $columns = [];
         $sql = "SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE "
-            . "WHERE TABLE_SCHEMA = SCHEMA() AND TABLE_NAME = '" . $table_name . "' "
+            . 'WHERE TABLE_SCHEMA = SCHEMA() AND TABLE_NAME = ' . $this->quoteStringLiteral($tableName) . ' '
             . "AND REFERENCED_TABLE_NAME IS NOT NULL;";
         $data = $this->select($sql);
         if ($data) {
@@ -1324,6 +1339,30 @@ class fs_mysql extends fs_db_engine
             }
         }
         return $columns;
+    }
+
+    private function requireIdentifier(string $identifier, string $kind = 'identifier'): string
+    {
+        if (!preg_match(self::IDENTIFIER_REGEX, $identifier)) {
+            throw new \InvalidArgumentException('Invalid SQL ' . $kind . ': ' . $identifier);
+        }
+
+        return $identifier;
+    }
+
+    private function quoteIdentifier(string $identifier): string
+    {
+        return '`' . $this->requireIdentifier($identifier) . '`';
+    }
+
+    private function quoteDatabaseIdentifier(string $identifier): string
+    {
+        return '`' . str_replace('`', '``', $identifier) . '`';
+    }
+
+    private function quoteStringLiteral(string $value): string
+    {
+        return "'" . $this->escape_string($value) . "'";
     }
 
     /**

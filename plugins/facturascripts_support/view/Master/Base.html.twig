@@ -83,31 +83,31 @@
     {% block bodyContent %}{% endblock %}
     
     {% block core_javascripts %}
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.min.js"></script>
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap.min.js"></script>
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootbox.min.js"></script>
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.autocomplete.min.js"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.min.js"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap.min.js"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootbox.min.js"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery-ui.min.js"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.autocomplete.min.js"></script>
     
     {# AdminLTE JS #}
     {% if file_exists('themes/AdminLTE/js/jquery.slimscroll.min.js') %}
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}themes/AdminLTE/js/jquery.slimscroll.min.js"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}themes/AdminLTE/js/jquery.slimscroll.min.js"></script>
     {% endif %}
     {% if file_exists('themes/AdminLTE/js/adminlte.min.js') %}
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}themes/AdminLTE/js/adminlte.min.js"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}themes/AdminLTE/js/adminlte.min.js"></script>
     {% elseif file_exists('themes/AdminLTE/js/app.min.js') %}
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}themes/AdminLTE/js/app.min.js"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}themes/AdminLTE/js/app.min.js"></script>
     {% endif %}
     
     {# Base JS #}
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/base.js?v={{ fsc.today() }}"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/base.js?v={{ fsc.today() }}"></script>
     
     {# AJAX Loader with security (replacement for iframes) #}
-    <script type="text/javascript" src="{{ constant('FS_PATH') }}view/js/ajax-loader.js?v={{ fsc.today() }}"></script>
+    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/ajax-loader.js?v={{ fsc.today() }}"></script>
     
     {# Number format helper #}
-    <script type="text/javascript">
+    <script {{ csp_nonce_attr() }} type="text/javascript">
         function show_numero(numero) {
             return number_format(numero, '{{ constant('FS_NF0') }}', '{{ constant('FS_NF1') }}', '{{ constant('FS_NF2') }}');
         }
@@ -122,11 +122,33 @@
                 $('.btn-spin-action').prop('disabled', false);
             }
         };
+
+        document.addEventListener('submit', function(event) {
+            var submitter = event.submitter;
+            if (!submitter || !submitter.matches('[data-submit-once="true"]')) {
+                return;
+            }
+
+            submitter.disabled = true;
+        });
+
+        document.addEventListener('click', function(event) {
+            var trigger = event.target.closest('[data-confirm-message]');
+            if (!trigger) {
+                return;
+            }
+
+            if (!confirm(trigger.getAttribute('data-confirm-message') || '')) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        });
+
     </script>
     {% endblock %}
     
     {% block bootstrap5_compat %}
-    <script>
+    <script {{ csp_nonce_attr() }}>
         $(document).ready(function() {
             {# Handle Bootstrap 5 tab clicks (data-bs-toggle="tab") #}
             $(document).on('click', '[data-bs-toggle="tab"]', function(e) {

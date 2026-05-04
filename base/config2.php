@@ -104,8 +104,8 @@ foreach ($GLOBALS['config2'] as $i => $value) {
 }
 
 if (!file_exists('plugins')) {
-    mkdir('plugins');
-    chmod('plugins', octdec(777));
+    mkdir('plugins', 0755, true);
+    chmod('plugins', 0755);
 }
 
 /// Cargamos la lista de plugins activos

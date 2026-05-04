@@ -298,6 +298,7 @@ class admin_user extends fs_controller
             if ($spassword !== '' || $spassword2 !== '') {
                 if ($spassword !== '' && $spassword === $spassword2) {
                     if ($this->suser->set_password($spassword)) {
+                        $this->suser->rotate_logkey();
                         $this->new_message('Se ha cambiado la contraseña del usuario ' . $this->suser->nick, TRUE, 'login', TRUE);
                     }
                 } else {

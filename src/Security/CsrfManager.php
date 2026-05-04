@@ -112,9 +112,15 @@ class CsrfManager
     private static function ensureSession(): void
     {
         if (self::$session === null) {
+            if (class_exists(SessionManager::class)) {
+                self::$session = SessionManager::getInstance()->getSymfonySession();
+                return;
+            }
+
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
+
             // Usar PhpBridgeSessionStorage para sesiones ya iniciadas por código legacy
             $storage = new PhpBridgeSessionStorage();
             self::$session = new Session($storage);

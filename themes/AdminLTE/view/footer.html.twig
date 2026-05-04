@@ -25,7 +25,7 @@
          {# Hidden extensions executed via AJAX instead of iframes #}
          {% for ext in fsc.extensions %}
          {% if ext.type == 'hidden_iframe' %}
-         <script>
+         <script {{ csp_nonce_attr() }}>
             $(function() {
                FSAjaxLoader.backgroundTask('index.php?page={{ ext.from|e('js') }}{{ ext.params|e('js') }}&ajax=1');
             });
@@ -36,7 +36,7 @@
          {# Hidden extensions executed via AJAX instead of iframes #}
          {% for ext in fsc.extensions %}
          {% if ext.type == 'hidden_iframe' %}
-         <script>
+         <script {{ csp_nonce_attr() }}>
             $(function() {
                FSAjaxLoader.backgroundTask('index.php?page={{ ext.from|e('js') }}{{ ext.params|e('js') }}&ajax=1');
             });

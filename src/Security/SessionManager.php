@@ -13,6 +13,7 @@ namespace FSFramework\Security;
 
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\NativeSessionStorage;
+use Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\NativeFileSessionHandler;
 use Symfony\Component\HttpFoundation\Session\Attribute\AttributeBag;
 use Symfony\Component\HttpFoundation\Session\Flash\FlashBag;
@@ -86,7 +87,7 @@ class SessionManager
 
         // Si ya hay una sesión PHP activa, usarla
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $this->session = new Session();
+            $this->session = new Session(new PhpBridgeSessionStorage(), new AttributeBag(), new FlashBag());
             $this->initialized = true;
             return;
         }
@@ -159,6 +160,10 @@ class SessionManager
      */
     public function isLoggedIn(): bool
     {
+        if ($this->legacyAuthBridge->shouldSkipLegacyCookieRestore()) {
+            return false;
+        }
+
         $hasNick = $this->session->has('user_nick') && $this->session->get('user_nick');
 
         if ($hasNick && $this->isValid()) {
@@ -286,9 +291,7 @@ class SessionManager
 
     public function csrfField(): string
     {
-        $safeToken = htmlspecialchars($this->getCsrfToken(), ENT_QUOTES, 'UTF-8');
-        return '<input type="hidden" name="_csrf_token" value="' . $safeToken . '">'
-             . '<input type="hidden" name="_token" value="' . $safeToken . '">';
+        return CsrfManager::field();
     }
 
     public function csrfMeta(): string

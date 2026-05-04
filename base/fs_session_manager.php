@@ -156,7 +156,7 @@ class fs_session_manager
     }
 
     /**
-     * Verifica si hay una sesión activa
+        * Verifica si hay una sesión activa
      * Compatible con sistema legacy (cookies user/logkey)
      *
      * @return bool
@@ -245,7 +245,7 @@ class fs_session_manager
     }
 
     /**
-     * Verifica si la sesión es válida (no expirada)
+        * Verifica si la sesión es válida (no expirada)
      *
      * @return bool
      */
@@ -273,7 +273,7 @@ class fs_session_manager
     }
 
     /**
-     * Inicia sesión para un usuario
+        * Inicia sesión para un usuario
      *
      * @param array $userData Array con nick, email, role, admin, logkey
      * @return void
@@ -306,7 +306,7 @@ class fs_session_manager
     }
 
     /**
-     * Cierra la sesión
+        * Cierra la sesión
      *
      * @return void
      */
@@ -466,7 +466,7 @@ class fs_session_manager
     }
 
     /**
-     * Regenera el ID de sesión
+        * Regenera el ID de sesión
      *
      * @return void
      */
@@ -484,7 +484,7 @@ class fs_session_manager
     }
 
     /**
-     * Obtiene todos los datos de sesión
+        * Obtiene todos los datos de sesión
      *
      * @return array
      */
@@ -498,7 +498,7 @@ class fs_session_manager
     }
 
     /**
-     * Establece un valor en la sesión
+        * Establece un valor en la sesión
      *
      * @param string $key Clave
      * @param mixed $value Valor
@@ -515,7 +515,7 @@ class fs_session_manager
     }
 
     /**
-     * Obtiene un valor de la sesión
+        * Obtiene un valor de la sesión
      *
      * @param string $key Clave
      * @param mixed $default Valor por defecto
@@ -531,7 +531,7 @@ class fs_session_manager
     }
 
     /**
-     * Elimina un valor de la sesión
+        * Elimina un valor de la sesión
      *
      * @param string $key Clave a eliminar
      * @return void
@@ -547,7 +547,7 @@ class fs_session_manager
     }
 
     /**
-     * Verifica si existe una clave en la sesión
+        * Verifica si existe una clave en la sesión
      *
      * @param string $key Clave a verificar
      * @return bool
@@ -568,6 +568,11 @@ final class FsSessionLegacyFallback
     {
         $cookieSig = isset($_COOKIE['auth_sig']) ? (string) $_COOKIE['auth_sig'] : '';
         $isSynchronized = false;
+
+        if (class_exists(\FSFramework\Security\LegacyAuthBridge::class)
+            && \FSFramework\Security\LegacyAuthBridge::shouldSkipLegacyCookieRestoreForRawSession($_SESSION)) {
+            return false;
+        }
 
         if (isset($_SESSION['user_nick']) && $_SESSION['user_nick'] === $nick) {
             return true;
