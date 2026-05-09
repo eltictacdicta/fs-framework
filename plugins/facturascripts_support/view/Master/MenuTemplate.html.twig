@@ -221,7 +221,7 @@
             <div class="alert alert-danger hidden-print">
                 <ul class="mb-0">
                 {% for error in fsc.get_errors() %}
-                    <li>{{ error|raw }}</li>
+                    <li>{{ error|e }}</li>
                 {% endfor %}
                 </ul>
             </div>
@@ -230,7 +230,7 @@
             <div class="alert alert-success hidden-print">
                 <ul class="mb-0">
                 {% for msg in fsc.get_messages() %}
-                    <li>{{ msg|raw }}</li>
+                    <li>{{ msg|e }}</li>
                 {% endfor %}
                 </ul>
             </div>
@@ -239,7 +239,7 @@
             <div class="alert alert-info hidden-print">
                 <ul class="mb-0">
                 {% for advice in fsc.get_advices() %}
-                    <li>{{ advice|raw }}</li>
+                    <li>{{ advice|e }}</li>
                 {% endfor %}
                 </ul>
             </div>

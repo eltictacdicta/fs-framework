@@ -57,6 +57,11 @@ class SecretManager
 
         $envSecret = getenv('FS_SECRET_KEY');
         if ($envSecret !== false && $envSecret !== '') {
+            // Validate minimum length for security
+            if (strlen($envSecret) < 32) {
+                error_log('FSFramework SecretManager: FS_SECRET_KEY environment variable is too short (minimum 32 characters required)');
+                return null;
+            }
             return $envSecret;
         }
 
@@ -76,7 +81,17 @@ class SecretManager
 
         $value = constant('FS_SECRET_KEY');
 
-        return is_string($value) && $value !== '' ? $value : null;
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+
+        // Validate minimum length for security
+        if (strlen($value) < 32) {
+            error_log('FSFramework SecretManager: FS_SECRET_KEY constant is too short (minimum 32 characters required)');
+            return null;
+        }
+
+        return $value;
     }
 
     private static function getSecretFilePath(): string

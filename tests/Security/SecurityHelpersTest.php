@@ -23,6 +23,7 @@ namespace Tests\Security;
 
 use FSFramework\Security\CookieSigner;
 use FSFramework\Security\SafeRedirect;
+use FSFramework\Security\SecurityHeaders;
 use FSFramework\Security\UserAdapter;
 use PHPUnit\Framework\TestCase;
 
@@ -33,6 +34,18 @@ class SecurityHelpersTest extends TestCase
         SafeRedirect::clearAllowedHosts();
         unset($_REQUEST['redirect'], $_SERVER['HTTP_HOST']);
         parent::tearDown();
+    }
+
+    public function testCspFormActionDefaultsToSelf(): void
+    {
+        $policy = SecurityHeaders::contentSecurityPolicy();
+
+        if ($policy === '') {
+            $this->markTestSkipped('CSP disabled via FS_DISABLE_CSP.');
+        }
+
+        $this->assertStringContainsString("form-action 'self'", $policy);
+        $this->assertStringNotContainsString('form-action *', $policy);
     }
 
     public function testCookieSignerSignsAndVerifiesRememberMePayloads(): void
@@ -48,7 +61,8 @@ class SecurityHelpersTest extends TestCase
 
     public function testSafeRedirectManagesAllowedHostsAndSanitizesUrls(): void
     {
-        $_SERVER['HTTP_HOST'] = 'app.local';
+        $baseHost = defined('FS_BASE_URL') ? strtolower((string) parse_url((string) FS_BASE_URL, PHP_URL_HOST) ?: 'app.local') : 'app.local';
+        $_SERVER['HTTP_HOST'] = $baseHost;
 
         SafeRedirect::addAllowedHosts(['trusted.example', 'trusted.example', 'cdn.example']);
 
@@ -57,8 +71,8 @@ class SecurityHelpersTest extends TestCase
         $this->assertSame('index.php', SafeRedirect::validate('javascript:alert(1)'));
         $this->assertSame('https://trusted.example/path', SafeRedirect::validate('https://trusted.example/path'));
 
-        $_REQUEST['redirect'] = 'https://sub.app.local/dashboard';
-        $this->assertSame('https://sub.app.local/dashboard', SafeRedirect::getFromRequest());
+        $_REQUEST['redirect'] = 'https://sub.' . $baseHost . '/dashboard';
+        $this->assertSame('https://sub.' . $baseHost . '/dashboard', SafeRedirect::getFromRequest());
 
         SafeRedirect::clearAllowedHosts();
         $this->assertSame([], SafeRedirect::getAllowedHosts());

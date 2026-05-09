@@ -338,11 +338,19 @@ class fs_controller extends fs_app
 
     /**
      * Valida el token CSRF para peticiones POST.
-     * 
-     * Modos de operación:
-     * - Modo soft (por defecto): Log warning si falta token, pero permite continuar
-     * - Modo estricto: Rechaza peticiones sin token válido (FS_CSRF_STRICT=true)
-     * 
+     *
+     * Por defecto el modo es estricto (rechaza peticiones sin token válido).
+     * Para migraciones o entornos de desarrollo, definir FS_CSRF_SOFT=true en
+     * config.php para permitir continuar tras un aviso en el log.
+     *
+     * Para forzar modo estricto incluso si FS_CSRF_SOFT está activo,
+     * definir FS_CSRF_STRICT=true en config.php.
+     *
+     * NOTA: Para proteger operaciones mutantes (POST que modifican estado),
+     * use requireCsrf() en lugar de validateCsrf(). En modo soft,
+     * validateCsrf() permite continuar con un aviso, mientras que
+     * requireCsrf() siempre rechaza tokens inválidos.
+     *
      * @param string|null $tokenId ID del token (por defecto 'fs_form')
      * @return bool True si la validación pasa
      */
@@ -353,8 +361,9 @@ class fs_controller extends fs_app
             return true;
         }
 
-        // Modo estricto: definir FS_CSRF_STRICT=true para activar
+        // FS_CSRF_STRICT overrides FS_CSRF_SOFT for backward compatibility
         $strict = defined('FS_CSRF_STRICT') && FS_CSRF_STRICT;
+        $soft = !$strict && defined('FS_CSRF_SOFT') && FS_CSRF_SOFT;
 
         // Obtener token de POST o header (para AJAX)
         $token = $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME);
@@ -368,31 +377,29 @@ class fs_controller extends fs_app
         if (empty($token)) {
             $msg = "CSRF: Token ausente en formulario POST ({$this->class_name})";
             error_log($msg);
-            
-            if ($strict) {
-                $this->new_error_msg('Sesión expirada o token de seguridad faltante. Por favor, recarga la página.');
+
+            if ($soft) {
                 $this->csrf_valid = false;
-                return false;
+                return true;
             }
-            
-            // Modo soft: permitir pero marcar
+
+            $this->new_error_msg('Sesión expirada o token de seguridad faltante. Por favor, recarga la página.');
             $this->csrf_valid = false;
-            return true;
+            return false;
         }
 
         if (!\FSFramework\Security\CsrfManager::isValid($token, $tokenId)) {
             $msg = "CSRF: Token inválido en ({$this->class_name})";
             error_log($msg);
-            
-            if ($strict) {
-                $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
+
+            if ($soft) {
                 $this->csrf_valid = false;
-                return false;
+                return true;
             }
-            
-            // Modo soft: permitir pero marcar
+
+            $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
             $this->csrf_valid = false;
-            return true;
+            return false;
         }
 
         $this->csrf_valid = true;
@@ -408,6 +415,50 @@ class fs_controller extends fs_app
     public function isCsrfValid(): bool
     {
         return $this->csrf_valid;
+    }
+
+    /**
+     * Guard CSRF: rechaza siempre tokens inválidos, incluso en modo soft.
+     *
+     * Usar este método en operaciones mutantes (POST que crean, actualizan
+     * o eliminan datos) para garantizar que un token CSRF inválido nunca
+     * permita ejecutar la acción, sin importar el valor de FS_CSRF_SOFT.
+     *
+     * Para peticiones no-POST devuelve true (no aplica CSRF).
+     *
+     * @param string|null $tokenId ID del token (por defecto 'fs_form')
+     * @return bool True si la validación pasa, false si el token es inválido
+     */
+    protected function requireCsrf(?string $tokenId = null): bool
+    {
+        if ($this->request->getMethod() !== 'POST') {
+            return true;
+        }
+
+        $token = $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME);
+        if (empty($token)) {
+            $token = $this->request->request->get('_token');
+        }
+        if (empty($token)) {
+            $token = $this->request->headers->get(\FSFramework\Security\CsrfManager::HEADER_NAME);
+        }
+
+        if (empty($token)) {
+            error_log("CSRF requireCsrf: Token ausente en POST ({$this->class_name})");
+            $this->new_error_msg('Sesión expirada o token de seguridad faltante. Por favor, recarga la página.');
+            $this->csrf_valid = false;
+            return false;
+        }
+
+        if (!\FSFramework\Security\CsrfManager::isValid($token, $tokenId)) {
+            error_log("CSRF requireCsrf: Token inválido en ({$this->class_name})");
+            $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
+            $this->csrf_valid = false;
+            return false;
+        }
+
+        $this->csrf_valid = true;
+        return true;
     }
 
     /**

@@ -257,17 +257,17 @@
          <section class="content-header">
             {% if fsc.get_errors() %}
             <div class="alert alert-danger hidden-print">
-               <ul>{% for error in fsc.get_errors() %}<li>{{ error|raw }}</li>{% endfor %}</ul>
+               <ul>{% for error in fsc.get_errors() %}<li>{{ error|e }}</li>{% endfor %}</ul>
             </div>
             {% endif %}
             {% if fsc.get_messages() %}
             <div class="alert alert-success hidden-print">
-               <ul>{% for msg in fsc.get_messages() %}<li>{{ msg|raw }}</li>{% endfor %}</ul>
+               <ul>{% for msg in fsc.get_messages() %}<li>{{ msg|e }}</li>{% endfor %}</ul>
             </div>
             {% endif %}
             {% if fsc.get_advices() %}
             <div class="alert alert-info hidden-print">
-               <ul>{% for advice in fsc.get_advices() %}<li>{{ advice|raw }}</li>{% endfor %}</ul>
+               <ul>{% for advice in fsc.get_advices() %}<li>{{ advice|e }}</li>{% endfor %}</ul>
             </div>
             {% endif %}
          </section>

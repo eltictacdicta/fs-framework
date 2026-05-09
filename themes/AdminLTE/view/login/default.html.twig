@@ -51,7 +51,7 @@
       {% if fsc.get_errors() %}
       <div class="alert alert-danger">
          <ul class="list-unstyled">
-            {% for value in fsc.get_errors() %}<li>{{ value|raw }}</li>{% endfor %}
+            {% for value in fsc.get_errors() %}<li>{{ value|e }}</li>{% endfor %}
          </ul>
       </div>
       {% endif %}
@@ -59,7 +59,7 @@
       {% if fsc.get_messages() %}
       <div class="alert alert-success">
          <ul class="list-unstyled">
-            {% for value in fsc.get_messages() %}<li>{{ value|raw }}</li>{% endfor %}
+            {% for value in fsc.get_messages() %}<li>{{ value|e }}</li>{% endfor %}
          </ul>
       </div>
       {% endif %}

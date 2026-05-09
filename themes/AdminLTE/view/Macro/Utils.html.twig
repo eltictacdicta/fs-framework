@@ -30,7 +30,7 @@
         </button>
         <ul class="mb-0 list-unstyled">
         {% for msg in filteredMessages %}
-            <li>{% if msg.message is defined %}{{ msg.message|raw }}{% else %}{{ msg|raw }}{% endif %}</li>
+            <li>{% if msg.message is defined %}{{ msg.message|e }}{% else %}{{ msg|e }}{% endif %}</li>
         {% endfor %}
         </ul>
     </div>
@@ -50,7 +50,7 @@
         </button>
         <ul class="mb-0 list-unstyled">
         {% for msg in messages %}
-            <li>{{ msg|raw }}</li>
+            <li>{{ msg|e }}</li>
         {% endfor %}
         </ul>
     </div>

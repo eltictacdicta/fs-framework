@@ -143,6 +143,8 @@ Options +FollowSymLinks -ExecCGI
     RewriteRule ^translations(/.*)?$ - [F,L]
 
     # Plugins: block PHP source and internals; allow themes/view static assets (*.css|js|fonts|images)
+    # system_updater process scripts are accessed by AJAX/SSE and must bypass this block
+    RewriteRule ^plugins/system_updater/(process_backup|process_core_update|process_restore|recovery)\.php$ - [L]
     RewriteRule ^plugins/.+\.php$ - [F,L]
     RewriteRule ^plugins/[^/]+/(model|controller|Controller|Model|src|tests|config|translations|Translation)(/|$) - [F,L]
 

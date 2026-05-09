@@ -122,14 +122,16 @@ class force_password_change extends fs_controller
 
         if (session_status() === PHP_SESSION_ACTIVE) {
             $storage = new \Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage();
+            $session = new \Symfony\Component\HttpFoundation\Session\Session($storage);
+            if (!$session->isStarted()) {
+                $session->start();
+            }
         } else {
             $storage = new \Symfony\Component\HttpFoundation\Session\Storage\NativeSessionStorage();
-        }
-
-        $session = new \Symfony\Component\HttpFoundation\Session\Session($storage);
-
-        if (!$session->isStarted()) {
-            $session->start();
+            $session = new \Symfony\Component\HttpFoundation\Session\Session($storage);
+            if (!$session->isStarted()) {
+                $session->start();
+            }
         }
 
         return $session;

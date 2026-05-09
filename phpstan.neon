@@ -10,6 +10,10 @@ parameters:
     paths:
         - src
         - tests
+    scanFiles:
+        - base/fs_maintenance_mode.php
+        - base/install_security.php
+        - controller/force_password_change.php
     ignoreErrors:
         # False positives: PHPStan infers constant values from test bootstrap,
         # but these checks are needed at runtime when constants may vary

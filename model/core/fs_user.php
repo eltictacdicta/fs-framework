@@ -100,13 +100,13 @@ class fs_user extends \fs_model
 
     /**
      * Última IP usada
-     * @var string
+     * @var string|null
      */
     public $last_ip;
 
     /**
      * Último identificador de navegador usado
-     * @var string
+     * @var string|null
      */
     public $last_browser;
 

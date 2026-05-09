@@ -36,12 +36,14 @@ final class SecurityHeaders
             }
         }
 
+        $formAction = 'form-action ' . self::buildFormActionSources();
+
         return implode('; ', [
             "default-src 'self'",
             "base-uri 'self'",
             "object-src 'none'",
             "frame-ancestors 'self'",
-            "form-action 'self' https://github.com",
+            $formAction,
             self::SCRIPT_SRC_DIRECTIVE,
             self::STYLE_SRC_DIRECTIVE,
             "img-src 'self' data: https:",
@@ -52,6 +54,15 @@ final class SecurityHeaders
             "media-src 'self' data:",
             "worker-src 'self' blob:",
         ]);
+    }
+
+    private static function buildFormActionSources(): string
+    {
+        if (defined('FS_CSP_FORM_ACTION') && is_string(FS_CSP_FORM_ACTION) && trim(FS_CSP_FORM_ACTION) !== '') {
+            return trim(FS_CSP_FORM_ACTION);
+        }
+
+        return "'self'";
     }
 
     /**

@@ -511,8 +511,9 @@ FSFramework includes CSRF (Cross-Site Request Forgery) protection using Symfony 
 
 Add to `config.php`:
 ```php
-// CSRF mode: false = soft (warnings only), true = strict (blocks invalid requests)
-define('FS_CSRF_STRICT', false);
+// CSRF is strict by default (blocks invalid requests).
+// Define FS_CSRF_SOFT=true to enable soft mode (warnings only, for migrations).
+define('FS_CSRF_SOFT', false);
 ```
 
 #### Checking CSRF in Controllers

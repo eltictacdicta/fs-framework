@@ -21,6 +21,7 @@
 /tmp/*
 !/tmp/index.php
 /MyFiles/
+/.artifacts/
 
 # Configuration (contains credentials)
 config.php
@@ -43,6 +44,12 @@ package-lock.json
 !/plugins/clientes_core/
 !/plugins/clientes_catalogo/
 !/plugins/clientes_facturacion
+!/plugins/OidcProvider/
+/plugins/OidcProvider/*
+!/plugins/OidcProvider/img/
+/plugins/OidcProvider/img/*
+!/plugins/OidcProvider/img/client_logos/
+!/plugins/OidcProvider/img/client_logos/.gitignore
 
 # =============================================================================
 # USER UPLOADS AND GENERATED CONTENT

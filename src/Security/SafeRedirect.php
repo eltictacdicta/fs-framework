@@ -51,6 +51,11 @@ class SafeRedirect
     private static array $allowedHosts = [];
 
     /**
+     * @var bool Evita inicializaciones repetidas del ``bootstrapAllowedHosts()``.
+     */
+    private static bool $hostsBootstrapped = false;
+
+    /**
      * Valida una URL de redirección y retorna una URL segura.
      *
      * @param string|null $url URL a validar (puede ser de $_REQUEST, $_GET, etc.)
@@ -232,7 +237,37 @@ class SafeRedirect
         $isAllowedAdditionalHost = in_array($targetHost, self::$allowedHosts, true);
         $isAllowedSubdomain = $currentHost !== null && str_ends_with($targetHost, '.' . $currentHost);
 
-        return $isCurrentHost || $isAllowedAdditionalHost || $isAllowedSubdomain;
+        if ($isCurrentHost || $isAllowedAdditionalHost || $isAllowedSubdomain) {
+            if ($isAllowedAdditionalHost) {
+                return true;
+            }
+
+            return self::matchesConfiguredBaseHost($targetHost);
+        }
+
+        return false;
+    }
+
+    /**
+     * When FS_BASE_URL is configured, the target host must also belong to that
+     * domain to prevent host-header injection attacks.
+     *
+     * Without FS_BASE_URL (e.g. test / dev environments), this check is skipped.
+     */
+    private static function matchesConfiguredBaseHost(string $targetHost): bool
+    {
+        if (!defined('FS_BASE_URL') || !is_string(FS_BASE_URL) || trim(FS_BASE_URL) === '') {
+            return true;
+        }
+
+        $baseHost = parse_url((string) FS_BASE_URL, PHP_URL_HOST);
+        if (!is_string($baseHost) || $baseHost === '') {
+            return true;
+        }
+
+        $baseHost = strtolower($baseHost);
+
+        return $targetHost === $baseHost || str_ends_with($targetHost, '.' . $baseHost);
     }
 
     /**
@@ -240,6 +275,8 @@ class SafeRedirect
      */
     private static function getCurrentHost(): ?string
     {
+        self::bootstrapAllowedHosts();
+
         $host = null;
 
         if (class_exists(Request::class)) {
@@ -260,4 +297,30 @@ class SafeRedirect
 
         return !empty($host) ? strtolower((string) $host) : null;
     }
+
+    /**
+     * Populates the allowed hosts list from FS_BASE_URL so that
+     * ``getCurrentHost()`` never trusts an unconfigured Host header.
+     */
+    private static function bootstrapAllowedHosts(): void
+    {
+        if (self::$hostsBootstrapped) {
+            return;
+        }
+
+        self::$hostsBootstrapped = true;
+
+        if (!defined('FS_BASE_URL') || !is_string(FS_BASE_URL) || trim(FS_BASE_URL) === '') {
+            return;
+        }
+
+        $host = parse_url((string) FS_BASE_URL, PHP_URL_HOST);
+        if (is_string($host) && $host !== '') {
+            $host = strtolower($host);
+            if (!in_array($host, self::$allowedHosts, true)) {
+                self::$allowedHosts[] = $host;
+            }
+        }
+    }
+
 }
