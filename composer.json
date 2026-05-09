@@ -17,7 +17,6 @@
     ],
     "require": {
         "php": ">=8.2",
-        "doctrine/dbal": "^4.3",
         "mrd/oidc-core": "^0.2",
         "symfony/http-foundation": "^7.4",
         "symfony/cache": "^7.4",

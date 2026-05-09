@@ -188,8 +188,6 @@ class ComposerStaticIniteb3332d6115f1c528c899a3cde3cfce9
         ),
         'D' =>
         array (
-            'Doctrine\\Deprecations\\' => 22,
-            'Doctrine\\DBAL\\' => 14,
             'DeepCopy\\' => 9,
         ),
         'C' =>
@@ -419,14 +417,6 @@ class ComposerStaticIniteb3332d6115f1c528c899a3cde3cfce9
         'FSFramework\\' =>
         array (
             0 => __DIR__ . '/../..' . '/src',
-        ),
-        'Doctrine\\Deprecations\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/doctrine/deprecations/src',
-        ),
-        'Doctrine\\DBAL\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/doctrine/dbal/src',
         ),
         'DeepCopy\\' =>
         array (

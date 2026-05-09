@@ -63,9 +63,6 @@ parameters:
             path: %currentWorkingDirectory%/src/Core/UploadedFile.php
         -
             identifier: shipmonk.deadMethod
-            path: %currentWorkingDirectory%/src/Database/DbalConnectionFactory.php
-        -
-            identifier: shipmonk.deadMethod
             path: %currentWorkingDirectory%/src/DependencyInjection/Container.php
         -
             message: '#^Unused FSFramework\\Security\\SessionManager\:\:__clone\b#'

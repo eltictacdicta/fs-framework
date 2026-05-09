@@ -21,6 +21,7 @@ date_default_timezone_set('Europe/Madrid');
 define('FS_COMMUNITY_URL', 'https://github.com/eltictacdicta/fs-framework');
 
 require_once __DIR__ . '/base/install_security.php';
+require_once __DIR__ . '/vendor/autoload.php';
 
 $errors = [];
 $errors2 = [];
@@ -52,7 +53,7 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
             $exportedValue = var_export($value, true);
             fwrite($archivo, "define('FS_" . $name . "', " . $exportedValue . ");\n");
         }
-        fwrite($archivo, "define('FS_DB_BACKEND', 'legacy'); // legacy | doctrine_dbal\n");
+
 
         if (filter_input(INPUT_POST, 'db_type') == 'MYSQL' && filter_input(INPUT_POST, 'mysql_socket') != '') {
             $socketValue = var_export(filter_input(INPUT_POST, 'mysql_socket') ?? '', true);
@@ -114,83 +115,57 @@ function test_mysql(&$errors, &$errors2)
         ini_set('mysqli.default_socket', filter_input(INPUT_POST, 'mysql_socket'));
     }
 
-    // Omitimos el valor del nombre de la BD porque lo comprobaremos más tarde
-    try {
-        $connection = new mysqli(
-            filter_input(INPUT_POST, 'db_host'),
-            filter_input(INPUT_POST, 'db_user'),
-            filter_input(INPUT_POST, 'db_pass'),
-            '',
-            intval(filter_input(INPUT_POST, 'db_port'))
-        );
-    } catch (mysqli_sql_exception $e) {
-        $errors[] = "db_mysql";
-        $errors2[] = 'Los datos de conexión a la base de datos son incorrectos. Verifica el host, usuario y contraseña.';
-        return;
-    }
-    if ($connection->connect_error) {
-        $errors[] = "db_mysql";
-        error_log('Installer MySQL connect error: ' . $connection->connect_error);
-        $errors2[] = 'Los datos de conexión a la base de datos son incorrectos. Verifica host, puerto, usuario y contraseña.';
-        return;
-    }
-
-    // Verificamos si la base de datos existe
     $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_SPECIAL_CHARS);
 
-    // Comprobamos que el nombre de la base de datos sea válido
     if (!fs_install_is_valid_database_name($db_name)) {
         $errors[] = "db_mysql";
         $errors2[] = "Nombre de base de datos inválido. Solo se permiten letras, números y guiones bajos.";
         return;
     }
 
-    // Consulta para verificar si la base de datos existe
+    $host = filter_input(INPUT_POST, 'db_host');
+    $port = intval(filter_input(INPUT_POST, 'db_port'));
+    $user = filter_input(INPUT_POST, 'db_user');
+    $pass = filter_input(INPUT_POST, 'db_pass');
+    $socket = filter_input(INPUT_POST, 'mysql_socket') ?: null;
+
     try {
-        $query = "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?";
-        $stmt = mysqli_prepare($connection, $query);
-        mysqli_stmt_bind_param($stmt, "s", $db_name);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_store_result($stmt);
+        $link = @new mysqli($host, $user, $pass, '', $port, $socket);
 
-        if (mysqli_stmt_num_rows($stmt) == 0) {
-            // La base de datos no existe, intentamos crearla
-            mysqli_stmt_close($stmt);
+        if ($link->connect_error) {
+            throw new RuntimeException('Conexión fallida: ' . $link->connect_error);
+        }
 
-            // Creamos la base de datos usando consulta preparada
-            $query = 'CREATE DATABASE ' . fs_install_quote_mysql_identifier($db_name)
-                . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
-            if (!mysqli_query($connection, $query)) {
-                $errors[] = "db_mysql";
-                error_log('Installer MySQL create database error: ' . mysqli_error($connection));
-                $errors2[] = 'Error al crear la base de datos con el usuario indicado.';
-                $errors2[] = "Por favor, crea manualmente la base de datos '" . htmlspecialchars($db_name) . "' o proporciona un usuario con privilegios para crear bases de datos.";
-                $errors2[] = "Comando SQL: CREATE DATABASE `" . htmlspecialchars($db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
-                return;
+        $link->set_charset('utf8mb4');
+
+        $result = $link->query("SHOW DATABASES");
+        $databases = [];
+        if ($result) {
+            while ($row = $result->fetch_row()) {
+                $databases[] = $row[0];
             }
-        } else {
-            mysqli_stmt_close($stmt);
         }
 
-        // Seleccionamos la base de datos
-        if (!mysqli_select_db($connection, $db_name)) {
-            $errors[] = "db_mysql";
-            error_log('Installer MySQL select database error: ' . mysqli_error($connection));
-            $errors2[] = 'Error al seleccionar la base de datos indicada.';
-            $errors2[] = "Verifica que el usuario tenga permisos sobre la base de datos '" . htmlspecialchars($db_name) . "'.";
-            return;
+        if (!in_array($db_name, $databases, true)) {
+            $escapedName = $link->real_escape_string($db_name);
+            if (!$link->query("CREATE DATABASE `" . $escapedName . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")) {
+                throw new RuntimeException('Error al crear la base de datos: ' . $link->error);
+            }
         }
-    } catch (Exception $e) {
+
+        if (!$link->select_db($db_name)) {
+            throw new RuntimeException('No se puede seleccionar la base de datos: ' . $db_name);
+        }
+
+        $link->close();
+        guarda_config($errors);
+    } catch (RuntimeException $e) {
         $errors[] = "db_mysql";
-        error_log('Installer MySQL exception: ' . $e->getMessage());
-        $errors2[] = 'Se produjo un error al validar o preparar la base de datos.';
-        return;
+        error_log('Installer MySQL error: ' . $e->getMessage());
+        $errors2[] = 'Los datos de conexión a la base de datos son incorrectos. Verifica host, puerto, usuario y contraseña.';
+        $errors2[] = "Por favor, crea manualmente la base de datos '" . htmlspecialchars($db_name) . "' o proporciona un usuario con privilegios para crear bases de datos.";
+        $errors2[] = "Comando SQL: CREATE DATABASE `" . htmlspecialchars($db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
     }
-
-    guarda_config($errors);
-
-    $errors[] = "db_mysql";
-    $errors2[] = mysqli_error($connection);
 }
 
 function test_postgresql(&$errors, &$errors2)
@@ -201,46 +176,60 @@ function test_postgresql(&$errors, &$errors2)
         return;
     }
 
-    // Sanitizamos y validamos los datos de entrada
-    $db_host = filter_input(INPUT_POST, 'db_host', FILTER_SANITIZE_SPECIAL_CHARS);
-    $db_port = filter_input(INPUT_POST, 'db_port', FILTER_SANITIZE_NUMBER_INT);
-    $db_user = filter_input(INPUT_POST, 'db_user', FILTER_SANITIZE_SPECIAL_CHARS);
-    $db_pass = filter_input(INPUT_POST, 'db_pass');
     $db_name = filter_input(INPUT_POST, 'db_name', FILTER_SANITIZE_SPECIAL_CHARS);
 
-    // Validamos el nombre de la base de datos
     if (!fs_install_is_valid_database_name($db_name)) {
         $errors[] = "db_postgresql";
         $errors2[] = "Nombre de base de datos inválido. Solo se permiten letras, números y guiones bajos.";
         return;
     }
 
-    $connection = @pg_connect('host=' . $db_host . ' port=' . $db_port . ' user=' . $db_user . ' password=' . $db_pass);
+    $host = filter_input(INPUT_POST, 'db_host', FILTER_SANITIZE_SPECIAL_CHARS);
+    $port = intval(filter_input(INPUT_POST, 'db_port', FILTER_SANITIZE_NUMBER_INT));
+    $user = filter_input(INPUT_POST, 'db_user', FILTER_SANITIZE_SPECIAL_CHARS);
+    $pass = filter_input(INPUT_POST, 'db_pass');
 
-    if (!$connection) {
+    try {
+        // Conectar al servidor (sin especificar base de datos)
+        $connStr = sprintf(
+            'host=%s port=%d dbname=postgres user=%s password=%s',
+            pg_escape_string($host),
+            $port,
+            pg_escape_string($user),
+            pg_escape_string($pass)
+        );
+
+        $conn = @pg_connect($connStr, PGSQL_CONNECT_FORCE_NEW);
+        if (!$conn) {
+            throw new RuntimeException('No se puede conectar al servidor PostgreSQL.');
+        }
+
+        // Verificar si la base de datos existe
+        $result = pg_query_params($conn, 'SELECT 1 FROM pg_database WHERE datname = $1', [$db_name]);
+        if ($result && pg_num_rows($result) === 0) {
+            // Crear la base de datos (no se pueden usar prepared statements para CREATE DATABASE)
+            $escapedName = pg_escape_identifier($conn, $db_name);
+            if (!pg_query($conn, 'CREATE DATABASE ' . $escapedName)) {
+                throw new RuntimeException('Error al crear la base de datos: ' . pg_last_error($conn));
+            }
+        }
+        pg_close($conn);
+
+        // Verificar que podemos conectar a la base de datos específica
+        $connStr .= " dbname=" . pg_escape_string($db_name);
+        $dbConn = @pg_connect($connStr, PGSQL_CONNECT_FORCE_NEW);
+        if (!$dbConn) {
+            throw new RuntimeException('No se puede conectar a la base de datos creada.');
+        }
+        pg_query($dbConn, 'SELECT 1');
+        pg_close($dbConn);
+
+        guarda_config($errors);
+    } catch (RuntimeException $e) {
         $errors[] = "db_postgresql";
-        $errors2[] = 'No se puede conectar a la base de datos. Revisa los datos de usuario y contraseña.';
-        return;
+        error_log('Installer PostgreSQL error: ' . $e->getMessage());
+        $errors2[] = 'Error al crear o conectar a la base de datos.';
     }
-
-    // Comprobamos que la BD exista, de lo contrario la creamos
-    $connection2 = @pg_connect('host=' . $db_host . ' port=' . $db_port . ' dbname=' . $db_name . ' user=' . $db_user . ' password=' . $db_pass);
-
-    if ($connection2) {
-        guarda_config($errors);
-        return;
-    }
-
-    // Creamos la base de datos de forma segura
-    $sqlCrearBD = 'CREATE DATABASE ' . fs_install_quote_pg_identifier($db_name) . ';';
-    if (pg_query($connection, $sqlCrearBD)) {
-        guarda_config($errors);
-        return;
-    }
-
-    $errors[] = "db_postgresql";
-    error_log('Installer PostgreSQL create database error: ' . pg_last_error($connection));
-    $errors2[] = 'Error al crear la base de datos.';
 }
 
 function random_string($length = 20)

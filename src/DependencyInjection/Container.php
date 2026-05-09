@@ -100,16 +100,6 @@ class Container
             ->setFactory([SessionManager::class, 'getInstance'])
             ->setPublic(true);
 
-        // Prepared DB (con statement caching)
-        $container->register('prepared_db', \fs_prepared_db::class)
-            ->setPublic(true)
-            ->setShared(true);
-
-        // Doctrine DBAL Factory (migración gradual, backend opcional)
-        $container->register('dbal.connection_factory', \FSFramework\Database\DbalConnectionFactory::class)
-            ->setPublic(true)
-            ->setShared(true);
-
         // Request (desde Kernel)
         $container->register('request', \Symfony\Component\HttpFoundation\Request::class)
             ->setFactory([\FSFramework\Core\Kernel::class, 'request'])
@@ -308,11 +298,6 @@ class Container
     public static function session(): SessionManager
     {
         return self::get('session');
-    }
-
-    public static function preparedDb(): \fs_prepared_db
-    {
-        return self::get('prepared_db');
     }
 
     /**

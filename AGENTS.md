@@ -291,8 +291,6 @@ Use provided helper functions:
   fs_controller.php           # Main controller base class
   fs_model.php                # Base model class
   fs_db2.php                  # Database abstraction layer
-  fs_dbal.php                 # DBAL wrapper for modern queries
-  fs_dbal_engine.php          # DBAL engine interface
   fs_db_engine.php           # Database engine interface
   fs_mysql.php                # MySQL driver
   fs_postgresql.php           # PostgreSQL driver
@@ -323,7 +321,6 @@ Use provided helper functions:
   fs_list_filter.php          # List filters
   fs_model_autoloader.php     # Model autoloading
   fs_model_crud_trait.php     # CRUD trait for models
-  fs_prepared_db.php          # Prepared statements
   fs_secure_chunked_upload.php # Secure file uploads
 /controller/                   # Main application controllers
   admin_*.php                 # Admin controllers
@@ -350,7 +347,6 @@ Use provided helper functions:
   /Cache/                     # CacheManager (Symfony Cache)
   /Controller/                # BaseController, PageController
   /Core/                      # Kernel, Router, ThemeManager, Plugins
-  /Database/                  # DbalConnectionFactory
   /DependencyInjection/       # Container (Service Locator)
   /Dinamic/Model/             # Dynamic models (User)
   /Event/                     # FSEventDispatcher, ModelEvent, ControllerEvent
@@ -938,7 +934,6 @@ The "Limpiar caché" button in admin_info (`index.php?page=admin_info&clean_cach
 | `symfony/dotenv` | ^7.4 | Environment variables |
 | `symfony/yaml` | ^7.4 | YAML parsing |
 | `twig/twig` | ^3.0 | Template engine |
-| `doctrine/dbal` | ^4.3 | Database abstraction layer |
 | `firebase/php-jwt` | ^7.0 | JWT token handling |
 | `phpmailer/phpmailer` | ^6.0 | Email sending |
 | `phpoffice/phpspreadsheet` | ^2.0 | Excel/CSV file handling |
@@ -1327,53 +1322,12 @@ class api_users extends fs_controller
 // In controllers/models:
 $result = $this->db->select("SELECT * FROM users WHERE active = " . $this->var2str(TRUE));
 
-// Prepared statements via fs_prepared_db
-$stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
-$result = $this->db->execute($stmt, [$userId]);
+// With parameterized queries (recommended)
+$result = $this->db->select("SELECT * FROM users WHERE id = ?", [$userId]);
+$result = $this->db->exec("INSERT INTO users (nick, email) VALUES (?, ?)", true, [$nick, $email]);
 
 // Get via Container
 $db = \FSFramework\DependencyInjection\Container::db();
-```
-
-### Modern DBAL Layer (fs_dbal)
-
-FSFramework includes a modern DBAL layer based on Doctrine DBAL for more complex queries:
-
-```php
-use FSFramework\Database\DbalConnectionFactory;
-use FSFramework\DependencyInjection\Container;
-
-// Get DBAL connection
-$dbal = Container::get(DbalConnectionFactory::class)->getConnection();
-
-// Execute queries with parameters
-$result = $dbal->fetchAllAssociative(
-    "SELECT * FROM users WHERE active = ? AND role = ?",
-    [$active, $role]
-);
-
-// Insert with automatic quoting
-$dbal->insert('users', [
-    'nick' => $nick,
-    'email' => $email,
-    'created_at' => new \DateTime()
-]);
-
-// Update with prepared statement
-$dbal->update('users', ['last_login' => new \DateTime()], ['id' => $userId]);
-
-// Delete
-$dbal->delete('users', ['id' => $id]);
-
-// Use QueryBuilder for complex queries
-$qb = $dbal->createQueryBuilder()
-    ->select('u.*', 'p.name')
-    ->from('users', 'u')
-    ->leftJoin('u', 'profiles', 'p', 'u.profile_id = p.id')
-    ->where('u.active = ?')->setParameter(0, true)
-    ->andWhere('u.created_at > ?')->setParameter(1, $since);
-
-$results = $qb->fetchAllAssociative();
 ```
 
 ### Database Drivers

@@ -29,7 +29,6 @@ require_once __DIR__ . '/base/fs_login.php';
 require_once __DIR__ . '/base/fs_model.php';
 require_once __DIR__ . '/base/fs_settings.php';
 require_once __DIR__ . '/base/fs_extended_model.php';
-require_once __DIR__ . '/base/fs_prepared_db.php';
 require_once __DIR__ . '/base/fs_query_builder.php';
 require_once __DIR__ . '/base/fs_schema.php';
 require_once __DIR__ . '/base/fs_model_autoloader.php';
