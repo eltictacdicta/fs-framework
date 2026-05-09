@@ -91,6 +91,9 @@ try {
 /// Boot del Kernel moderno (inicializa plugins de FS2025)
 \FSFramework\Core\Kernel::boot();
 
+/// Inicializar DebugBar (solo se renderiza si FS_DEBUG está activo)
+\FSFramework\Core\DebugBar::init();
+
 /// --- Security Headers ---
 \FSFramework\Security\SecurityHeaders::applyDefaultHeaders();
 

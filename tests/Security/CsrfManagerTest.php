@@ -93,6 +93,50 @@ class CsrfManagerTest extends TestCase
         $this->assertSame($sharedSession, $property->getValue());
     }
 
+    public function testDuplicateTokenReuseIsDetected(): void
+    {
+        $token = CsrfManager::generateToken('duplicate_form');
+
+        // First validation should succeed
+        $this->assertTrue(CsrfManager::isValidWithReuseCheck($token, 'duplicate_form', true));
+
+        // Second validation with same token should fail (reused)
+        $this->assertFalse(CsrfManager::isValidWithReuseCheck($token, 'duplicate_form', true));
+    }
+
+    public function testIsValidWithoutReuseCheckAllowsReuse(): void
+    {
+        $token = CsrfManager::generateToken('reuse_allowed_form');
+
+        $this->assertTrue(CsrfManager::isValid($token, 'reuse_allowed_form'));
+        $this->assertTrue(CsrfManager::isValid($token, 'reuse_allowed_form'));
+    }
+
+    public function testReuseCheckCanBeDisabled(): void
+    {
+        $token = CsrfManager::generateToken('soft_reuse_form');
+
+        // With reuse prevention disabled, same token works multiple times
+        $this->assertTrue(CsrfManager::isValidWithReuseCheck($token, 'soft_reuse_form', false));
+        $this->assertTrue(CsrfManager::isValidWithReuseCheck($token, 'soft_reuse_form', false));
+    }
+
+    public function testInvalidTokenFailsReuseCheck(): void
+    {
+        $this->assertFalse(CsrfManager::isValidWithReuseCheck('invalid_token', 'invalid_form', true));
+    }
+
+    public function testIsReusedDetectsPreviouslyMarkedToken(): void
+    {
+        $token = CsrfManager::generateToken('marked_form');
+
+        $this->assertFalse(CsrfManager::isReused($token, 'marked_form'));
+
+        CsrfManager::markAsUsed($token, 'marked_form');
+
+        $this->assertTrue(CsrfManager::isReused($token, 'marked_form'));
+    }
+
     private function resetCsrfState(): void
     {
         $ref = new ReflectionClass(CsrfManager::class);

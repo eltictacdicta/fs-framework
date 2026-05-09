@@ -354,8 +354,24 @@ class fs_login
      */
     private function log_in_user(&$controller_user, $nick, $password, $ip)
     {
+        // Protección anti fuerza bruta: bloquear si hay demasiados intentos
+        if (class_exists('\\FSFramework\\Security\\LoginThrottle') && \FSFramework\Security\LoginThrottle::isThrottled($nick)) {
+            $this->core_log->new_error(\FSFramework\Security\LoginThrottle::GENERIC_ERROR);
+            $this->core_log->save('Login bloqueado por exceso de intentos para ' . $nick, 'login', TRUE);
+            return FALSE;
+        }
+
         $user = $this->user_model->get($nick);
         if (!$user) {
+            // Protección contra enumeración de usuarios: ejecutar password_verify
+            // contra un hash fijo para que el tiempo de respuesta sea similar
+            if (class_exists('\\FSFramework\\Security\\LoginThrottle')) {
+                \FSFramework\Security\LoginThrottle::recordFailure($nick);
+            }
+            $dummyHash = class_exists('\\FSFramework\\Security\\LoginThrottle')
+                ? \FSFramework\Security\LoginThrottle::getDummyHash()
+                : '$2y$10$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP12345';
+            password_verify($password, $dummyHash);
             $this->core_log->new_error('El usuario o contraseña no coinciden!');
             $this->user_model->clean_cache(TRUE);
             $this->cache->clean();
@@ -389,9 +405,17 @@ class fs_login
         }
 
         if (!$password_verified) {
+            if (class_exists('\\FSFramework\\Security\\LoginThrottle')) {
+                \FSFramework\Security\LoginThrottle::recordFailure($nick);
+            }
             $this->core_log->new_error('¡Contraseña incorrecta! (' . $nick . ')');
             $this->core_log->save('¡Contraseña incorrecta! (' . $nick . ')', 'login', TRUE);
             return FALSE;
+        }
+
+        // Login exitoso: limpiar el contador de intentos fallidos
+        if (class_exists('\\FSFramework\\Security\\LoginThrottle')) {
+            \FSFramework\Security\LoginThrottle::clear($nick);
         }
 
         // Detectar contraseñas inseguras (menores a 8 caracteres) y marcar para cambio obligatorio
