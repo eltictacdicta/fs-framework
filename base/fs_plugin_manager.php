@@ -1176,7 +1176,7 @@ class fs_plugin_manager
         // Intentar usar el validador del plugin legacy_support
         $validator_class = 'FSFramework\\Plugins\\legacy_support\\VersionValidator';
         if (class_exists($validator_class)) {
-            return $validator_class::isCompatible($min_version);
+            return $validator_class::isCompatible((float) $min_version);
         }
 
         // Fallback: cargar el archivo directamente si el autoloader no lo ha cargado
@@ -1184,7 +1184,7 @@ class fs_plugin_manager
         if (file_exists($validator_file)) {
             require_once $validator_file;
             if (class_exists($validator_class)) {
-                return $validator_class::isCompatible($min_version);
+                return $validator_class::isCompatible((float) $min_version);
             }
         }
 
