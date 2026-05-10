@@ -61,7 +61,9 @@ class SecurityHelpersTest extends TestCase
 
     public function testSafeRedirectManagesAllowedHostsAndSanitizesUrls(): void
     {
-        $baseHost = defined('FS_BASE_URL') ? strtolower((string) parse_url((string) FS_BASE_URL, PHP_URL_HOST) ?: 'app.local') : 'app.local';
+        $baseUrl = defined('FS_BASE_URL') ? (string) FS_BASE_URL : 'https://app.local';
+        $baseHost = strtolower((string) parse_url($baseUrl, PHP_URL_HOST));
+
         $_SERVER['HTTP_HOST'] = $baseHost;
 
         SafeRedirect::addAllowedHosts(['trusted.example', 'trusted.example', 'cdn.example']);

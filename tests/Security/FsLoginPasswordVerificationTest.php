@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Security;
 
+use FSFramework\Security\LoginThrottle;
 use FSFramework\Security\SessionManager;
 use PHPUnit\Framework\TestCase;
 
@@ -127,15 +128,62 @@ final class FsLoginPasswordVerificationTest extends TestCase
         $this->assertStringStartsWith('$argon2id$', $user->password);
     }
 
-    private function invokeLogInUser(object $user, string $password): array
+    public function testLogInUserUsesGenericErrorForUnknownUser(): void
+    {
+        $result = $this->invokeLogInUser(null, 'Secret123', 'missing-user');
+
+        $this->assertFalse($result['result']);
+        $this->assertSame([LoginThrottle::GENERIC_ERROR], $result['logger']->errors);
+    }
+
+    public function testLogInUserUsesGenericErrorForWrongPassword(): void
+    {
+        $user = new class() {
+            public string $nick = 'demo';
+            public string $email = 'demo@example.com';
+            public bool $enabled = true;
+            public bool $admin = false;
+            public string $log_key = 'logkey';
+            public bool $logged_on = false;
+            public string $password;
+
+            public function __construct()
+            {
+                $this->password = password_hash('Secret123', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+            }
+
+            public function set_password($password): bool
+            {
+                return true;
+            }
+
+            public function new_logkey(): void
+            {
+                $this->logged_on = true;
+                $this->log_key = 'rotated';
+            }
+
+            public function save(): bool
+            {
+                return true;
+            }
+        };
+
+        $result = $this->invokeLogInUser($user, 'WrongSecret');
+
+        $this->assertFalse($result['result']);
+        $this->assertSame([LoginThrottle::GENERIC_ERROR], $result['logger']->errors);
+    }
+
+    private function invokeLogInUser(?object $user, string $password, string $nick = 'demo'): array
     {
         $login = new \fs_login();
         $this->setPrivateProperty($login, 'user_model', new class($user) {
-            public function __construct(private object $user)
+            public function __construct(private ?object $user)
             {
             }
 
-            public function get(string $nick): object
+            public function get(string $nick)
             {
                 return $this->user;
             }
@@ -144,15 +192,19 @@ final class FsLoginPasswordVerificationTest extends TestCase
             {
             }
         });
-        $this->setPrivateProperty($login, 'core_log', new class {
+        $logger = new class {
+            public array $errors = [];
+
             public function new_error(string $message): void
             {
+                $this->errors[] = $message;
             }
 
             public function save(string $message, string $channel = '', bool $important = false): void
             {
             }
-        });
+        };
+        $this->setPrivateProperty($login, 'core_log', $logger);
         $this->setPrivateProperty($login, 'cache', new class {
             public function clean(): void
             {
@@ -174,8 +226,9 @@ final class FsLoginPasswordVerificationTest extends TestCase
         $method->setAccessible(true);
 
         return [
-            'result' => $method->invokeArgs($login, [&$controllerUser, 'demo', $password, '127.0.0.1']),
+            'result' => $method->invokeArgs($login, [&$controllerUser, $nick, $password, '127.0.0.1']),
             'controllerUser' => $controllerUser,
+            'logger' => $logger,
         ];
     }
 

@@ -655,15 +655,21 @@ class Html
             self::$twig = self::createTwigEnvironment();
         }
 
+        $loader = self::$twig->getLoader();
+        if (!$loader instanceof FilesystemLoader) {
+            return;
+        }
+
         foreach ($GLOBALS['plugins'] ?? [] as $plugin) {
             $extDir = FS_FOLDER . self::PLUGINS_DIR . $plugin . '/Extension/View/';
             if (is_dir($extDir)) {
                 try {
-                    self::$twig->getLoader()->addPath(
+                    $loader->addPath(
                         $extDir,
                         'PluginExtension' . $plugin
                     );
-                } catch (\LogicException) {
+                } catch (\LogicException $e) {
+                    error_log('Warning registering plugin extension namespace for plugin ' . $plugin . ': ' . $e->getMessage());
                 }
             }
         }

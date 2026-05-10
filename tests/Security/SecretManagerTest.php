@@ -34,7 +34,6 @@ class SecretManagerTest extends TestCase
     public function testGetSecretReturnsConfiguredFrameworkSecret(): void
     {
         $secret = SecretManager::getSecret();
-        $this->assertIsString($secret);
         $this->assertGreaterThanOrEqual(32, strlen($secret));
         if (defined('FS_SECRET_KEY')) {
             $this->assertSame(constant('FS_SECRET_KEY'), $secret);

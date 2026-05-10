@@ -87,7 +87,7 @@ class DataSrcRepositoryTest extends TestCase
     {
         TestDataSrc::clear();
         $all = TestDataSrc::all();
-        $this->assertIsArray($all);
+        $this->assertSame([], $all);
     }
 }
 

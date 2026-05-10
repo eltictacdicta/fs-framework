@@ -35,6 +35,17 @@ final class SecurityHeadersTest extends TestCase
         $this->assertSame($first, $second);
     }
 
+    public function testAdditionalFormActionSourcesAreAppendedToDefaultPolicy(): void
+    {
+        if ((defined('FS_DISABLE_CSP') && FS_DISABLE_CSP) || defined('FS_CSP_POLICY') || (defined('FS_CSP_FORM_ACTION') && trim((string) FS_CSP_FORM_ACTION) !== '')) {
+            $this->markTestSkipped('Form-action policy overridden by local configuration.');
+        }
+
+        $policy = SecurityHeaders::contentSecurityPolicy(['https://buffet3d.ddev.site']);
+
+        $this->assertStringContainsString("form-action 'self' https://buffet3d.ddev.site", $policy);
+    }
+
     public function testNonceAttributeContainsEscapedNonce(): void
     {
         $nonce = SecurityHeaders::nonce();

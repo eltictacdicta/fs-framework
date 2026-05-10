@@ -23,12 +23,3 @@ parameters:
         -
             identifier: if.alwaysTrue
             path: src/Core/Base/Controller.php
-        -
-            identifier: function.alreadyNarrowedType
-            path: src/Security/SecretManager.php
-        -
-            identifier: booleanAnd.alwaysTrue
-            path: src/Security/SecretManager.php
-        -
-            identifier: notIdentical.alwaysTrue
-            path: src/Security/SecretManager.php

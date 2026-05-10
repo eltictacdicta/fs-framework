@@ -256,11 +256,16 @@ class SafeRedirect
      */
     private static function matchesConfiguredBaseHost(string $targetHost): bool
     {
-        if (!defined('FS_BASE_URL') || !is_string(FS_BASE_URL) || trim(FS_BASE_URL) === '') {
+        if (!defined('FS_BASE_URL')) {
             return true;
         }
 
-        $baseHost = parse_url((string) FS_BASE_URL, PHP_URL_HOST);
+        $baseUrl = trim((string) FS_BASE_URL);
+        if ($baseUrl === '') {
+            return true;
+        }
+
+        $baseHost = parse_url($baseUrl, PHP_URL_HOST);
         if (!is_string($baseHost) || $baseHost === '') {
             return true;
         }
@@ -310,11 +315,16 @@ class SafeRedirect
 
         self::$hostsBootstrapped = true;
 
-        if (!defined('FS_BASE_URL') || !is_string(FS_BASE_URL) || trim(FS_BASE_URL) === '') {
+        if (!defined('FS_BASE_URL')) {
             return;
         }
 
-        $host = parse_url((string) FS_BASE_URL, PHP_URL_HOST);
+        $baseUrl = trim((string) FS_BASE_URL);
+        if ($baseUrl === '') {
+            return;
+        }
+
+        $host = parse_url($baseUrl, PHP_URL_HOST);
         if (is_string($host) && $host !== '') {
             $host = strtolower($host);
             if (!in_array($host, self::$allowedHosts, true)) {

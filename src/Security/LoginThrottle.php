@@ -42,6 +42,8 @@ use FSFramework\Cache\CacheManager;
  */
 class LoginThrottle
 {
+    private const DUMMY_HASH = '$2y$10$A0b56LIq1wcnJW0G1XtkcetlZdkMb0FNgbj.ulLVPIH2zo.BjDMD2';
+
     const CACHE_PREFIX = 'login_throttle_';
     const MAX_ATTEMPTS = 6;
     const THROTTLE_WINDOW = 600; // 10 minutos
@@ -112,7 +114,7 @@ class LoginThrottle
      */
     public static function getDummyHash(): string
     {
-        return '$2y$10$dummyHashForTimingAttackProtection1234567890abcdefABCDEF';
+        return self::DUMMY_HASH;
     }
 
     private static function getAttempts(string $key): int

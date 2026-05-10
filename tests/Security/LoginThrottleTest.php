@@ -80,13 +80,12 @@ class LoginThrottleTest extends TestCase
     public function testGetDummyHashReturnsBcryptString(): void
     {
         $hash = LoginThrottle::getDummyHash();
-        $this->assertIsString($hash);
         $this->assertStringStartsWith('$2y$', $hash);
+        $this->assertSame('bcrypt', password_get_info($hash)['algoName']);
     }
 
     public function testGenericErrorMessageIsDefined(): void
     {
-        $this->assertIsString(LoginThrottle::GENERIC_ERROR);
         $this->assertNotEmpty(LoginThrottle::GENERIC_ERROR);
     }
 

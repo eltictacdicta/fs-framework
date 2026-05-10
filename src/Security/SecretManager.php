@@ -73,15 +73,21 @@ class SecretManager
         return null;
     }
 
-    private static function getConstantSecret(): ?string
+    private static function getConstantSecret(): string|null
     {
         if (!defined('FS_SECRET_KEY')) {
             return null;
         }
 
         $value = constant('FS_SECRET_KEY');
+        if (!is_scalar($value)) {
+            throw new \InvalidArgumentException(
+                'FS_SECRET_KEY constant must be a string or scalar value, got ' . get_debug_type($value)
+            );
+        }
 
-        if (!is_string($value) || $value === '') {
+        $value = trim((string) $value);
+        if ($value === '') {
             return null;
         }
 

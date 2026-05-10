@@ -72,7 +72,7 @@ abstract class DataSrcRepository
 
         try {
             $cache = CacheManager::getInstance();
-            $cache->delete(static::cacheKey());
+            $cache->delete(self::cacheKey());
         } catch (\Throwable) {
         }
     }
@@ -118,7 +118,7 @@ abstract class DataSrcRepository
     {
         try {
             $cache = CacheManager::getInstance();
-            $data = $cache->get(static::cacheKey(), function () {
+            $data = $cache->get(self::cacheKey(), function () {
                 return static::loadAll();
             }, static::$defaultTtl);
 

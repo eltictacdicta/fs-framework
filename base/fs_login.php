@@ -370,9 +370,11 @@ class fs_login
             }
             $dummyHash = class_exists('\\FSFramework\\Security\\LoginThrottle')
                 ? \FSFramework\Security\LoginThrottle::getDummyHash()
-                : '$2y$10$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP12345';
+                : '$2y$10$A0b56LIq1wcnJW0G1XtkcetlZdkMb0FNgbj.ulLVPIH2zo.BjDMD2';
             password_verify($password, $dummyHash);
-            $this->core_log->new_error('El usuario o contraseña no coinciden!');
+            $this->core_log->new_error(class_exists('\\FSFramework\\Security\\LoginThrottle')
+                ? \FSFramework\Security\LoginThrottle::GENERIC_ERROR
+                : 'Usuario o contraseña incorrectos.');
             $this->user_model->clean_cache(TRUE);
             $this->cache->clean();
             return FALSE;
@@ -408,7 +410,9 @@ class fs_login
             if (class_exists('\\FSFramework\\Security\\LoginThrottle')) {
                 \FSFramework\Security\LoginThrottle::recordFailure($nick);
             }
-            $this->core_log->new_error('¡Contraseña incorrecta! (' . $nick . ')');
+            $this->core_log->new_error(class_exists('\\FSFramework\\Security\\LoginThrottle')
+                ? \FSFramework\Security\LoginThrottle::GENERIC_ERROR
+                : 'Usuario o contraseña incorrectos.');
             $this->core_log->save('¡Contraseña incorrecta! (' . $nick . ')', 'login', TRUE);
             return FALSE;
         }

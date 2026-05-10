@@ -23,7 +23,7 @@ final class SecurityHeaders
     private const SCRIPT_SRC_DIRECTIVE = "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com";
     private const STYLE_SRC_DIRECTIVE = "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com";
 
-    public static function contentSecurityPolicy(): string
+    public static function contentSecurityPolicy(array $additionalFormActionSources = []): string
     {
         if (defined('FS_DISABLE_CSP') && FS_DISABLE_CSP) {
             return '';
@@ -36,7 +36,7 @@ final class SecurityHeaders
             }
         }
 
-        $formAction = 'form-action ' . self::buildFormActionSources();
+        $formAction = 'form-action ' . self::buildFormActionSources($additionalFormActionSources);
 
         return implode('; ', [
             "default-src 'self'",
@@ -56,13 +56,28 @@ final class SecurityHeaders
         ]);
     }
 
-    private static function buildFormActionSources(): string
+    private static function buildFormActionSources(array $additionalSources = []): string
     {
         if (defined('FS_CSP_FORM_ACTION') && is_string(FS_CSP_FORM_ACTION) && trim(FS_CSP_FORM_ACTION) !== '') {
             return trim(FS_CSP_FORM_ACTION);
         }
 
-        return "'self'";
+        $sources = ["'self'"];
+
+        foreach ($additionalSources as $source) {
+            if (!is_string($source)) {
+                continue;
+            }
+
+            $source = trim($source);
+            if ($source === '') {
+                continue;
+            }
+
+            $sources[] = $source;
+        }
+
+        return implode(' ', array_values(array_unique($sources)));
     }
 
     /**
@@ -95,8 +110,19 @@ final class SecurityHeaders
         header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
 
         $policy = self::contentSecurityPolicy();
-        if ($policy !== '') {
+        if ($policy !== '' && !self::shouldDeferContentSecurityPolicy()) {
             header('Content-Security-Policy: ' . $policy);
         }
+    }
+
+    private static function shouldDeferContentSecurityPolicy(): bool
+    {
+        $requestUri = $_SERVER['REQUEST_URI'] ?? null;
+        if (!is_string($requestUri) || $requestUri === '') {
+            return false;
+        }
+
+        $path = parse_url($requestUri, PHP_URL_PATH);
+        return is_string($path) && $path === '/oauth/login';
     }
 }
