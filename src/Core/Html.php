@@ -520,6 +520,7 @@ class Html
     /**
      * Scan plugin Extension/View directories and render matching templates.
      *
+<<<<<<< HEAD
      * **FS2025 Extension/View Pattern** — permite a los plugins inyectar contenido
      * en cualquier plantilla del sistema sin modificar los archivos originales.
      *
@@ -551,6 +552,18 @@ class Html
      * @param string|null $parentTemplate Nombre de la plantilla padre (sin extensión)
      * @param string|null $position Posición donde inyectar (e.g., 'footer', 'header', 'sidebar')
      * @return string HTML renderizado de todas las extensiones coincidentes
+=======
+     * Plugins can inject content into any parent template by creating files
+     * named: {ParentTemplate}_{position}_{order}.html.twig in their Extension/View/ directory.
+     *
+     * Example:
+     *   Extension/View/MenuTemplate_footer_10.html.twig
+     *   → injects into MenuTemplate's "footer" position with order 10
+     *
+     * @param string|null $parentTemplate Parent template name (without extension)
+     * @param string|null $position Position name (e.g., 'footer', 'header', 'sidebar')
+     * @return string Rendered HTML from all matching extension templates
+>>>>>>> 939273fcbaa22c5371c3b36983776857342492bf
      */
     public static function getPluginIncludeViews(?string $parentTemplate = null, ?string $position = null): string
     {
