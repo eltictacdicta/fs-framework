@@ -499,6 +499,18 @@ class fs_core_log
             'message' => $msg,
             'time' => time(),
         ];
+
+        // Feed DebugBar in development mode
+        if (defined('FS_DEBUG') && FS_DEBUG && class_exists('\\FSFramework\\Core\\DebugBar')) {
+            $level = match ($channel) {
+                'errors' => 'error',
+                'advices' => 'warning',
+                'messages' => 'info',
+                'sql' => 'info',
+                default => 'info',
+            };
+            \FSFramework\Core\DebugBar::addLog($level, $msg);
+        }
     }
 
     /**

@@ -12,6 +12,7 @@
    <div class="row">
       <div class="col-sm-12">
          {% if constant('FS_DB_HISTORY') %}
+         {% if not (defined('FS_DEBUG') and constant('FS_DEBUG')) %}
          <div class="panel panel-default hidden-print">
             <div class="panel-heading">
                <h3 class="panel-title">{{ 'sql_queries'|trans }}:</h3>
@@ -22,6 +23,7 @@
                </ol>
             </div>
          </div>
+         {% endif %}
          {# Hidden extensions executed via AJAX instead of iframes #}
          {% for ext in fsc.extensions %}
          {% if ext.type == 'hidden_iframe' %}
@@ -61,6 +63,9 @@
    </span>
 </footer>
 </div>
+{% if defined('FS_DEBUG') and constant('FS_DEBUG') %}
+{{ debugBarRender.render() | raw }}
+{% endif %}
 </body>
 
 </html>

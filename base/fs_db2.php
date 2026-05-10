@@ -262,7 +262,15 @@ class fs_db2
         /// limpiamos la lista de tablas, ya que podría haber cambios al ejecutar este sql.
         self::$table_list = FALSE;
 
-        return self::$engine->exec($sql, $transaction, $params);
+        $start = microtime(true);
+        $result = self::$engine->exec($sql, $transaction, $params);
+        $duration = microtime(true) - $start;
+
+        if (class_exists('\\FSFramework\\Core\\DebugBar')) {
+            \FSFramework\Core\DebugBar::addQuery($sql, $duration);
+        }
+
+        return $result;
     }
 
     /**
@@ -410,7 +418,15 @@ class fs_db2
             $this->connect();
         }
 
-        return self::$engine->select($sql, $params);
+        $start = microtime(true);
+        $result = self::$engine->select($sql, $params);
+        $duration = microtime(true) - $start;
+
+        if (class_exists('\\FSFramework\\Core\\DebugBar')) {
+            \FSFramework\Core\DebugBar::addQuery($sql, $duration);
+        }
+
+        return $result;
     }
 
     /**

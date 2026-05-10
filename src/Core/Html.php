@@ -206,6 +206,12 @@ class Html
                 $loader->addPath($modernPath, $plugin);
                 $loader->prependPath($modernPath);
             }
+
+            // Extension/View paths for template injection (FS2025 pattern)
+            $extPath = $pluginBase . '/Extension/View';
+            if (is_dir($extPath)) {
+                $loader->addPath($extPath, 'PluginExtension' . $plugin);
+            }
         }
     }
 
@@ -355,8 +361,9 @@ class Html
         $twig->addFunction(new \Twig\TwigFunction(
             'getIncludeViews',
             function ($template = null, $position = null) {
-                return [];
-            }
+                return self::getPluginIncludeViews($template, $position);
+            },
+            ['is_safe' => ['html']]
         ));
     }
 
@@ -367,7 +374,7 @@ class Html
             'nl2br', 'json_encode', 'json_decode', 'time', 'date',
             'number_format', 'sprintf', 'str_replace', 'ceil', 'floor',
             'round', 'class_exists', 'mt_rand', 'rand', 'substr',
-            'mb_substr', 'urlencode',
+            'mb_substr', 'urlencode', 'defined',
         ];
 
         foreach ($coreFunctions as $func) {
@@ -439,7 +446,7 @@ class Html
         }
 
         $twig->addGlobal('debugBarRender', new class {
-            public function render(): string { return ''; }
+            public function render(): string { return \FSFramework\Core\DebugBar::render(); }
             public function renderHead(): string { return ''; }
         });
 
@@ -510,4 +517,121 @@ class Html
         return in_array('legacy_support', $GLOBALS['plugins'] ?? [], true);
     }
 
+    /**
+     * Scan plugin Extension/View directories and render matching templates.
+     *
+     * Plugins can inject content into any parent template by creating files
+     * named: {ParentTemplate}_{position}_{order}.html.twig in their Extension/View/ directory.
+     *
+     * Example:
+     *   Extension/View/MenuTemplate_footer_10.html.twig
+     *   → injects into MenuTemplate's "footer" position with order 10
+     *
+     * @param string|null $parentTemplate Parent template name (without extension)
+     * @param string|null $position Position name (e.g., 'footer', 'header', 'sidebar')
+     * @return string Rendered HTML from all matching extension templates
+     */
+    public static function getPluginIncludeViews(?string $parentTemplate = null, ?string $position = null): string
+    {
+        if ($parentTemplate === null) {
+            return '';
+        }
+
+        $template = $parentTemplate;
+        if (str_contains($template, '.')) {
+            $template = substr($template, 0, strrpos($template, '.'));
+        }
+
+        $position = $position ?? '';
+
+        $extensions = self::findExtensionViews($template, $position);
+        if (empty($extensions)) {
+            return '';
+        }
+
+        $output = '';
+        foreach ($extensions as $ext) {
+            try {
+                $output .= self::$twig->render($ext['path'], []);
+            } catch (\Throwable $e) {
+                error_log('Error rendering plugin extension view ' . $ext['path'] . ': ' . $e->getMessage());
+            }
+        }
+
+        return $output;
+    }
+
+    /**
+     * Find plugin extension views matching a parent template and position.
+     *
+     * @return array<int, array{path: string, order: int, plugin: string}>
+     */
+    private static function findExtensionViews(string $template, string $position): array
+    {
+        $found = [];
+        $plugins = $GLOBALS['plugins'] ?? [];
+
+        foreach ($plugins as $plugin) {
+            $extDir = FS_FOLDER . self::PLUGINS_DIR . $plugin . '/Extension/View/';
+            if (!is_dir($extDir)) {
+                continue;
+            }
+
+            $prefix = $template;
+            if ($position !== '') {
+                $prefix .= '_' . $position;
+            }
+
+            $files = glob($extDir . $prefix . '_*.html.twig') ?: [];
+            foreach ($files as $file) {
+                $filename = basename($file);
+                $order = self::extractOrderFromFilename($filename, $prefix);
+                $found[] = [
+                    'path' => '@PluginExtension' . $plugin . '/' . $filename,
+                    'order' => $order,
+                    'plugin' => $plugin,
+                ];
+            }
+        }
+
+        usort($found, fn($a, $b) => $a['order'] <=> $b['order']);
+
+        return $found;
+    }
+
+    /**
+     * Extract the order number from an extension template filename.
+     *
+     * Format: {Template}_{position}_{order}.html.twig
+     */
+    private static function extractOrderFromFilename(string $filename, string $prefix): int
+    {
+        $base = substr($filename, strlen($prefix) + 1);
+        $base = str_replace('.html.twig', '', $base);
+
+        return is_numeric($base) ? (int) $base : 0;
+    }
+
+    /**
+     * Register plugin Extension/View directories as a Twig namespace.
+     */
+    public static function registerExtensionViewPaths(): void
+    {
+        if (self::$twig === null) {
+            self::$twig = self::createTwigEnvironment();
+        }
+
+        foreach ($GLOBALS['plugins'] ?? [] as $plugin) {
+            $extDir = FS_FOLDER . self::PLUGINS_DIR . $plugin . '/Extension/View/';
+            if (is_dir($extDir)) {
+                try {
+                    self::$twig->getLoader()->addPath(
+                        $extDir,
+                        'PluginExtension' . $plugin
+                    );
+                } catch (\LogicException) {
+                }
+            }
+        }
+    }
 }
