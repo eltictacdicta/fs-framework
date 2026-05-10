@@ -388,7 +388,7 @@ class fs_controller extends fs_app
             return false;
         }
 
-        if (!\FSFramework\Security\CsrfManager::isValid($token, $tokenId)) {
+        if (!\FSFramework\Security\CsrfManager::isValidWithReuseCheck($token, $tokenId, true)) {
             $msg = "CSRF: Token inválido en ({$this->class_name})";
             error_log($msg);
 
@@ -450,7 +450,7 @@ class fs_controller extends fs_app
             return false;
         }
 
-        if (!\FSFramework\Security\CsrfManager::isValid($token, $tokenId)) {
+        if (!\FSFramework\Security\CsrfManager::isValidWithReuseCheck($token, $tokenId, true)) {
             error_log("CSRF requireCsrf: Token inválido en ({$this->class_name})");
             $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
             $this->csrf_valid = false;

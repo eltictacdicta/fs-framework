@@ -35,6 +35,7 @@ use Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage;
  * 
  * Compatible con formularios legacy de FSFramework.
  * Proporciona funciones para generar y validar tokens CSRF.
+ * Incluye detección de reutilización de tokens (one-time use).
  * 
  * Uso en plantillas Twig/RainTPL:
  *   {{ csrf_field() }}
@@ -49,21 +50,37 @@ class CsrfManager
 {
     private static ?CsrfTokenManager $manager = null;
     private static ?Session $session = null;
-    
+
     /**
      * ID por defecto para tokens de formularios
      */
     public const DEFAULT_TOKEN_ID = 'fs_form';
-    
+
     /**
      * Nombre del campo hidden en formularios
      */
     public const FIELD_NAME = '_csrf_token';
-    
+
     /**
      * Nombre del header HTTP para peticiones AJAX
      */
     public const HEADER_NAME = 'X-CSRF-TOKEN';
+
+    /**
+     * TTL para el registro de tokens usados (segundos).
+     * Debe ser mayor que la vida máxima de un token CSRF.
+     */
+    private const USED_TOKENS_TTL = 600;
+
+    /**
+     * Máximo de tokens usados almacenados a la vez.
+     */
+    private const MAX_USED_TOKENS = 500;
+
+    /**
+     * Clave de caché para el registro de tokens usados.
+     */
+    private const USED_TOKENS_CACHE_KEY = 'csrf_used_tokens';
 
     /**
      * Inicializa y retorna el gestor de tokens CSRF.
@@ -250,11 +267,98 @@ class CsrfManager
         ?string $tokenId = null
     ): bool {
         $token = self::getTokenFromRequest($request);
-        
+
         if ($token === null) {
             return false;
         }
-        
+
         return self::isValid($token, $tokenId);
+    }
+
+    /**
+     * Marca un token como usado para evitar reutilización (one-time use).
+     *
+     * Tras validar un token con éxito, debe llamarse a este método para
+     * registrarlo como consumido. Los tokens marcados como usados no
+     * podrán validarse de nuevo.
+     *
+     * @param string $token El valor del token
+     * @param string|null $tokenId Identificador del token
+     */
+    public static function markAsUsed(string $token, ?string $tokenId = null): void
+    {
+        try {
+            $cache = \FSFramework\Cache\CacheManager::getInstance();
+            $usedTokens = $cache->getItem(self::USED_TOKENS_CACHE_KEY, []);
+            $tokenIdKey = $tokenId ?? self::DEFAULT_TOKEN_ID;
+            $cacheKey = $tokenIdKey . ':' . md5($token);
+
+            if (!is_array($usedTokens)) {
+                $usedTokens = [];
+            }
+
+            // Limitar el tamaño del array para evitar consumo excesivo de memoria
+            if (count($usedTokens) >= self::MAX_USED_TOKENS) {
+                $usedTokens = array_slice($usedTokens, -self::MAX_USED_TOKENS + 1, null, true);
+            }
+
+            $usedTokens[$cacheKey] = time();
+            $cache->set(self::USED_TOKENS_CACHE_KEY, $usedTokens, self::USED_TOKENS_TTL);
+        } catch (\Throwable) {
+        }
+    }
+
+    /**
+     * Verifica si un token ya ha sido usado (one-time use).
+     *
+     * @param string $token El valor del token
+     * @param string|null $tokenId Identificador del token
+     * @return bool True si el token ya fue usado
+     */
+    public static function isReused(string $token, ?string $tokenId = null): bool
+    {
+        try {
+            $cache = \FSFramework\Cache\CacheManager::getInstance();
+            $usedTokens = $cache->getItem(self::USED_TOKENS_CACHE_KEY, []);
+            $tokenIdKey = $tokenId ?? self::DEFAULT_TOKEN_ID;
+            $cacheKey = $tokenIdKey . ':' . md5($token);
+
+            return isset($usedTokens[$cacheKey]);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Valida un token CSRF con protección contra reutilización.
+     *
+     * Si el token es válido pero ya fue usado, se considera inválido.
+     * Después de una validación exitosa, el token se marca como usado.
+     *
+     * @param string $token El valor del token a validar
+     * @param string|null $tokenId Identificador del token
+     * @param bool $preventReuse Si es true, bloquea la reutilización del token
+     * @return bool True si el token es válido y no ha sido reutilizado
+     */
+    public static function isValidWithReuseCheck(
+        string $token,
+        ?string $tokenId = null,
+        bool $preventReuse = true
+    ): bool {
+        $tokenId = $tokenId ?? self::DEFAULT_TOKEN_ID;
+
+        if (!self::isValid($token, $tokenId)) {
+            return false;
+        }
+
+        if ($preventReuse && self::isReused($token, $tokenId)) {
+            return false;
+        }
+
+        if ($preventReuse) {
+            self::markAsUsed($token, $tokenId);
+        }
+
+        return true;
     }
 }
