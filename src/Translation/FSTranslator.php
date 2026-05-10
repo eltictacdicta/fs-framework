@@ -130,8 +130,15 @@ class FSTranslator
         }
 
         $translator = self::getInstance();
-        
-        return $translator->trans($id, $parameters, $domain ?? 'messages', $locale);
+        $result = $translator->trans($id, $parameters, $domain ?? 'messages', $locale);
+
+        // Track missing translations for DebugBar
+        if ($result === $id && empty($parameters) && defined('FS_DEBUG') && FS_DEBUG
+            && class_exists('\\FSFramework\\Core\\DebugBar')) {
+            \FSFramework\Core\DebugBar::addMissingTranslation($id);
+        }
+
+        return $result;
     }
 
     /**

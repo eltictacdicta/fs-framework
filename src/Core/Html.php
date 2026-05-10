@@ -374,7 +374,7 @@ class Html
             'nl2br', 'json_encode', 'json_decode', 'time', 'date',
             'number_format', 'sprintf', 'str_replace', 'ceil', 'floor',
             'round', 'class_exists', 'mt_rand', 'rand', 'substr',
-            'mb_substr', 'urlencode',
+            'mb_substr', 'urlencode', 'defined',
         ];
 
         foreach ($coreFunctions as $func) {
