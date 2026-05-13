@@ -100,12 +100,12 @@ class SessionManager
 
         $idleTimeout = SessionPolicy::getIdleTimeout();
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-        $sessionName = defined('FS_SESSION_NAME') ? FS_SESSION_NAME : 'FSSESSION';
+        $sessionName = self::resolveSessionName();
 
         $options = [
             'name' => $sessionName,
             'cookie_lifetime' => $idleTimeout,
-            'cookie_path' => '/',
+            'cookie_path' => self::resolveCookiePath(),
             'cookie_secure' => $secure,
             'cookie_httponly' => true,
             'cookie_samesite' => 'Lax',
@@ -128,6 +128,44 @@ class SessionManager
         $this->maybeRegenerateId();
 
         $this->initialized = true;
+    }
+
+    private static function resolveSessionName(): string
+    {
+        if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
+            return trim((string) FS_SESSION_NAME);
+        }
+
+        $seed = defined('FS_FOLDER') ? (string) FS_FOLDER : trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? __DIR__));
+        $seed = str_replace('\\', '/', $seed);
+
+        return 'FSSESS_' . substr(sha1($seed), 0, 12);
+    }
+
+    private static function resolveCookiePath(): string
+    {
+        $path = '/';
+
+        if (defined('FS_FOLDER')) {
+            $normalized = str_replace('\\', '/', trim((string) FS_FOLDER));
+            if (preg_match('#^[A-Za-z]:/#', $normalized) === 1) {
+                $segments = preg_split('#[\\/]+#', trim((string) $normalized, '\\/')) ?: [];
+                $projectName = end($segments);
+                $path = is_string($projectName) && $projectName !== '' ? '/' . trim($projectName, '/') : '/';
+            } elseif ($normalized !== '') {
+                $path = '/' . trim($normalized, '/');
+            }
+        }
+
+        if ($path === '') {
+            $path = '/';
+        }
+
+        if ($path[0] !== '/') {
+            $path = '/' . $path;
+        }
+
+        return str_ends_with($path, '/') ? $path : $path . '/';
     }
 
     /**
@@ -215,6 +253,7 @@ class SessionManager
      */
     public function logout(): void
     {
+        $this->legacyAuthBridge->revokeCurrentLegacyLogin();
         $this->session->invalidate();
 
         // Limpiar cookies legacy

@@ -133,6 +133,10 @@ class fs_core_log
             // Intentar configurar Monolog si está disponible
             self::initMonolog();
         }
+
+        if (!empty($controller_name) && empty(self::$controller_name)) {
+            self::$controller_name = $controller_name;
+        }
     }
 
     /**

@@ -12,6 +12,9 @@
         <testsuite name="Base">
             <directory>tests/Base</directory>
         </testsuite>
+        <testsuite name="Core">
+            <directory>tests/Core</directory>
+        </testsuite>
         <testsuite name="Security">
             <directory>tests/Security</directory>
         </testsuite>

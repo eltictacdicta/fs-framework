@@ -59,7 +59,7 @@
       {% if fsc.get_messages() %}
       <div class="alert alert-success">
          <ul class="list-unstyled">
-            {% for value in fsc.get_messages() %}<li>{{ value|e }}</li>{% endfor %}
+            {% for value in fsc.get_messages() %}<li>{{ value|e|nl2br }}</li>{% endfor %}
          </ul>
       </div>
       {% endif %}

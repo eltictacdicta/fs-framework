@@ -771,6 +771,10 @@ class fs_plugin_manager
 
         foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/Controller'), 'php') as $f) {
             $short_name = substr($f, 0, -4);
+            if (!fs_is_modern_controller_basename($short_name)) {
+                continue;
+            }
+
             $full_class = "FSFramework\\Plugins\\$plugin_name\\Controller\\$short_name";
 
             // Skip route controllers (they use #[FSRoute] and are not CMS pages)

@@ -137,6 +137,19 @@ class FsCoreLogTest extends TestCase
         $this->assertSame('test_controller', $this->log->controller_name());
     }
 
+    public function testControllerNameCanBeAssignedAfterEarlyBootstrap(): void
+    {
+        $ref = new \ReflectionClass('fs_core_log');
+        $prop = $ref->getProperty('data_log');
+        $prop->setAccessible(true);
+        $prop->setValue(null, null);
+
+        new \fs_core_log();
+        $lateControllerLog = new \fs_core_log('admin_user');
+
+        $this->assertSame('admin_user', $lateControllerLog->controller_name());
+    }
+
     public function testUserNick(): void
     {
         $this->log->set_user_nick('admin');

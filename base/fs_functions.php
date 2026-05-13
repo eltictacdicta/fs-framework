@@ -85,12 +85,16 @@ function fatal_handler()
 function find_controller($name)
 {
     foreach ($GLOBALS['plugins'] as $plugin) {
+        $modernPath = FS_PLUGINS_PREFIX . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $name . '.php';
+        if (file_exists(FS_FOLDER . '/' . $modernPath) && fs_is_modern_controller_basename($name)) {
+            return $modernPath;
+        }
+
         $legacyPath = FS_PLUGINS_PREFIX . $plugin . FS_PLUGIN_LEGACY_CONTROLLER_PATH . $name . '.php';
         if (file_exists(FS_FOLDER . '/' . $legacyPath)) {
             return $legacyPath;
         }
 
-        $modernPath = FS_PLUGINS_PREFIX . $plugin . FS_PLUGIN_MODERN_CONTROLLER_PATH . $name . '.php';
         if (file_exists(FS_FOLDER . '/' . $modernPath)) {
             $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$name}";
             if (fs_is_modern_page_controller($fullClass)) {
@@ -162,6 +166,10 @@ function fs_find_modern_controller_in_plugin(string $plugin, string $pageName): 
         }
 
         $className = substr($file, 0, -4);
+        if (!fs_is_modern_controller_basename($className)) {
+            continue;
+        }
+
         $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$className}";
 
         if (!class_exists($fullClass)) {
@@ -847,6 +855,10 @@ function fs_find_controller_by_page_data($plugin, $name)
         }
 
         $className = substr($file, 0, -4);
+        if (!fs_is_modern_controller_basename($className)) {
+            continue;
+        }
+
         $fullClass = "FSFramework\\Plugins\\{$plugin}\\Controller\\{$className}";
         if (!fs_is_modern_page_controller($fullClass)) {
             continue;
@@ -879,6 +891,12 @@ function fs_detect_controller_page_name($fullClass, $default)
     }
 
     return $default;
+}
+
+function fs_is_modern_controller_basename(string $className): bool
+{
+    return $className !== ''
+        && preg_match('/^[A-Z][A-Za-z0-9_]*$/', $className) === 1;
 }
 
 function fs_is_modern_page_controller($fullClass)

@@ -33,6 +33,7 @@ class SessionManagerTest extends TestCase
     {
         LegacyAuthBridge::resetSkipLegacyCookieRestoreCheck();
         SessionManager::reset();
+        unset($_SERVER['REQUEST_URI']);
 
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_unset();
@@ -175,6 +176,50 @@ class SessionManagerTest extends TestCase
         $this->assertFalse($manager->isLoggedIn());
     }
 
+    public function testLogoutClearsSessionAndLegacyCookieGlobals(): void
+    {
+        $_COOKIE['user'] = 'testuser';
+        $_COOKIE['logkey'] = 'abc123';
+        $_COOKIE['auth_sig'] = 'sig';
+        $_COOKIE['fsNick'] = 'testuser';
+
+        $manager = SessionManager::getInstance();
+        $manager->login([
+            'nick' => 'testuser',
+            'email' => 'test@example.com',
+            'admin' => false,
+            'logkey' => 'abc123',
+        ]);
+
+        $manager->logout();
+
+        $this->assertNull($manager->getSymfonySession()->get('user_nick'));
+        $this->assertArrayNotHasKey('user', $_COOKIE);
+        $this->assertArrayNotHasKey('logkey', $_COOKIE);
+        $this->assertArrayNotHasKey('auth_sig', $_COOKIE);
+        $this->assertArrayNotHasKey('fsNick', $_COOKIE);
+    }
+
+    public function testResolveCookiePathUsesCurrentInstallationPath(): void
+    {
+        $_SERVER['REQUEST_URI'] = '/fs-framework/index.php?page=admin_home';
+
+        $this->assertSame('/fs-framework/', $this->invokeResolveCookiePath());
+    }
+
+    public function testResolveSessionNameIsScopedToCurrentInstallation(): void
+    {
+        if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
+            $this->markTestSkipped('FS_SESSION_NAME override is active.');
+        }
+
+        $sessionName = $this->invokeResolveSessionName();
+
+        $this->assertStringStartsWith('FSSESS_', $sessionName);
+        $this->assertNotSame('FSSESSION', $sessionName);
+        $this->assertSame(19, strlen($sessionName));
+    }
+
     public function testCsrfFieldRendersModernAndLegacyTokenNames(): void
     {
         $manager = SessionManager::getInstance();
@@ -206,5 +251,21 @@ class SessionManagerTest extends TestCase
         $session->set('_fs_test_portal_only', '1');
 
         $this->assertFalse($manager->isLoggedIn());
+    }
+
+    private function invokeResolveCookiePath(): string
+    {
+        $method = new \ReflectionMethod(SessionManager::class, 'resolveCookiePath');
+        $method->setAccessible(true);
+
+        return (string) $method->invoke(null);
+    }
+
+    private function invokeResolveSessionName(): string
+    {
+        $method = new \ReflectionMethod(SessionManager::class, 'resolveSessionName');
+        $method->setAccessible(true);
+
+        return (string) $method->invoke(null);
     }
 }

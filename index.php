@@ -202,6 +202,10 @@ if (!empty($pagename)) {
                 foreach (scandir($modernDir) as $file) {
                     if (substr($file, -4) === '.php') {
                         $className = substr($file, 0, -4);
+                        if (!fs_is_modern_controller_basename($className)) {
+                            continue;
+                        }
+
                         $fullClass = "FSFramework\\Plugins\\$plugin\\Controller\\$className";
                         
                         // Skip if class doesn't exist (autoloader didn't find it)

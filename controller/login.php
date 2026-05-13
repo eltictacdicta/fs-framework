@@ -92,11 +92,9 @@ class login extends fs_controller
         }
 
         $this->core_log->new_message(
-            '<i class="fa fa-info-circle"></i> ' .
-            '<b>Configuración inicial pendiente.</b><br>' .
-            'Inicia sesión con el usuario <code>admin</code> y la contraseña temporal ' .
-            'que se mostró durante la instalación.<br>' .
-            '<small class="text-warning">Recuerda cambiar la contraseña después de iniciar sesión.</small>'
+            "Configuración inicial pendiente.\n"
+            . "Inicia sesión con el usuario admin y la contraseña temporal que se mostró durante la instalación.\n"
+            . "Recuerda cambiar la contraseña después de iniciar sesión."
         );
     }
 

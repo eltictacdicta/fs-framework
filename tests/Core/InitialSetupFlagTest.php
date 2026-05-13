@@ -99,11 +99,12 @@ final class InitialSetupFlagTest extends TestCase
         self::assertSame('completed', $this->getFlag());
     }
 
-    public function testCompleteInitialSetupReturnsFalseWhenNoFlag(): void
+    public function testCompleteInitialSetupCreatesCompletedFlagWhenNoFlag(): void
     {
         $result = \fs_user::completeInitialSetup();
 
-        self::assertFalse($result);
+        self::assertTrue($result);
+        self::assertSame('completed', $this->getFlag());
     }
 
     public function testFlagValuesAreCorrect(): void

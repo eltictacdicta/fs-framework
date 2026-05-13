@@ -17,6 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+use FSFramework\DependencyInjection\Container;
 use FSFramework\Translation\FSTranslator;
 use FSFramework\Security\SafeRedirect;
 
@@ -87,6 +88,7 @@ class force_password_change extends fs_controller
 
         if ($this->user->save()) {
             $this->password_changed = true;
+            $this->completeInitialSetupIfPending();
 
             $session = $this->getSession();
             $session->remove('force_password_change');
@@ -99,6 +101,41 @@ class force_password_change extends fs_controller
         }
 
         $this->new_error_msg(FSTranslator::trans('password-change-error'));
+    }
+
+    private function completeInitialSetupIfPending(): void
+    {
+        try {
+            $userService = Container::get('fs_user');
+            if (is_object($userService)
+                && method_exists($userService, 'isInitialSetupPending')
+                && method_exists($userService, 'completeInitialSetup')
+                && $userService->isInitialSetupPending()) {
+                $userService->completeInitialSetup();
+            }
+        } catch (\Throwable $e) {
+            $this->resolveLogger()->error('force_password_change::completeInitialSetupIfPending failed.', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
+    }
+
+    private function resolveLogger()
+    {
+        try {
+            if (Container::has('logger')) {
+                return Container::get('logger');
+            }
+        } catch (\Throwable) {
+        }
+
+        return class_exists('fs_core_log') ? new \fs_core_log(__CLASS__) : new class {
+            public function error(string $message, array $context = []): void
+            {
+                error_log($message . (!empty($context['message']) ? ' ' . $context['message'] : ''));
+            }
+        };
     }
 
     private function flashMessage(string $message): void

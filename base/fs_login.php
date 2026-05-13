@@ -19,6 +19,9 @@
  */
 require_once 'base/fs_ip_filter.php';
 
+use FSFramework\Security\LegacyAuthBridge;
+use FSFramework\Security\SessionManager;
+
 /**
  * Description of fs_login
  *
@@ -154,16 +157,9 @@ class fs_login
      */
     public function log_out($rmuser = FALSE)
     {
-        $path = '/';
-        if (filter_input(INPUT_SERVER, 'REQUEST_URI')) {
-            $aux = parse_url(str_replace('/index.php', '', filter_input(INPUT_SERVER, 'REQUEST_URI')));
-            if (isset($aux['path'])) {
-                $path = $aux['path'];
-                if (substr($path, -1) != '/') {
-                    $path .= '/';
-                }
-            }
-        }
+        $paths = $this->getLegacyCookiePaths();
+
+        $this->revokeCurrentRememberMeToken();
 
         // Limpiar sesión de Symfony
         $this->session->invalidate();
@@ -171,31 +167,50 @@ class fs_login
 
         /// borramos las cookies (legacy)
         if (filter_input(INPUT_COOKIE, 'logkey')) {
-            $this->setLegacyCookie('logkey', '', $expire);
-            $this->setLegacyCookie('logkey', '', $expire, $path);
-            if ($path != '/') {
-                $this->setLegacyCookie('logkey', '', $expire, '/');
+            foreach ($paths as $path) {
+                $this->setLegacyCookie('logkey', '', $expire, $path);
             }
         }
 
         if (filter_input(INPUT_COOKIE, 'auth_sig')) {
-            $this->setLegacyCookie('auth_sig', '', $expire);
-            $this->setLegacyCookie('auth_sig', '', $expire, $path);
-            if ($path != '/') {
-                $this->setLegacyCookie('auth_sig', '', $expire, '/');
+            foreach ($paths as $path) {
+                $this->setLegacyCookie('auth_sig', '', $expire, $path);
             }
         }
 
         /// ¿Eliminamos la cookie del usuario?
         $user = filter_input(INPUT_COOKIE, 'user');
         if ($rmuser && $user) {
-            $this->setLegacyCookie('user', '', $expire);
-            $this->setLegacyCookie('user', '', $expire, $path);
+            foreach ($paths as $path) {
+                $this->setLegacyCookie('user', '', $expire, $path);
+            }
         }
 
         /// guardamos el evento en el log
         $this->core_log->set_user_nick($user);
         $this->core_log->save('El usuario ha cerrado la sesión.', 'login');
+    }
+
+    private function revokeCurrentRememberMeToken(): void
+    {
+        $legacyAuthBridge = $this->getLegacyAuthBridge();
+        if ($legacyAuthBridge !== null) {
+            $legacyAuthBridge->revokeCurrentLegacyLogin();
+            return;
+        }
+
+        $nick = $this->session->get('user_nick') ?: filter_input(INPUT_COOKIE, 'user');
+        if (!$nick) {
+            return;
+        }
+
+        $user = $this->user_model->get($nick);
+        if (!$user || !method_exists($user, 'rotate_logkey')) {
+            return;
+        }
+
+        $user->rotate_logkey();
+        $user->save();
     }
 
     /**
@@ -433,6 +448,7 @@ class fs_login
         } else if ($user->save()) {
             // Guardamos en sesión Y en cookies (legacy)
             $this->save_session_data($user);
+            $this->completeInitialSetupIfPending();
 
             // Marcar en sesión si requiere cambio de contraseña
             if ($requiresPasswordChange) {
@@ -453,6 +469,13 @@ class fs_login
         $this->core_log->new_error('Imposible guardar los datos de usuario.');
         $this->cache->clean();
         return FALSE;
+    }
+
+    private function completeInitialSetupIfPending(): void
+    {
+        if (class_exists('fs_user') && \fs_user::isInitialSetupPending()) {
+            \fs_user::completeInitialSetup();
+        }
     }
 
     private function verify_modern_password($user, $password)
@@ -483,6 +506,8 @@ class fs_login
      */
     private function save_session_data($user)
     {
+        $logKey = $this->ensurePersistentLogKey($user);
+
         // 0. Regenerar session ID para prevenir session fixation
         if ($this->session->isStarted()) {
             $this->session->migrate(true);
@@ -495,23 +520,38 @@ class fs_login
         $this->session->set('user_email', $user->email ?? null);
         $this->session->set('user_role', !empty($user->admin) ? 'admin' : 'user');
         $this->session->set('user_admin', (bool) ($user->admin ?? false));
-        $this->session->set('user_logkey', $user->log_key);
+        $this->session->set('user_logkey', $logKey !== '' ? $logKey : null);
         $this->session->set('user_logged_in', true);
         $this->session->set('login_time', $now);
         $this->session->set('last_activity', $now);
 
         // 2. Guardar en Cookies (compatibilidad legacy)
         // usamos el método antiguo para no romper nada que lea $_COOKIE directamente
-        $this->save_cookie($user);
+        $this->save_cookie($user, $logKey);
     }
 
     /**
      * 
      * @param fs_user $user
      */
-    private function save_cookie($user)
+    private function save_cookie($user, string $logKey = '')
     {
-        $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, (string) $user->log_key);
+        if ($logKey === '') {
+            $logKey = isset($user->log_key) ? trim((string) $user->log_key) : '';
+        }
+
+        if ($logKey === '') {
+            $this->core_log->new_error('No se pudo emitir la cookie legacy de sesión porque falta log_key.');
+            return;
+        }
+
+        $legacyAuthBridge = $this->getLegacyAuthBridge();
+        if ($legacyAuthBridge !== null) {
+            $legacyAuthBridge->issueLegacyCookies((string) $user->nick, $logKey);
+            return;
+        }
+
+        $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, $logKey);
 
         $rememberMe = (bool) $this->session->get('remember_me', false);
         $expire = time() + FS_COOKIES_EXPIRE;
@@ -528,9 +568,71 @@ class fs_login
             }
         }
 
-        $this->setLegacyCookie('user', $user->nick, $expire);
-        $this->setLegacyCookie('logkey', $user->log_key, $expire);
-        $this->setLegacyCookie('auth_sig', $signature, $expire);
+        $path = $this->getLegacyCookiePath();
+        $this->setLegacyCookie('user', (string) $user->nick, $expire, $path);
+        $this->setLegacyCookie('logkey', $logKey, $expire, $path);
+        $this->setLegacyCookie('auth_sig', $signature, $expire, $path);
+    }
+
+    private function ensurePersistentLogKey($user): string
+    {
+        $logKey = isset($user->log_key) ? trim((string) $user->log_key) : '';
+        if ($logKey !== '') {
+            return $logKey;
+        }
+
+        if (!method_exists($user, 'rotate_logkey')) {
+            return '';
+        }
+
+        $previousLogKey = $user->log_key ?? null;
+        $user->rotate_logkey();
+        $logKey = isset($user->log_key) ? trim((string) $user->log_key) : '';
+        if ($logKey === '') {
+            return '';
+        }
+
+        if (method_exists($user, 'save') && !$user->save()) {
+            $user->log_key = $previousLogKey;
+            $this->core_log->new_error('No se pudo regenerar el log_key del usuario actual.');
+            return '';
+        }
+
+        return $logKey;
+    }
+
+    private function getLegacyAuthBridge(): ?LegacyAuthBridge
+    {
+        if (!class_exists(SessionManager::class)) {
+            return null;
+        }
+
+        return SessionManager::getInstance()->getLegacyAuthBridge();
+    }
+
+    private function getLegacyCookiePath(): string
+    {
+        $requestUri = filter_input(INPUT_SERVER, 'REQUEST_URI') ?: '/';
+        $path = parse_url(str_replace('/index.php', '', $requestUri), PHP_URL_PATH) ?: '/';
+
+        if ($path === '') {
+            return '/';
+        }
+
+        return substr($path, -1) === '/' ? $path : $path . '/';
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getLegacyCookiePaths(): array
+    {
+        $paths = [$this->getLegacyCookiePath()];
+        if ($paths[0] !== '/') {
+            $paths[] = '/';
+        }
+
+        return $paths;
     }
 
     private function setLegacyCookie(string $name, string $value, int $expire, string $path = '/'): void

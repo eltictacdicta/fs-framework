@@ -106,7 +106,7 @@ class fs_session_manager
 
         $cookieParams = [
             'lifetime' => $idleTimeout,
-            'path' => '/',
+            'path' => self::resolveCookiePath(),
             'domain' => '',
             'secure' => $secure,
             'httponly' => true,
@@ -116,7 +116,7 @@ class fs_session_manager
 
         ini_set('session.gc_maxlifetime', (string) $gcLifetime);
 
-        $sessionName = defined('FS_SESSION_NAME') ? FS_SESSION_NAME : 'FSSESSION';
+        $sessionName = self::resolveSessionName();
         session_name($sessionName);
 
         if (!session_start()) {
@@ -138,6 +138,43 @@ class fs_session_manager
         }
         self::$csrfToken = $_SESSION['_csrf_token'];
         self::$initialized = true;
+    }
+
+    private static function resolveSessionName(): string
+    {
+        if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
+            return trim((string) FS_SESSION_NAME);
+        }
+
+        $seed = defined('FS_FOLDER') ? (string) FS_FOLDER : trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? __DIR__));
+        $seed = str_replace('\\', '/', $seed);
+
+        return 'FSSESS_' . substr(sha1($seed), 0, 12);
+    }
+
+    private static function resolveCookiePath(): string
+    {
+        $requestUri = filter_var((string) ($_SERVER['REQUEST_URI'] ?? '/'), FILTER_SANITIZE_URL);
+        $parsedPath = parse_url($requestUri, PHP_URL_PATH);
+        $path = is_string($parsedPath) ? $parsedPath : '/';
+
+        if (str_ends_with($path, '/index.php')) {
+            $path = substr($path, 0, -10);
+        }
+
+        if ($path === '' || $path === false) {
+            $path = '/';
+        }
+
+        if ($path[0] !== '/') {
+            $path = '/' . $path;
+        }
+
+        if ($path === '') {
+            return '/';
+        }
+
+        return substr($path, -1) === '/' ? $path : $path . '/';
     }
 
     /**

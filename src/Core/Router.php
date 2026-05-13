@@ -60,6 +60,10 @@ class Router
                 $files = glob($dir . '/*.php') ?: [];
                 sort($files, SORT_STRING);
                 foreach ($files as $f) {
+                    if (!$this->isModernControllerFile($f)) {
+                        continue;
+                    }
+
                     $parts[] = $f . ':' . (int) filemtime($f);
                 }
             }
@@ -185,6 +189,10 @@ class Router
         $files = glob($directory . '/*.php');
 
         foreach ($files as $file) {
+            if (!$this->isModernControllerFile($file)) {
+                continue;
+            }
+
             $className = $namespace . basename($file, '.php');
 
             try {
@@ -308,6 +316,12 @@ class Router
     {
         $shortClass = (new \ReflectionClass($className))->getShortName();
         return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $shortClass) . '_' . $methodName);
+    }
+
+    private function isModernControllerFile(string $filePath): bool
+    {
+        $className = basename($filePath, '.php');
+        return preg_match('/^[A-Z][A-Za-z0-9_]*$/', $className) === 1;
     }
 
     private function loadLegacyControllerRoutes(string $directory): RouteCollection

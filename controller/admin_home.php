@@ -534,6 +534,10 @@ class admin_home extends fs_controller
             if (file_exists($modernPath)) {
                 foreach (fs_file_manager::scan_files($modernPath, 'php') as $file_name) {
                     $className = substr($file_name, 0, -4);
+                    if (!fs_is_modern_controller_basename($className)) {
+                        continue;
+                    }
+
                     $fullClass = "FSFramework\\Plugins\\$plugin\\Controller\\$className";
 
                     // Skip route controllers (they use #[FSRoute] and are not CMS pages)

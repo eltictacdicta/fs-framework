@@ -566,7 +566,10 @@ final class fs_maintenance_mode
             return trim((string) FS_SESSION_NAME);
         }
 
-        return 'FSSESSION';
+        $seed = defined('FS_FOLDER') ? (string) FS_FOLDER : (string) ($_SERVER['SCRIPT_FILENAME'] ?? __DIR__);
+        $seed = str_replace('\\', '/', $seed);
+
+        return 'FSSESS_' . substr(sha1($seed), 0, 12);
     }
 
     /**

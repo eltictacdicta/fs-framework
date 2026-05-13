@@ -144,6 +144,34 @@ final class LegacyAuthBridge
     {
         $expire = time() - 3600;
         $this->writeLegacyCookies('', '', '', $expire);
+        $this->clearAuxiliaryLegacyCookies($expire);
+        $this->syncLegacyCookieGlobals('', '', '', $expire);
+    }
+
+    public function revokeCurrentLegacyLogin(): void
+    {
+        $nick = $this->resolveLegacyLogoutNick();
+        if ($nick === null) {
+            return;
+        }
+
+        $this->loadUserDependencies();
+        if (!class_exists('fs_user')) {
+            return;
+        }
+
+        try {
+            $userModel = new fs_user();
+            $user = $userModel->get($nick);
+            if (!$user || !method_exists($user, 'rotate_logkey') || !method_exists($user, 'save')) {
+                return;
+            }
+
+            $user->rotate_logkey();
+            $user->save();
+        } catch (Throwable $e) {
+            $this->logException('revokeCurrentLegacyLogin', $e, ['nick' => $nick]);
+        }
     }
 
     public function issueLegacyCookies(string $nick, string $logkey): void
@@ -162,18 +190,82 @@ final class LegacyAuthBridge
 
     private function writeLegacyCookies(string $nick, string $logkey, string $signature, int $expire): void
     {
-        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-        $cookieOptions = [
-            'expires' => $expire,
-            'path' => '/',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ];
+        foreach ($this->resolveLegacyCookiePaths($expire) as $cookieOptions) {
+            setcookie('user', $nick, $cookieOptions);
+            setcookie('logkey', $logkey, $cookieOptions);
+            setcookie('auth_sig', $signature, $cookieOptions);
+        }
 
-        setcookie('user', $nick, $cookieOptions);
-        setcookie('logkey', $logkey, $cookieOptions);
-        setcookie('auth_sig', $signature, $cookieOptions);
+        $this->syncLegacyCookieGlobals($nick, $logkey, $signature, $expire);
+    }
+
+    private function clearAuxiliaryLegacyCookies(int $expire): void
+    {
+        foreach ($this->resolveLegacyCookiePaths($expire) as $cookieOptions) {
+            setcookie('fsNick', '', $cookieOptions);
+        }
+    }
+
+    /**
+     * @return array<int, array{expires: int, path: string, secure: bool, httponly: bool, samesite: string}>
+     */
+    private function resolveLegacyCookiePaths(int $expire): array
+    {
+        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        $paths = [$this->resolveLegacyCookiePath()];
+
+        if ($expire < time() && $paths[0] !== '/') {
+            $paths[] = '/';
+        }
+
+        return array_map(static function (string $path) use ($expire, $secure): array {
+            return [
+                'expires' => $expire,
+                'path' => $path,
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ];
+        }, array_values(array_unique($paths)));
+    }
+
+    private function resolveLegacyCookiePath(): string
+    {
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+        $path = parse_url(str_replace('/index.php', '', $requestUri), PHP_URL_PATH) ?: '/';
+
+        if ($path === '') {
+            return '/';
+        }
+
+        return str_ends_with($path, '/') ? $path : $path . '/';
+    }
+
+    private function resolveLegacyLogoutNick(): ?string
+    {
+        $sessionNick = $this->session->get('user_nick');
+        if (is_string($sessionNick) && $sessionNick !== '') {
+            return $sessionNick;
+        }
+
+        $cookieUser = $_COOKIE['user'] ?? null;
+        if (is_string($cookieUser) && $cookieUser !== '') {
+            return $cookieUser;
+        }
+
+        return null;
+    }
+
+    private function syncLegacyCookieGlobals(string $nick, string $logkey, string $signature, int $expire): void
+    {
+        if ($expire < time()) {
+            unset($_COOKIE['user'], $_COOKIE['logkey'], $_COOKIE['auth_sig'], $_COOKIE['fsNick']);
+            return;
+        }
+
+        $_COOKIE['user'] = $nick;
+        $_COOKIE['logkey'] = $logkey;
+        $_COOKIE['auth_sig'] = $signature;
     }
 
     /**
@@ -211,6 +303,22 @@ final class LegacyAuthBridge
 
         $log = new fs_core_log(self::class);
         $log->alert('No se emitieron cookies legacy porque falta log_key.', ['nick' => $nick]);
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function logException(string $method, Throwable $e, array $context = []): void
+    {
+        if (!class_exists('fs_core_log')) {
+            return;
+        }
+
+        $log = new fs_core_log(self::class);
+        $log->error('LegacyAuthBridge exception in ' . $method . ': ' . $e->getMessage(), array_merge($context, [
+            'component' => self::class,
+            'trace' => $e->getTraceAsString(),
+        ]));
     }
 
     private function loadUserDependencies(): void

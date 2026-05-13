@@ -12,10 +12,13 @@ require_once dirname(__DIR__, 2) . '/base/fs_core_log.php';
 require_once dirname(__DIR__, 2) . '/base/fs_cache.php';
 require_once dirname(__DIR__, 2) . '/base/fs_functions.php';
 require_once dirname(__DIR__, 2) . '/model/core/fs_user.php';
+require_once dirname(__DIR__, 2) . '/model/fs_var.php';
 require_once dirname(__DIR__, 2) . '/base/fs_login.php';
 
 final class FsLoginPasswordVerificationTest extends TestCase
 {
+    private const VAR_NAME = 'initial_admin_setup';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -25,6 +28,7 @@ final class FsLoginPasswordVerificationTest extends TestCase
         $_SESSION = [];
         $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
         $_SERVER['HTTP_USER_AGENT'] = 'PHPUnit';
+        $this->cleanupInitialSetupFlag();
     }
 
     protected function tearDown(): void
@@ -33,6 +37,7 @@ final class FsLoginPasswordVerificationTest extends TestCase
         $_COOKIE = [];
         $_SESSION = [];
         unset($_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']);
+        $this->cleanupInitialSetupFlag();
 
         parent::tearDown();
     }
@@ -175,6 +180,49 @@ final class FsLoginPasswordVerificationTest extends TestCase
         $this->assertSame([LoginThrottle::GENERIC_ERROR], $result['logger']->errors);
     }
 
+    public function testLogInUserCompletesInitialSetupFlagWhenPending(): void
+    {
+        $fsVar = new \fs_var();
+        $fsVar->simple_save(self::VAR_NAME, 'pending');
+
+        $user = new class() {
+            public string $nick = 'demo';
+            public string $email = 'demo@example.com';
+            public bool $enabled = true;
+            public bool $admin = false;
+            public string $log_key = 'logkey';
+            public bool $logged_on = false;
+            public string $password;
+
+            public function __construct()
+            {
+                $this->password = password_hash('Secret123', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+            }
+
+            public function set_password($password): bool
+            {
+                return true;
+            }
+
+            public function new_logkey(): void
+            {
+                $this->logged_on = true;
+                $this->log_key = 'rotated';
+            }
+
+            public function save(): bool
+            {
+                return true;
+            }
+        };
+
+        $result = $this->invokeLogInUser($user, 'Secret123');
+
+        $this->assertTrue($result['result']);
+        $this->assertSame('completed', $fsVar->simple_get(self::VAR_NAME));
+        $this->assertFalse(\fs_user::isInitialSetupPending());
+    }
+
     private function invokeLogInUser(?object $user, string $password, string $nick = 'demo'): array
     {
         $login = new \fs_login();
@@ -237,5 +285,11 @@ final class FsLoginPasswordVerificationTest extends TestCase
         $property = new \ReflectionProperty($instance, $propertyName);
         $property->setAccessible(true);
         $property->setValue($instance, $value);
+    }
+
+    private function cleanupInitialSetupFlag(): void
+    {
+        $fsVar = new \fs_var();
+        $fsVar->simple_delete(self::VAR_NAME);
     }
 }

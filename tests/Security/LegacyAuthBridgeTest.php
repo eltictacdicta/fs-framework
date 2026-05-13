@@ -14,6 +14,12 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 
 class LegacyAuthBridgeTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        unset($_SERVER['REQUEST_URI']);
+        $_COOKIE = [];
+    }
+
     public function testRememberMeSignatureRequiresNonEmptySignature(): void
     {
         $bridge = new LegacyAuthBridge(new Session(new MockArraySessionStorage()));
@@ -61,6 +67,38 @@ class LegacyAuthBridgeTest extends TestCase
         $this->assertTrue($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, 'lk2'));
     }
 
+    public function testResolveLegacyCookiePathUsesCurrentInstallationPath(): void
+    {
+        $_SERVER['REQUEST_URI'] = '/fs-framework/index.php?page=admin_home';
+        $bridge = new LegacyAuthBridge(new Session(new MockArraySessionStorage()));
+
+        $this->assertSame('/fs-framework/', $this->invokeResolveLegacyCookiePath($bridge));
+    }
+
+    public function testResolveLegacyCookiePathFallsBackToRoot(): void
+    {
+        $_SERVER['REQUEST_URI'] = '/index.php?page=admin_home';
+        $bridge = new LegacyAuthBridge(new Session(new MockArraySessionStorage()));
+
+        $this->assertSame('/', $this->invokeResolveLegacyCookiePath($bridge));
+    }
+
+    public function testClearLegacyCookiesUnsetsCookieGlobalsIncludingFsNick(): void
+    {
+        $_COOKIE['user'] = 'demo';
+        $_COOKIE['logkey'] = 'lk';
+        $_COOKIE['auth_sig'] = 'sig';
+        $_COOKIE['fsNick'] = 'demo';
+
+        $bridge = new LegacyAuthBridge(new Session(new MockArraySessionStorage()));
+        $bridge->clearLegacyCookies();
+
+        $this->assertArrayNotHasKey('user', $_COOKIE);
+        $this->assertArrayNotHasKey('logkey', $_COOKIE);
+        $this->assertArrayNotHasKey('auth_sig', $_COOKIE);
+        $this->assertArrayNotHasKey('fsNick', $_COOKIE);
+    }
+
     /**
      * @return object{nick: string, enabled: bool, log_key: string}
      */
@@ -91,5 +129,13 @@ class LegacyAuthBridgeTest extends TestCase
         $method->setAccessible(true);
 
         return $method->invoke($bridge, $nick, $logkey, $cookieSig);
+    }
+
+    private function invokeResolveLegacyCookiePath(LegacyAuthBridge $bridge): string
+    {
+        $method = new \ReflectionMethod($bridge, 'resolveLegacyCookiePath');
+        $method->setAccessible(true);
+
+        return (string) $method->invoke($bridge);
     }
 }
