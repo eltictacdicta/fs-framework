@@ -736,23 +736,7 @@ class fs_mysql extends fs_db_engine
      */
     private function convert_pg_type($type)
     {
-        $matches = [];
-        if (preg_match('/^([a-z\s]+)(?:\((\d+(?:,\d+)?)\))?$/i', trim($type), $matches)) {
-            $baseType = strtolower(trim($matches[1]));
-            $baseType = preg_replace('/\s+without\s+time\s+zone$/i', '', $baseType);
-            $length = isset($matches[2]) ? $matches[2] : null;
-
-            foreach (self::$pgToMysqlTypes as $pgType => $mysqlType) {
-                if ($baseType === $pgType || strpos($baseType, $pgType) === 0) {
-                    if ($length && strpos($mysqlType, '(') === false) {
-                        return "{$mysqlType}({$length})";
-                    }
-                    return $mysqlType;
-                }
-            }
-        }
-
-        return $type;
+        return \FSFramework\Database\TypeNormalizer::convertPostgresType($type);
     }
 
     /**
