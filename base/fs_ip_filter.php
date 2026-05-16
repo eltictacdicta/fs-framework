@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 /**
  * This file is part of FSFramework originally based on Facturascript 2017
  * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
@@ -51,7 +52,11 @@ class fs_ip_filter
             $file = fopen($this->filePath, 'rb');
             if ($file) {
                 while (!feof($file)) {
-                    $line = explode(';', trim(fgets($file)));
+                    $raw = fgets($file);
+                    if ($raw === false) {
+                        break;
+                    }
+                    $line = explode(';', trim($raw));
                     $this->read_line($line);
                 }
 

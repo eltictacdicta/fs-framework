@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 /**
  * Migrador automático de FS_SECRET_KEY para instalaciones antiguas.
  *
