@@ -1,0 +1,74 @@
+# Roadmap: FSFramework Tech Debt Remediation
+
+## Overview
+
+Incremental cleanup of legacy technical debt in FSFramework. Three phases move from low-risk quick fixes (version guards, dead code removal) through type safety hardening to the larger structural decompositions. Each phase is independently revertible and must pass the full test suite. Backward compatibility is sacred — no public API breaks.
+
+## Phases
+
+- [ ] **Phase 1: Quick Wins & Security Fixes** - Remove dead code, fix version guards, eliminate dual PHPMailer, replace error suppression
+- [ ] **Phase 2: Type Safety & Test Coverage** - Add strict_types to base files, add tests for untested plugins
+- [ ] **Phase 3: Structural Decomposition** - Delegate SHA1 to legacy_support, decompose monolithic classes
+
+## Phase Details
+
+### Phase 1: Quick Wins & Security Fixes
+**Goal**: Entry points are correct, dead security code is removed, only one PHPMailer version exists, and error suppression is eliminated
+**Depends on**: Nothing (first phase)
+**Requirements**: REQ-01, REQ-03, REQ-04, REQ-08
+**Success Criteria** (what must be TRUE):
+  1. `index.php` and `install.php` check for PHP >= 8.2 instead of 5.6
+  2. `install.php` uses only `random_bytes()` — no `str_shuffle()` fallback exists
+  3. `extras/phpmailer/` directory and `phpmailer_compat.php` are gone; all email uses Composer PHPMailer 6.x
+  4. No `@` error suppression operators remain in `base/` files — replaced with proper checks or try/catch
+  5. Full test suite passes with zero regressions
+**Plans**: 4 plans
+
+Plans:
+- [ ] 01-01: Update PHP version guards in index.php and install.php to 8.2
+- [ ] 01-02: Remove weak random fallback (str_shuffle) from install.php
+- [ ] 01-03: Remove PHPMailer 5.x vendored code and compat bridge
+- [ ] 01-04: Replace @ error suppression with proper error handling in base/
+
+### Phase 2: Type Safety & Test Coverage
+**Goal**: Core files have strict type enforcement and business-critical plugins have automated tests
+**Depends on**: Phase 1
+**Requirements**: REQ-02, REQ-07
+**Success Criteria** (what must be TRUE):
+  1. At least 10 files in `base/` have `declare(strict_types=1)` — starting with simplest files
+  2. `business_data` plugin has test coverage for empresa, ejercicio, serie, divisa models
+  3. `catalogo_core` plugin has test coverage for articulo, familia, fabricante models
+  4. All new and existing tests pass
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01: Add declare(strict_types=1) to simple base files
+- [ ] 02-02: Add test coverage for business_data and catalogo_core plugins
+
+### Phase 3: Structural Decomposition
+**Goal**: SHA1 legacy code lives only in legacy_support plugin, and monolithic classes are split into focused services
+**Depends on**: Phase 2
+**Requirements**: REQ-05, REQ-06
+**Success Criteria** (what must be TRUE):
+  1. SHA1/MD5 password verification code removed from `PasswordHasherService` — only `legacy_support` plugin handles legacy hash verification
+  2. `StealthMode` split into `StealthAccessGate`, `HtmlSanitizer`, and `CssSanitizer` — each under 400 lines
+  3. `fs_mysql` schema operations extracted to `FsMysqlSchema` class — driver focused on connection/query only
+  4. `admin_home` cache management extracted to `admin_cache` controller — dashboard stays focused
+  5. Full test suite passes; no public API signatures changed
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01: Delegate SHA1 password verification entirely to legacy_support plugin
+- [ ] 03-02: Decompose StealthMode into focused service classes
+- [ ] 03-03: Extract schema ops from fs_mysql and split admin_home controller
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Quick Wins & Security Fixes | 0/4 | Not started | - |
+| 2. Type Safety & Test Coverage | 0/2 | Not started | - |
+| 3. Structural Decomposition | 0/3 | Not started | - |
