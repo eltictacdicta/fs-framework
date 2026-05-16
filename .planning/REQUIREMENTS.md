@@ -54,10 +54,10 @@ Requirements for milestone v0.11.0: Deferred Items Cleanup.
 | TEST-03 | Phase 4 | Complete |
 | TEST-04 | Phase 4 | Complete |
 | TEST-05 | Phase 4 | Complete |
-| MAIL-01 | Phase 5 | Pending |
-| MAIL-02 | Phase 5 | Pending |
-| MAIL-03 | Phase 5 | Pending |
-| MAIL-04 | Phase 5 | Pending |
+| MAIL-01 | Phase 5 | Complete |
+| MAIL-02 | Phase 5 | Complete |
+| MAIL-03 | Phase 5 | Complete |
+| MAIL-04 | Phase 5 | Complete |
 | PLUGIN-01 | Phase 6 | Pending |
 | PLUGIN-02 | Phase 6 | Pending |
 | PLUGIN-03 | Phase 6 | Pending |
@@ -69,16 +69,9 @@ Requirements for milestone v0.11.0: Deferred Items Cleanup.
 **Coverage:**
 - v1 requirements: 16 total
 - Mapped to phases: 16
+- Complete: 9
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-16*
-**Coverage:**
-- v1 requirements: 16 total
-- Mapped to phases: 16
-- Complete: 5
-- Unmapped: 0 ✓
-
----
-*Requirements defined: 2026-05-16*
-*Last updated: 2026-05-16 after Phase 4*
+*Last updated: 2026-05-16 after Phase 5*

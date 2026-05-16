@@ -3,14 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.11.0
 milestone_name: Deferred Items Cleanup
 status: executing
-last_updated: "2026-05-16T18:20:00.000Z"
-last_activity: 2026-05-16 — Phase 5 planned (1 plan)
+stopped_at: Phase 5 complete
+last_updated: "2026-05-16T18:30:00.000Z"
+last_activity: 2026-05-16 — Phase 5 complete (1/1 plans)
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 3
-  completed_plans: 2
-  percent: 25
+  completed_plans: 3
+  percent: 50
 ---
 
 # Project State
@@ -20,20 +21,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-16 after v0.10.8)
 
 **Core value:** Fix real issues with minimal risk.
-**Current focus:** Phase 5 — MailService Delegation
+**Current focus:** Phase 6 — Plugin Management Extraction
 
 ## Current Position
 
-Phase: 4 ✓ COMPLETE
-Plan: 2/2 complete
-Status: Ready to execute
-Last activity: 2026-05-16 -- Phase 5 planning complete
+Phase: 5 ✓ COMPLETE
+Plan: 1/1 complete
+Status: MailService Delegation — 4 requirements met
+Last activity: 2026-05-16 — Phase 5 complete
 
 ## Performance Metrics
 
 **Velocity (this milestone):**
 
-- Total plans completed this milestone: 2
+- Total plans completed this milestone: 3
 - Total phases this milestone: 4
 
 **By Phase (v0.10.8):**
@@ -49,7 +50,7 @@ Last activity: 2026-05-16 -- Phase 5 planning complete
 | Phase | Plans | Status |
 |-------|-------|--------|
 | 4. Test Suite Recovery | 2/2 | ✓ Complete |
-| 5. MailService Delegation | 0/1 | ◆ Planned |
+| 5. MailService Delegation | 1/1 | ✓ Complete |
 | 6. Plugin Mgmt Extraction | 0/0 | ○ Pending |
 | 7. fs_mysql Decomposition | 0/0 | ○ Pending |
 
@@ -67,7 +68,6 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- empresa.php email delegation to MailService (Phase 5)
 - Deeper fs_mysql decomposition (Phase 7)
 - Plugin management extraction from admin_home (Phase 6)
 
@@ -79,7 +79,7 @@ None.
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| refactor | empresa.php → MailService | Deferred | v0.10.8 |
+| refactor | empresa.php → MailService | Phase 5 ✓ Complete | v0.10.8 |
 | refactor | admin_cache controller | Deferred | v0.10.8 |
 | refactor | Deep fs_mysql decomposition | Deferred | v0.10.8 |
 | test | 5 pre-existing Security/Cache test failures | Phase 4 ✓ Complete | v0.10.8 |
