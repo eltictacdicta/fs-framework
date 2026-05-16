@@ -124,31 +124,7 @@ class fs_mysql extends fs_db_engine
      */
     public function compare_columns($table_name, $xml_cols, $db_cols)
     {
-        $rawTableName = $this->requireIdentifier((string) $table_name, 'table');
-        $table_name = $this->quoteIdentifier($rawTableName);
-        $sql = '';
-        $fk_columns = $this->get_fk_column_names($rawTableName);
-
-        foreach ($xml_cols as $xml_col) {
-            $xml_col['tipo'] = $this->convert_pg_type($xml_col['tipo']);
-            if (strtolower($xml_col['tipo']) == 'integer') {
-                $xml_col['tipo'] = FS_DB_INTEGER;
-            }
-            $xmlType = $xml_col['tipo'];
-            $xmlDefault = $this->normalize_mysql_default($xml_col['defecto'], $xmlType);
-
-            $db_col = $this->search_in_array($db_cols, 'name', $xml_col['nombre']);
-            if (empty($db_col)) {
-                $sql .= $this->buildAddColumnSql($table_name, $xml_col, $xmlType, $xmlDefault);
-                continue;
-            }
-
-            $sql .= $this->buildTypeChangeSql($table_name, $xml_col, $xmlType, $db_col, $fk_columns);
-            $sql .= $this->buildNullableChangeSql($table_name, $xml_col, $xmlType, $db_col, $fk_columns);
-            $sql .= $this->buildDefaultChangeSql($table_name, $xml_col, $xmlType, $xmlDefault, $db_col);
-        }
-
-        return $this->fix_postgresql($sql);
+        return (new \FSFramework\Database\SchemaComparator($this))->compareColumns($table_name, $xml_cols, $db_cols);
     }
 
     private function buildAddColumnSql($table_name, $xml_col, $xmlType, $xmlDefault)
@@ -234,10 +210,6 @@ class fs_mysql extends fs_db_engine
         $dbSignatures = $this->buildDbConstraintSignatures($tableName);
 
         if (!empty($db_cons)) {
-            /**
-             * comprobamos una a una las restricciones de la base de datos, si hay que eliminar una,
-             * tendremos que eliminar todas para evitar problemas.
-             */
             $delete = FALSE;
             foreach ($db_cons as $db_con) {
                 if (empty($xml_cons)) {
@@ -263,9 +235,7 @@ class fs_mysql extends fs_db_engine
                 }
             }
 
-            /// eliminamos todas las restricciones
             if ($delete) {
-                /// eliminamos antes las claves ajenas y luego los unique, evita problemas
                 $sql_unique = '';
                 foreach ($db_cons as $db_con) {
                     if ($db_con['type'] == 'FOREIGN KEY') {
@@ -282,7 +252,6 @@ class fs_mysql extends fs_db_engine
         }
 
         if (!empty($xml_cons) && !$delete_only && FS_FOREIGN_KEYS) {
-            /// comprobamos una a una las nuevas
             foreach ($xml_cons as $xml_con) {
                 $db_con = $this->search_in_array($db_cons, 'name', $xml_con['nombre']);
                 if (!empty($db_con)) {
@@ -682,50 +651,7 @@ class fs_mysql extends fs_db_engine
      */
     public function generate_table($table_name, $xml_cols, $xml_cons)
     {
-        $table_name = $this->quoteIdentifier((string) $table_name);
-        $fkCollations = $this->get_fk_column_collations($xml_cons);
-        $sql = "CREATE TABLE IF NOT EXISTS " . $table_name . " ( ";
-
-        $i = FALSE;
-        foreach ($xml_cols as $col) {
-            if ($i) {
-                $sql .= ", ";
-            } else {
-                $i = TRUE;
-            }
-
-            $col['tipo'] = $this->convert_pg_type($col['tipo']);
-
-            if ($col['tipo'] == 'serial') {
-                $sql .= '`' . $col['nombre'] . '` ' . FS_DB_INTEGER . ' NOT NULL AUTO_INCREMENT';
-            } else {
-                if (strtolower($col['tipo']) == 'integer') {
-                    $col['tipo'] = FS_DB_INTEGER;
-                }
-
-                $sql .= '`' . $col['nombre'] . '` ' . $col['tipo'];
-
-                $columnName = isset($col['nombre']) ? $col['nombre'] : '';
-                if (isset($fkCollations[$columnName]) && $this->is_collatable_column_type($col['tipo'])) {
-                    $sql .= ' CHARACTER SET ' . $fkCollations[$columnName]['charset']
-                        . ' COLLATE ' . $fkCollations[$columnName]['collation'];
-                }
-
-                if ($col['nulo'] == 'NO') {
-                    $sql .= " NOT NULL";
-                } else {
-                    $sql .= " NULL";
-                }
-
-                if ($col['defecto'] !== NULL) {
-                    $sql .= " DEFAULT " . $this->normalize_mysql_default($col['defecto'], $col['tipo']);
-                }
-            }
-        }
-
-        $validatedCons = $this->validate_fk_constraints($xml_cons);
-        return $this->fix_postgresql($sql) . ' ' . $this->generate_table_constraints($validatedCons) . ' ) '
-            . $this->table_charset_collation_sql() . ';';
+        return (new \FSFramework\Database\SchemaComparator($this))->generateTable($table_name, $xml_cols, $xml_cons);
     }
 
     /**
