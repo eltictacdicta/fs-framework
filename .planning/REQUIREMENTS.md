@@ -49,22 +49,11 @@ Requirements for milestone v0.11.0: Deferred Items Cleanup.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MAIL-01 | — | Pending |
-| MAIL-02 | — | Pending |
-| MAIL-03 | — | Pending |
-| MAIL-04 | — | Pending |
-| MYSQL-01 | — | Pending |
-| MYSQL-02 | — | Pending |
-| MYSQL-03 | — | Pending |
-| MYSQL-04 | — | Pending |
-| PLUGIN-01 | — | Pending |
-| PLUGIN-02 | — | Pending |
-| PLUGIN-03 | — | Pending |
-| TEST-01 | Phase 4 | Pending |
-| TEST-02 | Phase 4 | Pending |
-| TEST-03 | Phase 4 | Pending |
-| TEST-04 | Phase 4 | Pending |
-| TEST-05 | Phase 4 | Pending |
+| TEST-01 | Phase 4 | Complete |
+| TEST-02 | Phase 4 | Complete |
+| TEST-03 | Phase 4 | Complete |
+| TEST-04 | Phase 4 | Complete |
+| TEST-05 | Phase 4 | Complete |
 | MAIL-01 | Phase 5 | Pending |
 | MAIL-02 | Phase 5 | Pending |
 | MAIL-03 | Phase 5 | Pending |
@@ -84,4 +73,12 @@ Requirements for milestone v0.11.0: Deferred Items Cleanup.
 
 ---
 *Requirements defined: 2026-05-16*
-*Last updated: 2026-05-16 after initial definition*
+**Coverage:**
+- v1 requirements: 16 total
+- Mapped to phases: 16
+- Complete: 5
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-05-16*
+*Last updated: 2026-05-16 after Phase 4*
