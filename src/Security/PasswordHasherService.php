@@ -242,12 +242,7 @@ class PasswordHasherService
             );
         }
 
-        if ($legacySalt !== null && hash_equals($storedHash, sha1($legacySalt . $plainPassword))) {
-            return true;
-        }
-
-        return hash_equals($storedHash, sha1($plainPassword))
-            || hash_equals($storedHash, md5($plainPassword));
+        return false;
     }
 
     private function isLowercasedLegacySha1Bypass(string $storedHash, string $plainPassword, ?string $legacySalt = null): bool
