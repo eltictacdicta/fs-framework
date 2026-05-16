@@ -17,12 +17,6 @@ class Kernel
         $this->configureTrustedProxies();
         $this->request = Request::createFromGlobals();
         $this->configureLegacyIncludePaths();
-
-        // Load PHPMailer compatibility layer
-        $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__, 2);
-        if (file_exists($root . '/extras/phpmailer_compat.php')) {
-            require_once $root . '/extras/phpmailer_compat.php';
-        }
     }
 
     private function initializeRouter(): void
