@@ -8,7 +8,7 @@ Incremental cleanup of legacy technical debt in FSFramework. Three phases move f
 
 - [x] **Phase 1: Quick Wins & Security Fixes** - Remove dead code, fix version guards, eliminate dual PHPMailer, replace error suppression
 - [x] **Phase 2: Type Safety & Test Coverage** - Add strict_types to base files, add tests for untested plugins
-- [ ] **Phase 3: Structural Decomposition** - Delegate SHA1 to legacy_support, decompose monolithic classes
+- [x] **Phase 3: Structural Decomposition** - Delegate SHA1 to legacy_support, decompose monolithic classes
 
 ## Phase Details
 
@@ -62,9 +62,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Delegate SHA1 password verification entirely to legacy_support plugin
-- [ ] 03-02: Decompose StealthMode into CssSanitizer + HtmlSanitizer + StealthAccessGate + thin facade
-- [ ] 03-03: Extract FsMysqlSchema from fs_mysql + create admin_cache controller
+- [x] 03-01: Delegate SHA1 password verification entirely to legacy_support plugin
+- [x] 03-02: Decompose StealthMode into CssSanitizer + HtmlSanitizer + StealthAccessGate + thin facade
+- [x] 03-03: Extract FsMysqlSchema from fs_mysql + create admin_cache controller
 
 ## Progress
 
@@ -75,4 +75,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Quick Wins & Security Fixes | 4/4 | ✓ Complete | 2026-05-16 |
 | 2. Type Safety & Test Coverage | 2/2 | ✓ Complete | 2026-05-16 |
-| 3. Structural Decomposition | 0/3 | Planned | - |
+| 3. Structural Decomposition | 3/3 | ✓ Complete | 2026-05-16 |
