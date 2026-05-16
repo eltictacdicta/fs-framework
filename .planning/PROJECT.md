@@ -8,9 +8,19 @@ Incremental remediation of technical debt in the FSFramework codebase. Completed
 
 Fix real issues with minimal risk. Every change must be verifiable by the existing test suite and must not break plugins that depend on current behavior.
 
-## Current State (v0.10.8)
+## Current Milestone: v0.11.0 — Deferred Items Cleanup
 
-- **Version:** 0.10.8 (shipped 2026-05-16)
+**Goal:** Complete the 4 refactoring items deferred from v0.10.8 — finish what was started.
+
+**Target features:**
+- `empresa.php` → MailService email delegation
+- `fs_mysql` decomposition (20+ schema methods)
+- Plugin management extraction from `admin_home`
+- Fix 5 pre-existing Security/Cache test failures
+
+## Previous Milestone: v0.10.8
+
+- **Shipped:** 2026-05-16
 - **3 phases, 9 plans, 22 tasks** all complete
 - **107 files changed** (2055 insertions, 10039 deletions)
 - **8/8 requirements met**, Base test suite 124/124 throughout
@@ -31,10 +41,10 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 
 ### Active
 
-- [ ] `empresa.php` delegate email to `MailService` instead of instantiating PHPMailer directly
-- [ ] Deeper `fs_mysql` decomposition (20+ interdependent schema methods)
-- [ ] Plugin management extraction from `admin_home`
-- [ ] Database migration system (separate initiative)
+- [ ] **MAIL-01**: `empresa.php` delegate email to `MailService` instead of instantiating PHPMailer directly
+- [ ] **MYSQL-01**: Deeper `fs_mysql` decomposition (20+ interdependent schema methods)
+- [ ] **PLUGIN-01**: Plugin management extraction from `admin_home`
+- [ ] **TEST-01**: Fix 5 pre-existing Security/Cache test failures
 
 ### Out of Scope
 
@@ -42,6 +52,7 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 - API versioning beyond v1 — premature until API stabilizes
 - Full Twig migration — ongoing, not a debt item
 - Dynamic properties on fs_model/fs_controller — high plugin breakage risk
+- Database migration system — separate initiative, not in this milestone
 
 ## Context
 
@@ -86,4 +97,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-16 after v0.10.8 milestone*
+*Last updated: 2026-05-16 after starting v0.11.0 milestone*
