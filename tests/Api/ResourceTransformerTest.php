@@ -41,6 +41,10 @@ class ResourceTransformerTest extends TestCase
 
     public function testFilterWritableFieldsAcceptsApiAlias(): void
     {
+        if (!class_exists(ResourceTransformer::class)) {
+            $this->markTestSkipped('Requires api_base plugin (ResourceTransformer not found)');
+        }
+
         $transformer = new ResourceTransformer();
 
         $filtered = $transformer->filterWritableFields(ApiFieldFixture::class, [
@@ -53,6 +57,10 @@ class ResourceTransformerTest extends TestCase
 
     public function testValidateWritableFieldsExecutesSymfonyConstraints(): void
     {
+        if (!class_exists(ResourceTransformer::class)) {
+            $this->markTestSkipped('Requires api_base plugin (ResourceTransformer not found)');
+        }
+
         $transformer = new ResourceTransformer();
 
         $this->expectException(ValidationException::class);
