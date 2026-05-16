@@ -1,14 +1,30 @@
 # Milestones
 
+## v0.11.0 Deferred Items Cleanup (Shipped: 2026-05-16)
+
+**Phases completed:** 4 phases, 5 plans, 16 tasks
+
+**Key accomplishments:**
+
+- 3 test isolation/environment failures fixed: static state leaks, incomplete init reset, and hardcoded path assertion
+- ResourceTransformer tests gracefully skip when api_base plugin is unavailable — 0 errors in full suite
+- empresa mail methods delegated to MailService — new_mail(), mail_connect(), can_send_mail() all use MailService internally
+- Plugin management extracted from admin_home into PluginInstaller and PluginActionHandler — admin_home reduced from 1053 to 698 lines
+- 3 new classes extracted from 1577-line monolithic fs_mysql — type normalization, schema introspection, and DDL generation now in dedicated classes
+
+---
+
 ## Completed
 
 ### v0.10.8 — Tech Debt Cleanup
+
 - **Shipped:** 2026-05-16
 - **Phases:** 3 (9 plans, 22 tasks)
 - **8/8 requirements met**
 - **107 files changed** (2055 insertions, 10039 deletions)
 
 **Key accomplishments:**
+
 1. PHP version guards 5.6 → 8.2
 2. PHPMailer 5.x + compat bridge deleted (61 files)
 3. @ error suppression → proper guards (11 files, ~35 ops)
