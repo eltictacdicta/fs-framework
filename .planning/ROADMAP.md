@@ -63,8 +63,8 @@ Plans:
 
 Plans:
 - [ ] 03-01: Delegate SHA1 password verification entirely to legacy_support plugin
-- [ ] 03-02: Decompose StealthMode into focused service classes
-- [ ] 03-03: Extract schema ops from fs_mysql and split admin_home controller
+- [ ] 03-02: Decompose StealthMode into CssSanitizer + HtmlSanitizer + StealthAccessGate + thin facade
+- [ ] 03-03: Extract FsMysqlSchema from fs_mysql + create admin_cache controller
 
 ## Progress
 
@@ -75,4 +75,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Quick Wins & Security Fixes | 4/4 | ✓ Complete | 2026-05-16 |
 | 2. Type Safety & Test Coverage | 2/2 | ✓ Complete | 2026-05-16 |
-| 3. Structural Decomposition | 0/3 | Not started | - |
+| 3. Structural Decomposition | 0/3 | Planned | - |
