@@ -25,10 +25,14 @@ Incremental cleanup of legacy technical debt in FSFramework. Three phases move f
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: Update PHP version guards in index.php and install.php to 8.2
-- [ ] 01-02: Remove weak random fallback (str_shuffle) from install.php
-- [ ] 01-03: Remove PHPMailer 5.x vendored code and compat bridge
-- [ ] 01-04: Replace @ error suppression with proper error handling in base/
+
+**Wave 1** (independent, can run in parallel):
+- [ ] 01-01: Update PHP version guards in index.php and install.php to 8.2 [REQ-01]
+- [ ] 01-02: Remove weak random fallback (str_shuffle) from install.php [REQ-03]
+- [ ] 01-03: Remove PHPMailer 5.x vendored code and compat bridge [REQ-04]
+
+**Wave 2** (depends on Wave 1):
+- [ ] 01-04: Replace @ error suppression with proper error handling in base/ [REQ-08]
 
 ### Phase 2: Type Safety & Test Coverage
 **Goal**: Core files have strict type enforcement and business-critical plugins have automated tests
@@ -69,6 +73,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Quick Wins & Security Fixes | 0/4 | Not started | - |
+| 1. Quick Wins & Security Fixes | 0/4 | Planned | - |
 | 2. Type Safety & Test Coverage | 0/2 | Not started | - |
 | 3. Structural Decomposition | 0/3 | Not started | - |

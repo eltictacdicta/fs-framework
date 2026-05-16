@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-05-16)
 ## Current Position
 
 Phase: 1 of 3 (Quick Wins & Security Fixes)
-Plan: 0 of 4 in current phase
-Status: Ready to plan
-Last activity: 2026-05-16 — Roadmap created
+Plan: 4 of 4 in current phase
+Status: Ready to execute
+Last activity: 2026-05-16 — Phase 1 planned (4 plans, 2 waves)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -44,6 +44,10 @@ Recent decisions affecting current work:
 
 - [Init]: 3 phases derived from 8 requirements (coarse granularity)
 - [Init]: Phase 1 = quick wins (low risk), Phase 2 = type safety (medium), Phase 3 = decomposition (high)
+- [Plan-01]: Use `version_compare()` instead of float casting for PHP version checks
+- [Plan-02]: Remove `random_string()` entirely (dead code on PHP 8.2+)
+- [Plan-03]: Update `empresa.php` to use namespaced PHPMailer before removing compat bridge
+- [Plan-04]: Replace `@` with `is_dir()`/`file_exists()` guards + `error_log()` on failure
 
 ### Pending Todos
 
@@ -64,5 +68,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-16
-Stopped at: Roadmap created, ready to plan Phase 1
+Stopped at: Phase 1 planned, ready to execute
 Resume file: None
