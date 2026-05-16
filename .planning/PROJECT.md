@@ -2,36 +2,42 @@
 
 ## What This Is
 
-Incremental remediation of technical debt identified in the FSFramework codebase. The goal is to clean up legacy issues, improve type safety, consolidate duplicate code, and strengthen security — all without breaking backward compatibility or destabilizing the running system.
+Incremental remediation of technical debt in the FSFramework codebase. Completed v0.10.8 which cleaned up legacy code, improved type safety, consolidated duplicate patterns, and strengthened security — without breaking backward compatibility.
 
 ## Core Value
 
 Fix real issues with minimal risk. Every change must be verifiable by the existing test suite and must not break plugins that depend on current behavior.
 
+## Current State (v0.10.8)
+
+- **Version:** 0.10.8 (shipped 2026-05-16)
+- **3 phases, 9 plans, 22 tasks** all complete
+- **107 files changed** (2055 insertions, 10039 deletions)
+- **8/8 requirements met**, Base test suite 124/124 throughout
+- **5 pre-existing test failures** remain (Security/SessionManager + Cache/DataSrcRepository)
+
 ## Requirements
 
 ### Validated
 
-- ✓ Proxy pattern for domain models (almacen, pais, divisa) — `business_data` delegates to `catalogo_core`
-- ✓ `legacy_support` plugin handles SHA1/MD5 password migration on login
-- ✓ `PasswordHasherService` auto-migrates legacy hashes to bcrypt/argon2id
-- ✓ Composer enforces PHP >=8.2 at install time
-- ✓ PHPUnit 11 test suite covers base/ and src/ components
+- ✓ PHP version guards updated to 8.2 — v0.10.8
+- ✓ `install.php` weak random fallback removed — v0.10.8
+- ✓ PHPMailer 5.x + compat bridge eliminated — v0.10.8
+- ✓ `@` error suppression replaced with proper guards — v0.10.8
+- ✓ `declare(strict_types=1)` in 15 base files — v0.10.8
+- ✓ Plugin test coverage: business_data + catalogo_core — v0.10.8
+- ✓ SHA1/MD5 verification delegated to legacy_support plugin — v0.10.8
+- ✓ Monolithic classes decomposed: StealthMode split + FsMysqlSchemaUtility — v0.10.8
 
 ### Active
 
-- [ ] PHP version guards updated to 8.2 in entry points
-- [ ] `declare(strict_types=1)` added incrementally to base files
-- [ ] `install.php` weak random fallback removed
-- [ ] PHPMailer 5.x vendored code removed, compat bridge eliminated
-- [ ] Legacy SHA1 password support delegated entirely to `legacy_support` plugin
-- [ ] Monolithic classes decomposed (StealthMode, fs_mysql, admin_home)
-- [ ] Untested plugins receive basic test coverage (business_data, catalogo_core models)
-- [ ] Error suppression (`@` operator) replaced with proper error handling
+- [ ] `empresa.php` delegate email to `MailService` instead of instantiating PHPMailer directly
+- [ ] Deeper `fs_mysql` decomposition (20+ interdependent schema methods)
+- [ ] Plugin management extraction from `admin_home`
+- [ ] Database migration system (separate initiative)
 
 ### Out of Scope
 
-- Database migration system — too large, separate initiative
 - Queue/job system — infrastructure change, not tech debt
 - API versioning beyond v1 — premature until API stabilizes
 - Full Twig migration — ongoing, not a debt item
@@ -39,16 +45,15 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 
 ## Context
 
-- **Philosophy**: Core stays thin, plugins extend. Domain-specific models (Almacenes, Pais, Divisa, Articulos) live in plugins. Essential base models (fs_user, agente) stay in core.
-- **Legacy compatibility**: `legacy_support` plugin is the designated compatibility layer for SHA1 passwords, legacy FS2017 APIs, and old technology bridges. All legacy compatibility code should eventually migrate there.
-- **Testing**: PHPUnit 11 with `ddev exec php vendor/bin/phpunit`. Tests in `tests/` for core, `plugins/*/tests/` for plugins.
-- **Risk tolerance**: Changes must be incremental and individually revertible. No big-bang refactors.
+- **Philosophy**: Core stays thin, plugins extend. Domain models live in plugins. Essential base models (fs_user, agente) stay in core.
+- **Legacy compatibility**: `legacy_support` plugin is the designated compatibility layer.
+- **Testing**: PHPUnit 11 with `ddev exec php vendor/bin/phpunit`. Tests in `tests/` and `plugins/*/tests/`.
+- **Plugin independence**: catalogo_core autonomous, business_data independent, proxy pattern confirmed.
 
 ## Constraints
 
 - **Backward compatibility**: Plugins depending on current class names, method signatures, and global state must continue to work
 - **No breaking changes to public API**: `fs_model`, `fs_controller`, `fs_db2` interfaces are sacred
-- **Incremental delivery**: Each fix should be a separate, testable, revertible change
 - **Test-first**: Add tests before refactoring; run full suite after each change
 
 ## Key Decisions
@@ -56,10 +61,12 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Proxy pattern for domain models | Keeps backward compatibility while centralizing implementation | ✓ Good — already in place |
-| `legacy_support` as sole SHA1 handler | Core should not carry legacy crypto; delegates to dedicated plugin | — Pending |
-| Incremental strict_types adoption | Big-bang would break too many things; per-file with tests | — Pending |
-| Remove PHPMailer 5.x entirely | Composer 6.x is the dependency; compat bridge adds maintenance burden | — Pending |
-| Extract monolithic classes into services | Reduces blast radius of changes; enables lazy loading | — Pending |
+| `legacy_support` as sole SHA1 handler | Core should not carry legacy crypto | ✓ Good — implemented Phase 3 |
+| Incremental strict_types adoption | Big-bang would break too many things | ✓ Good — 15 files, zero regressions |
+| PHPMailer 5.x removed | Composer 6.x is the dependency | ✓ Good — 61 files deleted |
+| StealthMode facade pattern | Public API preserved while internally decomposed | ✓ Good — 53% reduction |
+| `@` suppression → proper guards | Makes real errors visible | ✓ Good — ~35 ops in 11 files |
+| admin_cache controller deferred | Cache code in admin_home too trivial (5 lines) to justify separate controller | ⚠️ Revisit if admin_home grows |
 
 ## Evolution
 
@@ -79,4 +86,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-16 after initialization*
+*Last updated: 2026-05-16 after v0.10.8 milestone*
