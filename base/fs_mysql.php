@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 require_once 'base/fs_db_engine.php';
+require_once 'base/FsMysqlSchemaUtility.php';
 
 /**
  * Clase para conectar a MySQL.
@@ -455,28 +456,12 @@ class fs_mysql extends fs_db_engine
 
     private function normalizeIdentifierList(string $list): array
     {
-        $items = array_map('trim', explode(',', $list));
-        $items = array_filter($items, static function ($item): bool {
-            return $item !== '';
-        });
-
-        return array_map(function ($item): string {
-            return $this->normalizeIdentifier($item);
-        }, $items);
+        return FsMysqlSchemaUtility::normalizeIdentifierList($list);
     }
 
     private function normalizeIdentifier(string $identifier): string
     {
-        $identifier = trim($identifier);
-        $identifier = trim($identifier, "`\" ");
-
-        if (strpos($identifier, '.') !== false) {
-            $parts = explode('.', $identifier);
-            $identifier = end($parts);
-            $identifier = trim((string) $identifier, "`\" ");
-        }
-
-        return strtolower($identifier);
+        return FsMysqlSchemaUtility::normalizeIdentifier($identifier);
     }
 
     private function extractRuleFromSqlTail(string $tail, string $ruleType): string
@@ -889,11 +874,7 @@ class fs_mysql extends fs_db_engine
      */
     private function is_collatable_column_type($columnType)
     {
-        $type = strtolower(trim((string) $columnType));
-        return strpos($type, 'char') !== false
-            || strpos($type, 'text') !== false
-            || strpos($type, 'enum(') === 0
-            || strpos($type, 'set(') === 0;
+        return FsMysqlSchemaUtility::isCollatableColumnType($columnType);
     }
 
     /**
