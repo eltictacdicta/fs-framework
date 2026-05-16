@@ -6,7 +6,7 @@ Incremental cleanup of legacy technical debt in FSFramework. Three phases move f
 
 ## Phases
 
-- [ ] **Phase 1: Quick Wins & Security Fixes** - Remove dead code, fix version guards, eliminate dual PHPMailer, replace error suppression
+- [x] **Phase 1: Quick Wins & Security Fixes** - Remove dead code, fix version guards, eliminate dual PHPMailer, replace error suppression
 - [ ] **Phase 2: Type Safety & Test Coverage** - Add strict_types to base files, add tests for untested plugins
 - [ ] **Phase 3: Structural Decomposition** - Delegate SHA1 to legacy_support, decompose monolithic classes
 
@@ -27,12 +27,12 @@ Incremental cleanup of legacy technical debt in FSFramework. Three phases move f
 Plans:
 
 **Wave 1** (independent, can run in parallel):
-- [ ] 01-01: Update PHP version guards in index.php and install.php to 8.2 [REQ-01]
-- [ ] 01-02: Remove weak random fallback (str_shuffle) from install.php [REQ-03]
-- [ ] 01-03: Remove PHPMailer 5.x vendored code and compat bridge [REQ-04]
+- [x] 01-01: Update PHP version guards in index.php and install.php to 8.2 [REQ-01]
+- [x] 01-02: Remove weak random fallback (str_shuffle) from install.php [REQ-03]
+- [x] 01-03: Remove PHPMailer 5.x vendored code and compat bridge [REQ-04]
 
 **Wave 2** (depends on Wave 1):
-- [ ] 01-04: Replace @ error suppression with proper error handling in base/ [REQ-08]
+- [x] 01-04: Replace @ error suppression with proper error handling in base/ [REQ-08]
 
 ### Phase 2: Type Safety & Test Coverage
 **Goal**: Core files have strict type enforcement and business-critical plugins have automated tests
@@ -73,6 +73,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Quick Wins & Security Fixes | 0/4 | Planned | - |
+| 1. Quick Wins & Security Fixes | 4/4 | ✓ Complete | 2026-05-16 |
 | 2. Type Safety & Test Coverage | 0/2 | Not started | - |
 | 3. Structural Decomposition | 0/3 | Not started | - |

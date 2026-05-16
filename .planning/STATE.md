@@ -5,33 +5,35 @@
 See: .planning/PROJECT.md (updated 2026-05-16)
 
 **Core value:** Fix real issues with minimal risk. Every change must be verifiable and must not break plugins.
-**Current focus:** Phase 1 — Quick Wins & Security Fixes
+**Current focus:** Phase 1 complete ✓ → Phase 2 next
 
 ## Current Position
 
-Phase: 1 of 3 (Quick Wins & Security Fixes)
-Plan: 4 of 4 in current phase
-Status: Ready to execute
-Last activity: 2026-05-16 — Phase 1 planned (4 plans, 2 waves)
+Phase: 1 of 3 (Quick Wins & Security Fixes) ✓ COMPLETE
+Plans: 4/4 complete
+Status: Phase complete
+Last activity: 2026-05-16 — Phase 1 executed (4 plans, all success criteria met)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [████████░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: -
+- Total plans completed: 4
+- Plans this phase: 4
+- Execution time: ~15 minutes
 
 **By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| - | - | - | - |
+| Phase | Plans | Total | Status |
+|-------|-------|-------|--------|
+| 1 | 4/4 | ~15min | ✓ Complete |
+| 2 | 0/2 | - | Pending |
+| 3 | 0/3 | - | Pending |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 4 plans: 4/4 complete
+- Trend: On track
 
 *Updated after each plan completion*
 
@@ -39,34 +41,27 @@ Progress: [░░░░░░░░░░] 0%
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- [Init]: 3 phases derived from 8 requirements (coarse granularity)
-- [Init]: Phase 1 = quick wins (low risk), Phase 2 = type safety (medium), Phase 3 = decomposition (high)
-- [Plan-01]: Use `version_compare()` instead of float casting for PHP version checks
-- [Plan-02]: Remove `random_string()` entirely (dead code on PHP 8.2+)
-- [Plan-03]: Update `empresa.php` to use namespaced PHPMailer before removing compat bridge
-- [Plan-04]: Replace `@` with `is_dir()`/`file_exists()` guards + `error_log()` on failure
+- [01-01]: Use `version_compare()` instead of float casting for PHP version checks
+- [01-02]: Remove `str_shuffle()` fallback; `random_string()` kept for non-security use
+- [01-03]: `empresa.php` uses namespaced PHPMailer; MailService integration deferred to future phase
+- [01-04]: `is_dir()`+`mkdir()` and `file_exists()`+`unlink()` guard patterns established
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-None yet.
+None.
 
 ## Deferred Items
 
-Items acknowledged and carried forward from previous milestone close:
-
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| refactor | empresa.php should delegate to MailService instead of instantiating PHPMailer directly | Deferred | Phase 1 |
 
 ## Session Continuity
 
 Last session: 2026-05-16
-Stopped at: Phase 1 planned, ready to execute
+Stopped at: Phase 1 complete
 Resume file: None
