@@ -372,7 +372,7 @@ function fs_curl_update_ca_bundle($maxAgeDays = 90)
         curl_close($ch);
 
         if ($http_code == 200 && $data && strlen($data) > 1000) {
-            $downloaded = @file_put_contents($tmpFile, $data) !== false;
+            $downloaded = file_put_contents($tmpFile, $data) !== false;
         }
     }
 
@@ -388,29 +388,35 @@ function fs_curl_update_ca_bundle($maxAgeDays = 90)
         }
         $data = @file_get_contents($sourceUrl, false, $ctx);
         if ($data && strlen($data) > 1000) {
-            $downloaded = @file_put_contents($tmpFile, $data) !== false;
+            $downloaded = file_put_contents($tmpFile, $data) !== false;
         }
     }
 
     if (!$downloaded) {
-        @unlink($tmpFile);
+        if (file_exists($tmpFile)) {
+            unlink($tmpFile);
+        }
         return false;
     }
 
     // Validación básica: debe contener certificados PEM
-    $content = @file_get_contents($tmpFile, false, null, 0, 512);
+    $content = file_get_contents($tmpFile, false, null, 0, 512);
     if (!$content || strpos($content, '-----BEGIN CERTIFICATE-----') === false) {
-        @unlink($tmpFile);
+        if (file_exists($tmpFile)) {
+            unlink($tmpFile);
+        }
         return false;
     }
 
-    // Reemplazar atómicamente: renombrar es atómico en la mayoría de filesystems
-    if (!@rename($tmpFile, $localCert)) {
-        // Fallback: copiar y eliminar temporal
-        if (@copy($tmpFile, $localCert)) {
-            @unlink($tmpFile);
+    if (!rename($tmpFile, $localCert)) {
+        if (copy($tmpFile, $localCert)) {
+            if (file_exists($tmpFile)) {
+                unlink($tmpFile);
+            }
         } else {
-            @unlink($tmpFile);
+            if (file_exists($tmpFile)) {
+                unlink($tmpFile);
+            }
             return false;
         }
     }

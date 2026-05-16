@@ -140,7 +140,7 @@ if (empty($GLOBALS['plugins'])) {
 
         /// Guardamos el tema por defecto en la lista de plugins activos
         if (FS_TMP_NAME != '' && !file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list')) {
-            @file_put_contents(
+            file_put_contents(
                 FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list',
                 $default_theme
             );

@@ -325,7 +325,9 @@ class fs_chunked_upload
             foreach ($files as $file) {
                 $this->safe_unlink($file, $chunk_dir);
             }
-            @rmdir($chunk_dir);
+            if (is_dir($chunk_dir)) {
+                rmdir($chunk_dir);
+            }
         }
     }
 
@@ -374,7 +376,10 @@ class fs_chunked_upload
             return false;
         }
 
-        return @unlink($path);
+        if (file_exists($path)) {
+            return unlink($path);
+        }
+        return true;
     }
 
     /**

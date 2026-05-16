@@ -1249,7 +1249,7 @@ class fs_plugin_manager
             return true;
         }
 
-        if (@mkdir($path, 0755, true) || is_dir($path)) {
+        if (mkdir($path, 0755, true) || is_dir($path)) {
             return true;
         }
 

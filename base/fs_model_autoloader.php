@@ -128,7 +128,9 @@ class fs_model_autoloader
     {
         self::$classMap = [];
         if (self::$cacheFile && file_exists(self::$cacheFile)) {
-            @unlink(self::$cacheFile);
+            if (file_exists(self::$cacheFile)) {
+                unlink(self::$cacheFile);
+            }
         }
     }
 
@@ -288,7 +290,9 @@ class fs_model_autoloader
         if ($currentCount - $lastSaveCount >= 10) {
             $content = "<?php\n// Model class map cache - Generated " . date('Y-m-d H:i:s') . "\n";
             $content .= "return " . var_export(self::$classMap, true) . ";\n";
-            @file_put_contents(self::$cacheFile, $content);
+            if (file_put_contents(self::$cacheFile, $content) === false) {
+                error_log('fs_model_autoloader: failed to write cache file ' . self::$cacheFile);
+            }
             $lastSaveCount = $currentCount;
         }
     }
@@ -300,7 +304,9 @@ class fs_model_autoloader
     {
         self::$classMap = [];
         if (self::$cacheFile && file_exists(self::$cacheFile)) {
-            @unlink(self::$cacheFile);
+            if (file_exists(self::$cacheFile)) {
+                unlink(self::$cacheFile);
+            }
         }
     }
 
@@ -341,7 +347,9 @@ class fs_model_autoloader
         if (self::$cacheFile && !empty(self::$classMap)) {
             $content = "<?php\n// Model class map cache - Generated " . date('Y-m-d H:i:s') . "\n";
             $content .= "return " . var_export(self::$classMap, true) . ";\n";
-            @file_put_contents(self::$cacheFile, $content);
+            if (file_put_contents(self::$cacheFile, $content) === false) {
+                error_log('fs_model_autoloader: failed to write cache file ' . self::$cacheFile);
+            }
         }
     }
 }

@@ -120,7 +120,7 @@ class fs_plugin_downloader
                 }
 
                 if (!$downloadCompleted && is_string($tempFile) && is_file($tempFile)) {
-                    @unlink($tempFile);
+                    unlink($tempFile);
                 }
             }
 
@@ -271,7 +271,7 @@ class fs_plugin_downloader
         $logDir = defined('FS_FOLDER') ? FS_FOLDER . '/tmp/' : sys_get_temp_dir() . '/';
         $logFile = $logDir . (defined('FS_TMP_NAME') ? FS_TMP_NAME : '') . 'download_audit.log';
 
-        @file_put_contents(
+        file_put_contents(
             $logFile,
             json_encode($logEntry) . PHP_EOL,
             FILE_APPEND | LOCK_EX

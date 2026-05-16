@@ -72,7 +72,9 @@ class fs_file_manager
         $twigCacheDir = FS_FOLDER . '/tmp/twig_cache';
         if (file_exists($twigCacheDir) && is_dir($twigCacheDir)) {
             self::del_tree($twigCacheDir);
-            @mkdir($twigCacheDir, 0755, true);
+            if (!is_dir($twigCacheDir) && !mkdir($twigCacheDir, 0755, true) && !is_dir($twigCacheDir)) {
+                error_log("fs_file_manager: failed to create twig cache dir {$twigCacheDir}");
+            }
         }
     }
 
@@ -166,7 +168,7 @@ class fs_file_manager
             return false;
         }
 
-        if (!file_exists($dst) && !@mkdir($dst, 0755)) {
+        if (!file_exists($dst) && !mkdir($dst, 0755)) {
             closedir($folder);
             return false;
         }
@@ -511,6 +513,9 @@ class fs_file_manager
             return false;
         }
 
-        return @unlink($path);
+        if (file_exists($path)) {
+            return unlink($path);
+        }
+        return true;
     }
 }

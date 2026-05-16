@@ -227,7 +227,7 @@ final class fs_maintenance_mode
     {
         $path = self::lockFilePath();
         $dir = dirname($path);
-        if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
             return false;
         }
 
@@ -238,13 +238,17 @@ final class fs_maintenance_mode
 
         $tmpPath = $path . '.tmp';
         $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($json === false || @file_put_contents($tmpPath, $json, LOCK_EX) === false) {
-            @unlink($tmpPath);
+        if ($json === false || file_put_contents($tmpPath, $json, LOCK_EX) === false) {
+            if (file_exists($tmpPath)) {
+                unlink($tmpPath);
+            }
             return false;
         }
 
-        if (!@rename($tmpPath, $path)) {
-            @unlink($tmpPath);
+        if (!rename($tmpPath, $path)) {
+            if (file_exists($tmpPath)) {
+                unlink($tmpPath);
+            }
             return false;
         }
 
@@ -258,7 +262,7 @@ final class fs_maintenance_mode
             return true;
         }
 
-        return @unlink($path);
+        return unlink($path);
     }
 
     public static function hasAdminSession(?array $session = null): bool

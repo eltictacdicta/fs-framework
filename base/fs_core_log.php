@@ -170,7 +170,9 @@ class fs_core_log
         $logFile = defined('FS_LOG_FILE') ? FS_LOG_FILE : self::$logFilePath;
         $logDir = dirname($logFile);
         if (!is_dir($logDir)) {
-            @mkdir($logDir, 0755, true);
+            if (!mkdir($logDir, 0755, true) && !is_dir($logDir)) {
+                error_log("fs_core_log: failed to create log directory {$logDir}");
+            }
         }
 
         if (!is_writable($logDir) && !is_writable($logFile)) {
@@ -811,7 +813,9 @@ class fs_core_log
 
         $logDir = dirname(self::$logFilePath);
         if (!is_dir($logDir)) {
-            @mkdir($logDir, 0755, true);
+            if (!mkdir($logDir, 0755, true) && !is_dir($logDir)) {
+                error_log("fs_core_log: failed to create log directory {$logDir}");
+            }
         }
 
         if (!is_writable($logDir) && !is_writable(self::$logFilePath)) {
@@ -833,7 +837,9 @@ class fs_core_log
             $contextStr
         );
 
-        @file_put_contents(self::$logFilePath, $line, FILE_APPEND | LOCK_EX);
+        if (file_put_contents(self::$logFilePath, $line, FILE_APPEND | LOCK_EX) === false) {
+            error_log('fs_core_log: failed to write to log file ' . self::$logFilePath);
+        }
     }
 
     /**

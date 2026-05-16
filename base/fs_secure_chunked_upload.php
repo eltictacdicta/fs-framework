@@ -348,7 +348,9 @@ class fs_secure_chunked_upload
             $chunk_data = file_get_contents($chunk_file);
             if ($chunk_data === false) {
                 fclose($fp);
-                @unlink($final_path);
+                if (file_exists($final_path)) {
+                    unlink($final_path);
+                }
                 $this->last_error = "No se pudo leer el chunk {$i}";
                 return false;
             }
@@ -369,9 +371,13 @@ class fs_secure_chunked_upload
         if (is_dir($chunk_dir)) {
             $files = glob($chunk_dir . '*');
             foreach ($files as $file) {
-                @unlink($file);
+                if (file_exists($file)) {
+                    unlink($file);
+                }
             }
-            @rmdir($chunk_dir);
+            if (is_dir($chunk_dir)) {
+                rmdir($chunk_dir);
+            }
         }
     }
 
@@ -390,7 +396,9 @@ class fs_secure_chunked_upload
             $directories = glob($this->temp_dir . '*', GLOB_ONLYDIR);
             foreach ($directories as $dir) {
                 if ($this->cleanup_orphan_directory($dir, $threshold, $count)) {
-                    @rmdir($dir);
+                    if (is_dir($dir)) {
+                        rmdir($dir);
+                    }
                 }
             }
         }
@@ -538,7 +546,9 @@ class fs_secure_chunked_upload
 
         $this->cleanup_chunks($identifier);
         if (!$this->validate_final_file($final_path)) {
-            @unlink($final_path);
+            if (file_exists($final_path)) {
+                unlink($final_path);
+            }
             return $this->error_response('El archivo no pasó la validación de seguridad');
         }
 
@@ -553,7 +563,9 @@ class fs_secure_chunked_upload
 
         $callbackResult = $this->executeOnCompleteCallback($final_path, $final_filename, $result['filesize']);
         if ($callbackResult === false) {
-            @unlink($final_path);
+            if (file_exists($final_path)) {
+                unlink($final_path);
+            }
             return $this->error_response($this->last_error);
         }
         if (is_array($callbackResult)) {
@@ -601,7 +613,9 @@ class fs_secure_chunked_upload
             }
 
             if (filemtime($file) < $threshold) {
-                @unlink($file);
+                if (file_exists($file)) {
+                    unlink($file);
+                }
                 $count++;
             } else {
                 $all_old = false;
@@ -637,7 +651,7 @@ class fs_secure_chunked_upload
     private function ensure_directory($path)
     {
         if (!is_dir($path)) {
-            if (!@mkdir($path, 0755, true)) {
+            if (!is_dir($path) && !mkdir($path, 0755, true) && !is_dir($path)) {
                 throw new \Exception("No se pudo crear el directorio: {$path}");
             }
         }
