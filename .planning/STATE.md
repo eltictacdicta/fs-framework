@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.11.0
 milestone_name: Deferred Items Cleanup
 status: planning
-last_updated: "2026-05-16T15:59:00.692Z"
+last_updated: "2026-05-16T16:00:00.000Z"
 last_activity: 2026-05-16
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-16 after v0.10.8)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap defined)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-16 — Milestone v0.11.0 started
+Status: Roadmap defined — 4 phases, 16 requirements
+Last activity: 2026-05-16 — Roadmap created for v0.11.0
 
 ## Performance Metrics
 
@@ -44,6 +44,10 @@ Last activity: 2026-05-16 — Milestone v0.11.0 started
 | 1. Quick Wins | 4/4 | ✓ Complete |
 | 2. Type Safety | 2/2 | ✓ Complete |
 | 3. Decomposition | 3/3 | ✓ Complete |
+| 4. Test Suite Recovery | 0/0 | ○ Pending |
+| 5. MailService Delegation | 0/0 | ○ Pending |
+| 6. Plugin Mgmt Extraction | 0/0 | ○ Pending |
+| 7. fs_mysql Decomposition | 0/0 | ○ Pending |
 
 ## Accumulated Context
 
