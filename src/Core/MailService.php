@@ -136,6 +136,92 @@ class MailService
     }
 
     /**
+     * Prueba la conexión SMTP.
+     * Si se proporciona un PHPMailer ya configurado, se prueba esa instancia.
+    *
+     * @param PHPMailer|null $mail
+     * @return array ['success' => bool, 'message' => string]
+     */
+    public function testConnection(?PHPMailer $mail = null): array
+    {
+        if ($mail === null) {
+            $config = $this->getConfig();
+
+            if (!$this->canSendMail()) {
+                return [
+                    'success' => false,
+                    'message' => $this->getMissingConfigurationMessage()
+                ];
+            }
+
+            if (!$this->hasSmtpConfig()) {
+                $mailer = strtolower((string) ($config['mail_mailer'] ?? 'mail'));
+                if (in_array($mailer, ['mail', 'sendmail'], true)) {
+                    return [
+                        'success' => true,
+                        'message' => 'Usando ' . $mailer . '. No se puede probar la conexión SMTP.'
+                    ];
+                }
+
+                return [
+                    'success' => false,
+                    'message' => 'No hay configuración SMTP definida.'
+                ];
+            }
+
+            $mail = $this->createMailer();
+
+            if ($this->mailerRequiresOpenSsl($mail) && !extension_loaded('openssl')) {
+                return [
+                    'success' => false,
+                    'message' => 'La extensión OpenSSL no está disponible. Es necesaria para conexiones SMTP seguras.'
+                ];
+            }
+        } elseif ($this->normalizeMailer((string) ($mail->Mailer ?: 'mail')) !== 'smtp') {
+            return [
+                'success' => true,
+                'message' => 'Usando ' . ($mail->Mailer ?: 'mail()') . '. No se puede probar la conexión SMTP.'
+            ];
+        } elseif (empty($mail->Host) || (int) $mail->Port <= 0) {
+            return [
+                'success' => false,
+                'message' => 'No hay configuración SMTP definida en el mailer proporcionado.'
+            ];
+        } elseif ($this->mailerRequiresOpenSsl($mail) && !extension_loaded('openssl')) {
+            return [
+                'success' => false,
+                'message' => 'La extensión OpenSSL no está disponible. Es necesaria para conexiones SMTP seguras.'
+            ];
+        }
+
+        try {
+            if ((int) $mail->Timeout <= 0) {
+                $mail->Timeout = 5;
+            }
+            $mail->SMTPDebug = 0;
+
+            if ($mail->smtpConnect()) {
+                $mail->smtpClose();
+                return [
+                    'success' => true,
+                    'message' => 'Conexión SMTP exitosa.'
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'No se pudo conectar al servidor SMTP. '
+                    . ($mail->ErrorInfo ?: 'Verifica los datos de configuración.')
+            ];
+        } catch (PHPMailerException $e) {
+            return [
+                'success' => false,
+                'message' => 'Error de conexión: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Verifica si hay configuración SMTP válida.
     *
      * @return bool
@@ -270,66 +356,6 @@ class MailService
     }
 
     /**
-     * Prueba la conexión SMTP.
-    *
-     * @return array ['success' => bool, 'message' => string]
-     */
-    public function testConnection(): array
-    {
-        if (!$this->canSendMail()) {
-            return [
-                'success' => false,
-                'message' => $this->getMissingConfigurationMessage()
-            ];
-        }
-
-        if (!$this->hasSmtpConfig()) {
-            if ($this->getConfig()['mail_mailer'] === 'mail') {
-                return [
-                    'success' => true,
-                    'message' => 'Usando mail() nativo de PHP. No se puede probar la conexión.'
-                ];
-            }
-            return [
-                'success' => false,
-                'message' => 'No hay configuración SMTP definida.'
-            ];
-        }
-
-        if (!extension_loaded('openssl')) {
-            return [
-                'success' => false,
-                'message' => 'La extensión OpenSSL no está disponible. Es necesaria para conexiones SMTP seguras.'
-            ];
-        }
-
-        try {
-            $mail = $this->createMailer();
-            $mail->Timeout = 5;
-            $mail->SMTPDebug = 0;
-
-            if ($mail->smtpConnect()) {
-                $mail->smtpClose();
-                return [
-                    'success' => true,
-                    'message' => 'Conexión SMTP exitosa.'
-                ];
-            }
-
-            return [
-                'success' => false,
-                'message' => 'No se pudo conectar al servidor SMTP. '
-                    . ($mail->ErrorInfo ?: 'Verifica los datos de configuración.')
-            ];
-        } catch (PHPMailerException $e) {
-            return [
-                'success' => false,
-                'message' => 'Error de conexión: ' . $e->getMessage()
-            ];
-        }
-    }
-
-    /**
      * Obtiene el email de remitente por defecto.
     *
      * @return string
@@ -416,6 +442,38 @@ class MailService
         $port = (int) ($config['mail_port'] ?? 0);
 
         return $port === 1025 && in_array($host, ['localhost', '127.0.0.1', 'mailpit'], true);
+    }
+
+    private function requiresOpenSsl(?string $encryption): bool
+    {
+        $normalized = strtolower(trim((string) $encryption));
+        return $normalized !== '';
+    }
+
+    private function mailerRequiresOpenSsl(PHPMailer $mail): bool
+    {
+        if ($this->normalizeMailer((string) ($mail->Mailer ?: 'mail')) !== 'smtp') {
+            return false;
+        }
+
+        if ($this->requiresOpenSsl($mail->SMTPSecure ?: null)) {
+            return true;
+        }
+
+        return $this->isStartTlsEnabled($mail);
+    }
+
+    private function isStartTlsEnabled(PHPMailer $mail): bool
+    {
+        return property_exists($mail, 'SMTPAutoTLS')
+            && $mail->SMTPAutoTLS === true
+            && (int) $mail->Port === 587;
+    }
+
+    private function normalizeMailer(string $mailer): string
+    {
+        $normalized = strtolower(trim($mailer));
+        return $normalized === '' ? 'mail' : $normalized;
     }
 
     private function getMissingConfigurationMessage(): string

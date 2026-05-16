@@ -1,4 +1,21 @@
 <?php
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 declare(strict_types=1);
 
@@ -16,39 +33,63 @@ final class PluginInstaller
         $this->pluginManager = $pluginManager;
     }
 
-    public function installSystemUpdater(): void
+    /**
+     * @return array{errors: string[], messages: string[], redirect?: string}
+     */
+    public function installSystemUpdater(): array
     {
+        $result = ['errors' => [], 'messages' => []];
         $pluginName = 'system_updater';
         $pluginsDir = FS_FOLDER . '/plugins/';
         $downloadPath = FS_FOLDER . '/download_updater.zip';
         $githubUrl = 'https://github.com/eltictacdicta/system_updater/archive/refs/heads/master.zip';
 
         if (file_exists($pluginsDir . $pluginName . '/controller/admin_updater.php')) {
-            if (!in_array($pluginName, $this->pluginManager->enabled())) {
-                $this->pluginManager->enable($pluginName);
+            if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
+                $result['errors'][] = 'No se pudo activar el plugin <b>' . $pluginName . '</b>.';
+                return $result;
             }
-            header('Location: index.php?page=admin_updater');
-            exit;
+
+            $result['redirect'] = 'index.php?page=admin_updater';
+            return $result;
         }
 
         if (!is_writable($pluginsDir)) {
-            return;
+            $result['errors'][] = 'No hay permisos de escritura en la carpeta de plugins.';
+            return $result;
         }
 
         if (!$this->downloadSystemUpdater($githubUrl, $downloadPath)) {
-            return;
+            $result['errors'][] = 'No se pudo descargar el plugin <b>' . $pluginName . '</b> desde GitHub.';
+            return $result;
         }
 
         if (!$this->extractSystemUpdater($downloadPath, $pluginsDir)) {
-            return;
+            $result['errors'][] = 'No se pudo extraer el ZIP del plugin <b>' . $pluginName . '</b>.';
+            return $result;
         }
 
         $extractedName = $this->findExtractedFolder($pluginsDir, $pluginName);
         if ($extractedName && !$this->movePluginDirectory($pluginsDir, $extractedName, $pluginName)) {
-            return;
+            $result['errors'][] = 'No se pudo mover el directorio del plugin <b>' . $pluginName . '</b> a su ubicación final.';
+            return $result;
         }
 
         $this->verifyInstallation($pluginName, $pluginsDir);
+
+        if (!file_exists($pluginsDir . $pluginName . '/controller/admin_updater.php')) {
+            $result['errors'][] = 'La instalación del plugin <b>' . $pluginName . '</b> no se completó correctamente.';
+            return $result;
+        }
+
+        if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
+            $result['errors'][] = 'El plugin <b>' . $pluginName . '</b> se instaló, pero no se pudo activar.';
+            return $result;
+        }
+
+        $result['messages'][] = 'Plugin <b>' . $pluginName . '</b> instalado correctamente.';
+        $result['redirect'] = 'index.php?page=admin_updater';
+        return $result;
     }
 
     private function downloadSystemUpdater(string $githubUrl, string $downloadPath): bool

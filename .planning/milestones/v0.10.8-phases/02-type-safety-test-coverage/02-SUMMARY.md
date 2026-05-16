@@ -24,7 +24,7 @@
 - ✅ At least 10 files in `base/` have `declare(strict_types=1)` — 15 achieved
 - ✅ `business_data` plugin has test coverage for empresa, ejercicio, serie, divisa models
 - ✅ `catalogo_core` plugin has test coverage for familia, fabricante models
-- ✅ All new and existing tests pass (14 new + 124 base = no regressions)
+- ✅ No regressions over the baseline: 14 new plugin tests and the 124-test base suite pass; the 5 pre-existing failures remain unchanged
 
 ## Plugin Independence Confirmed
 - `catalogo_core` models (familia, fabricante, articulo) are autonomous

@@ -218,7 +218,13 @@ class admin_home extends fs_controller
      */
     private function install_system_updater()
     {
-        (new \FSFramework\Core\PluginInstaller($this->plugin_manager))->installSystemUpdater();
+        $result = (new \FSFramework\Core\PluginInstaller($this->plugin_manager))->installSystemUpdater();
+        $this->applyHandlerResult($result);
+
+        if (!empty($result['redirect'])) {
+            header('Location: ' . $result['redirect']);
+            exit;
+        }
     }
 
     private function exec_actions()
@@ -263,7 +269,45 @@ class admin_home extends fs_controller
 
         if (filter_input(INPUT_GET, 'download_plugin')) {
             /// descargar plugin como archivo ZIP
-            $this->download_plugin(filter_input(INPUT_GET, 'download_plugin'));
+            $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
+            if (!empty($handlerResult['errors'])) {
+                $this->applyHandlerResult($handlerResult);
+                return;
+            }
+
+            if (!empty($handlerResult['download_zip'])) {
+                $this->template = FALSE;
+                $zip = $handlerResult['download_zip'];
+                $filename = $this->sanitizeDownloadFilename((string) ($zip['filename'] ?? 'plugin.zip'));
+                $zipPath = (string) ($zip['path'] ?? '');
+                $zipSize = is_file($zipPath) ? filesize($zipPath) : false;
+
+                if ($zipPath === '' || !is_readable($zipPath) || $zipSize === false) {
+                    $this->new_error_msg('No se pudo preparar la descarga del plugin.');
+                    $this->applyHandlerResult($handlerResult);
+                    return;
+                }
+
+                register_shutdown_function(static function () use ($zipPath): void {
+                    if (is_file($zipPath) && !@unlink($zipPath)) {
+                        error_log('FSFramework admin_home: no se pudo eliminar el ZIP temporal ' . $zipPath);
+                    }
+                });
+
+                header('Content-Type: application/zip');
+                header('Content-Disposition: attachment; filename="' . $filename . '"; filename*=UTF-8\'\'' . rawurlencode($filename));
+                header('Content-Length: ' . $zipSize);
+                header('Cache-Control: no-cache, must-revalidate');
+                header('Pragma: no-cache');
+
+                if (readfile($zipPath) === false) {
+                    error_log('FSFramework admin_home: fallo al enviar el ZIP temporal ' . $zipPath);
+                }
+
+                exit;
+            }
+
+            $this->applyHandlerResult($handlerResult);
             return;
         }
 
@@ -315,20 +359,8 @@ class admin_home extends fs_controller
         } else if (filter_input(INPUT_POST, 'install')) {
             /// instalar plugin (copiarlo y descomprimirlo)
             $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
+            $this->pending_plugin = $_SESSION['pending_plugin'] ?? null;
             $this->applyHandlerResult($handlerResult);
-        } else if (filter_input(INPUT_GET, 'download_plugin')) {
-            $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
-            if (!empty($handlerResult['download_zip'])) {
-                $this->template = FALSE;
-                $zip = $handlerResult['download_zip'];
-                header('Content-Type: application/zip');
-                header('Content-Disposition: attachment; filename="' . $zip['filename'] . '"');
-                header('Content-Length: ' . filesize($zip['path']));
-                header('Cache-Control: no-cache, must-revalidate');
-                header('Pragma: no-cache');
-                readfile($zip['path']);
-                unlink($zip['path']);
-            }
         } else if (filter_input(INPUT_GET, 'reset')) {
             /// reseteamos la configuración avanzada
             $this->settings->reset();
@@ -550,6 +582,23 @@ class admin_home extends fs_controller
         foreach ($result['advices'] ?? [] as $adv) {
             $this->new_advice($adv);
         }
+    }
+
+    private function sanitizeDownloadFilename(string $filename): string
+    {
+        $filename = str_replace(["\r", "\n", '"', "'"], '', $filename);
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', $filename) ?? '';
+        $filename = trim($filename, '._-');
+
+        if ($filename === '') {
+            return 'plugin.zip';
+        }
+
+        if (substr(strtolower($filename), -4) !== '.zip') {
+            return $filename . '.zip';
+        }
+
+        return $filename;
     }
 
     /**

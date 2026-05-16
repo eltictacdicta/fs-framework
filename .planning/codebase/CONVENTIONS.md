@@ -15,9 +15,8 @@
 - Twig templates: `{name}.html.twig` (snake_case, e.g., `admin_home.html.twig`, `force_password_change.html.twig`)
 
 **Functions:**
-- Legacy global functions: `fs_{name}()` (snake_case, e.g., `fs_filter_input_req()`, `fs_get_requested_page_name()`, `find_controller()`)
-- Modern class methods: camelCase (e.g., `private_core()`, `new_error_msg()`, `isCsrfValid()`, `dispatchModelEvent()`)
-- Abstract model methods: `test()`, `save()`, `delete()`, `exists()` (all camelCase)
+- Legacy (historical) global functions: snake_case names such as `fs_filter_input_req()`, `fs_get_requested_page_name()`, and `find_controller()`. These legacy names are deprecated and kept for compatibility only.
+- Current conventions: class methods use camelCase, including `private_core()`, `new_error_msg()`, `isCsrfValid()`, `dispatchModelEvent()`, and abstract model methods `test()`, `save()`, `delete()`, `exists()`. CamelCase is the current standard for new and maintained code.
 - Helper namespaced functions: `trans()`, `__()` (global shortcuts in `TranslationHelper.php`)
 
 **Variables:**

@@ -23,7 +23,7 @@ expected: `grep "8\.2" index.php install.php` returns version_compare lines. `gr
 result: pending
 
 ### 2. Weak Random Fallback Removed
-expected: `grep "str_shuffle" install.php` returns only `random_string()` (kept for non-security). `random_secret_key()` uses `random_bytes()` with no fallback. Function has type hints `int $length = 64): string`.
+expected: `grep -E "str_shuffle|random_string" install.php` returns zero matches. `random_secret_key()` uses `random_bytes()` with no fallback. Function has type hints `int $length = 64): string` and there are no non-cryptographic fallback implementations.
 result: pending
 
 ### 3. PHPMailer 5.x and Compat Bridge Deleted

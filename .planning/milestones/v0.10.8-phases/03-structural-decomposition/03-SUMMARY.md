@@ -3,7 +3,7 @@
 **Phase:** 3 of 3
 **Completed:** 2026-05-16
 **Plans executed:** 3/3 (100%)
-**Test results:** Base suite 124/124 pass, all plugin tests pass, 5 pre-existing failures unchanged
+**Test results:** Base suite: 124/124 passed; Plugin tests: all passed; Full-suite baseline: 5 pre-existing Security/Cache failures unchanged and not counted in this phase summary
 
 ## Plans
 
@@ -37,7 +37,7 @@
 - StealthMode not reduced to <200 lines (508) — access/login logic is tightly coupled
 - admin_cache controller deferred — practical benefit too small to justify
 - Future: deeper fs_mysql decomposition requires extensive refactoring of 20+ interdependent methods
-- Future: empresa.php should delegate email config to MailService (noted in Phase 1)
+- Update: empresa.php email delegation was completed later in v0.11.0 Phase 5 via MailService; this Phase 3 follow-up is closed
 
 ## Project Complete — All 8 Requirements Met
 | REQ | Description | Phase | Status |

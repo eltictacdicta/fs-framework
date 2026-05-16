@@ -1,4 +1,21 @@
 <?php
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 declare(strict_types=1);
 
@@ -15,7 +32,7 @@ final class TypeNormalizer
         'tinyint' => 'TINYINT',
         'boolean' => 'TINYINT(1)',
         'double precision' => 'DOUBLE',
-        'real' => 'DOUBLE',
+        'real' => 'FLOAT',
         'float' => 'FLOAT',
         'numeric' => 'DECIMAL',
         'decimal' => 'DECIMAL',
@@ -65,15 +82,15 @@ final class TypeNormalizer
         $upperDefault = strtoupper($default);
         $upperType = strtoupper($columnType);
 
-        if ($upperDefault === 'CURRENT_TIMESTAMP' || $upperDefault === 'NOW()') {
-            return 'CURRENT_TIMESTAMP';
-        }
-
-        if (strpos($upperType, 'TIMESTAMP') !== false) {
+        if (self::supportsTemporalFunctionDefault($upperType)
+            && in_array($upperDefault, ['CURRENT_TIMESTAMP', 'NOW()', 'CURRENT_TIMESTAMP()'], true)
+        ) {
             $normalized = self::normalizeTimestampDefault($upperDefault, $columnType);
             if ($normalized !== null) {
                 return $normalized;
             }
+
+            return 'CURRENT_TIMESTAMP';
         }
 
         if (is_numeric($default)) {
@@ -162,18 +179,37 @@ final class TypeNormalizer
         return substr($dbType, $start, -1) == substr($xmlType, $xmlStart, -1);
     }
 
+    private static function supportsTemporalFunctionDefault(string $upperType): bool
+    {
+        return $upperType === 'DATE'
+            || preg_match('/^TIME(?:\(\d+\))?$/', $upperType) === 1
+            || strpos($upperType, 'TIMESTAMP') !== false
+            || strpos($upperType, 'DATETIME') !== false;
+    }
+
     private static function normalizeTimestampDefault(string $upperDefault, string $type): ?string
     {
         $upperType = strtoupper($type);
-        if (strpos($upperType, 'TIMESTAMP') === false) {
+        if (!in_array($upperDefault, ['CURRENT_TIMESTAMP', 'NOW()', 'CURRENT_TIMESTAMP()'], true)
+            && $upperDefault !== '0000-00-00 00:00:00'
+            && $upperDefault !== "'0000-00-00 00:00:00'"
+        ) {
             return null;
         }
 
         if ($upperDefault === '0000-00-00 00:00:00' || $upperDefault === "'0000-00-00 00:00:00'") {
-            return '0000-00-00 00:00:00';
+            return "'0000-00-00 00:00:00'";
         }
 
-        if ($upperDefault === 'CURRENT_TIMESTAMP' || $upperDefault === 'NOW()' || $upperDefault === 'CURRENT_TIMESTAMP()') {
+        if ($upperType === 'DATE') {
+            return 'CURRENT_DATE';
+        }
+
+        if (preg_match('/^TIME(?:\(\d+\))?$/', $upperType) === 1) {
+            return 'CURRENT_TIME';
+        }
+
+        if (strpos($upperType, 'TIMESTAMP') !== false || strpos($upperType, 'DATETIME') !== false) {
             return 'CURRENT_TIMESTAMP';
         }
 

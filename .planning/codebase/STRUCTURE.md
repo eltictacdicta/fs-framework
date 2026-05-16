@@ -35,7 +35,6 @@
 │   ├── fs_core_log.php       # PSR-3 compatible logging system
 │   ├── fs_cache.php          # Legacy cache (Memcache), strict_types since v0.10.8
 │   ├── php_file_cache.php    # Filesystem cache fallback
-│   ├── fs_controller.php     # Main controller class
 │   ├── fs_edit_controller.php # Edit controller pattern
 │   ├── fs_list_controller.php # List controller pattern
 │   ├── fs_functions.php      # Global helper functions
@@ -369,7 +368,7 @@
 
 **New Model (legacy):**
 - `model/{name}.php` extending `fs_model`
-- Schema: `model/table/{name}.php` (XML)
+- Schema: `model/table/{name}.xml` (XML)
 
 **New Model (modern):**
 - `plugins/{PluginName}/Model/{Name}.php` extending `fs_model` with `ValidatorTrait`

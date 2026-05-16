@@ -25,6 +25,7 @@ namespace Tests\Core;
 require_once __DIR__ . '/../../model/fs_var.php';
 
 use FSFramework\Core\MailService;
+use PHPMailer\PHPMailer\PHPMailer;
 use PHPUnit\Framework\TestCase;
 
 class MailServiceTest extends TestCase
@@ -216,6 +217,54 @@ class MailServiceTest extends TestCase
         ]));
 
         $this->assertSame('ssl', $service->createMailer()->SMTPSecure);
+    }
+
+    public function testTestConnectionUsesProvidedMailerWhenFsVarConfigIsIncomplete(): void
+    {
+        $service = new MailService($this->createFsVarDouble([
+            'mail_mailer' => 'smtp',
+            'mail_host' => '',
+            'mail_port' => '0',
+            'mail_user' => '',
+            'mail_password' => '',
+            'mail_enc' => '',
+            'mail_low_security' => '0',
+            'mail_from_email' => '',
+            'mail_from_name' => '',
+        ]));
+
+        $mailer = new class() extends PHPMailer {
+            public int $connectCalls = 0;
+            public int $closeCalls = 0;
+
+            public function __construct()
+            {
+                parent::__construct(true);
+                $this->Mailer = 'smtp';
+                $this->Host = 'custom.smtp.local';
+                $this->Port = 2525;
+                $this->Timeout = 3;
+            }
+
+            public function smtpConnect($options = null): bool
+            {
+                $this->connectCalls++;
+                return true;
+            }
+
+            public function smtpClose(): void
+            {
+                $this->closeCalls++;
+            }
+        };
+
+        $result = $service->testConnection($mailer);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('Conexión SMTP exitosa.', $result['message']);
+        $this->assertSame(1, $mailer->connectCalls);
+        $this->assertSame(1, $mailer->closeCalls);
+        $this->assertSame(3, $mailer->Timeout);
     }
 
     private function createFsVarDouble(array $values): \fs_var

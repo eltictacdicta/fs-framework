@@ -1,4 +1,21 @@
 <?php
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 declare(strict_types=1);
 
@@ -121,7 +138,7 @@ final class SchemaComparator
 
         $validatedCons = $this->validateFkConstraints($xmlCons);
         $sql .= ' ' . $this->generateTableConstraints($validatedCons) . ' )';
-        $sql .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;';
+        $sql .= ' ' . $this->tableCharsetCollationSql() . ';';
 
         return $this->fixPostgresql($sql);
     }
@@ -259,64 +276,118 @@ final class SchemaComparator
 
     private function buildDbConstraintSignatures(string $tableName): array
     {
-        $constraints = $this->inspector->getConstraints($tableName);
-        $extended = $this->inspector->getConstraintsExtended($tableName);
-        $sigs = [];
-
-        foreach ($constraints as $c) {
-            $found = null;
-            foreach ($extended as $e) {
-                if ($e['name'] === $c['name']) {
-                    $found = $e;
-                    break;
-                }
+        $grouped = [];
+        foreach ($this->inspector->getConstraintsExtended($tableName) as $row) {
+            if (empty($row['name']) || empty($row['type'])) {
+                continue;
             }
-            if ($found !== null) {
-                $normalized = $this->normalizeDbConstraintSignature($found);
-                if ($normalized !== null) {
-                    $sigs[$c['name']] = $normalized;
-                }
+
+            $name = $row['name'];
+            if (!isset($grouped[$name])) {
+                $grouped[$name] = [
+                    'type' => strtoupper($row['type']),
+                    'rows' => [],
+                ];
+            }
+
+            $grouped[$name]['rows'][] = $row;
+        }
+
+        $signatures = [];
+        foreach ($grouped as $name => $constraint) {
+            $signature = $this->normalizeDbConstraintSignature($constraint);
+            if ($signature !== null) {
+                $signatures[$name] = $signature;
             }
         }
 
-        return $sigs;
+        return $signatures;
     }
 
     private function normalizeXmlConstraintSignature(string $query): ?string
     {
-        $q = trim((string) preg_replace('/\s+/', ' ', $query));
-        $q = str_replace(' ON DELETE RESTRICT', '', $q);
-        $q = str_replace(' ON UPDATE RESTRICT', '', $q);
+        $normalized = preg_replace('/\s+/', ' ', trim($query));
+        if (!is_string($normalized) || $normalized === '') {
+            return null;
+        }
 
-        $q = preg_replace_callback('/ ON (DELETE|UPDATE) (?:NO ACTION|RESTRICT|CASCADE|SET NULL)/i', function ($m) {
-            return ' ON ' . strtoupper($m[1]) . ' ' . strtoupper($m[2]);
-        }, $q);
+        if (preg_match('/^PRIMARY KEY\s*\(([^)]+)\)$/i', $normalized, $matches)) {
+            return 'PRIMARY KEY|' . implode(',', $this->normalizeIdentifierList($matches[1]));
+        }
 
-        return $q !== '' ? $q : null;
+        if (preg_match('/^UNIQUE\s*\(([^)]+)\)$/i', $normalized, $matches)) {
+            return 'UNIQUE|' . implode(',', $this->normalizeIdentifierList($matches[1]));
+        }
+
+        if (!preg_match('/^FOREIGN KEY\s*\(([^)]+)\)\s+REFERENCES\s+([^\s(]+)\s*\(([^)]+)\)(.*)$/i', $normalized, $matches)) {
+            return null;
+        }
+
+        $localColumns = implode(',', $this->normalizeIdentifierList($matches[1]));
+        $foreignTable = $this->normalizeIdentifier($matches[2]);
+        $foreignColumns = implode(',', $this->normalizeIdentifierList($matches[3]));
+        $tail = $matches[4] ?? '';
+
+        return sprintf(
+            'FOREIGN KEY|%s|%s|%s|%s|%s',
+            $localColumns,
+            $foreignTable,
+            $foreignColumns,
+            $this->extractRuleFromSqlTail($tail, 'UPDATE'),
+            $this->extractRuleFromSqlTail($tail, 'DELETE')
+        );
     }
 
     private function normalizeDbConstraintSignature(array $constraint): ?string
     {
-        $type = $constraint['type'] ?? '';
-        $col = $constraint['column_name'] ?? '';
-        $refTable = $constraint['foreign_table_name'] ?? '';
-        $refCol = $constraint['foreign_column_name'] ?? '';
-
-        if ($type === 'PRIMARY KEY') {
-            return "PRIMARY KEY ({$col})";
+        if (empty($constraint['type']) || empty($constraint['rows'])) {
+            return null;
         }
 
-        if ($type === 'UNIQUE') {
-            return "UNIQUE ({$col})";
+        $rows = $constraint['rows'];
+        usort($rows, static function (array $left, array $right): int {
+            $leftPosition = (int) ($left['ordinal_position'] ?? 0);
+            $rightPosition = (int) ($right['ordinal_position'] ?? 0);
+
+            if ($leftPosition !== $rightPosition) {
+                return $leftPosition <=> $rightPosition;
+            }
+
+            return strcmp((string) ($left['column_name'] ?? ''), (string) ($right['column_name'] ?? ''));
+        });
+
+        $type = strtoupper($constraint['type']);
+        $columns = [];
+        foreach ($rows as $row) {
+            if (!empty($row['column_name'])) {
+                $columns[] = $this->normalizeIdentifier($row['column_name']);
+            }
         }
 
-        if ($type === 'FOREIGN KEY' && $refTable && $refCol) {
-            $onDelete = ($constraint['on_delete'] ?? '') ?: 'RESTRICT';
-            $onUpdate = ($constraint['on_update'] ?? '') ?: 'RESTRICT';
-            return "FOREIGN KEY ({$col}) REFERENCES {$refTable} ({$refCol}) ON DELETE {$onDelete} ON UPDATE {$onUpdate}";
+        if ($type === 'PRIMARY KEY' || $type === 'UNIQUE') {
+            return $type . '|' . implode(',', $columns);
         }
 
-        return null;
+        if ($type !== 'FOREIGN KEY') {
+            return null;
+        }
+
+        $firstRow = $rows[0];
+        $foreignColumns = [];
+        foreach ($rows as $row) {
+            if (!empty($row['foreign_column_name'])) {
+                $foreignColumns[] = $this->normalizeIdentifier($row['foreign_column_name']);
+            }
+        }
+
+        return sprintf(
+            'FOREIGN KEY|%s|%s|%s|%s|%s',
+            implode(',', $columns),
+            $this->normalizeIdentifier((string) ($firstRow['foreign_table_name'] ?? '')),
+            implode(',', $foreignColumns),
+            strtoupper((string) ($firstRow['on_update'] ?? 'RESTRICT')),
+            strtoupper((string) ($firstRow['on_delete'] ?? 'RESTRICT'))
+        );
     }
 
     private function validateFkConstraints(array $xmlCons): array
@@ -359,8 +430,24 @@ final class SchemaComparator
     {
         $sql = '';
         foreach ($xmlCons as $c) {
-            $sql .= ", " . $c['consulta'];
+            $consulta = trim((string) ($c['consulta'] ?? ''));
+            if ($consulta === '') {
+                continue;
+            }
+
+            $constraintType = $this->detectConstraintType($consulta);
+            if ($constraintType === 'FOREIGN KEY' && defined('FS_FOREIGN_KEYS') && !FS_FOREIGN_KEYS) {
+                continue;
+            }
+
+            if ($constraintType === 'PRIMARY KEY' || $this->hasExplicitConstraintName($consulta) || empty($c['nombre'])) {
+                $sql .= ', ' . $consulta;
+                continue;
+            }
+
+            $sql .= ', CONSTRAINT ' . $this->quoteIdentifier((string) $c['nombre']) . ' ' . $consulta;
         }
+
         return $sql;
     }
 
@@ -370,11 +457,39 @@ final class SchemaComparator
             return $sql;
         }
 
-        return str_replace(
+        $sql = str_replace(
             ['INT(11)', 'TINYINT(1)', 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'],
             ['INTEGER', 'BOOLEAN', ''],
             $sql
         );
+
+        return (string) preg_replace('/ENGINE=InnoDB DEFAULT CHARSET=[a-z0-9_]+ COLLATE=[a-z0-9_]+/i', '', $sql);
+    }
+
+    private function tableCharsetCollationSql(): string
+    {
+        if (defined('FS_DB_TYPE') && FS_DB_TYPE !== 'MYSQL') {
+            return '';
+        }
+
+        $charset = 'utf8mb4';
+        $collation = 'utf8mb4_unicode_ci';
+
+        $dbConf = $this->db->select('SELECT @@character_set_database AS db_charset, @@collation_database AS db_collation;');
+        if (!empty($dbConf)) {
+            $dbCharset = isset($dbConf[0]['db_charset']) ? strtolower((string) $dbConf[0]['db_charset']) : '';
+            $dbCollation = isset($dbConf[0]['db_collation']) ? strtolower((string) $dbConf[0]['db_collation']) : '';
+
+            if (preg_match(self::IDENTIFIER_REGEX, $dbCharset)) {
+                $charset = $dbCharset;
+            }
+
+            if (preg_match(self::IDENTIFIER_REGEX, $dbCollation)) {
+                $collation = $dbCollation;
+            }
+        }
+
+        return 'ENGINE=InnoDB DEFAULT CHARSET=' . $charset . ' COLLATE=' . $collation;
     }
 
     private function searchInArray(array $array, string $key, string $value): ?array
@@ -400,5 +515,59 @@ final class SchemaComparator
     private function quoteIdentifier(string $identifier): string
     {
         return '`' . $this->requireIdentifier($identifier) . '`';
+    }
+
+    private function normalizeIdentifierList(string $list): array
+    {
+        $items = array_map('trim', explode(',', $list));
+        $items = array_values(array_filter($items, static function (string $item): bool {
+            return $item !== '';
+        }));
+
+        return array_map(function (string $item): string {
+            return $this->normalizeIdentifier($item);
+        }, $items);
+    }
+
+    private function normalizeIdentifier(string $identifier): string
+    {
+        $identifier = trim($identifier);
+        $identifier = trim($identifier, "`\" ");
+
+        if (str_contains($identifier, '.')) {
+            $parts = explode('.', $identifier);
+            $identifier = (string) end($parts);
+            $identifier = trim($identifier, "`\" ");
+        }
+
+        return strtolower($identifier);
+    }
+
+    private function detectConstraintType(string $consulta): ?string
+    {
+        $normalized = preg_replace('/\s+/', ' ', trim($consulta));
+        if (!is_string($normalized) || $normalized === '') {
+            return null;
+        }
+
+        if (!preg_match('/^(?:CONSTRAINT\s+(?:`[^`]+`|"[^"]+"|[A-Za-z0-9_]+)\s+)?(PRIMARY KEY|UNIQUE|FOREIGN KEY)\b/i', $normalized, $matches)) {
+            return null;
+        }
+
+        return strtoupper($matches[1]);
+    }
+
+    private function hasExplicitConstraintName(string $consulta): bool
+    {
+        return preg_match('/^CONSTRAINT\s+(?:`[^`]+`|"[^"]+"|[A-Za-z0-9_]+)\s+/i', trim($consulta)) === 1;
+    }
+
+    private function extractRuleFromSqlTail(string $tail, string $ruleType): string
+    {
+        if (!preg_match('/ON ' . $ruleType . '\s+(RESTRICT|CASCADE|SET NULL|NO ACTION|SET DEFAULT)/i', $tail, $matches)) {
+            return 'RESTRICT';
+        }
+
+        return strtoupper($matches[1]);
     }
 }

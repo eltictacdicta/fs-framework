@@ -27,7 +27,7 @@ key-files:
 key-decisions:
   - "TypeNormalizer extracted as static utility class — no DB dependency"
   - "SchemaInspector receives db object via constructor"
-  - "SchemaComparator handles compare_columns and generate_table, compare_constraints stays in fs_mysql"
+  - "SchemaComparator contains compareColumns(), compareConstraints(), and generateTable(); fs_mysql still retains the legacy compare_constraints() path and does not fully delegate every schema operation yet"
   - "Identifier helper methods duplicated in SchemaInspector and SchemaComparator (private on fs_mysql)"
 patterns-established:
   - "Extract pure utilities as static classes"
@@ -37,7 +37,6 @@ requirements-completed:
   - MYSQL-01
   - MYSQL-02
   - MYSQL-03
-  - MYSQL-04
 duration: 25min
 completed: 2026-05-16
 ---
@@ -60,7 +59,7 @@ completed: 2026-05-16
 - Created `SchemaInspector` — read-only introspection (get_columns, get_constraints, get_constraints_extended, get_indexes)
 - Created `SchemaComparator` — DDL generation (compare_columns, generate_table) using TypeNormalizer and SchemaInspector
 - fs_mysql reduced by ~130 lines of method bodies now delegated
-- Full suite passes with same counts (383 tests, 0 failures, 0 errors)
+- No regressions against the full-suite baseline from the base commit of this phase
 
 ## Task Commits
 
@@ -76,13 +75,13 @@ completed: 2026-05-16
 - `base/fs_mysql.php` — MODIFIED — 6 public methods now delegate to extracted classes
 
 ## Decisions Made
-- compare_constraints retained in fs_mysql — constraint signature normalization too complex for safe extraction in this phase
+- SchemaComparator now includes compareConstraints(), but fs_mysql still keeps the legacy compare_constraints() execution path for active delegation and cleanup
 - Identifier helpers duplicated in SchemaInspector/SchemaComparator (private on fs_mysql)
 - TypeNormalizer uses TypeNormalizer::normalizeDefault() which is a simplified version (differences from normalize_mysql_default handled by caller)
 
 ## Deviations from Plan
-- SchemaComparator's compareConstraints not extracted — kept in fs_mysql due to constraint signature normalization complexity (bulk delete logic, FS_FOREIGN_KEYS flag handling)
-- Private helpers not fully removed from fs_mysql — they're still called by compare_constraints and remaining internal methods
+- MYSQL-04 remains pending: fs_mysql does not yet delegate every schema operation to the extracted classes
+- Private helpers were not fully removed from fs_mysql because the legacy compare_constraints path still relies on them
 
 ## Next Phase Readiness
-- Milestone v0.11.0 is **COMPLETE** — all 4 phases done, 16/16 requirements met
+- Milestone v0.11.0 still needs follow-up on the remaining delegation scope before it can be treated as fully complete

@@ -1,4 +1,21 @@
 <?php
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 declare(strict_types=1);
 
@@ -18,7 +35,7 @@ final class PluginActionHandler
     }
 
     /**
-     * @return array{enable?: string, errors: string[], messages: string[], advices: string[]}
+     * @return array{enable?: string, download_zip?: array{path: string, filename: string}, errors: string[], messages: string[], advices: string[]}
      */
     public function handle(): array
     {
@@ -49,11 +66,12 @@ final class PluginActionHandler
             }
 
             $zipFilename = $pluginName . '.zip';
-            $zipPath = FS_FOLDER . '/tmp/' . $zipFilename;
-
-            if (!file_exists(FS_FOLDER . '/tmp')) {
-                mkdir(FS_FOLDER . '/tmp', 0777, true);
+            $tmpDir = $this->ensureTmpDirectory($result);
+            if ($tmpDir === null) {
+                return $result;
             }
+
+            $zipPath = $tmpDir . '/' . $zipFilename;
 
             $zip = new ZipArchive();
             if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -89,7 +107,10 @@ final class PluginActionHandler
             unset($_SESSION['pending_plugin']);
 
             if ($installResult) {
-                $result['messages'][] = 'Plugin <b>' . $installResult . '</b> instalado correctamente. El plugin anterior se guardó como backup.';
+                $installedPlugin = is_string($installResult) && $installResult !== '' ? $installResult : $pending['name'];
+                $result['messages'][] = 'Plugin <b>' . $installedPlugin . '</b> instalado correctamente. El plugin anterior se guardó como backup.';
+            } else {
+                $result['errors'][] = 'No se pudo instalar el plugin <b>' . $pending['name'] . '</b> tras confirmar la sobrescritura.';
             }
         } elseif (!empty($_FILES['fplugin']['tmp_name']) && is_uploaded_file($_FILES['fplugin']['tmp_name'])) {
             $pluginInfo = $this->pluginManager->detect_plugin_from_zip($_FILES['fplugin']['tmp_name']);
@@ -104,7 +125,12 @@ final class PluginActionHandler
             $existingPlugin = $this->pluginManager->check_plugin_exists($pluginName);
 
             if ($existingPlugin) {
-                $tempFile = FS_FOLDER . '/tmp/plugin_pending_install_' . session_id() . '_' . bin2hex(random_bytes(8)) . '.zip';
+                $tmpDir = $this->ensureTmpDirectory($result);
+                if ($tmpDir === null) {
+                    return $result;
+                }
+
+                $tempFile = $tmpDir . '/plugin_pending_install_' . session_id() . '_' . bin2hex(random_bytes(8)) . '.zip';
                 if (!move_uploaded_file($_FILES['fplugin']['tmp_name'], $tempFile)) {
                     $result['errors'][] = 'No se pudo guardar temporalmente el archivo del plugin para confirmar la sobreescritura.';
                     return $result;
@@ -119,11 +145,33 @@ final class PluginActionHandler
 
                 $result['advices'][] = 'El plugin <b>' . $pluginName . '</b> ya existe. Se requiere confirmación para sobrescribir.';
             } else {
-                $this->pluginManager->install($_FILES['fplugin']['tmp_name'], $_FILES['fplugin']['name'], false);
+                $installResult = $this->pluginManager->install($_FILES['fplugin']['tmp_name'], $_FILES['fplugin']['name'], false);
+                if ($installResult) {
+                    $installedPlugin = is_string($installResult) && $installResult !== '' ? $installResult : $pluginName;
+                    $result['messages'][] = 'Plugin <b>' . $installedPlugin . '</b> instalado correctamente.';
+                } else {
+                    $result['errors'][] = 'No se pudo instalar el plugin <b>' . $pluginName . '</b> desde el ZIP subido.';
+                }
             }
         }
 
         return $result;
+    }
+
+    private function ensureTmpDirectory(array &$result): ?string
+    {
+        $tmpDir = FS_FOLDER . '/tmp';
+        if (!is_dir($tmpDir) && !mkdir($tmpDir, 0755, true) && !is_dir($tmpDir)) {
+            $result['errors'][] = 'No se pudo crear el directorio temporal para la operación del plugin.';
+            return null;
+        }
+
+        if (!is_writable($tmpDir)) {
+            $result['errors'][] = 'El directorio temporal de plugins no tiene permisos de escritura.';
+            return null;
+        }
+
+        return $tmpDir;
     }
 
     private function addFilesToZip(ZipArchive $zip, string $sourcePath, string $basePath): void
@@ -135,7 +183,9 @@ final class PluginActionHandler
 
         foreach ($files as $file) {
             /** @var \SplFileInfo $file */
-            $localPath = $basePath . '/' . $file->getFilename();
+            $relativePath = substr($file->getPathname(), strlen(rtrim($sourcePath, '/')) + 1);
+            $relativePath = str_replace('\\', '/', $relativePath);
+            $localPath = $basePath . '/' . $relativePath;
             if ($file->isDir()) {
                 $zip->addEmptyDir($localPath);
             } elseif ($file->isFile()) {

@@ -18,7 +18,7 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-16 after v0.10.8)
+See: .planning/PROJECT.md (updated 2026-05-16 after v0.11.0)
 
 **Core value:** Fix real issues with minimal risk.
 **Current focus:** Milestone complete — planning next milestone

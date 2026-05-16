@@ -16,7 +16,7 @@
 - Removed `str_shuffle()` fallback from `random_secret_key()`
 - Added type hints: `int $length = 64): string`
 - Used `intdiv()` instead of `intval($length / 2)`
-- Kept `random_string()` for non-security tmp directory naming
+- Removed `random_string()` entirely per plan 01-02; `random_secret_key()` now relies on `random_bytes()` with no fallback
 
 ### 01-03: Remove PHPMailer 5.x and Compat Bridge ✅
 - Deleted `extras/phpmailer/` directory (61 files, vendored PHPMailer 5.x)

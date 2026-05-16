@@ -24,7 +24,7 @@ key-files:
     - controller/admin_home.php
 key-decisions:
   - "PluginInstaller handles system_updater GitHub download and install flow"
-  - "PluginActionHandler handles install/restore/download/cancel plugin actions"
+  - "PluginActionHandler handles install/restore/download/cancel plugin actions; enable/disable/delete remain in admin_home as a documented phase-scope deviation"
   - "Controller-side error messages remain in admin_home via applyHandlerResult()"
   - "3-line delegations (enable/disable/delete) stay in admin_home"
 patterns-established:
