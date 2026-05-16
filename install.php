@@ -264,7 +264,7 @@ if (file_exists('config.php')) {
  */
 $csrfToken = fs_install_get_csrf_token();
 
-if (floatval(substr(phpversion(), 0, 3)) < 5.6) {
+if (version_compare(PHP_VERSION, '8.2', '<')) {
     $errors[] = 'php';
 } else if (floatval('3,1') >= floatval('3.1')) {
     $errors[] = "floatval";
@@ -667,7 +667,7 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                 </div>
                                                 <div class="panel-body">
                                                     <p>
-                                                        FSFramework necesita PHP <b>5.6</b> o superior.
+                                                        FSFramework necesita PHP <b>8.2</b> o superior.
                                                         Tú estás usando la versión <b><?php echo phpversion() ?></b>.
                                                     </p>
                                                     <h3>Soluciones:</h3>

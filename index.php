@@ -17,9 +17,8 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-if ((float) substr(phpversion(), 0, 3) < 5.6) {
-    /// comprobamos la versión de PHP
-    die('FacturaScripts necesita PHP 5.6 o superior, y usted tiene PHP ' . phpversion());
+if (version_compare(PHP_VERSION, '8.2', '<')) {
+    die('FSFramework necesita PHP 8.2 o superior, y usted tiene PHP ' . PHP_VERSION);
 }
 
 if (!file_exists('config.php')) {
