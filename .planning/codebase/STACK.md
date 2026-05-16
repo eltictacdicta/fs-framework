@@ -5,125 +5,131 @@
 ## Languages
 
 **Primary:**
-- PHP 8.2+ (configured platform: 8.3) — Entire backend framework, controllers, models, and modern PSR-4 code in `src/`
-  - Running version via DDEV: PHP 8.3.30 (Zend Engine v4.3.30 with OPcache)
+- PHP 8.2+ (runtime config enforces 8.3) - Entire backend, controllers, models, core framework
+- Twig 3 - Template rendering for views
 
 **Secondary:**
-- JavaScript (ES5+, jQuery) — Client-side interactions and AJAX in legacy views under `view/js/`
-- Twig 3.x — Template rendering for modern views under `themes/AdminLTE/view/`
-- CSS — Tailwind CSS 4.x (`view/css/app.css` → `view/css/tailwind.css`) and Bootstrap 3.x themes
-- YAML — Translation files (`translations/`, `plugins/*/translations/`)
+- JavaScript (jQuery 3.7.1, Bootbox 5.5.3) - Frontend interactivity
+- CSS (Bootstrap 3.4.1, Bootswatch 3.x, Tailwind CSS 4.1) - Styling
+- YAML - Translations, configuration
+- XML - Database schema definitions in `model/table/`
+- INI - Plugin metadata (`fsframework.ini`, `facturascripts.ini`)
 
 ## Runtime
 
 **Environment:**
-- DDEV (local development) — `ddev` is mandatory for PHP, Composer, and PHPUnit commands
-- PHP 8.3 via DDEV, with nginx-fpm as the web server
-- No containerization for production defined; deployment is conventional LAMP/LEMP
+- PHP 8.3 (configured via `ddev`, `.ddev/config.yaml` sets `php_version: "8.3"`)
+- Web server: nginx-fpm (via ddev)
+- Database: MariaDB 10.11 (via ddev), also supports PostgreSQL (driver in `base/fs_postgresql.php`)
 
-**Package Manager (PHP):**
-- Composer 2 — `composer.json` at project root
-- Lockfile: `composer.lock` present
-- Platform config: `php: 8.3`, `platform-check: false`
-- Dev tools installed via a separate `dev-tools/composer.json` (vendor-dir: `vendor/dev-tools`)
+**Package Manager:**
+- Composer 2 (`composer.json`, `composer.lock`)
+- Lockfile: present
+- Platform config pins to PHP 8.3 (`config.platform.php: "8.3"`)
 
-**Package Manager (JS):**
-- npm — `package.json` at project root
-- Lockfile: `package-lock.json` (gitignored, regenerated during `build.sh`)
+**Frontend Package Manager:**
+- npm (`package.json`)
+- No lockfile committed (per project convention)
 
 ## Frameworks
 
 **Core:**
-- **Symfony 7.4** (lockfile v7.4.8–v7.4.10) — Modern service layer and HTTP foundation
-  - Components used: `http-foundation`, `cache`, `routing`, `config`, `yaml`, `translation`, `security-csrf`, `event-dispatcher`, `validator`, `dependency-injection`, `form`, `http-client`, `dotenv`
-- **Twig 3.24** — Primary template engine; default theme AdminLTE at `themes/AdminLTE/view/`
-- **FacturaScripts 2017 legacy** — Forked base at `base/`, `controller/`, `model/`, `plugins/` (legacy paths)
+- Symfony 7.4 Components - Integrates HTTP Foundation, Routing, Cache, Config, YAML, Translation, Security CSRF, Event Dispatcher, Validator, Dependency Injection, Form, HTTP Client (`composer.json` requires `^7.4`)
+- Twig 3 - Primary template engine via `themes/AdminLTE/view/`
+- Legacy framework (FacturaScripts 2017 fork) - Controllers in `base/fs_controller.php`, `base/fs_model.php`, `base/fs_db2.php`
 
 **Testing:**
-- **PHPUnit 11** — `require-dev` in root `composer.json`; config at `phpunit.xml`
-- **dev-tools** (separate composer project at `dev-tools/`) — PHPUnit 12.5, PHPStan 2.1, Rector 2.4, Symfony PHPUnit Bridge 7.4, shipmonk/dead-code-detector 1.1
-- Test structure: `tests/Base/`, `tests/Security/`, `tests/Traits/`, `tests/Cache/`, `tests/Api/`, `tests/Components/`, and plugin tests under `plugins/*/tests/`
+- PHPUnit 11 (`require-dev`, `phpunit/phpunit: ^11`)
+- Symfony PHPUnit Bridge (via deprecation helper: `SYMFONY_DEPRECATIONS_HELPER=weak`)
+
+**Static Analysis:**
+- PHPStan (level 5, configured for `src/` and `tests/`)
+- Rector (PHP 8.3 rules, code quality & dead code sets)
+- Baseline files: `phpstan-baseline.neon`, `phpstan-dead-code.neon`, `phpstan-dead-code-context.neon`
 
 **Build/Dev:**
-- **Tailwind CSS 4.1** — Utility-first CSS via `@tailwindcss/cli`
-- **PHPStan 2.1** — Static analysis at level 5 (config: `phpstan.neon`)
-- **Rector 2.4** — Automated refactoring (config: `rector.php`)
+- ddev - Local development environment (containerized PHP, MariaDB, nginx)
+- Tailwind CSS CLI (`@tailwindcss/cli ^4.1.18`) - Build CSS
+- Traditional `build.sh` - Copies npm assets to `view/`
 
 ## Key Dependencies
 
-**Critical (runtime):**
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `twig/twig` | 3.24 | Template rendering for modern views |
-| `symfony/http-foundation` | 7.4.8 | Request/Response objects |
-| `symfony/cache` | 7.4.10 | Cache system (Array + Filesystem + optional Memcached) |
-| `symfony/translation` | 7.4 | i18n (YAML-based, with custom `FSTranslator`) |
-| `symfony/security-csrf` | 7.4 | CSRF token protection |
-| `phpmailer/phpmailer` | 6.12 | Email sending (SMTP or native `mail()`) |
-| `phpoffice/phpspreadsheet` | 2.4.5 | Excel/CSV file import/export |
+**Critical:**
+- `symfony/http-foundation` ^7.4 - Request/Response objects used throughout Kernel, controllers, and API
+- `twig/twig` ^3.0 - Template engine for all views
+- `symfony/cache` ^7.4 - Centralized caching via `src/Cache/CacheManager.php`
+- `symfony/security-csrf` ^7.4 - CSRF token generation and validation
+- `symfony/validator` ^7.4 - Model validation through `ValidatorTrait`
+- `symfony/event-dispatcher` ^7.4 - Plugin event hook system
+- `symfony/dependency-injection` ^7.4 - Service container (`src/DependencyInjection/Container.php`)
+- `symfony/routing` ^7.4 - Symfony routing bridge in Kernel
+
+**Security:**
+- `firebase/php-jwt` ^7.0 - JWT token handling
+- `symfony/security-csrf` ^7.4 - CSRF protection
+- `symfony/dotenv` ^7.4 - Environment variable loading
+- `mrd/oidc-core` ^0.2 - OpenID Connect provider
 
 **Infrastructure:**
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `firebase/php-jwt` | 7.0.5 | JWT token handling (installed but no direct usage detected in `src/` or `base/`) |
-| `mrd/oidc-core` | 0.2.2 | OIDC/OAuth core library (used by `OidcProvider` plugin — not in repo) |
-| `zircote/swagger-php` | 6.1.2 | OpenAPI/Swagger documentation generation (installed but no usage detected in `src/` or `base/`) |
-| `sabberworm/php-css-parser` | 9.3.0 | CSS parsing (used in `src/Core/StealthMode.php` for style sanitization) |
-| `symfony/http-client` | 7.4.9 | HTTP client for external downloads (used in `base/fs_plugin_downloader.php`) |
-| `symfony/dependency-injection` | 7.4.10 | PSR-11 service container |
-| `symfony/validator` | 7.4 | Model validation with PHP 8 attributes |
-| `symfony/event-dispatcher` | 7.4.9 | Event system for controller/model hooks |
-| `symfony/form` | 7.4.9 | Symfony Form handling with CSRF integration |
-| `symfony/yaml` | 7.4.10 | YAML parsing for translations and config |
-| `symfony/config` | 7.4.10 | Configuration component |
-| `symfony/routing` | 7.4 | Modern routing with PHP 8 attributes (`FSRoute`) |
-| `symfony/dotenv` | 7.4.9 | `.env` file loading (installed; no `.env` file detected in repo; config is via `config.php` constants) |
+- `phpmailer/phpmailer` ^6.0 - Email sending via `src/Core/MailService.php`
+- `phpoffice/phpspreadsheet` ^2.0 - Excel/CSV import/export
+- `sabberworm/php-css-parser` ^9.0 - CSS sanitization in `src/Core/CssSanitizer.php`
+- `symfony/http-client` ^7.4 - HTTP client for remote operations
 
-**Frontend (npm):**
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `jquery` | 3.7.1 | Core JavaScript library |
-| `bootstrap` | 3.4.1 | UI framework (CSS/JS) |
-| `bootswatch` | 3.x | Bootstrap themes (cosmo, darkly, flatly, lumen, etc.) |
-| `bootbox` | 5.5.3 | Bootstrap modal dialogs |
-| `font-awesome` | 4.x | Icon fonts |
+**API Documentation:**
+- `zircote/swagger-php` ^6.0 - OpenAPI/Swagger documentation generation
+
+**Frontend Assets:**
+- `jquery` ^3.7.1 - DOM manipulation
+- `bootstrap` ^3.4.1 - UI framework
+- `bootswatch` 3.* - Bootstrap themes (9 variants)
+- `bootbox` ^5.5.3 - JavaScript dialog boxes
+- `font-awesome` 4.* - Icon font
+
+**Development:**
+- `phpunit/phpunit` ^11
+- `tailwindcss` ^4.1.18
+- `@tailwindcss/cli` ^4.1.18
 
 ## Configuration
 
 **Environment:**
-- Primary configuration via `config.php` — PHP file that `define()`s all framework constants. Generated by `install.php`. **Gitignored**; must never be committed.
-  - Database: `FS_DB_TYPE`, `FS_DB_HOST`, `FS_DB_PORT`, `FS_DB_NAME`, `FS_DB_USER`, `FS_DB_PASS`
-  - Cache: `FS_CACHE_HOST`, `FS_CACHE_PORT`, `FS_CACHE_PREFIX`
-  - Security: `FS_CSRF_SOFT` (soft mode for migrations)
-- No `.env` file detected. `symfony/dotenv` package is installed but unused by the source code.
-- Default timezone: `Europe/Madrid` (set in `install.php`)
-- Trusted proxies: `FS_TRUSTED_PROXIES` and `FS_TRUSTED_HEADERS` constants (read by `src/Core/Kernel.php`)
+- `config.php` (dev-installed, not committed) - Database credentials, debug mode, secret key
+- `.env` and Symfony Dotenv - Additional environment overrides
+- `base/config2.php` - Framework constants (`FS_PATH`, locale, number formatting, plugin list from `tmp/enabled_plugins.list`)
+
+**Key configuration constants (set in `config.php`):**
+- `FS_DB_HOST`, `FS_DB_PORT`, `FS_DB_NAME`, `FS_DB_USER`, `FS_DB_PASS`
+- `FS_DB_TYPE` - `'MYSQL'` or `'POSTGRESQL'`
+- `FS_SECRET_KEY` - Application secret for HMAC operations
+- `FS_DEBUG` - Enable verbose logging and DebugBar
+- `FS_CSRF_SOFT` - Soft mode for CSRF (warnings instead of blocking)
+- `FS_LAZY_MODELS` - Enable lazy model autoloading
+- `FS_HOMEPAGE` - Default landing page
+- `FS_DEFAULT_THEME` - Theme to auto-activate on fresh install
 
 **Build:**
-- `build.sh` — Runs `composer install`, `npm install`, copies frontend assets from `node_modules/` to `view/`, then removes `node_modules/`
-- `phpunit.xml` — Test configuration with 7 suites; `SYMFONY_DEPRECATIONS_HELPER=weak`
-- `phpstan.neon` — Level 5 analysis, includes baseline, Symfony extension, Doctrine extension
-- `rector.php` — Automated PHP refactoring rules
-- `tailwind.config.js` — Content paths for Tailwind CSS (v4 uses CSS `@theme`, this file kept for tooling compatibility)
-- `config/routes.php` — Symfony Routing configurator (currently empty; routes registered via `FSRoute` attributes)
+- `composer.json` - PSR-4 autoloading (`FSFramework\` → `src/`, `FSFramework\Plugins\` → `plugins/`)
+- `phpunit.xml` - Test suites, source coverage, deprecation helper
+- `phpstan.neon` - Static analysis baseline (level 5)
+- `rector.php` - Automated refactoring rules
+- `package.json` - npm scripts for Tailwind CSS builds
 
 ## Platform Requirements
 
 **Development:**
-- DDEV with Docker (see `.ddev/config.yaml`)
-- PHP 8.2+ (8.3 used)
-- MariaDB 10.11 (or MySQL/PostgreSQL)
+- ddev (Docker-based PHP environment)
+- PHP 8.2 minimum, 8.3 recommended
+- MariaDB 10.11 or MySQL, or PostgreSQL
 - Composer 2
-- Node.js + npm (for frontend assets and Tailwind CSS build)
-- Apache with `mod_rewrite` and `mod_headers` (see `.htaccess`) or nginx with equivalent URL rewriting
+- Node.js (for frontend asset builds)
 
 **Production:**
-- Standard LAMP/LEMP stack
-- PHP 8.2+ with extensions: `pdo_mysql`/`pdo_pgsql`, `json`, `mbstring`, `ctype`, `fileinfo`, `curl`, `openssl`, `zip`, `xml`
-- MySQL 5.5+ or PostgreSQL 9+ or MariaDB 10.x
-- Apache 2.4+ (`mod_rewrite`, `mod_headers`, `mod_expires`, `mod_deflate`) or nginx with `try_files` to `index.php`
-- Optional: Memcached server for distributed caching
-- Recommended: OPcache enabled, realpath cache configured
+- PHP 8.2+ with extensions: `pdo_mysql` or `pdo_pgsql`, `mbstring`, `gd`, `openssl`, `json`, `curl`
+- MySQL 5.7+ / MariaDB 10.3+ or PostgreSQL 12+
+- Web server: Apache with mod_rewrite or nginx
+- Write access to `tmp/` directory
+- HTTPS recommended (CSRF and session security)
 
 ---
 

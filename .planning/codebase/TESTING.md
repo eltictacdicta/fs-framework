@@ -6,121 +6,110 @@
 
 **Runner:**
 - PHPUnit 11 (`phpunit/phpunit: ^11`)
-- Symfony PHPUnit bridge via `dev-tools`
 - Config: `phpunit.xml` (project root)
-- Plugin-specific configs: `plugins/clientes_core/phpunit.xml`, `plugins/legacy_support/phpunit.xml`
+- Symfony PHPUnit Bridge for deprecation handling
 
 **Assertion Library:**
-- PHPUnit native assertions (`Assert::assertSame`, `Assert::assertTrue`, etc.)
+- PHPUnit native assertions (no Hamcrest, Phake, or other external assertion libs)
+- `TestCase` extended directly by all test classes
 
 **Run Commands:**
 ```bash
-# Run all tests (requires DDEV)
-ddev exec php vendor/bin/phpunit
-
-# Run a specific suite
-ddev exec php vendor/bin/phpunit --testsuite Base
-ddev exec php vendor/bin/phpunit --testsuite Security
-ddev exec php vendor/bin/phpunit --testsuite Plugins
-
-# Run a specific test
-ddev exec php vendor/bin/phpunit tests/Base/FsModelMethodsTest.php
-
-# Filter by test name
-ddev exec php vendor/bin/phpunit --filter testNoHtmlEscapes
-
-# Run an isolated plugin suite
-ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml
-
-# With coverage
-ddev exec php vendor/bin/phpunit --coverage-html coverage/
+ddev exec php vendor/bin/phpunit                    # Run all tests
+ddev exec php vendor/bin/phpunit --testsuite Base   # Run base/core tests only
+ddev exec php vendor/bin/phpunit --testsuite Plugins # Run plugin tests only
+ddev exec php vendor/bin/phpunit tests/Base/FsModelMethodsTest.php  # Single test file
+ddev exec php vendor/bin/phpunit -c plugins/clientes_core/phpunit.xml  # Isolated plugin suite
 ```
 
 ## Test File Organization
 
 **Location:**
-- Project root `tests/` — mirrors `src/` and `base/` source structure
-- Plugin tests: `plugins/<PluginName>/tests/` (auto-discovered by root `phpunit.xml`)
-- Some plugin tests also exist under `tests/<PluginName>/` for core plugins (e.g., `tests/ClientesCore/`)
+- Co-located with source: `tests/` mirrors `src/` and `base/` structure
+- Plugin tests: `plugins/{PluginName}/tests/` (auto-discovered by root `phpunit.xml`)
 
 **Naming:**
-- Files: `*Test.php` suffix (e.g., `FsModelMethodsTest.php`, `CacheManagerTest.php`)
-- Test classes match filename, under `Tests\` namespace
-- Plugin test namespace: `Tests\<PluginName>\`
+- `{ClassOrComponent}Test.php` (PascalCase + `Test` suffix)
+- Examples: `PasswordHasherServiceTest.php`, `FsModelMethodsTest.php`, `ArticuloModelEncodingTest.php`
 
 **Structure:**
 ```
 tests/
-├── bootstrap.php              # Defines framework constants, no DB
-├── Base/                      # Tests for base/ classes
-│   ├── FsModelMethodsTest.php
-│   ├── FsCoreLogTest.php
-│   ├── FsFunctionsTest.php
-│   ├── FsIpFilterTest.php
-│   ├── FsQueryBuilderTest.php
+├── bootstrap.php              # Defines framework constants (no DB)
+├── Base/                      # Tests for base/ classes (13 test files)
+│   ├── FsModelMethodsTest.php # no_html, str2bool, floatcmp, intval
+│   ├── FsCoreLogTest.php      # Messages, errors, advices, SQL history, stats
+│   ├── FsFunctionsTest.php    # bround, fs_fix_html, fs_is_local_ip
+│   ├── FsIpFilterTest.php     # IP ban/whitelist logic
+│   ├── FsQueryBuilderTest.php # SQL generation
+│   ├── FsUserTest.php
+│   ├── FsMaintenanceModeTest.php
+│   ├── InstallSecurityTest.php
+│   ├── FsMysqlConstraintComparisonTest.php
 │   ├── FsMysqlDefaultNormalizationTest.php
-│   └── ...
-├── Security/                  # Tests for src/Security/ classes
-│   ├── PasswordHasherServiceTest.php
-│   ├── CsrfManagerTest.php
+│   ├── FsMysqlExecMultiQueryTest.php
+│   ├── FsMysqlIdentifierValidationTest.php
+│   └── LegacyUsageTrackerTest.php
+├── Security/                  # Security component tests (20 test files)
+│   ├── PasswordHasherServiceTest.php  # Hash, verify, legacy migration, salt
+│   ├── CsrfManagerTest.php           # CSRF token generation and validation
 │   ├── SessionManagerTest.php
+│   ├── LoginThrottleTest.php
+│   ├── LegacyAuthBridgeTest.php
 │   ├── SecretManagerTest.php
-│   └── ...
-├── Traits/                    # Tests for traits
-│   └── ValidatorTraitTest.php
-├── Cache/                     # Tests for caching
-│   └── CacheManagerTest.php
-├── Api/                       # Tests for API layer
-│   ├── ChainedAuthAdapterTest.php
-│   ├── RequestHelperTest.php
-│   └── ResourceTransformerTest.php
-├── Event/                     # Tests for event system
-│   └── EventSystemTest.php
-├── Form/                      # Tests for form helpers
-│   └── FormHelperTest.php
-├── Translation/               # Tests for i18n
-│   └── TranslationTest.php
-├── Core/                      # Tests for Core/ components
-│   ├── PluginControllerDiscoveryTest.php
-│   └── ...
-└── Components/                # Cross-cutting component tests
-    ├── StealthModeTest.php
-    └── PublicAccessGateTest.php
+│   ├── SecurityHeadersTest.php
+│   ├── SessionFixationPreventionTest.php
+│   ├── ForcePasswordChangeSessionTest.php
+│   ├── FsAuthTest.php
+│   ├── FsControllerSessionTouchTest.php
+│   ├── FsLoginCookieAuthTest.php
+│   ├── FsLoginPasswordVerificationTest.php
+│   ├── FsLoginSessionInitializationTest.php
+│   ├── FsSecretMigratorTest.php
+│   ├── LegacyUserServiceTest.php
+│   ├── SecurityHelpersTest.php
+│   ├── SessionPolicyTest.php
+│   ├── SqlInjectionPreventionTest.php
+│   └── DebugBarTest.php
+├── Core/                      # Core component tests (5 test files)
+│   ├── AdminHomePageDiscoveryTest.php
+│   ├── InitialSetupFlagTest.php
+│   ├── LoginInitialCredentialsMessageTest.php
+│   ├── MailServiceTest.php
+│   └── PluginControllerDiscoveryTest.php
+├── Cache/                     # Cache component tests (2 files)
+│   ├── CacheManagerTest.php   # Singleton, set/get/has/delete, callbacks
+│   └── DataSrcRepositoryTest.php
+├── Api/                       # API tests (1 file)
+│   └── ChainedAuthAdapterTest.php  # Multi-auth adapter chain
+├── Traits/                    # Trait tests
+│   └── ValidatorTraitTest.php # Attribute validation, ConstraintBuilder
+├── Translation/               # Translation tests
+├── ClientesCore/              # Client model tests
+├── Components/                # Core plugin component tests
+├── Event/                     # Event dispatcher tests
+└── Form/                      # Form helper tests
+
+plugins/
+├── business_data/tests/
+│   └── BusinessDataModelTest.php   # NEW in v0.10.8
+├── catalogo_core/tests/
+│   ├── ArticuloModelEncodingTest.php  # NEW in v0.10.8
+│   ├── FabricanteModelTest.php        # NEW in v0.10.8
+│   └── FamiliaModelTest.php           # NEW in v0.10.8
+├── clientes_core/tests/
+│   ├── ClienteModelTest.php
+│   ├── DireccionClienteModelTest.php
+│   └── GrupoClientesModelTest.php
+└── legacy_support/tests/
+    ├── LegacyCompatibilityTest.php
+    └── LegacyUsageTrackerTest.php
 ```
-
-## Test Bootstrap
-
-`tests/bootstrap.php` initializes tests without a database connection:
-1. Loads Composer autoloader
-2. Loads `config.php` if present (DDEV environment)
-3. Defines all framework constants with test-safe defaults (`FS_DB_TYPE='MYSQL'`, `FS_SECRET_KEY='phpunit-test-secret-key'`, etc.)
-4. Initializes `$GLOBALS['plugins']` as empty array
-5. Creates `tmp/` directory if missing
-6. Loads `fs_model.php` and `fs_model_autoloader.php` via `require_once`
-7. Registers the model autoloader
-
-## Test Suites
-
-| Suite | Directory | Coverage Source | What it covers |
-|-------|-----------|-----------------|----------------|
-| **Base** | `tests/Base/` | `base/` | Core legacy classes (`fs_model`, `fs_core_log`, `fs_functions`, `fs_ip_filter`, `fs_query_builder`, `fs_maintenance_mode`, `install_security`) |
-| **Core** | `tests/Core/` | `src/` | Core modern components (`PluginControllerDiscoveryTest`, `AdminHomePageDiscoveryTest`, `InitialSetupFlagTest`, `LoginInitialCredentialsMessageTest`, `MailServiceTest`) |
-| **Security** | `tests/Security/` | `src/` | Security components (`PasswordHasherService`, `CsrfManager`, `SessionManager`, `SecretManager`, `CookieSigner`, `EncryptionService`, `LegacyAuthBridge`, `SafeRedirect`) |
-| **Traits** | `tests/Traits/` | `src/` | Traits (`ValidatorTrait`, `ConstraintBuilder`) |
-| **Cache** | `tests/Cache/` | `src/` | Cache (`CacheManager`, `DataSrcRepository`) |
-| **Api** | `tests/Api/` | `src/` | API (`ChainedAuthAdapter`, `RequestHelper`, `ResourceTransformer`) |
-| **Plugins** | `plugins/*/tests/**/*Test.php` | plugin-specific | Auto-discovered plugin tests (e.g., `clientes_core`, `legacy_support`, `catalogo_core`) |
-
-**Coverage source** is configured in `phpunit.xml` `<source>` block to track `base/`, `src/`, and `plugins/clientes_core/`.
-
-**Environment:** `SYMFONY_DEPRECATIONS_HELPER=weak` — logs Symfony deprecations without failing tests.
 
 ## Test Structure
 
-**Suite Organization — modern services (src/):**
+**Suite Organization:**
 ```php
-<?php
-
 namespace Tests\Security;
 
 use PHPUnit\Framework\TestCase;
@@ -143,7 +132,6 @@ class PasswordHasherServiceTest extends TestCase
     {
         $hash = $this->hasher->hash('mi_password');
         $this->assertNotEmpty($hash);
-        $this->assertNotSame('mi_password', $hash);
     }
 
     public function testVerifyCorrectPassword(): void
@@ -154,297 +142,159 @@ class PasswordHasherServiceTest extends TestCase
 }
 ```
 
-**Suite Organization — legacy classes (base/):**
-```php
-<?php
-
-namespace Tests\Base;
-
-use PHPUnit\Framework\TestCase;
-
-class FsModelMethodsTest extends TestCase
-{
-    private object $model;
-
-    protected function setUp(): void
-    {
-        require_once FS_FOLDER . '/base/fs_core_log.php';
-        require_once FS_FOLDER . '/base/fs_model.php';
-
-        // Anonymous subclass with empty constructor (avoids DB connection)
-        $this->model = new class() extends \fs_model {
-            public function __construct() {} // Skip DB
-            public function delete() { return false; }
-            public function exists() { return false; }
-            public function save() { return false; }
-        };
-    }
-
-    public function testNoHtmlEscapesAngleBrackets(): void
-    {
-        $this->assertSame('&lt;script&gt;', $this->model->no_html('<script>'));
-    }
-}
-```
-
-**Resetting static state:**
-```php
-protected function setUp(): void
-{
-    // Reset singleton via ::reset() method
-    CacheManager::reset();
-    $this->cache = CacheManager::getInstance();
-
-    // Reset via Reflection for legacy singletons
-    $ref = new \ReflectionClass('fs_core_log');
-    $prop = $ref->getProperty('data_log');
-    $prop->setAccessible(true);
-    $prop->setValue(null, null);
-}
-```
-
-**Setup/teardown patterns:**
-- `setUp()`: create fresh instances, reset singletons, clear global state (`$_COOKIE`, `$_SESSION`, `$_FILES`, `$GLOBALS['plugins']`)
-- `tearDown()`: clean up files (unlink temp files), reset state, restore globals
-- `setUpBeforeClass()`: one-time `require_once` for legacy files (e.g., `fs_functions.php`)
-
-## Assertion Patterns
-
-**Common assertions used:**
-- Exact match: `assertSame($expected, $actual)` — preferred over `assertEquals`
-- Boolean: `assertTrue()`, `assertFalse()`
-- Count: `assertCount($expected, $array)`
-- Instance type: `assertInstanceOf(Class::class, $object)`
-- Null check: `assertNull()`, `assertNotNull()`
-- Array keys: `assertArrayHasKey('key', $array)`, `assertArrayNotHasKey('key', $array)`
-- String content: `assertStringContainsString($needle, $haystack)`, `assertStringEndsWith($suffix, $string)`
-- Empty: `assertEmpty()`, `assertNotEmpty()`
-- JSON: `assertJson($string)`
-
-**Expected exception assertions:**
-```php
-$this->expectException(\InvalidArgumentException::class);
-$adapter = new ChainedAuthAdapter([]);
-```
+**Patterns:**
+- Setup: `setUp()` method initializes fresh instances (also resets singletons via `::reset()`)
+- Teardown: Typically not needed (stateless tests); singletons reset in next `setUp()`
+- Assertion: Simple PHPUnit assertions: `assertTrue()`, `assertFalse()`, `assertSame()`, `assertNotEmpty()`
+- Section dividers: `// =====================================` style for grouping related tests
+- One assertion concept per test method (generally followed)
+- Test method naming: `test{What}{Condition}()` pattern (e.g., `testHashReturnsNonEmptyString`)
 
 ## Mocking
 
-**Framework:** PHPUnit native `createMock()` for interfaces
+**Framework:** PHPUnit native mock/stub support + anonymous classes for test doubles
 
-**Pattern for interface mocks:**
+**Patterns:**
 ```php
-private function createMockAdapter(array $overrides = []): ApiAuthInterface
-{
-    $mock = $this->createMock(ApiAuthInterface::class);
-
-    foreach ($overrides as $method => $returnValue) {
-        $mock->method($method)->willReturn($returnValue);
-    }
-
-    return $mock;
-}
-
-// Usage:
-$primary = $this->createMockAdapter([
-    'validateToken' => ['success' => true, 'user' => ['nick' => 'admin']],
-]);
-```
-
-**Pattern for legacy class mocks (anonymous class extension):**
-```php
-// Mock fs_db2 for fs_query_builder tests
-$mockDb = new class() extends \fs_db2 {
-    public function __construct() {} // Skip parent
-    public function escape_string($str): string {
-        return addslashes($str);
-    }
-};
-$this->qb = new \fs_query_builder($mockDb);
-```
-
-**Pattern for model testing without DB:**
-```php
-// Anonymous subclass of fs_model with empty constructor
+// Anonymous subclass to avoid DB connection (most common pattern)
 $this->model = new class() extends \fs_model {
-    public function __construct() {} // Skip DB connection
+    public function __construct() {
+        // No llamar al constructor padre — evita DB/cache
+    }
     public function delete() { return false; }
     public function exists() { return false; }
     public function save() { return false; }
 };
+
+// Anonymous mock for fs_db2 query builder
+$mockDb = new class {
+    public function escape_string(string $str): string {
+        return addslashes($str);
+    }
+};
+$qb = new \fs_query_builder($mockDb);
 ```
 
 **What to Mock:**
-- Database connection (`fs_db2`) — use anonymous class with minimal methods
-- External interfaces (`ApiAuthInterface`) — use `createMock()`
-- Global request state (`$_COOKIE`, `$_SESSION`, `$_FILES`, `$_SERVER`, `$GLOBALS['plugins']`) — set directly in test, restore in tearDown
+- Database connections (always — tests use `FS_DB_TYPE` constant but no real connection)
+- External services and HTTP clients
+- Filesystem operations where behavior must be controlled
 
 **What NOT to Mock:**
-- Framework singletons when `::reset()` is available — reset and get a fresh instance instead
-- Value objects and DTOs — instantiate directly
-- Symfony Session — use real `Session` with `PhpBridgeSessionStorage`
+- Pure functions and utility methods (test directly)
+- Symfony services (test their integration — many tests create real instances)
+
+**Singleton Reset Pattern:**
+```php
+// Reset static state in setUp()
+$ref = new \ReflectionClass('fs_core_log');
+$prop = $ref->getProperty('data_log');
+$prop->setAccessible(true);
+$prop->setValue(null, null);
+
+// Or for CacheManager
+\FSFramework\Cache\CacheManager::reset();
+```
 
 ## Fixtures and Factories
 
-**Test data:** Inline in test methods, no external fixture files.
+**Test Data:**
+- Inline test data (no separate fixture files or database seeds)
+- Constants defined in `tests/bootstrap.php` provide minimal configuration
+- Example: `define('FS_SECRET_KEY', 'phpunit-test-secret-key')`
+- Data arrays created directly in test methods
 
-**Pattern for model fixtures:**
-```php
-// Define a fixture class at the test file level
-class FormModelFixture
-{
-    public string $nombre = 'Ada';
-    public string $email = 'ada@example.com';
-    public bool $activo = false;
-}
-
-// Or inline test data
-$model = new TestModelWithValidation();
-$model->nombre = 'Juan';
-$model->email = 'juan@example.com';
-$model->saldo = 100.50;
-```
-
-**Location:** Fixtures are defined inline in test files alongside the test class. No separate `fixtures/` directories.
-
-**Private constants for repeated test data:**
-```php
-private const TEST_EMAIL = 'test@test.com';
-private const SQL_TEST_QUERY = 'SELECT 1';
-```
+**Location:**
+- No dedicated `fixtures/` directory
+- Test data lives inline in test methods
+- Bootstrap defines environment constants only
 
 ## Coverage
 
-**Requirements:** No enforced coverage threshold. Coverage source directories configured in `phpunit.xml`: `base/`, `src/`, `plugins/clientes_core/`.
+**Requirements:** None enforced (no `--coverage-clover` or coverage thresholds in `phpunit.xml`)
+
+**Source directories configured:**
+- `base/` — Legacy framework classes
+- `src/` — Modern Symfony-based code
+- `plugins/clientes_core/` — Core plugin code
 
 **View Coverage:**
 ```bash
+ddev exec php vendor/bin/phpunit --coverage-text
 ddev exec php vendor/bin/phpunit --coverage-html coverage/
 ```
 
 ## Test Types
 
 **Unit Tests:**
-- Pure logic tests for methods that don't require database (`fs_model::no_html()`, `floatcmp()`, `str2bool()`)
-- Service-layer tests with mocked dependencies (`ChainedAuthAdapter`, `CacheManager`)
-- Model validation tests with Symfony Validator
-- Utility function tests (`bround()`, `fs_fix_html()`, `fs_is_local_ip()`)
-- SQL generation tests (`fs_query_builder` with mock DB)
-- Scope: isolated classes and methods, no real database, no HTTP requests
+- Primary test type — tests individual classes in isolation
+- Base classes tested via anonymous subclasses to avoid DB
+- Security services tested with real constructor (no external deps)
+- Cache tests: reset singleton in `setUp()`
 
 **Integration Tests:**
-- Session management tests that interact with real PHP sessions (`SessionManager`)
-- CSRF token lifecycle tests (generate → validate → refresh → remove)
-- Translation loading tests (load YAML/JSON from filesystem)
-- Plugin controller discovery tests (scan filesystem)
-- Event dispatch with legacy extension integration
-- Cache write/read round-trip tests
-- Scope: multiple classes collaborating, filesystem interaction, PHP session handling
+- Plugin tests that exercise model-to-DB interactions (some require DB)
+- Isolated plugin suites (e.g., `clientes_core/phpunit.xml`) for plugin-specific testing
+- MailServiceTest tests PHPMailer integration
 
 **E2E Tests:**
-- Not used. No browser-based or HTTP request tests detected.
+- Not used (no Selenium, Playwright, or browser automation)
+- Manual browser testing via ddev web access
 
 ## Common Patterns
 
-**Async Testing:** Not applicable (PHP is synchronous). No async patterns used.
+**Async Testing:**
+- Not applicable (PHP is synchronous, no async features used)
 
 **Error Testing:**
 ```php
-// Expect an exception
-$this->expectException(\InvalidArgumentException::class);
-$adapter = new ChainedAuthAdapter([]);
+// Test that error messages are logged
+public function testValidationReturnsFalseForInvalidData(): void
+{
+    $model = new class() extends \fs_model { /* ... */ };
+    $model->invalid_field = 'bad data';
+    
+    $result = $model->test();
+    $this->assertFalse($result);
+    
+    $errors = $model->get_errors();
+    $this->assertNotEmpty($errors);
+}
 
-// Verify method returns false
-$this->assertFalse($this->hasher->verify($hash, 'wrong_password'));
-
-// Check error messages
-$model->validate();
-$errors = $model->getValidationErrors();
-$this->assertArrayHasKey('email', $errors);
+// Test that exception is thrown
+public function testThrowsException(): void
+{
+    $this->expectException(\RuntimeException::class);
+    $this->expectExceptionMessageMatches('/class not found/');
+    // code that throws
+}
 ```
 
-**State isolation:**
+**Static State Isolation:**
 ```php
 protected function setUp(): void
 {
-    parent::setUp();
-    // Clear global superglobals
-    $_COOKIE = [];
-    $_SESSION = [];
-    $_FILES = [];
-    // Reset singletons
-    SessionManager::reset();
-    FSEventDispatcher::reset();
-    LegacyUsageTracker::reset();
-}
-
-protected function tearDown(): void
-{
-    // Restore globals
-    $_FILES = [];
-    $_COOKIE = [];
-    $_SESSION = [];
-    // Reset singletons
-    SessionManager::reset();
-    parent::tearDown();
+    // Reset singleton state before each test
+    \FSFramework\Event\FSEventDispatcher::reset();
+    \FSFramework\Cache\CacheManager::reset();
 }
 ```
 
-**Test method naming convention:**
-- Descriptive camelCase with optional `test` prefix: `testNoHtmlEscapesAngleBrackets`, `testVerifyCorrectPassword`, `testSetAndGetItem`
-- Pattern: `test{What}{Condition/Scenario}()` — describes action + expected behavior
+**Data Providers:**
+- Not commonly used in this codebase — most tests have focused single-scenario methods
+- Available via standard `@dataProvider` annotation when needed
 
-**Section commenting in test files:**
-```php
-// =====================================================================
-// Hash & Verify
-// =====================================================================
-```
+## Test Suites
 
-## Plugin Testing
-
-Plugin tests live in `plugins/<PluginName>/tests/` and are auto-discovered by root `phpunit.xml`:
-```xml
-<testsuite name="Plugins">
-    <directory suffix="Test.php">plugins</directory>
-</testsuite>
-```
-
-Plugins may also have their own `phpunit.xml` for isolated execution (referencing root `tests/bootstrap.php`):
-```xml
-<!-- plugins/clientes_core/phpunit.xml -->
-<phpunit bootstrap="../../tests/bootstrap.php" ...>
-    <testsuites>
-        <testsuite name="clientes_core">
-            <directory>tests</directory>
-        </testsuite>
-    </testsuites>
-    <source>
-        <include>
-            <directory>model</directory>
-            <directory>src</directory>
-        </include>
-    </source>
-</phpunit>
-```
-
-Plugin tests follow the same patterns: anonymous subclasses for models, require_once for legacy classes, `setUp()` with Reflection for static state reset.
-
-## Test Configurations
-
-**`phpunit.xml` key settings:**
-- `bootstrap="tests/bootstrap.php"` — no DB required
-- `colors="true"`
-- `failOnWarning="true"` — warnings cause test failures
-- `failOnRisky="true"` — risky tests cause failures
-- `cacheDirectory=".phpunit.cache"`
-- `displayDetailsOnTestsThatTriggerDeprecations="true"`
-- Coverage source: `base/`, `src/`, `plugins/clientes_core/`
-
-**No data providers** (`@dataProvider` annotations) detected in any test file.
-
-**No test doubles** other than PHPUnit `createMock()` and anonymous classes.
-
-**No code coverage enforcement** (no `requireCoverageMetadata` or coverage threshold).
+| Suite | Dir | Covers |
+|-------|-----|--------|
+| **Base** | `tests/Base/` | Core classes in `base/` (fs_model, fs_core_log, fs_functions, fs_ip_filter, fs_query_builder, fs_user, maintenance, install security) |
+| **Security** | `tests/Security/` | All `src/Security/` components (20 files — largest suite) |
+| **Core** | `tests/Core/` | Kernel-adjacent modules (page discovery, initial setup, mail, plugin controller discovery) |
+| **Cache** | `tests/Cache/` | CacheManager and DataSrcRepository |
+| **Api** | `tests/Api/` | REST API authentication and routing |
+| **Traits** | `tests/Traits/` | ValidatorTrait attribute and constraint testing |
+| **Plugins** | `plugins/*/tests/**/*Test.php` | Auto-discovered plugin tests (business_data, catalogo_core, clientes_core, legacy_support) |
 
 ---
 
