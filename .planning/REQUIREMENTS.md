@@ -1,0 +1,76 @@
+# Requirements: FSFramework — Tech Debt Remediation
+
+**Defined:** 2026-05-16
+**Core Value:** Fix real issues with minimal risk.
+
+## v1 Requirements
+
+Requirements for milestone v0.11.0: Deferred Items Cleanup.
+
+### MailService Delegation (MAIL)
+
+- [ ] **MAIL-01**: `empresa::new_mail()` delegates to `MailService::createMailer()` instead of instantiating PHPMailer directly
+- [ ] **MAIL-02**: `empresa::mail_connect()` delegates to `MailService::testConnection()` instead of calling SMTPConnect directly
+- [ ] **MAIL-03**: `empresa::can_send_mail()` delegates to `MailService::canSendMail()` instead of checking config directly
+- [ ] **MAIL-04**: Remove duplicate PHPMailer configuration from `empresa` (email_config parsing, SMTP options); use MailService exclusively
+
+### fs_mysql Decomposition (MYSQL)
+
+- [ ] **MYSQL-01**: Extract type normalization utilities as pure functions (`convert_pg_type`, `normalize_mysql_default`, `compare_data_types`, `extract_type_info`) into `src/Database/TypeNormalizer.php`
+- [ ] **MYSQL-02**: Extract schema introspection methods (`get_columns`, `get_constraints`, `get_constraints_extended`, `get_indexes`) into `src/Database/SchemaInspector.php`
+- [ ] **MYSQL-03**: Extract schema comparison + generation methods (`compare_columns`, `compare_constraints`, `generate_table` + private helpers) into `src/Database/SchemaComparator.php`
+- [ ] **MYSQL-04**: `fs_mysql` delegates schema operations to extracted classes, retains core DB operations (connect, select, exec, transactions)
+
+### Plugin Management Extraction (PLUGIN)
+
+- [ ] **PLUGIN-01**: Extract `install_system_updater` + its 4 private helper methods into a dedicated `PluginInstaller` class in `src/Core/`
+- [ ] **PLUGIN-02**: Extract plugin action routing (GET/POST param dispatch for enable, disable, delete, install, restore) from `admin_home::exec_actions()` into a `PluginActionHandler` class
+- [ ] **PLUGIN-03**: `admin_home` delegates all plugin actions to extracted handler classes instead of hosting the logic in private methods
+
+### Test Fixes (TEST)
+
+- [ ] **TEST-01**: Fix `SessionManagerTest::testResolveCookiePathUsesCurrentInstallationPath` — make path assertion environment-agnostic
+- [ ] **TEST-02**: Fix `DataSrcRepositoryTest::testClearOnEmptyCacheDoesNotError` — reset `TestDataSrc::$testData` in `tearDown()` to fix test isolation
+- [ ] **TEST-03**: Fix `ResourceTransformerTest::testFilterWritableFieldsAcceptsApiAlias` — investigate and resolve the failure
+- [ ] **TEST-04**: Fix `ResourceTransformerTest::testValidateWritableFieldsExecutesSymfonyConstraints` — investigate and resolve the failure
+- [ ] **TEST-05**: Fix `DebugBarTest::testAddQueryStoresSqlStatements` — investigate and resolve the error
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Database migration system | Separate initiative |
+| Plugin notification system | Not a tech debt item |
+| fs_mysql driver swap (MySQLi → PDO) | Architectural change, not decomposition |
+| New fs_mysql features (JSON support, etc.) | Feature work, not refactoring |
+| Removing `empresa::new_mail()` entirely | Preserve backward compatibility — delegate, don't remove |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| MAIL-01 | — | Pending |
+| MAIL-02 | — | Pending |
+| MAIL-03 | — | Pending |
+| MAIL-04 | — | Pending |
+| MYSQL-01 | — | Pending |
+| MYSQL-02 | — | Pending |
+| MYSQL-03 | — | Pending |
+| MYSQL-04 | — | Pending |
+| PLUGIN-01 | — | Pending |
+| PLUGIN-02 | — | Pending |
+| PLUGIN-03 | — | Pending |
+| TEST-01 | — | Pending |
+| TEST-02 | — | Pending |
+| TEST-03 | — | Pending |
+| TEST-04 | — | Pending |
+| TEST-05 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 16 total
+- Mapped to phases: 0
+- Unmapped: 16 ⚠️
+
+---
+*Requirements defined: 2026-05-16*
+*Last updated: 2026-05-16 after initial definition*
