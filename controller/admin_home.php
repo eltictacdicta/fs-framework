@@ -288,19 +288,14 @@ class admin_home extends fs_controller
         }
 
         if (filter_input(INPUT_GET, 'restore_backup')) {
-            /// restaurar plugin desde backup
-            $this->restore_plugin_backup(filter_input(INPUT_GET, 'restore_backup'));
+            $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
+            $this->applyHandlerResult($handlerResult);
             return;
         }
 
         if (filter_input(INPUT_POST, 'cancel_pending_install')) {
-            /// cancelar instalación pendiente
-            if (isset($_SESSION['pending_plugin'])) {
-                if (file_exists($_SESSION['pending_plugin']['temp_file'])) {
-                    unlink($_SESSION['pending_plugin']['temp_file']);
-                }
-                unset($_SESSION['pending_plugin']);
-            }
+            $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
+            $this->applyHandlerResult($handlerResult);
             $this->sync_pending_actions();
             return;
         }
@@ -319,7 +314,21 @@ class admin_home extends fs_controller
             $this->delete_plugin(filter_input(INPUT_GET, 'delete_plugin'));
         } else if (filter_input(INPUT_POST, 'install')) {
             /// instalar plugin (copiarlo y descomprimirlo)
-            $this->install_plugin();
+            $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
+            $this->applyHandlerResult($handlerResult);
+        } else if (filter_input(INPUT_GET, 'download_plugin')) {
+            $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
+            if (!empty($handlerResult['download_zip'])) {
+                $this->template = FALSE;
+                $zip = $handlerResult['download_zip'];
+                header('Content-Type: application/zip');
+                header('Content-Disposition: attachment; filename="' . $zip['filename'] . '"');
+                header('Content-Length: ' . filesize($zip['path']));
+                header('Cache-Control: no-cache, must-revalidate');
+                header('Pragma: no-cache');
+                readfile($zip['path']);
+                unlink($zip['path']);
+            }
         } else if (filter_input(INPUT_GET, 'reset')) {
             /// reseteamos la configuración avanzada
             $this->settings->reset();
@@ -530,17 +539,16 @@ class admin_home extends fs_controller
      *
      * @param string $plugin_name
      */
-    private function restore_plugin_backup($plugin_name)
+    private function applyHandlerResult(array $result): void
     {
-        $plugin_name = basename($plugin_name);
-        // Desactivar el plugin si está activo
-        if (in_array($plugin_name, $this->plugin_manager->enabled())) {
-            $this->plugin_manager->disable($plugin_name);
+        foreach ($result['messages'] ?? [] as $msg) {
+            $this->new_message($msg);
         }
-
-        // Restaurar el backup
-        if ($this->plugin_manager->restore_backup($plugin_name)) {
-            $this->new_message('Plugin <b>' . $plugin_name . '</b> restaurado correctamente desde el backup.');
+        foreach ($result['errors'] ?? [] as $err) {
+            $this->new_error_msg($err);
+        }
+        foreach ($result['advices'] ?? [] as $adv) {
+            $this->new_advice($adv);
         }
     }
 
@@ -653,80 +661,6 @@ class admin_home extends fs_controller
         }
     }
 
-    private function install_plugin()
-    {
-        if (filter_input(INPUT_POST, 'confirm_overwrite') && isset($_SESSION['pending_plugin'])) {
-            $pending = $_SESSION['pending_plugin'];
-
-            if (empty($pending['temp_file']) || !file_exists($pending['temp_file'])) {
-                $this->new_error_msg('El archivo temporal del plugin no se encuentra. Vuelve a subir el ZIP.');
-                unset($_SESSION['pending_plugin']);
-                $this->sync_pending_actions();
-                return;
-            }
-
-            $result = $this->plugin_manager->install($pending['temp_file'], $pending['name'] . '.zip', true);
-
-            if (file_exists($pending['temp_file'])) {
-                unlink($pending['temp_file']);
-            }
-
-            unset($_SESSION['pending_plugin']);
-            $this->sync_pending_actions();
-
-            if ($result) {
-                $this->new_message('Plugin <b>' . $result . '</b> instalado correctamente. El plugin anterior se guardó como backup.');
-            }
-
-            return;
-        }
-
-        if (empty($_FILES['fplugin']['tmp_name']) || !is_uploaded_file($_FILES['fplugin']['tmp_name'])) {
-            $this->new_error_msg('Archivo no encontrado. ¿Pesa más de '
-                . $this->get_max_file_upload() . ' MB? Ese es el límite que tienes'
-                . ' configurado en tu servidor.');
-            return;
-        }
-
-        // Detectar el plugin desde el ZIP
-        $plugin_info = $this->plugin_manager->detect_plugin_from_zip($_FILES['fplugin']['tmp_name']);
-
-        if (!$plugin_info) {
-            $this->new_error_msg('Error al leer el archivo ZIP del plugin.');
-            return;
-        }
-
-        $plugin_name = $plugin_info['name'];
-        $new_version = $plugin_info['version'];
-
-        // Verificar si el plugin ya existe
-        $existing_plugin = $this->plugin_manager->check_plugin_exists($plugin_name);
-
-        if ($existing_plugin) {
-            // El plugin existe y no hay confirmación, guardar el archivo temporalmente
-            $temp_file = FS_FOLDER . '/tmp/plugin_pending_install_' . session_id() . '_' . bin2hex(random_bytes(8)) . '.zip';
-            if (!move_uploaded_file($_FILES['fplugin']['tmp_name'], $temp_file)) {
-                $this->new_error_msg('No se pudo guardar temporalmente el archivo del plugin para confirmar la sobreescritura.');
-                return;
-            }
-
-            // Guardar información en sesión para el modal
-            $_SESSION['pending_plugin'] = [
-                'name' => $plugin_name,
-                'new_version' => $new_version,
-                'current_version' => $existing_plugin['version'],
-                'temp_file' => $temp_file
-            ];
-            $this->sync_pending_actions();
-
-            $this->new_advice('El plugin <b>' . $plugin_name . '</b> ya existe. Se requiere confirmación para sobrescribir.');
-            return;
-        }
-
-        // Plugin nuevo, instalar directamente
-        $this->plugin_manager->install($_FILES['fplugin']['tmp_name'], $_FILES['fplugin']['name'], false);
-    }
-
     private function save_avanzado()
     {
         $guardar = FALSE;
@@ -752,93 +686,6 @@ class admin_home extends fs_controller
      * Descarga un plugin como archivo ZIP.
      * 
      * @param string $plugin_name
-     */
-    private function download_plugin($plugin_name)
-    {
-        $plugin_name = basename($plugin_name);
-        $plugin_path = FS_FOLDER . '/plugins/' . $plugin_name;
-
-        // Verificar que el plugin existe
-        if (!file_exists($plugin_path) || !is_dir($plugin_path)) {
-            $this->new_error_msg('El plugin <b>' . $plugin_name . '</b> no existe.');
-            return;
-        }
-
-        // Crear el archivo ZIP temporal
-        $zip_filename = $plugin_name . '.zip';
-        $zip_path = FS_FOLDER . '/tmp/' . $zip_filename;
-
-        // Asegurarse de que la carpeta tmp existe
-        if (!file_exists(FS_FOLDER . '/tmp')) {
-            mkdir(FS_FOLDER . '/tmp', 0777, true);
-        }
-
-        // Crear el archivo ZIP
-        $zip = new ZipArchive();
-        if ($zip->open($zip_path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
-            $this->new_error_msg('Error al crear el archivo ZIP para el plugin <b>' . $plugin_name . '</b>.');
-            return;
-        }
-
-        // Agregar archivos al ZIP recursivamente
-        $this->add_files_to_zip($zip, $plugin_path, $plugin_name);
-        $zip->close();
-
-        // Verificar que el archivo se creó correctamente
-        if (!file_exists($zip_path)) {
-            $this->new_error_msg('Error al crear el archivo ZIP.');
-            return;
-        }
-
-        // Desactivar el template para enviar el archivo
-        $this->template = FALSE;
-
-        // Enviar headers para la descarga
-        header('Content-Type: application/zip');
-        header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
-        header('Content-Length: ' . filesize($zip_path));
-        header('Cache-Control: no-cache, must-revalidate');
-        header('Pragma: no-cache');
-
-        // Enviar el archivo
-        readfile($zip_path);
-
-        // Eliminar el archivo temporal
-        unlink($zip_path);
-    }
-
-    /**
-     * Agrega archivos a un ZIP de forma recursiva.
-     * 
-     * @param ZipArchive $zip
-     * @param string $source_path
-     * @param string $base_path
-     */
-    private function add_files_to_zip($zip, $source_path, $base_path)
-    {
-        $files = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($source_path, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-
-        foreach ($files as $file) {
-            $file_path = $file->getRealPath();
-            $relative_path = $base_path . '/' . substr($file_path, strlen($source_path) + 1);
-
-            if ($file->isDir()) {
-                $zip->addEmptyDir($relative_path);
-            } else {
-                $zip->addFile($file_path, $relative_path);
-            }
-        }
-    }
-
-    /**
-     * Devuelve el símbolo de divisa predeterminado
-     * o bien el símbolo de la divisa seleccionada.
-     * 
-     * @param string $coddivisa
-     * @return string
      */
     public function simbolo_divisa($coddivisa = FALSE)
     {
