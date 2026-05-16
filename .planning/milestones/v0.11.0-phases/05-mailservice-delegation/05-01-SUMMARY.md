@@ -20,7 +20,7 @@ key-files:
     - plugins/business_data/controller/admin_empresa.php
 key-decisions:
   - "empresa::new_mail() preserves signature but delegates to MailService::createMailer()"
-  - "empresa::mail_connect() ignores parameter, wraps MailService::testConnection()"
+  - "empresa::mail_connect() preserves backward compatibility and tests a provided PHPMailer instance via MailService::testConnection($mail)"
   - "empresa::can_send_mail() delegates to MailService::canSendMail()"
   - "email_config property kept for backward compat, initialized from MailService::getConfig()"
   - "admin_empresa::handleEmpresaSave() now persists email config through MailService::saveConfig()"
@@ -47,7 +47,7 @@ completed: 2026-05-16
 
 ## Accomplishments
 - `empresa::new_mail()` → `MailService::createMailer()` (29 lines of duplicate PHPMailer config removed)
-- `empresa::mail_connect()` → `MailService::testConnection()['success']`
+- `empresa::mail_connect()` → `MailService::testConnection($mail)['success']` when a mailer is provided
 - `empresa::can_send_mail()` → `MailService::canSendMail()`
 - Removed hardcoded `email_config` defaults from `__construct()` and `clear()`
 - `admin_empresa::handleEmpresaSave()` persists config via `MailService::saveConfig()`
