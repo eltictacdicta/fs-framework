@@ -79,6 +79,7 @@ class SecretManager
             return null;
         }
 
+        /** @var mixed $value */
         $value = constant('FS_SECRET_KEY');
         if (!is_scalar($value)) {
             throw new \InvalidArgumentException(

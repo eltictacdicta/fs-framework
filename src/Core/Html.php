@@ -663,14 +663,10 @@ class Html
         foreach ($GLOBALS['plugins'] ?? [] as $plugin) {
             $extDir = FS_FOLDER . self::PLUGINS_DIR . $plugin . '/Extension/View/';
             if (is_dir($extDir)) {
-                try {
-                    $loader->addPath(
-                        $extDir,
-                        'PluginExtension' . $plugin
-                    );
-                } catch (\LogicException $e) {
-                    error_log('Warning registering plugin extension namespace for plugin ' . $plugin . ': ' . $e->getMessage());
-                }
+                $loader->addPath(
+                    $extDir,
+                    'PluginExtension' . $plugin
+                );
             }
         }
     }

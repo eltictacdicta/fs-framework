@@ -388,7 +388,7 @@ class fs_controller extends fs_app
             return false;
         }
 
-        if (!\FSFramework\Security\CsrfManager::isValidWithReuseCheck($token, $tokenId, true)) {
+        if (!\FSFramework\Security\CsrfManager::isValidWithReuseCheck($token, $tokenId, $this->shouldPreventCsrfReuse())) {
             $msg = "CSRF: Token inválido en ({$this->class_name})";
             error_log($msg);
 
@@ -403,6 +403,19 @@ class fs_controller extends fs_app
         }
 
         $this->csrf_valid = true;
+        return true;
+    }
+
+    /**
+     * Decide si validateCsrf() debe bloquear la reutilización del token.
+     *
+     * Algunos POST idempotentes o flujos AJAX por pasos pueden necesitar
+     * reutilizar el mismo token dentro de la misma página. Los controladores
+     * que lo requieran pueden sobreescribir este método y devolver false solo
+     * para esos casos concretos.
+     */
+    protected function shouldPreventCsrfReuse(): bool
+    {
         return true;
     }
 

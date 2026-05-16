@@ -12,6 +12,7 @@ class DataSrcRepositoryTest extends TestCase
     {
         parent::setUp();
         CacheManager::reset();
+        TestDataSrc::setTestData([]);
     }
 
     protected function tearDown(): void
