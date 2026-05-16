@@ -237,13 +237,9 @@ function random_string($length = 20)
     return substr(str_shuffle("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"), 0, $length);
 }
 
-function random_secret_key($length = 64)
+function random_secret_key(int $length = 64): string
 {
-    if (function_exists('random_bytes')) {
-        return bin2hex(random_bytes(intval($length / 2)));
-    }
-
-    return random_string($length);
+    return bin2hex(random_bytes(intdiv($length, 2)));
 }
 /**
  * Security: Block installer if already configured
