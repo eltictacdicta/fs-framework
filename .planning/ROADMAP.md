@@ -46,8 +46,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Add declare(strict_types=1) to simple base files
-- [ ] 02-02: Add test coverage for business_data and catalogo_core plugins
+- [ ] 02-01: Add declare(strict_types=1) to 15 base files (3 batches by complexity)
+- [ ] 02-02: Add test coverage for business_data (empresa, ejercicio, serie, divisa) and catalogo_core (familia, fabricante)
 
 ### Phase 3: Structural Decomposition
 **Goal**: SHA1 legacy code lives only in legacy_support plugin, and monolithic classes are split into focused services
@@ -74,5 +74,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Quick Wins & Security Fixes | 4/4 | ✓ Complete | 2026-05-16 |
-| 2. Type Safety & Test Coverage | 0/2 | Not started | - |
+| 2. Type Safety & Test Coverage | 0/2 | Planned | - |
 | 3. Structural Decomposition | 0/3 | Not started | - |
