@@ -61,17 +61,17 @@ Requirements for milestone v0.11.0: Deferred Items Cleanup.
 | PLUGIN-01 | Phase 6 | Complete |
 | PLUGIN-02 | Phase 6 | Complete |
 | PLUGIN-03 | Phase 6 | Complete |
-| MYSQL-01 | Phase 7 | Pending |
-| MYSQL-02 | Phase 7 | Pending |
-| MYSQL-03 | Phase 7 | Pending |
-| MYSQL-04 | Phase 7 | Pending |
+| MYSQL-01 | Phase 7 | Complete |
+| MYSQL-02 | Phase 7 | Complete |
+| MYSQL-03 | Phase 7 | Complete |
+| MYSQL-04 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 16 total
 - Mapped to phases: 16
-- Complete: 12
+- Complete: 16
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-16*
-*Last updated: 2026-05-16 after Phase 6*
+*Last updated: 2026-05-16 after Phase 7 (milestone complete)*
