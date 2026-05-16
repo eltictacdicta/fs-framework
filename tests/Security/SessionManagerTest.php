@@ -202,9 +202,9 @@ class SessionManagerTest extends TestCase
 
     public function testResolveCookiePathUsesCurrentInstallationPath(): void
     {
-        $_SERVER['REQUEST_URI'] = '/fs-framework/index.php?page=admin_home';
+        $expected = defined('FS_FOLDER') ? '/' . trim((string) FS_FOLDER, '/') . '/' : '/';
 
-        $this->assertSame('/fs-framework/', $this->invokeResolveCookiePath());
+        $this->assertSame($expected, $this->invokeResolveCookiePath());
     }
 
     public function testResolveSessionNameIsScopedToCurrentInstallation(): void

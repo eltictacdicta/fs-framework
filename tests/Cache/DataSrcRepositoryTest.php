@@ -16,6 +16,7 @@ class DataSrcRepositoryTest extends TestCase
 
     protected function tearDown(): void
     {
+        TestDataSrc::reset();
         CacheManager::reset();
         parent::tearDown();
     }
@@ -98,6 +99,12 @@ class TestDataSrc extends DataSrcRepository
 {
     protected static string $dataSrcKey = 'test_datasrc';
     private static array $testData = [];
+
+    public static function reset(): void
+    {
+        self::$testData = [];
+        self::clear();
+    }
 
     public static function setTestData(array $data): void
     {

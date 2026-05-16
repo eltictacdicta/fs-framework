@@ -47,6 +47,9 @@ class DebugBar
      */
     public static function init(): void
     {
+        self::$queries = [];
+        self::$logs = [];
+        self::$missingTranslations = [];
         self::$startTime = defined('FS_START_TIME') ? FS_START_TIME : ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
         self::$startMemory = memory_get_usage();
     }
