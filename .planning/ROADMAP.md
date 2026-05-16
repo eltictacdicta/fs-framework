@@ -7,7 +7,7 @@ Incremental cleanup of legacy technical debt in FSFramework. Three phases move f
 ## Phases
 
 - [x] **Phase 1: Quick Wins & Security Fixes** - Remove dead code, fix version guards, eliminate dual PHPMailer, replace error suppression
-- [ ] **Phase 2: Type Safety & Test Coverage** - Add strict_types to base files, add tests for untested plugins
+- [x] **Phase 2: Type Safety & Test Coverage** - Add strict_types to base files, add tests for untested plugins
 - [ ] **Phase 3: Structural Decomposition** - Delegate SHA1 to legacy_support, decompose monolithic classes
 
 ## Phase Details
@@ -46,8 +46,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Add declare(strict_types=1) to 15 base files (3 batches by complexity)
-- [ ] 02-02: Add test coverage for business_data (empresa, ejercicio, serie, divisa) and catalogo_core (familia, fabricante)
+- [x] 02-01: Add declare(strict_types=1) to 15 base files (3 batches by complexity)
+- [x] 02-02: Add test coverage for business_data (empresa, ejercicio, serie, divisa) and catalogo_core (familia, fabricante)
 
 ### Phase 3: Structural Decomposition
 **Goal**: SHA1 legacy code lives only in legacy_support plugin, and monolithic classes are split into focused services
@@ -74,5 +74,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Quick Wins & Security Fixes | 4/4 | ✓ Complete | 2026-05-16 |
-| 2. Type Safety & Test Coverage | 0/2 | Planned | - |
+| 2. Type Safety & Test Coverage | 2/2 | ✓ Complete | 2026-05-16 |
 | 3. Structural Decomposition | 0/3 | Not started | - |

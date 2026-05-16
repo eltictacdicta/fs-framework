@@ -13,12 +13,12 @@
 | ID | Requirement | Phase | Status |
 |----|-------------|-------|--------|
 | REQ-01 | PHP version guards updated to 8.2 in entry points | Phase 1 | Complete |
-| REQ-02 | `declare(strict_types=1)` added incrementally to base files | Phase 2 | Pending |
+| REQ-02 | `declare(strict_types=1)` added incrementally to base files | Phase 2 | Complete |
 | REQ-03 | `install.php` weak random fallback removed | Phase 1 | Complete |
 | REQ-04 | PHPMailer 5.x vendored code removed, compat bridge eliminated | Phase 1 | Complete |
 | REQ-05 | Legacy SHA1 password support delegated entirely to `legacy_support` plugin | Phase 3 | Pending |
 | REQ-06 | Monolithic classes decomposed (StealthMode, fs_mysql, admin_home) | Phase 3 | Pending |
-| REQ-07 | Untested plugins receive basic test coverage (business_data, catalogo_core models) | Phase 2 | Pending |
+| REQ-07 | Untested plugins receive basic test coverage (business_data, catalogo_core models) | Phase 2 | Complete |
 | REQ-08 | Error suppression (`@` operator) replaced with proper error handling | Phase 1 | Complete |
 
 ## Out of Scope
@@ -34,10 +34,10 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | REQ-01 | Phase 1 | Complete |
-| REQ-02 | Phase 2 | Pending |
+| REQ-02 | Phase 2 | Complete |
 | REQ-03 | Phase 1 | Complete |
 | REQ-04 | Phase 1 | Complete |
 | REQ-05 | Phase 3 | Pending |
 | REQ-06 | Phase 3 | Pending |
-| REQ-07 | Phase 2 | Pending |
+| REQ-07 | Phase 2 | Complete |
 | REQ-08 | Phase 1 | Complete |
