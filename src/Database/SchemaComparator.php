@@ -43,11 +43,14 @@ final class SchemaComparator
         $fkColumns = $this->inspector()->getFkColumnNames($rawTableName);
 
         foreach ($xmlCols as $xmlCol) {
-            $xmlCol['tipo'] = TypeNormalizer::convertPostgresType($xmlCol['tipo']);
-            if (strtolower($xmlCol['tipo']) == 'integer') {
-                $xmlCol['tipo'] = FS_DB_INTEGER;
+            $xmlType = strtolower($xmlCol['tipo']) === 'serial'
+                ? FS_DB_INTEGER
+                : TypeNormalizer::convertPostgresType($xmlCol['tipo']);
+
+            if (strtolower($xmlType) == 'integer') {
+                $xmlType = FS_DB_INTEGER;
             }
-            $xmlType = $xmlCol['tipo'];
+
             $xmlDefault = TypeNormalizer::normalizeDefault($xmlCol['defecto'] ?? null, $xmlType);
 
             $dbCol = $this->searchInArray($dbCols, 'name', $xmlCol['nombre']);
@@ -113,16 +116,18 @@ final class SchemaComparator
                 $i = true;
             }
 
-            $col['tipo'] = TypeNormalizer::convertPostgresType($col['tipo']);
+            $xmlType = strtolower($col['tipo']) === 'serial'
+                ? FS_DB_INTEGER
+                : TypeNormalizer::convertPostgresType($col['tipo']);
 
-            if ($col['tipo'] == 'serial') {
+            if (strtolower($col['tipo']) == 'serial') {
                 $sql .= '`' . $col['nombre'] . '` ' . FS_DB_INTEGER . ' NOT NULL AUTO_INCREMENT';
             } else {
-                if (strtolower($col['tipo']) == 'integer') {
-                    $col['tipo'] = FS_DB_INTEGER;
+                if (strtolower($xmlType) == 'integer') {
+                    $xmlType = FS_DB_INTEGER;
                 }
 
-                $sql .= '`' . $col['nombre'] . '` ' . $col['tipo'];
+                $sql .= '`' . $col['nombre'] . '` ' . $xmlType;
 
                 if ($col['nulo'] == 'NO') {
                     $sql .= " NOT NULL";
@@ -131,7 +136,7 @@ final class SchemaComparator
                 }
 
                 if ($col['defecto'] !== null) {
-                    $sql .= " DEFAULT " . TypeNormalizer::normalizeDefault($col['defecto'], $col['tipo']);
+                    $sql .= " DEFAULT " . TypeNormalizer::normalizeDefault($col['defecto'], $xmlType);
                 }
             }
         }
@@ -190,20 +195,20 @@ final class SchemaComparator
 
     private function buildDefaultChangeSql(string $quotedTable, array $xmlCol, string $xmlType, string $xmlDefault, array $dbCol): string
     {
-        if ($this->compareDefaults($dbCol['default'] ?? '', $xmlDefault)) {
-            return '';
-        }
-
-        if ($xmlDefault === 'NULL') {
-            return 'ALTER TABLE ' . $quotedTable . ' ALTER `' . $xmlCol['nombre'] . '` DROP DEFAULT;';
-        }
-
         if (strtolower(substr($xmlDefault, 0, 9)) == "nextval('") {
             if (($dbCol['extra'] ?? '') == 'auto_increment') {
                 return '';
             }
             $nullable = ($xmlCol['nulo'] == 'YES') ? ' NULL AUTO_INCREMENT;' : ' NOT NULL AUTO_INCREMENT;';
             return 'ALTER TABLE ' . $quotedTable . self::SQL_MODIFY_COL . $xmlCol['nombre'] . '` ' . $xmlType . $nullable;
+        }
+
+        if ($this->compareDefaults($dbCol['default'] ?? '', $xmlDefault)) {
+            return '';
+        }
+
+        if ($xmlDefault === 'NULL') {
+            return 'ALTER TABLE ' . $quotedTable . ' ALTER `' . $xmlCol['nombre'] . '` DROP DEFAULT;';
         }
 
         return 'ALTER TABLE ' . $quotedTable . ' ALTER `' . $xmlCol['nombre'] . '` SET DEFAULT ' . $xmlDefault . ";";

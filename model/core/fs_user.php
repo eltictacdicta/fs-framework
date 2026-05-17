@@ -213,9 +213,8 @@ class fs_user extends \fs_model
         $installMessage = '<strong>¡Instalación completada!</strong><br>' .
             'Usuario: <code>admin</code><br>' .
             'Contraseña temporal: <code>' . htmlspecialchars($defaultPassword, ENT_QUOTES, 'UTF-8') . '</code><br>' .
-            '<small class="text-warning"><i class="fa fa-exclamation-triangle"></i> ' .
-            '<b>¡IMPORTANTE!</b> Esta contraseña se muestra SOLO UNA VEZ. ' .
-            'Anótala y cámbiala inmediatamente después de iniciar sesión.</small>';
+            '<strong>¡IMPORTANTE!</strong> Esta contraseña se muestra SOLO UNA VEZ. ' .
+            'Anótala y cámbiala inmediatamente después de iniciar sesión.';
 
         $this->new_message($installMessage);
 

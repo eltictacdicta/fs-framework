@@ -92,8 +92,8 @@ class login extends fs_controller
         }
 
         $this->core_log->new_message(
-            "Configuración inicial pendiente.\n"
-            . "Inicia sesión con el usuario admin y la contraseña temporal que se mostró durante la instalación.\n"
+            "Configuración inicial pendiente.<br>"
+            . "Inicia sesión con el usuario admin y la contraseña temporal que se mostró durante la instalación.<br>"
             . "Recuerda cambiar la contraseña después de iniciar sesión."
         );
     }

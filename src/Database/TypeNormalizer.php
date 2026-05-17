@@ -79,6 +79,12 @@ final class TypeNormalizer
             return 'NULL';
         }
 
+        $default = trim($default);
+
+        if (stripos($default, 'nextval(') === 0) {
+            return $default;
+        }
+
         $upperDefault = strtoupper($default);
         $upperType = strtoupper($columnType);
 
