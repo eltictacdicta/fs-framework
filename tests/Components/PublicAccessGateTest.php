@@ -118,6 +118,34 @@ class PublicAccessGateTest extends TestCase
         $this->assertNull($response);
     }
 
+    public function testInterceptAllowsFrameworkFaviconWhileStealthEnabled(): void
+    {
+        $GLOBALS['plugins'] = [];
+
+        $stealth = new StealthMode($this->createDbStub([
+            'stealth_enabled' => '1',
+            'stealth_param_name' => 'adminpanel',
+            'stealth_param_value' => 'secret-token',
+        ]));
+        $gate = new PublicAccessGate($stealth);
+
+        $response = $gate->intercept(Request::create('/favicon.ico'));
+
+        $this->assertNull($response);
+    }
+
+    public function testPluginsMarksBrowserProbesAsPublicPath(): void
+    {
+        Plugins::resetRuntimeState();
+        $GLOBALS['plugins'] = [];
+
+        $this->assertTrue(Plugins::isPublicPath('/favicon.ico'));
+        $this->assertTrue(Plugins::shouldRespondNoContentForBrowserProbe(Request::create('/favicon.ico', 'GET')));
+        $this->assertTrue(Plugins::shouldRespondNoContentForBrowserProbe(Request::create('/favicon.ico', 'HEAD')));
+        $this->assertFalse(Plugins::shouldRespondNoContentForBrowserProbe(Request::create('/favicon.ico', 'POST')));
+        $this->assertFalse(Plugins::shouldRespondNoContentForBrowserProbe(Request::create('/oauth/login', 'GET')));
+    }
+
     public function testInterceptBlocksAnonymousRequestWithStealthEnabled(): void
     {
         $_GET['page'] = 'admin_home';

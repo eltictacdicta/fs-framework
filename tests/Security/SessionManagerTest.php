@@ -200,11 +200,25 @@ class SessionManagerTest extends TestCase
         $this->assertArrayNotHasKey('fsNick', $_COOKIE);
     }
 
-    public function testResolveCookiePathUsesCurrentInstallationPath(): void
+    public function testResolveCookiePathUsesFsPathWhenDefined(): void
     {
-        $expected = defined('FS_FOLDER') ? '/' . trim((string) FS_FOLDER, '/') . '/' : '/';
+        $this->assertSame('/myapp/', $this->invokeNormalizeCookiePath('/myapp', ['SCRIPT_NAME' => '/ignored/index.php']));
+    }
 
-        $this->assertSame($expected, $this->invokeResolveCookiePath());
+    public function testResolveCookiePathFallsBackToScriptNameWhenFsPathIsEmpty(): void
+    {
+        $this->assertSame('/myapp/', $this->invokeNormalizeCookiePath('', ['SCRIPT_NAME' => '/myapp/index.php']));
+    }
+
+    public function testResolveCookiePathFallsBackToRequestUriWhenScriptNameIsMissing(): void
+    {
+        $this->assertSame('/myapp/', $this->invokeNormalizeCookiePath('', ['REQUEST_URI' => '/myapp/index.php?page=admin_home']));
+    }
+
+    public function testResolveCookiePathDefaultsToRootWhenNoBasePathIsAvailable(): void
+    {
+        // FS_PATH is defined in bootstrap.php as '' for document-root installs.
+        $this->assertSame('/', $this->invokeResolveCookiePath());
     }
 
     public function testResolveSessionNameIsScopedToCurrentInstallation(): void
@@ -259,6 +273,17 @@ class SessionManagerTest extends TestCase
         $method->setAccessible(true);
 
         return (string) $method->invoke(null);
+    }
+
+    /**
+     * @param array<string, string> $server
+     */
+    private function invokeNormalizeCookiePath(?string $preferredPath, array $server): string
+    {
+        $method = new \ReflectionMethod(SessionManager::class, 'normalizeCookiePath');
+        $method->setAccessible(true);
+
+        return (string) $method->invoke(null, $preferredPath, $server);
     }
 
     private function invokeResolveSessionName(): string

@@ -2,11 +2,26 @@
 
 namespace FSFramework\Core;
 
+use Symfony\Component\HttpFoundation\Request;
+
 /**
  * Plugin management for FSFramework.
  */
 class Plugins
 {
+    /**
+     * Rutas GET exactas que deben saltar PublicAccessGate (stealth / login legacy) sin depender
+     * de plugins. Evita que probes del navegador (/favicon.ico, etc.) abran sesión PHP por defecto
+     * ni provoquen redirecciones; no mezcla lógica con OIDC ni con el panel.
+     *
+     * @var list<string>
+     */
+    private const FRAMEWORK_EXACT_PUBLIC_PATHS = [
+        '/favicon.ico',
+        '/apple-touch-icon.png',
+        '/apple-touch-icon-precomposed.png',
+    ];
+
     /**
      * @var array<string, list<string>>
      */
@@ -81,6 +96,10 @@ class Plugins
             $normalizedPath = '/';
         }
 
+        if (in_array($normalizedPath, self::FRAMEWORK_EXACT_PUBLIC_PATHS, true)) {
+            return true;
+        }
+
         foreach (self::enabled() as $pluginName) {
             foreach (self::$publicPathPrefixes[$pluginName] ?? [] as $prefix) {
                 if ($prefix === '/') {
@@ -98,6 +117,24 @@ class Plugins
         }
 
         return false;
+    }
+
+    /**
+     * Peticiones GET/HEAD a probes estáticos sin ruta Symfony: responder vacío y no caer en index.php?page=…
+     */
+    public static function shouldRespondNoContentForBrowserProbe(Request $request): bool
+    {
+        if (!in_array($request->getMethod(), [Request::METHOD_GET, Request::METHOD_HEAD], true)) {
+            return false;
+        }
+
+        $path = $request->getPathInfo();
+        $normalizedPath = $path === '/' ? '/' : rtrim($path, '/');
+        if ($normalizedPath === '') {
+            $normalizedPath = '/';
+        }
+
+        return in_array($normalizedPath, self::FRAMEWORK_EXACT_PUBLIC_PATHS, true);
     }
 
     public static function registerRouteConfigurator(string $pluginName, callable $configurator): void

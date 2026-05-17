@@ -154,27 +154,51 @@ class fs_session_manager
 
     private static function resolveCookiePath(): string
     {
-        $requestUri = filter_var((string) ($_SERVER['REQUEST_URI'] ?? '/'), FILTER_SANITIZE_URL);
-        $parsedPath = parse_url($requestUri, PHP_URL_PATH);
-        $path = is_string($parsedPath) ? $parsedPath : '/';
-
-        if (str_ends_with($path, '/index.php')) {
-            $path = substr($path, 0, -10);
-        }
-
-        if ($path === '' || $path === false) {
-            $path = '/';
-        }
-
-        if ($path[0] !== '/') {
-            $path = '/' . $path;
-        }
-
-        if ($path === '') {
+        $preferredPath = defined('FS_PATH') ? (string) FS_PATH : null;
+        if ($preferredPath !== null && trim($preferredPath) === '' && empty($_SERVER['REQUEST_URI'])) {
             return '/';
         }
 
-        return substr($path, -1) === '/' ? $path : $path . '/';
+        return self::normalizeCookiePath($preferredPath, $_SERVER);
+    }
+
+    private static function normalizeCookiePath($preferredPath, array $server)
+    {
+        $candidate = trim((string) $preferredPath);
+        if ($candidate !== '') {
+            return self::normalizeCookiePathValue($candidate);
+        }
+
+        $scriptName = trim((string) ($server['SCRIPT_NAME'] ?? ''));
+        if ($scriptName !== '') {
+            return self::normalizeCookiePathValue(dirname($scriptName));
+        }
+
+        $requestUri = filter_var((string) ($server['REQUEST_URI'] ?? '/'), FILTER_SANITIZE_URL);
+        $parsedPath = parse_url($requestUri, PHP_URL_PATH);
+        if (is_string($parsedPath) && $parsedPath !== '') {
+            if (str_ends_with($parsedPath, '/index.php')) {
+                $parsedPath = substr($parsedPath, 0, -10);
+            } else {
+                $parsedPath = dirname($parsedPath);
+            }
+
+            return self::normalizeCookiePathValue($parsedPath);
+        }
+
+        return '/';
+    }
+
+    private static function normalizeCookiePathValue($path)
+    {
+        $normalized = trim(str_replace('\\', '/', (string) $path));
+        if ($normalized === '' || $normalized === '.' || $normalized === '/') {
+            return '/';
+        }
+
+        $normalized = '/' . ltrim($normalized, '/');
+
+        return str_ends_with($normalized, '/') ? $normalized : $normalized . '/';
     }
 
     /**

@@ -99,6 +99,10 @@ final class PluginInstaller
         }
 
         $ch = curl_init();
+        if ($ch === false) {
+            return false;
+        }
+
         curl_setopt($ch, CURLOPT_URL, $githubUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);

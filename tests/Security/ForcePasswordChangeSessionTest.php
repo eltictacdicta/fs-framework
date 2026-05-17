@@ -21,8 +21,6 @@ require_once dirname(__DIR__, 2) . '/controller/force_password_change.php';
 
 final class ForcePasswordChangeSessionTest extends TestCase
 {
-    private const VAR_NAME = 'initial_admin_setup';
-
     protected function setUp(): void
     {
         parent::setUp();

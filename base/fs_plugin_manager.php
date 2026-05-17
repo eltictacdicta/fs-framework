@@ -538,7 +538,7 @@ class fs_plugin_manager
             return false;
         }
 
-        $plugin_name = $this->rename_plugin($plugin_folder_name);
+        $plugin_name = $this->rename_plugin($plugin_folder_name, $temp_dir);
 
         // Si el plugin ya existe y se solicita backup, crearlo
         $was_update = file_exists(FS_FOLDER . self::PLUGINS_PATH . $plugin_name);
@@ -978,18 +978,33 @@ class fs_plugin_manager
         return $plugin;
     }
 
-    private function rename_plugin($name)
+    private function rename_plugin($name, $base_path = null)
     {
-        $new_name = $name;
-        if (strpos($name, '-master') !== FALSE) {
-            /// renombramos el directorio
-            $new_name = substr($name, 0, strpos($name, '-master'));
-            if (!rename(FS_FOLDER . self::PLUGINS_PATH . $name, FS_FOLDER . self::PLUGINS_PATH . $new_name)) {
-                $this->core_log->new_error('Error al renombrar el plugin.');
-            }
+        $current_name = basename((string) $name);
+        $new_name = $this->normalize_plugin_name($current_name);
+
+        if ($new_name === $current_name) {
+            return $new_name;
+        }
+
+        $target_base = $base_path !== null
+            ? rtrim((string) $base_path, '/') . '/'
+            : FS_FOLDER . self::PLUGINS_PATH;
+
+        if (is_dir($target_base . $current_name) && !rename($target_base . $current_name, $target_base . $new_name)) {
+            $this->core_log->new_error('Error al renombrar el plugin.');
+            return $current_name;
         }
 
         return $new_name;
+    }
+
+    private function normalize_plugin_name($name)
+    {
+        $normalized = basename((string) $name);
+        $normalized = preg_replace('/-(master|main)$/i', '', $normalized);
+
+        return preg_replace('/[^A-Za-z0-9_-]/', '', (string) $normalized);
     }
 
     private function save()
@@ -1026,6 +1041,7 @@ class fs_plugin_manager
      */
     public function create_backup($plugin_name)
     {
+        $plugin_name = $this->normalize_plugin_name($plugin_name);
         $plugin_path = FS_FOLDER . self::PLUGINS_PATH . $plugin_name;
         $backup_path = FS_FOLDER . self::PLUGINS_PATH . $plugin_name . '_back';
 
@@ -1141,7 +1157,7 @@ class fs_plugin_manager
             return false;
         }
 
-        $plugin_name = $this->rename_plugin($plugin_folder);
+        $plugin_name = $this->normalize_plugin_name($plugin_folder);
 
         // Intentar leer la versión del archivo ini
         $version = 1;

@@ -144,28 +144,51 @@ class SessionManager
 
     private static function resolveCookiePath(): string
     {
-        $path = '/';
+        $preferredPath = defined('FS_PATH') ? (string) FS_PATH : null;
+        if ($preferredPath !== null && trim($preferredPath) === '' && empty($_SERVER['REQUEST_URI'])) {
+            return '/';
+        }
 
-        if (defined('FS_FOLDER')) {
-            $normalized = str_replace('\\', '/', trim((string) FS_FOLDER));
-            if (preg_match('#^[A-Za-z]:/#', $normalized) === 1) {
-                $segments = preg_split('#[\\/]+#', trim((string) $normalized, '\\/')) ?: [];
-                $projectName = end($segments);
-                $path = is_string($projectName) && $projectName !== '' ? '/' . trim($projectName, '/') : '/';
-            } elseif ($normalized !== '') {
-                $path = '/' . trim($normalized, '/');
+        return self::normalizeCookiePath($preferredPath, $_SERVER);
+    }
+
+    private static function normalizeCookiePath(?string $preferredPath, array $server): string
+    {
+        $candidate = trim((string) $preferredPath);
+        if ($candidate !== '') {
+            return self::normalizeCookiePathValue($candidate);
+        }
+
+        $scriptName = trim((string) ($server['SCRIPT_NAME'] ?? ''));
+        if ($scriptName !== '') {
+            return self::normalizeCookiePathValue((string) dirname($scriptName));
+        }
+
+        $requestUri = filter_var((string) ($server['REQUEST_URI'] ?? '/'), FILTER_SANITIZE_URL);
+        $parsedPath = parse_url($requestUri, PHP_URL_PATH);
+        if (is_string($parsedPath) && $parsedPath !== '') {
+            if (str_ends_with($parsedPath, '/index.php')) {
+                $parsedPath = substr($parsedPath, 0, -10);
+            } else {
+                $parsedPath = (string) dirname($parsedPath);
             }
+
+            return self::normalizeCookiePathValue($parsedPath);
         }
 
-        if ($path === '') {
-            $path = '/';
+        return '/';
+    }
+
+    private static function normalizeCookiePathValue(string $path): string
+    {
+        $normalized = trim(str_replace('\\', '/', $path));
+        if ($normalized === '' || $normalized === '.' || $normalized === '/') {
+            return '/';
         }
 
-        if ($path[0] !== '/') {
-            $path = '/' . $path;
-        }
+        $normalized = '/' . ltrim($normalized, '/');
 
-        return str_ends_with($path, '/') ? $path : $path . '/';
+        return str_ends_with($normalized, '/') ? $normalized : $normalized . '/';
     }
 
     /**

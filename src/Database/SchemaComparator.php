@@ -32,7 +32,7 @@ final class SchemaComparator
     public function __construct(object $db, ?SchemaInspector $inspector = null)
     {
         $this->db = $db;
-        $this->inspector = $inspector ?? new SchemaInspector($db);
+        $this->inspector = $inspector;
     }
 
     public function compareColumns(string $tableName, array $xmlCols, array $dbCols): string
@@ -40,7 +40,7 @@ final class SchemaComparator
         $rawTableName = $this->requireIdentifier($tableName, 'table');
         $quotedTable = $this->quoteIdentifier($rawTableName);
         $sql = '';
-        $fkColumns = $this->inspector->getFkColumnNames($rawTableName);
+        $fkColumns = $this->inspector()->getFkColumnNames($rawTableName);
 
         foreach ($xmlCols as $xmlCol) {
             $xmlCol['tipo'] = TypeNormalizer::convertPostgresType($xmlCol['tipo']);
@@ -277,7 +277,7 @@ final class SchemaComparator
     private function buildDbConstraintSignatures(string $tableName): array
     {
         $grouped = [];
-        foreach ($this->inspector->getConstraintsExtended($tableName) as $row) {
+        foreach ($this->inspector()->getConstraintsExtended($tableName) as $row) {
             if (empty($row['name']) || empty($row['type'])) {
                 continue;
             }
@@ -326,7 +326,7 @@ final class SchemaComparator
         $localColumns = implode(',', $this->normalizeIdentifierList($matches[1]));
         $foreignTable = $this->normalizeIdentifier($matches[2]);
         $foreignColumns = implode(',', $this->normalizeIdentifierList($matches[3]));
-        $tail = $matches[4] ?? '';
+        $tail = $this->matchTail($matches);
 
         return sprintf(
             'FOREIGN KEY|%s|%s|%s|%s|%s',
@@ -569,5 +569,15 @@ final class SchemaComparator
         }
 
         return strtoupper($matches[1]);
+    }
+
+    private function matchTail(array $matches): string
+    {
+        return isset($matches[4]) ? (string) $matches[4] : '';
+    }
+
+    private function inspector(): SchemaInspector
+    {
+        return $this->inspector ??= new SchemaInspector($this->db);
     }
 }

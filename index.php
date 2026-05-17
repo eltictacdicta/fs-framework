@@ -120,6 +120,16 @@ try {
 }
 // ------------------------------
 
+/// Probes del navegador (favicon, etc.): ya son "públicos" para el gate; sin ruta Symfony,
+/// devolver 204 y no caer en el front legacy (evita 302 a login y session_start() por stealth).
+$request = \FSFramework\Core\Kernel::request();
+if (\FSFramework\Core\Plugins::shouldRespondNoContentForBrowserProbe($request)) {
+    $response = new \Symfony\Component\HttpFoundation\Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
+    $response->prepare($request);
+    $response->send();
+    exit;
+}
+
 
 /// ampliamos el límite de ejecución de PHP a 5 minutos
 @set_time_limit(300);

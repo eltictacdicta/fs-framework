@@ -234,10 +234,6 @@ final class LegacyAuthBridge
         $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
         $path = parse_url(str_replace('/index.php', '', $requestUri), PHP_URL_PATH) ?: '/';
 
-        if ($path === '') {
-            return '/';
-        }
-
         return str_ends_with($path, '/') ? $path : $path . '/';
     }
 

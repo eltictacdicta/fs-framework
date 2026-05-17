@@ -48,13 +48,16 @@ final class AdminHomePageDiscoveryTest extends TestCase
     {
         self::assertFalse(class_exists('FSFramework\\Plugins\\catalogo_core\\Controller\\admin_almacenes', false));
 
-        $controller = (new \ReflectionClass('admin_home'))->newInstanceWithoutConstructor();
+        $controller = (new \ReflectionClass(\admin_home::class))->newInstanceWithoutConstructor();
+
+        // @phpstan-ignore assign.propertyType (doble anónimo suficiente para all_pages())
         $controller->plugin_manager = new class {
             public function enabled(): array
             {
                 return ['catalogo_core'];
             }
         };
+        // @phpstan-ignore assign.propertyType (doble anónimo suficiente para all_pages())
         $controller->page = new class {
             public function all(): array
             {

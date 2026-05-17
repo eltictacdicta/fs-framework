@@ -10,9 +10,15 @@ parameters:
     paths:
         - src
         - tests
+    dynamicConstantNames:
+        - FS_DB_TYPE
+        - FS_FOREIGN_KEYS
+        - FS_CHECK_DB_TYPES
     scanFiles:
         - base/fs_maintenance_mode.php
+        - base/fs_plugin_manager.php
         - base/install_security.php
+        - controller/admin_home.php
         - controller/force_password_change.php
         - plugins/OidcProvider/controller/admin_oidc_diagnostics.php
     ignoreErrors:

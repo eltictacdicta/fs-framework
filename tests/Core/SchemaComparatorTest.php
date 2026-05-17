@@ -10,6 +10,19 @@ use PHPUnit\Framework\TestCase;
 
 class SchemaComparatorTest extends TestCase
 {
+    public function testNormalizeXmlConstraintSignatureHandlesForeignKeyWithoutTail(): void
+    {
+        $comparator = new SchemaComparator(new class() {
+        });
+
+        $method = new \ReflectionMethod(SchemaComparator::class, 'normalizeXmlConstraintSignature');
+        $method->setAccessible(true);
+
+        $signature = $method->invoke($comparator, 'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)');
+
+        $this->assertSame('FOREIGN KEY|parent_id|parent_table|id|RESTRICT|RESTRICT', $signature);
+    }
+
     public function testGenerateTableAddsNamedForeignKeyDespiteWhitespaceAndCaseDifferences(): void
     {
         $db = new class() {

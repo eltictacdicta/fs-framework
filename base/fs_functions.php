@@ -432,7 +432,7 @@ function fs_curl_update_ca_bundle($maxAgeDays = 90)
  * Si se define FS_CURL_SSL_VERIFY como false en config.php, el valor se
  * ignora para evitar conexiones TLS inseguras.
  *
- * @param resource $ch Handle cURL
+ * @param resource|\CurlHandle $ch Handle cURL
  * @param bool|null $forceVerify Forzar verificación (ignora config). NULL = usar config.
  * @return void
  */

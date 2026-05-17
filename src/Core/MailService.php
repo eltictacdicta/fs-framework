@@ -465,8 +465,10 @@ class MailService
 
     private function isStartTlsEnabled(PHPMailer $mail): bool
     {
-        return property_exists($mail, 'SMTPAutoTLS')
-            && $mail->SMTPAutoTLS === true
+        $mailVars = get_object_vars($mail);
+
+        return array_key_exists('SMTPAutoTLS', $mailVars)
+            && $mailVars['SMTPAutoTLS'] === true
             && (int) $mail->Port === 587;
     }
 
