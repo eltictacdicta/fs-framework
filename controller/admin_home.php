@@ -337,6 +337,10 @@ class admin_home extends fs_controller
             return;
         }
 
+        if ($this->request->isMethod('POST') && !$this->requireCsrf()) {
+            return;
+        }
+
         if (filter_input(INPUT_POST, 'cancel_pending_install')) {
             $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
             $this->applyHandlerResult($handlerResult);

@@ -42,6 +42,8 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class SafeRedirect
 {
+    private const VALID_REDIRECT_STATUS_CODES = [301, 302, 303, 307, 308];
+
     /**
      * Lista de hosts permitidos además del host actual.
      * Puede extenderse mediante configuración.
@@ -129,6 +131,37 @@ class SafeRedirect
     public static function getAllowedHosts(): array
     {
         return self::$allowedHosts;
+    }
+
+    /**
+     * Valida una URL de redirección y emite la respuesta HTTP Location.
+     * Conveniencia que combina ``validate()`` con ``header()`` + ``exit()``.
+     *
+     * @param string|null $url URL de redirección (puede ser insegura)
+     * @param string $fallbackUrl URL por defecto si la validación falla
+     * @param int $httpCode Código HTTP (por defecto 302)
+     */
+    /**
+     * Normaliza un código HTTP de redirección a un valor permitido.
+     */
+    public static function resolveRedirectHttpStatusCode(int $httpCode): int
+    {
+        return self::sanitizeRedirectStatusCode($httpCode);
+    }
+
+    public static function redirect(?string $url, string $fallbackUrl = 'index.php', int $httpCode = 302): void
+    {
+        $safeUrl = self::validate($url, $fallbackUrl);
+        $httpCode = self::resolveRedirectHttpStatusCode($httpCode);
+
+        http_response_code($httpCode);
+        header('Location: ' . $safeUrl);
+        exit();
+    }
+
+    private static function sanitizeRedirectStatusCode(int $httpCode): int
+    {
+        return in_array($httpCode, self::VALID_REDIRECT_STATUS_CODES, true) ? $httpCode : 302;
     }
 
     /**

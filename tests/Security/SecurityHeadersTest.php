@@ -24,6 +24,8 @@ final class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString('https://cdn.jsdelivr.net', $policy);
         $this->assertStringContainsString('https://fonts.googleapis.com', $policy);
         $this->assertStringContainsString("form-action 'self'", $policy);
+        $this->assertStringContainsString("connect-src 'self'", $policy);
+        $this->assertStringNotContainsString("connect-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net", $policy);
     }
 
     public function testNonceIsStableWithinTheSameRequest(): void

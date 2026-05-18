@@ -38,19 +38,13 @@
         });
     }
     function mostrar_modal_plugin() {
-        console.log('Intentando mostrar modal de plugin...');
         var modal = $('#modal_add_plugin');
-        console.log('Modal encontrado:', modal.length, 'elementos');
 
         if (modal.length > 0) {
-            console.log('Modal encontrado, mostrando...');
             try {
                 modal.modal('show');
-                console.log('Modal mostrado con Bootstrap');
                 return;
-            } catch (e) {
-                console.log('Error con Bootstrap modal:', e);
-            }
+            } catch (e) { }
 
             try {
                 modal.css({
@@ -63,26 +57,17 @@
                 if (!$('.modal-backdrop').length) {
                     $('body').append('<div class="modal-backdrop fade show" style="display: block; opacity: 0.5; z-index: 1040;"></div>');
                 }
-                console.log('Modal mostrado con método directo');
-            } catch (e) {
-                console.log('Error con método directo:', e);
-            }
+            } catch (e) { }
 
             try {
                 modal.show();
                 modal.attr('aria-hidden', 'false');
                 $('body').addClass('modal-open');
-                console.log('Modal mostrado con jQuery show()');
-            } catch (e) {
-                console.log('Error con jQuery show():', e);
-            }
+            } catch (e) { }
 
             setTimeout(function() {
                 modal.find('input[type="file"]').first().focus();
-                console.log('Campo de archivo enfocado');
             }, 100);
-        } else {
-            console.error('Modal #modal_add_plugin no encontrado');
         }
     }
 
@@ -94,7 +79,6 @@
             modal.attr('aria-hidden', 'true');
             $('body').removeClass('modal-open');
             $('.modal-backdrop').remove();
-            console.log('Modal ocultado');
         }
     }
 
@@ -158,13 +142,11 @@
 
         $('#btn_add_plugin').click(function(e) {
             e.preventDefault();
-            console.log('Botón añadir plugin clickeado');
             mostrar_modal_plugin();
         });
 
         $('#btn_add_plugin_tab').click(function(e) {
             e.preventDefault();
-            console.log('Botón añadir plugin en pestaña clickeado');
             mostrar_modal_plugin();
         });
     });

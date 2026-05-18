@@ -80,6 +80,13 @@ class SecurityHelpersTest extends TestCase
         $this->assertSame([], SafeRedirect::getAllowedHosts());
     }
 
+    public function testSafeRedirectFallsBackTo302ForInvalidHttpStatusCodes(): void
+    {
+        $this->assertSame(302, SafeRedirect::resolveRedirectHttpStatusCode(299));
+        $this->assertSame(307, SafeRedirect::resolveRedirectHttpStatusCode(307));
+        $this->assertSame(302, SafeRedirect::resolveRedirectHttpStatusCode(999));
+    }
+
     public function testUserAdapterExposesLegacyUserCapabilities(): void
     {
         $legacyUser = new class() {
