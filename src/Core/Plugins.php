@@ -101,18 +101,30 @@ class Plugins
         }
 
         foreach (self::enabled() as $pluginName) {
-            foreach (self::$publicPathPrefixes[$pluginName] ?? [] as $prefix) {
-                if ($prefix === '/') {
-                    if ($normalizedPath === '/') {
-                        return true;
-                    }
+            if (self::pathMatchesPluginPublicPrefixes($normalizedPath, self::$publicPathPrefixes[$pluginName] ?? [])) {
+                return true;
+            }
+        }
 
-                    continue;
-                }
+        return false;
+    }
 
-                if ($normalizedPath === $prefix || str_starts_with($normalizedPath, $prefix . '/')) {
+    /**
+     * @param list<string> $prefixes
+     */
+    private static function pathMatchesPluginPublicPrefixes(string $normalizedPath, array $prefixes): bool
+    {
+        foreach ($prefixes as $prefix) {
+            if ($prefix === '/') {
+                if ($normalizedPath === '/') {
                     return true;
                 }
+
+                continue;
+            }
+
+            if ($normalizedPath === $prefix || str_starts_with($normalizedPath, $prefix . '/')) {
+                return true;
             }
         }
 

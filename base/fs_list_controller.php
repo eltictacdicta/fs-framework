@@ -251,9 +251,10 @@ abstract class fs_list_controller extends fs_controller
             case 2:
                 $this->tabs[$tab_name]['default_sort'] = $option_name . '|desc';
                 return true;
-        }
 
-        return true;
+            default:
+                return true;
+        }
     }
 
     /**

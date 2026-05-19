@@ -197,16 +197,21 @@ class fs_user extends \fs_model
     private const INITIAL_SETUP_COMPLETED = 'completed';
 
     /**
+     * Garantiza tablas referenciadas por FK antes de crear fs_users.
+     */
+    protected function ensureInstallDependencies(): bool
+    {
+        return $this->ensureRelatedModelTable(\agente::class)
+            && $this->ensureRelatedModelTable(\fs_page::class);
+    }
+
+    /**
      * Inserta valores por defecto a la tabla, en el proceso de creación de la misma.
      * @return string
      */
     protected function install()
     {
         $this->clean_cache(TRUE);
-
-        /// Esta tabla tiene claves ajenas a agentes y fs_pages
-        new \agente();
-        new \fs_page();
 
         $defaultPassword = rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
 

@@ -288,6 +288,9 @@ abstract class fs_model
         if ($this->db->table_exists($table_name)) {
             $sql = $this->buildExistingTableSql($table_name, $xml_cols, $xml_cons);
         } else {
+            if (!$this->ensureInstallDependencies()) {
+                return FALSE;
+            }
             $sql = $this->db->generate_table($table_name, $xml_cols, $xml_cons) . $this->install();
         }
 
@@ -514,6 +517,72 @@ abstract class fs_model
         }
 
         return $return;
+    }
+
+    /**
+     * Comprueba dependencias antes de crear la tabla (p. ej. tablas referenciadas por FK).
+     *
+     * @return bool FALSE para abortar la creación de la tabla
+     */
+    protected function ensureInstallDependencies(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Garantiza que la tabla de un modelo relacionado exista (p. ej. claves foráneas en install()).
+     *
+     * @param class-string<fs_model> $modelClass
+     * @return bool FALSE si la clase no es válida, no se puede instanciar o su tabla no quedó preparada
+     */
+    protected function ensureRelatedModelTable(string $modelClass): bool
+    {
+        if (!class_exists($modelClass) || !is_subclass_of($modelClass, self::class, true)) {
+            $this->new_error_msg('Modelo relacionado no válido: ' . $modelClass);
+            return false;
+        }
+
+        $related = $this->instantiateRelatedModel($modelClass);
+        if ($related === null) {
+            return false;
+        }
+
+        $tableName = $related->table_name();
+        if ($tableName === '') {
+            $this->new_error_msg('Modelo relacionado sin nombre de tabla: ' . $modelClass);
+            return false;
+        }
+
+        if (in_array($tableName, self::$checked_tables, true)) {
+            return true;
+        }
+
+        $this->new_error_msg('No se pudo preparar la tabla del modelo relacionado: ' . $modelClass);
+        return false;
+    }
+
+    /**
+     * @param class-string<fs_model> $modelClass
+     */
+    private function instantiateRelatedModel(string $modelClass): ?fs_model
+    {
+        try {
+            $reflection = new \ReflectionClass($modelClass);
+            $constructor = $reflection->getConstructor();
+
+            if ($constructor !== null && $constructor->getNumberOfRequiredParameters() > 0) {
+                $this->new_error_msg(
+                    'No se puede instanciar el modelo relacionado (constructor con parámetros obligatorios): ' . $modelClass
+                );
+                return null;
+            }
+
+            return new $modelClass();
+        } catch (\Throwable $e) {
+            error_log('No se pudo instanciar el modelo relacionado ' . $modelClass . ': ' . $e->getMessage());
+            $this->new_error_msg('No se pudo instanciar el modelo relacionado: ' . $modelClass);
+            return null;
+        }
     }
 
     /**

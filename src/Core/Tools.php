@@ -54,34 +54,45 @@ class Tools
                 }
             }
 
-            private static function interpolate($msg, $params = [])
+            private static function interpolate($msg, $params = []): string
             {
                 $message = is_scalar($msg) || (is_object($msg) && method_exists($msg, '__toString'))
                     ? (string) $msg
                     : '';
 
-                $normalizedParams = [];
+                return strtr($message, self::normalizeLogParams($params));
+            }
+
+            /**
+             * @param mixed $params
+             * @return array<string, string>
+             */
+            private static function normalizeLogParams($params): array
+            {
                 if (is_array($params)) {
-                    $normalizedParams = $params;
+                    $source = $params;
                 } elseif ($params instanceof \Traversable) {
-                    foreach ($params as $key => $val) {
-                        $normalizedParams[$key] = $val;
-                    }
+                    $source = iterator_to_array($params, true);
+                } else {
+                    return [];
                 }
 
                 $replacements = [];
-                foreach ($normalizedParams as $key => $val) {
+                foreach ($source as $key => $val) {
                     $validKey = (string) $key;
-                    $validVal = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
+                    if ($validKey === '') {
+                        if (defined('FS_DEBUG') && FS_DEBUG) {
+                            error_log('FS Tools: omitiendo clave de interpolación vacía en log params');
+                        }
+                        continue;
+                    }
+
+                    $replacements[$validKey] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
                         ? (string) $val
                         : '';
-
-                    if ($validKey !== '') {
-                        $replacements[$validKey] = $validVal;
-                    }
                 }
 
-                return strtr($message, $replacements);
+                return $replacements;
             }
         };
     }

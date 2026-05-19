@@ -149,6 +149,9 @@ abstract class fs_edit_controller extends fs_controller
             case 'edit':
                 $this->edit_action();
                 break;
+
+            default:
+                break;
         }
     }
 
