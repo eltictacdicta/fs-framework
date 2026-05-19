@@ -27,4 +27,22 @@ class TypeNormalizerTest extends TestCase
     {
         $this->assertSame('CURRENT_DATE', TypeNormalizer::normalizeDefault('CURRENT_TIMESTAMP', 'DATE'));
     }
+
+    public function testNormalizeDefaultStripsPostgresqlCastsForVarcharColumns(): void
+    {
+        $this->assertSame(
+            "'Code39'",
+            TypeNormalizer::normalizeDefault("'Code39'::character varying", 'VARCHAR(8)')
+        );
+
+        $this->assertSame(
+            "'NIF'",
+            TypeNormalizer::normalizeDefault("'NIF'::character varying", 'VARCHAR(10)')
+        );
+
+        $this->assertSame(
+            "'+1month'",
+            TypeNormalizer::normalizeDefault("'+1month'::character varying", 'VARCHAR(30)')
+        );
+    }
 }

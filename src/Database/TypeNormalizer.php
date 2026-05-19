@@ -85,6 +85,8 @@ final class TypeNormalizer
             return $default;
         }
 
+        $default = self::stripPostgresCastFromDefault($default);
+
         $upperDefault = strtoupper($default);
         $upperType = strtoupper($columnType);
 
@@ -115,7 +117,29 @@ final class TypeNormalizer
             return '0';
         }
 
+        if (preg_match("/^'.*'$/s", $default)) {
+            return $default;
+        }
+
         return "'" . str_replace("'", "''", $default) . "'";
+    }
+
+    /**
+     * Elimina casts de PostgreSQL en valores por defecto del XML (p. ej. 'Code39'::character varying).
+     */
+    private static function stripPostgresCastFromDefault(string $default): string
+    {
+        if (preg_match("/^'(.*?)'::/s", $default, $matches)) {
+            return $matches[1];
+        }
+
+        if (strpos($default, '::') === false) {
+            return $default;
+        }
+
+        $default = preg_replace('/::[a-z_][a-z0-9_ ]*/i', '', $default);
+
+        return trim((string) $default);
     }
 
     public static function compareDataTypes(string $dbType, string $xmlType): bool
