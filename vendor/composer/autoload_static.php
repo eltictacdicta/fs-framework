@@ -174,7 +174,6 @@ class ComposerStaticIniteb3332d6115f1c528c899a3cde3cfce9
         'O' =>
         array (
             'OpenApi\\' => 8,
-            'OneLogin\\OidcCore\\' => 18,
         ),
         'M' =>
         array (
@@ -397,10 +396,6 @@ class ComposerStaticIniteb3332d6115f1c528c899a3cde3cfce9
         'OpenApi\\' =>
         array (
             0 => __DIR__ . '/..' . '/zircote/swagger-php/src',
-        ),
-        'OneLogin\\OidcCore\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/mrd/oidc-core/src',
         ),
         'Matrix\\' =>
         array (
