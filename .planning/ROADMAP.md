@@ -47,6 +47,8 @@
 
 **Requirements:** TEST-01, TEST-02, TEST-03, TEST-04, DOC-01, DOC-02
 
+**Status:** ✓ Complete (2026-05-23) — [Summary](phases/14-test-migration-documentation/14-01-SUMMARY.md)
+
 **Success Criteria:**
 1. No API-specific test files under core `tests/` (empty `tests/Api/` removed)
 2. Root `phpunit.xml` has no stale `Api` testsuite pointing at an empty directory
@@ -62,7 +64,7 @@
 |-------|-----------|--------|--------------|
 | 12. Plugin Composer Setup | v0.13.0 | ✓ Complete | DEPS-01, DEPS-02, DEPS-04 |
 | 13. Core Trim & Dependency Removal | v0.13.0 | ✓ Complete | DEPS-03, CORE-01–03 |
-| 14. Test Migration & Documentation | v0.13.0 | Pending | TEST-01–04, DOC-01–02 |
+| 14. Test Migration & Documentation | v0.13.0 | ✓ Complete | TEST-01–04, DOC-01–02 |
 
 ---
 *Roadmap created: 2026-05-23*

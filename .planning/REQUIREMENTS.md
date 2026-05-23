@@ -21,15 +21,15 @@
 
 ### Testing — Plugin-Owned Suite
 
-- [ ] **TEST-01**: All API-specific tests live under `plugins/api_base/tests/` (no duplicates in core tree)
-- [ ] **TEST-02**: Root `phpunit.xml` removes the empty `tests/Api` suite and stale API test references
-- [ ] **TEST-03**: Plugin suite runs in isolation: `ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml`
-- [ ] **TEST-04**: Root PHPUnit suite passes with API tests discovered only via plugin path (Plugins suite or documented exclusion)
+- [x] **TEST-01**: All API-specific tests live under `plugins/api_base/tests/` (no duplicates in core tree)
+- [x] **TEST-02**: Root `phpunit.xml` removes the empty `tests/Api` suite and stale API test references
+- [x] **TEST-03**: Plugin suite runs in isolation: `ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml`
+- [x] **TEST-04**: Root PHPUnit suite passes with API tests discovered only via plugin path (Plugins suite or documented exclusion)
 
 ### Documentation
 
-- [ ] **DOC-01**: Update `AGENTS.md`, `README.md`, and `plugins/api_base/AGENTS.md` with dependency install and test commands
-- [ ] **DOC-02**: Update `.planning/codebase/STACK.md` and `INTEGRATIONS.md` to reflect plugin-owned API dependencies
+- [x] **DOC-01**: Update `AGENTS.md`, `README.md`, and `plugins/api_base/AGENTS.md` with dependency install and test commands
+- [x] **DOC-02**: Update `.planning/codebase/STACK.md` and `INTEGRATIONS.md` to reflect plugin-owned API dependencies
 
 ## v2 Requirements
 
@@ -60,12 +60,12 @@ Deferred to future release.
 | CORE-01 | Phase 13 | Complete |
 | CORE-02 | Phase 13 | Complete |
 | CORE-03 | Phase 13 | Complete |
-| TEST-01 | Phase 14 | Pending |
-| TEST-02 | Phase 14 | Pending |
-| TEST-03 | Phase 14 | Pending |
-| TEST-04 | Phase 14 | Pending |
-| DOC-01 | Phase 14 | Pending |
-| DOC-02 | Phase 14 | Pending |
+| TEST-01 | Phase 14 | Complete |
+| TEST-02 | Phase 14 | Complete |
+| TEST-03 | Phase 14 | Complete |
+| TEST-04 | Phase 14 | Complete |
+| DOC-01 | Phase 14 | Complete |
+| DOC-02 | Phase 14 | Complete |
 
 **Coverage:**
 - v1 requirements: 13 total

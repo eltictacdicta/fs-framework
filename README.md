@@ -201,8 +201,8 @@ Los assets estáticos compartidos (Bootstrap, jQuery, Font Awesome) viven en `vi
 | `symfony/cache` | Caché unificada (`CacheManager`) |
 | `symfony/http-client` | Cliente HTTP |
 | `twig/twig` | Motor de plantillas |
-| `firebase/php-jwt` | Tokens JWT |
-| `zircote/swagger-php` | Documentación OpenAPI |
+
+**API REST (`api_base`):** dependencias propias en `plugins/api_base/composer.json` (p. ej. `zircote/swagger-php`). Instalar con `ddev exec composer install --working-dir=plugins/api_base`. Tests: `ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml`.
 
 ### Ejemplos rápidos
 

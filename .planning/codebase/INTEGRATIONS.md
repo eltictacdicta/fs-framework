@@ -1,6 +1,6 @@
 # External Integrations
 
-**Analysis Date:** 2026-05-16
+**Analysis Date:** 2026-05-23 (API docs section updated v0.13.0)
 
 ## APIs & External Services
 
@@ -12,8 +12,9 @@
 
 **Authentication (External):**
 - OpenID Connect - `mrd/oidc-core` ^0.2
-  - Used for: Optional OIDC-based authentication provider
-  - Located in: `plugins/api_base/` (runtime) and `src/Api/`
+  - Used for: Optional OIDC-based authentication in consumer plugins
+  - Core contracts: `src/Api/Auth/Contract/` (interfaces only)
+  - Runtime: separate plugins (not required for REST API token auth in `api_base`)
 
 **Document Generation:**
 - PhpSpreadsheet ^2.0 - Excel/CSV file reading and writing
@@ -22,8 +23,10 @@
 
 **API Documentation:**
 - Swagger-PHP ^6.0 - OpenAPI spec generation from PHP 8 attributes
-  - SDK/Client: `zircote/swagger-php`
-  - Used through: `src/Api/Attribute/` annotations
+  - SDK/Client: `zircote/swagger-php` (plugin vendor)
+  - Declared in: `plugins/api_base/composer.json`
+  - Generation: `plugins/api_base/model/swagger/SwaggerGenerator.php`
+  - Model annotations: `src/Api/Attribute/` (contracts in core; runtime in plugin)
 
 **HTTP Client:**
 - Symfony HTTP Client ^7.4 - HTTP requests to external services

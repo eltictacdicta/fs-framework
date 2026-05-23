@@ -1,6 +1,6 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-05-16
+**Analysis Date:** 2026-05-23 (Api suite removed v0.13.0)
 
 ## Test Framework
 
@@ -19,6 +19,7 @@ ddev exec php vendor/bin/phpunit                    # Run all tests
 ddev exec php vendor/bin/phpunit --testsuite Base   # Run base/core tests only
 ddev exec php vendor/bin/phpunit --testsuite Plugins # Run plugin tests only
 ddev exec php vendor/bin/phpunit tests/Base/FsModelMethodsTest.php  # Single test file
+ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml  # Isolated api_base API tests
 ddev exec php vendor/bin/phpunit -c plugins/clientes_core/phpunit.xml  # Isolated plugin suite
 ```
 
@@ -80,8 +81,6 @@ tests/
 ├── Cache/                     # Cache component tests (2 files)
 │   ├── CacheManagerTest.php   # Singleton, set/get/has/delete, callbacks
 │   └── DataSrcRepositoryTest.php
-├── Api/                       # API tests (1 file)
-│   └── ChainedAuthAdapterTest.php  # Multi-auth adapter chain
 ├── Traits/                    # Trait tests
 │   └── ValidatorTraitTest.php # Attribute validation, ConstraintBuilder
 ├── Translation/               # Translation tests
@@ -91,6 +90,9 @@ tests/
 └── Form/                      # Form helper tests
 
 plugins/
+├── api_base/tests/
+│   ├── ResourceTransformerTest.php
+│   └── ApiAllowedUserSchemaGuardTest.php
 ├── business_data/tests/
 │   └── BusinessDataModelTest.php   # NEW in v0.10.8
 ├── catalogo_core/tests/
@@ -292,9 +294,10 @@ protected function setUp(): void
 | **Security** | `tests/Security/` | All `src/Security/` components (20 files — largest suite) |
 | **Core** | `tests/Core/` | Kernel-adjacent modules (page discovery, initial setup, mail, plugin controller discovery) |
 | **Cache** | `tests/Cache/` | CacheManager and DataSrcRepository |
-| **Api** | `tests/Api/` | REST API authentication and routing |
 | **Traits** | `tests/Traits/` | ValidatorTrait attribute and constraint testing |
-| **Plugins** | `plugins/*/tests/**/*Test.php` | Auto-discovered plugin tests (business_data, catalogo_core, clientes_core, legacy_support) |
+| **Plugins** | `plugins/*/tests/**/*Test.php` | Auto-discovered plugin tests (business_data, catalogo_core, clientes_core, api_base, legacy_support) |
+
+API tests live in `plugins/api_base/tests/` — run via **Plugins** suite or `ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml`.
 
 ---
 

@@ -1,6 +1,6 @@
 # Technology Stack
 
-**Analysis Date:** 2026-05-16
+**Analysis Date:** 2026-05-23 (API deps section updated v0.13.0)
 
 ## Languages
 
@@ -65,10 +65,9 @@
 - `symfony/routing` ^7.4 - Symfony routing bridge in Kernel
 
 **Security:**
-- `firebase/php-jwt` ^7.0 - JWT token handling
 - `symfony/security-csrf` ^7.4 - CSRF protection
 - `symfony/dotenv` ^7.4 - Environment variable loading
-- `mrd/oidc-core` ^0.2 - OpenID Connect provider
+- `mrd/oidc-core` ^0.2 - OpenID Connect provider (optional consumer plugins)
 
 **Infrastructure:**
 - `phpmailer/phpmailer` ^6.0 - Email sending via `src/Core/MailService.php`
@@ -76,8 +75,14 @@
 - `sabberworm/php-css-parser` ^9.0 - CSS sanitization in `src/Core/CssSanitizer.php`
 - `symfony/http-client` ^7.4 - HTTP client for remote operations
 
-**API Documentation:**
+**Plugin-owned (api_base):**
 - `zircote/swagger-php` ^6.0 - OpenAPI/Swagger documentation generation
+  - Declared in: `plugins/api_base/composer.json`
+  - Vendor: `plugins/api_base/vendor/` (not root `vendor/`)
+  - Used by: `plugins/api_base/model/swagger/SwaggerGenerator.php`
+
+**Removed from core (v0.13.0):**
+- `firebase/php-jwt` — unused in core; future consumer plugins (e.g. OidcProvider) declare JWT when needed (v2 API-05)
 
 **Frontend Assets:**
 - `jquery` ^3.7.1 - DOM manipulation

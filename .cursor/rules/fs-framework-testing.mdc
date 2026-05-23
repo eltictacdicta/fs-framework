@@ -74,11 +74,13 @@ plugins/
 | Suite | Directorio(s) | Cubre |
 |-------|---------------|-------|
 | **Base** | `tests/Base/` | Clases core en `base/` (fs_model, fs_core_log, fs_functions, etc.) |
+| **Core** | `tests/Core/` | Módulos del kernel (page discovery, mail, plugins) |
 | **Security** | `tests/Security/` | Componentes de seguridad (PasswordHasher, CsrfManager) |
 | **Traits** | `tests/Traits/` | Traits de Symfony (ValidatorTrait) |
 | **Cache** | `tests/Cache/` | Sistema de caché (CacheManager) |
-| **Api** | `tests/Api/` | Autenticación y routing REST API |
-| **Plugins** | `plugins/*/tests/**/*Test.php` | Tests modulares de plugins descubiertos automáticamente |
+| **Plugins** | `plugins/*/tests/**/*Test.php` | Tests modulares de plugins (incluye `api_base/tests/`) |
+
+Tests API: `plugins/api_base/tests/` — suite aislada con `ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml`.
 
 ## Convenciones Obligatorias
 

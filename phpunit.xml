@@ -24,9 +24,6 @@
         <testsuite name="Cache">
             <directory>tests/Cache</directory>
         </testsuite>
-        <testsuite name="Api">
-            <directory>tests/Api</directory>
-        </testsuite>
         <testsuite name="Plugins">
             <directory suffix="Test.php">plugins</directory>
         </testsuite>

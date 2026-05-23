@@ -100,6 +100,7 @@ ddev exec php vendor/bin/phpunit --testsuite Plugins
 ddev exec php vendor/bin/phpunit tests/Base/FsModelMethodsTest.php
 
 # Run an individual plugin suite directly
+ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml
 ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml
 ```
 
@@ -123,8 +124,6 @@ tests/
 │   └── ValidatorTraitTest.php # Attribute validation, ConstraintBuilder
 ├── Cache/                     # Cache component tests
 │   └── CacheManagerTest.php   # Singleton, set/get/has/delete, callbacks
-├── Api/                       # API component tests
-│   └── ChainedAuthAdapterTest.php  # Multi-auth adapter chain
 └── Components/                # Core plugin component tests
     └── StealthModeTest.php
 
@@ -132,6 +131,7 @@ plugins/
 └── <PluginName>/
     ├── phpunit.xml            # Optional isolated plugin suite
     └── tests/                 # Auto-discovered by the root phpunit.xml when present
+        # API runtime tests: plugins/api_base/tests/ (ResourceTransformer, etc.)
 ```
 
 #### Writing New Tests
@@ -171,9 +171,15 @@ plugins/
 | Suite | Dir | Covers |
 |-------|-----|--------|
 | **Base** | `tests/Base/` | Core classes in `base/` (fs_model, fs_core_log, fs_functions, fs_ip_filter, fs_query_builder) |
+| **Core** | `tests/Core/` | Kernel-adjacent modules (page discovery, mail, plugin discovery) |
 | **Components** | `tests/Security/`, `tests/Traits/`, `tests/Cache/` | Symfony-based components in `src/` |
-| **Api** | `tests/Api/` | REST API authentication and routing |
-| **Plugins** | `plugins/*/tests/**/*Test.php` | Auto-discovered plugin tests when the plugin exists in the workspace |
+| **Plugins** | `plugins/*/tests/**/*Test.php` | Auto-discovered plugin tests (including `api_base` API tests) |
+
+API-specific tests live under `plugins/api_base/tests/`. Run them via the **Plugins** suite at root, or in isolation:
+
+```bash
+ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml
+```
 
 #### Configuration
 
@@ -335,14 +341,10 @@ Use provided helper functions:
   /*/Controller/              # FS2025 controllers (PSR-4)
   /*/Model/                  # FS2025 models (PSR-4)
 /src/                          # Modern Symfony-based code (PSR-4)
-    /Api/                       # Core API primitives still shared by plugins
+    /Api/                       # Declarative API contracts shared by plugins
         /Attribute/              # ApiResource, ApiField, ApiHidden, Operation
-        /Auth/                    # ChainedAuthAdapter, auth contracts
-        /Endpoint/                # ApiEndpoint base
-        /Exception/               # ApiException, ValidationException, etc.
-        /Helper/                  # RequestHelper
-        /Middleware/              # Auth, Cors, RateLimit middleware
-        /Resource/                # ResourceTransformer
+        /Auth/Contract/          # ApiAuthInterface, AllowedUserInterface, ApiLogInterface
+        /Exception/              # ApiException, ValidationException, etc.
   /Attribute/                 # PHP 8 Attributes (FSRoute)
   /Cache/                     # CacheManager (Symfony Cache)
   /Controller/                # BaseController, PageController
@@ -379,7 +381,6 @@ Use provided helper functions:
   /Security/                   # PasswordHasherService, CsrfManager tests
   /Traits/                     # ValidatorTrait tests
   /Cache/                      # CacheManager tests
-  /Api/                        # ChainedAuthAdapter tests
   /ClientesCore/               # Core plugin model tests
   /Components/                 # Core component tests
   bootstrap.php                # Test bootstrap (constants, no DB)
@@ -934,10 +935,10 @@ The "Limpiar caché" button in admin_info (`index.php?page=admin_info&clean_cach
 | `symfony/dotenv` | ^7.4 | Environment variables |
 | `symfony/yaml` | ^7.4 | YAML parsing |
 | `twig/twig` | ^3.0 | Template engine |
-| `firebase/php-jwt` | ^7.0 | JWT token handling |
 | `phpmailer/phpmailer` | ^6.0 | Email sending |
 | `phpoffice/phpspreadsheet` | ^2.0 | Excel/CSV file handling |
-| `zircote/swagger-php` | ^6.0 | OpenAPI/Swagger documentation |
+
+OpenAPI (`zircote/swagger-php`) is owned by the `api_base` plugin — see `plugins/api_base/composer.json`. JWT (`firebase/php-jwt`) was removed from core in v0.13.0; consumer plugins (e.g. OidcProvider) declare it when needed.
 
 ## PHP 8.2+ Features
 
@@ -1079,9 +1080,18 @@ El repo `api_base` incluye `api_example` (desactivable) con un modelo `demo_item
 ### Instalación
 
 1. Clonar/instalar el plugin `api_base` en `plugins/api_base/`
-2. Activar el plugin desde el panel de administración
-3. Opcional: activar `api_example` para pruebas
-4. Autenticación: tokens Bearer gestionados por `api_base`; login/OIDC en plugins satélite futuros
+2. Instalar dependencias del plugin: `ddev exec composer install --working-dir=plugins/api_base`
+3. Activar el plugin desde el panel de administración
+4. Opcional: activar `api_example` para pruebas
+5. Autenticación: tokens Bearer gestionados por `api_base`; login/OIDC en plugins satélite futuros
+
+**Tests del plugin:**
+
+```bash
+ddev exec php vendor/bin/phpunit -c plugins/api_base/phpunit.xml
+```
+
+El suite **Plugins** del PHPUnit raíz también descubre `plugins/api_base/tests/`.
 
 
 ## Response Helpers
