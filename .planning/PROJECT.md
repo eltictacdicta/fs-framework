@@ -76,17 +76,6 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 
 - **Version:** 0.12.0 (security hardening shipped 2026-05-23)
 - **Test suite:** Security suite 140 tests; full suite run recommended before deploy
-
-- Queue/job system — infrastructure change, not tech debt
-- API versioning beyond v1 — premature until API stabilizes
-- Full Twig migration — ongoing, not a debt item
-- Dynamic properties on fs_model/fs_controller — high plugin breakage risk
-- admin_cache controller — too trivial (5 lines) to justify separate controller; revisit if admin_home grows
-
-## Context
-
-- **Version:** 0.11.0 deployed
-- **Test suite:** 383 tests, 0 failures, 0 errors, 14 skipped
 - **Philosophy**: Core stays thin, plugins extend. Domain models live in plugins. Essential base models (fs_user, agente) stay in core.
 - **Legacy compatibility**: `legacy_support` plugin is the designated compatibility layer.
 - **Testing**: PHPUnit 11 with `ddev exec php vendor/bin/phpunit`. Tests in `tests/` and `plugins/*/tests/`.
@@ -94,7 +83,15 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 - **New architecture**: Service classes in `src/Core/` (MailService, PluginInstaller, PluginActionHandler) and `src/Database/` (TypeNormalizer, SchemaInspector, SchemaComparator)
 - **Security**: `SECURITY.md`, baseline audit in `.planning/security/`
 
-### Out of Scope
+## Out of Scope
+
+- Queue/job system — infrastructure change, not tech debt
+- API versioning beyond v1 — premature until API stabilizes
+- Full Twig migration — ongoing, not a debt item
+- Dynamic properties on fs_model/fs_controller — high plugin breakage risk
+- admin_cache controller — too trivial (5 lines) to justify separate controller; revisit if admin_home grows
+
+## Constraints
 
 - **Backward compatibility**: Plugins depending on current class names, method signatures, and global state must continue to work
 - **No breaking changes to public API**: `fs_model`, `fs_controller`, `fs_db2` interfaces are sacred
@@ -121,6 +118,12 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 
 ## Constraints
 
+- **Backward compatibility**: Plugins depending on current class names, method signatures, and global state must continue to work
+- **No breaking changes to public API**: `fs_model`, `fs_controller`, `fs_db2` interfaces are sacred
+- **Test-first**: Add tests before refactoring; run full suite after each change
+
+## Evolution
+
 This document evolves at phase transitions and milestone boundaries.
 
 **After each phase transition** (via `/gsd-transition`):
@@ -137,4 +140,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 — milestone v0.12.0 Security Audit & Hardening started*
+*Last updated: 2026-05-23 — milestone v0.12.0 Security Audit & Hardening complete*
