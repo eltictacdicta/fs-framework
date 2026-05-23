@@ -31,6 +31,8 @@
 
 **Requirements:** DEPS-03, CORE-01, CORE-02, CORE-03
 
+**Status:** ✓ Complete (2026-05-23) — [Summary](phases/13-core-trim-dependency-removal/13-01-SUMMARY.md)
+
 **Success Criteria:**
 1. Core `composer.json` no longer lists packages used exclusively by `api_base` (e.g. `zircote/swagger-php`, unused `firebase/php-jwt`)
 2. `src/Api/` audited — only attributes, interfaces, and exceptions remain
@@ -59,7 +61,7 @@
 | Phase | Milestone | Status | Requirements |
 |-------|-----------|--------|--------------|
 | 12. Plugin Composer Setup | v0.13.0 | ✓ Complete | DEPS-01, DEPS-02, DEPS-04 |
-| 13. Core Trim & Dependency Removal | v0.13.0 | Planned | DEPS-03, CORE-01–03 |
+| 13. Core Trim & Dependency Removal | v0.13.0 | ✓ Complete | DEPS-03, CORE-01–03 |
 | 14. Test Migration & Documentation | v0.13.0 | Pending | TEST-01–04, DOC-01–02 |
 
 ---

@@ -10,14 +10,14 @@
 
 - [x] **DEPS-01**: `plugins/api_base/composer.json` declares all API-only Composer packages (`zircote/swagger-php` and any Symfony packages used exclusively by the API runtime)
 - [x] **DEPS-02**: Plugin bootstrap loads plugin vendor autoload when `api_base` is active (e.g. `Init.php` or `config/services.php`)
-- [ ] **DEPS-03**: Core `composer.json` removes packages that only `api_base` consumes after migration is verified
+- [x] **DEPS-03**: Core `composer.json` removes packages that only `api_base` consumes after migration is verified
 - [x] **DEPS-04**: Documented install path works: root `ddev exec composer install` plus plugin dependency resolution without breaking `api.php`
 
 ### Core — Slim Surface
 
-- [ ] **CORE-01**: `src/Api/` contains only declarative contracts (attributes, interfaces, exceptions) — no runtime/router/middleware classes
-- [ ] **CORE-02**: `api.php` remains a thin bootstrap that delegates to `Container::get('api.runtime')` from the plugin
-- [ ] **CORE-03**: No orphaned API runtime code remains in core `src/` outside `src/Api/` contracts
+- [x] **CORE-01**: `src/Api/` contains only declarative contracts (attributes, interfaces, exceptions) — no runtime/router/middleware classes
+- [x] **CORE-02**: `api.php` remains a thin bootstrap that delegates to `Container::get('api.runtime')` from the plugin
+- [x] **CORE-03**: No orphaned API runtime code remains in core `src/` outside `src/Api/` contracts
 
 ### Testing — Plugin-Owned Suite
 
@@ -55,11 +55,11 @@ Deferred to future release.
 |-------------|-------|--------|
 | DEPS-01 | Phase 12 | Complete |
 | DEPS-02 | Phase 12 | Complete |
-| DEPS-03 | Phase 13 | Planned |
+| DEPS-03 | Phase 13 | Complete |
 | DEPS-04 | Phase 12 | Complete |
-| CORE-01 | Phase 13 | Planned |
-| CORE-02 | Phase 13 | Planned |
-| CORE-03 | Phase 13 | Planned |
+| CORE-01 | Phase 13 | Complete |
+| CORE-02 | Phase 13 | Complete |
+| CORE-03 | Phase 13 | Complete |
 | TEST-01 | Phase 14 | Pending |
 | TEST-02 | Phase 14 | Pending |
 | TEST-03 | Phase 14 | Pending |
