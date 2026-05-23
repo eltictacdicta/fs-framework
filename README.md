@@ -1,22 +1,64 @@
 # FSFramework
 
-Fork modernizado de FacturaScripts 2017 con soporte inicial para plugins de FacturaScripts 2025.
+Fork modernizado de FacturaScripts 2017 con integración Symfony 7.4, motor Twig 3 y arquitectura **Symfony-first** con compatibilidad legacy controlada.
+
+**Versión actual:** ver [`VERSION`](VERSION) (v0.12.x)
 
 Software libre bajo licencia GNU/LGPL.
 
-## Dependencias de produccion y desarrollo
+## Arquitectura
 
-Este repositorio puede mantener en GitHub el `vendor/` necesario para produccion y, al mismo tiempo, dejar las herramientas de desarrollo fuera de lo versionado.
+FSFramework mantiene la lógica operativa de FacturaScripts 2017 pero organiza el código en dos capas:
 
-- Produccion: usa el `vendor/` principal del proyecto
-- Desarrollo: instala las herramientas locales con `ddev exec composer install --working-dir=dev-tools`
-- Las herramientas se instalan en `vendor/dev-tools/`, que esta ignorado por Git
+| Capa | Ubicación | Rol |
+|------|-----------|-----|
+| **Legacy** | `base/`, `controller/`, `model/` | Controladores, modelos y acceso a BD heredados |
+| **Moderna (PSR-4)** | `src/` | Kernel, seguridad, caché, eventos, API, traducciones |
 
-Con este esquema:
+Principio **Symfony-first**: cuando existe un servicio moderno en Symfony 7.4, el core delega en él y deja la compatibilidad legacy en bridges finos (`LegacyAuthBridge`, `legacy_support`, etc.).
 
-- quien descarga el framework para produccion no necesita instalar PHPStan, Rector o PHPUnit
-- quien desarrolla puede instalarlos despues cuando los necesite
-- el `vendor/` de produccion no se mezcla con el `vendor` de tooling local
+```
+index.php / api.php
+       │
+       ▼
+  Kernel + Router          ← src/Core/
+       │
+       ├── fs_controller / fs_model   (legacy)
+       ├── Container + servicios      (Symfony DI)
+       ├── ThemeManager + Twig        (themes/)
+       └── Plugins activos            (plugins/)
+```
+
+> **Advertencia:** no es 100% compatible con la funcionalidad de facturación original de FacturaScripts 2017. La compatibilidad con plugins de FacturaScripts 2025 es **parcial** y debe probarse en desarrollo antes de producción.
+
+## Entorno de desarrollo
+
+El entorno local recomendado es **[DDEV](https://ddev.com/)** (PHP 8.3, MariaDB 10.11, nginx-fpm).
+
+```bash
+ddev start
+ddev exec composer install          # dependencias de producción
+./scripts/install-dev-tools.sh      # PHPStan, PHPUnit tooling (opcional)
+./build.sh                          # assets frontend (Bootstrap, jQuery, Font Awesome)
+```
+
+Acceso web: `https://panel-ab.ddev.site` (o el nombre del proyecto en `.ddev/config.yaml`).
+
+Comandos habituales:
+
+```bash
+ddev exec php vendor/bin/phpunit                    # tests
+ddev exec composer phpstan                          # análisis estático (requiere dev-tools)
+ddev exec php scripts/remediate-legacy-passwords.php # migración offline de contraseñas legacy
+```
+
+## Dependencias de producción y desarrollo
+
+Este repositorio puede mantener en GitHub el `vendor/` necesario para producción y, al mismo tiempo, dejar las herramientas de desarrollo fuera de lo versionado.
+
+- **Producción:** usa el `vendor/` principal del proyecto
+- **Desarrollo:** instala las herramientas locales con `ddev exec composer install --working-dir=dev-tools`
+- Las herramientas se instalan en `vendor/dev-tools/`, que está ignorado por Git
 
 Atajos disponibles en el `composer.json` principal una vez instaladas las herramientas:
 
@@ -24,323 +66,290 @@ Atajos disponibles en el `composer.json` principal una vez instaladas las herram
 - `ddev exec composer phpstan:baseline`
 - `ddev exec composer phpstan:dead-code`
 
-## Advertencia
+## Novedades principales (v0.12.x)
 
-Este framework mantiene la lógica original de FacturaScripts 2017 pero ha sido modernizado con componentes de Symfony 7.4 y migrado a Twig como motor de plantillas principal. **No es 100% compatible con la funcionalidad base de facturación original**, en el futuro ofrecerá compatibilidad parcial con plugins de FacturaScripts 2025.
+### Temas separados de plugins
 
-## Novedades Principales
-
-### Migración Completa a Twig
-
-El motor de plantillas ha sido migrado de RainTPL a **Twig 3.x**, con:
-
-- **Plantillas principales migradas**: Login, Header, Footer, Menús y templates base
-- **Traductor automático RainTPL → Twig**: Las plantillas legacy `.html` se traducen automáticamente a sintaxis Twig
-- **Soporte dual**: Detecta y renderiza tanto `.html.twig` (nativo) como `.html` (traducido)
-- **Macros reutilizables**: Sistema de macros Twig para menús y utilidades comunes
+**AdminLTE** ya no es un plugin: vive en `themes/AdminLTE/` y se gestiona con `ThemeManager`. Los plugins pueden sobreescribir vistas del tema en `plugins/<Plugin>/themes/AdminLTE/view/`.
 
 ```
-view/
-├── Master/
-│   ├── Base.html.twig           # Template base con bloques extensibles
-│   ├── MenuTemplate.html.twig   # Layout con menú lateral AdminLTE
-│   └── MenuBghTemplate.html.twig # Layout alternativo (compatible BS5)
-├── Login/
-│   └── Login.html.twig          # Página de login modernizada
-├── Macro/
-│   ├── Menu.html.twig           # Macros para renderizar menús
-│   └── Utils.html.twig          # Utilidades generales
-├── header.html.twig             # Header compatible con legacy
-└── footer.html.twig             # Footer compatible con legacy
+themes/AdminLTE/
+├── theme.ini
+├── view/
+│   ├── master/              # Layouts base
+│   ├── login/               # Login
+│   ├── Macro/               # Macros reutilizables
+│   └── ...
+├── css/  js/  translations/
 ```
 
-### Traductor RainTPL a Twig
+Prioridad de resolución de plantillas Twig: **tema activo → plugins (orden inverso) → vistas core**.
 
-Para mantener compatibilidad con plugins de FacturaScripts 2017, se incluye un traductor automático que convierte sintaxis RainTPL a Twig en tiempo real:
+### Ecosistema de plugins core
+
+Los dominios de negocio se distribuyen en plugins modulares con dependencias declaradas en `fsframework.ini`:
+
+```
+catalogo_core          ← artículos, familias, fabricantes, impuestos, divisas, almacenes, países
+    │
+business_data          ← empresa, ejercicio, serie, formas de pago, cuentas bancarias
+    │
+clientes_core          ← clientes, direcciones, grupos
+    │
+clientes_facturacion   ← integración comercial para facturación
+    │
+clientes_catalogo      ← puente opcional clientes ↔ catálogo
+```
+
+Plugins de compatibilidad:
+
+| Plugin | Función |
+|--------|---------|
+| `legacy_support` | Traducción RainTPL → Twig, hashes de contraseña legacy (SHA1/MD5) con migración automática al login, registro de uso legacy |
+| `facturascripts_support` | Capa de compatibilidad para plugins FacturaScripts 2025 (en desarrollo) |
+
+Orden de activación recomendado:
+
+1. `catalogo_core`
+2. `business_data`
+3. `clientes_core`
+4. Resto según necesidad (`clientes_facturacion`, `clientes_catalogo`, …)
+
+### API REST declarativa
+
+El core expone contratos en `src/Api/` (atributos `#[ApiResource]`, `#[ApiField]`, excepciones) y un bootstrap mínimo en [`api.php`](api.php). El **runtime** (router, middleware, transformadores) vive en el plugin **`api_base`** (repositorio separado).
+
+```
+/api.php/v1/{plugin}/{resource}
+/api.php/v1/{plugin}/{resource}/{id}
+```
+
+Si `api_base` no está activo, `api.php` responde `404` con `"API no habilitada"` sin exponer trazas.
+
+Definir un recurso en un plugin consumidor:
+
+```php
+use FSFramework\Api\Attribute\ApiResource;
+use FSFramework\Api\Attribute\ApiField;
+use FSFramework\Api\Attribute\Operation;
+
+#[ApiResource(
+    operations: [Operation::LIST, Operation::GET, Operation::CREATE],
+    version: 'v1',
+    plugin: 'mi_plugin',
+    resource: 'cliente',
+    requiresAuth: true
+)]
+class cliente extends fs_model {
+    #[ApiField(readable: true, writable: true)]
+    public $nombre;
+}
+```
+
+### Seguridad reforzada
+
+Hardening del milestone v0.12.0 documentado en [`SECURITY.md`](SECURITY.md):
+
+- **CSRF** estricto en mutaciones (`CsrfManager`, validación automática en `pre_private_core()`)
+- **Contraseñas** con `PasswordHasherService` (argon2id/bcrypt); soporte legacy solo vía plugin `legacy_support`
+- **Sesiones** con `SessionManager` y regeneración de ID tras login
+- **Cabeceras HTTP** (`SecurityHeaders.php`) incluyendo CSP configurable
+- **Open redirect** bloqueado con `SafeRedirect`
+- **Login throttle** y política de sesión
+- **DebugBar** visible solo en IP local con `FS_DEBUG=true`
+
+Script de remediación offline para instalaciones con hashes legacy:
+
+```bash
+ddev exec php scripts/remediate-legacy-passwords.php
+```
+
+### Migración legacy planificada
+
+Roadmap de retirada progresiva de RainTPL, aliases API y rutas legacy hacia **v3.0**: [`docs/reviews/legacy-migration-roadmap.md`](docs/reviews/legacy-migration-roadmap.md).
+
+El plugin `legacy_support` instrumenta el uso de componentes legacy y lo expone en el panel de administración.
+
+## Motor de plantillas Twig
+
+Migración completa a **Twig 3.x** con soporte dual:
+
+- `.html.twig` — nativo (preferido)
+- `.html` — RainTPL traducido en tiempo real vía `legacy_support`
 
 | RainTPL | Twig |
 |---------|------|
 | `{$variable}` | `{{ variable }}` |
-| `{$obj->method()}` | `{{ obj.method() }}` |
 | `{loop="$items"}` | `{% for value in items %}` |
 | `{if="$cond"}` | `{% if cond %}` |
 | `{include="file"}` | `{{ include('file.html') }}` |
-| `{function="name()"}` | `{{ name() }}` |
-| `{#CONSTANT#}` | `{{ constant('CONSTANT') }}` |
 
-### Compatibilidad con FacturaScripts 2025
-
-FSFramework ofrece **soporte inicial** para plugins de FacturaScripts 2025:
-
-- **Capa de compatibilidad**: Namespace `FSFramework` con bridges para `Controller`, `Tools`, `Html`, `Cache`, etc.
-- **Estructura dual**: Soporte para `Controller/` (FS2025) y `controller/` (legacy)
-- **Traducciones FS2025**: Carga automática de `Translation/{locale}.json`
-- **Vistas FS2025**: Soporte para carpeta `View/` (PascalCase) además de `view/`
-- **Plugins probados**: Backup y otros plugins básicos de FS2025
-
-> **Nota**: La compatibilidad con FS2025 es parcial. Se recomienda probar los plugins en un entorno de desarrollo antes de usarlos en producción.
+Los assets estáticos compartidos (Bootstrap, jQuery, Font Awesome) viven en `view/css/`, `view/js/` y `view/fonts/`.
 
 ## Integración Symfony 7.4
 
-FSFramework utiliza componentes modernos de Symfony 7.4 manteniendo retrocompatibilidad:
+| Componente | Uso |
+|------------|-----|
+| `symfony/http-foundation` | Request/Response HTTP |
+| `symfony/routing` | Rutas con atributos PHP 8 (`#[FSRoute]`) |
+| `symfony/security-csrf` | Protección CSRF |
+| `symfony/event-dispatcher` | Sistema de eventos (`FSEventDispatcher`) |
+| `symfony/validator` | Validación de modelos (`ValidatorTrait`) |
+| `symfony/dependency-injection` | Contenedor de servicios |
+| `symfony/form` | Formularios con CSRF (`FormHelper`) |
+| `symfony/translation` | i18n (YAML + JSON FS2025) |
+| `symfony/cache` | Caché unificada (`CacheManager`) |
+| `symfony/http-client` | Cliente HTTP |
+| `twig/twig` | Motor de plantillas |
+| `firebase/php-jwt` | Tokens JWT |
+| `zircote/swagger-php` | Documentación OpenAPI |
 
-### Componentes Integrados
+### Ejemplos rápidos
 
-| Componente | Versión | Uso |
-|------------|---------|-----|
-| `symfony/http-foundation` | ^7.4 | Request/Response HTTP |
-| `symfony/routing` | ^7.4 | Rutas con atributos PHP 8 |
-| `symfony/security-csrf` | ^7.4 | Protección CSRF en formularios |
-| `symfony/event-dispatcher` | ^7.4 | Sistema de eventos |
-| `symfony/validator` | ^7.4 | Validación de modelos |
-| `symfony/dependency-injection` | ^7.4 | Contenedor de servicios |
-| `symfony/form` | ^7.4 | Formularios con CSRF |
-| `symfony/translation` | ^7.4 | Internacionalización (i18n) |
-| `symfony/cache` | ^7.4 | Gestión de caché unificada |
-| `twig/twig` | ^3.0 | Motor de plantillas |
-
-### Routing con Atributos PHP 8
+**Routing con atributos:**
 
 ```php
 use FSFramework\Attribute\FSRoute;
 
 #[FSRoute('/api/users/{id}', methods: ['GET'], requirements: ['id' => '\d+'])]
-class api_user extends fs_controller
-{
-    protected function private_core()
-    {
-        $id = $this->request->get('id');
-        // ...
-    }
-}
+class api_user extends fs_controller { /* ... */ }
 ```
 
-### Protección CSRF
+**CSRF en Twig:**
 
 ```twig
 <form method="post" action="{{ fsc.url() }}">
     {{ csrf_field() }}
-    <input type="text" name="campo" />
     <button type="submit">Guardar</button>
 </form>
 ```
 
-### Sistema de Eventos
-
-```php
-use FSFramework\Event\FSEventDispatcher;
-use FSFramework\Event\ModelEvent;
-
-$dispatcher = FSEventDispatcher::getInstance();
-$dispatcher->addListener(ModelEvent::BEFORE_SAVE, function(ModelEvent $event) {
-    $model = $event->getModel();
-    if (!$model->isValid()) {
-        $event->cancel('Datos inválidos');
-    }
-});
-```
-
-### Validación de Modelos
-
-```php
-use FSFramework\Traits\ValidatorTrait;
-use Symfony\Component\Validator\Constraints as Assert;
-
-class Cliente extends fs_model
-{
-    use ValidatorTrait;
-    
-    #[Assert\NotBlank(message: 'El nombre es obligatorio')]
-    #[Assert\Length(max: 100)]
-    public $nombre;
-    
-    #[Assert\Email(message: 'Email inválido')]
-    public $email;
-    
-    public function test()
-    {
-        return $this->validate();
-    }
-}
-```
-
-### Contenedor de Dependencias
+**Contenedor de servicios:**
 
 ```php
 use FSFramework\DependencyInjection\Container;
 
 $db = Container::db();
-$request = Container::request();
 $cache = Container::cache();
 $hasher = Container::passwordHasher();
 ```
 
-### Sistema de Traducciones
+**Traducciones:**
 
 ```php
-use FSFramework\Translation\FSTranslator;
-
-// En PHP
-echo FSTranslator::trans('login-text');
-echo FSTranslator::trans('hello', ['%name%' => 'Juan']);
+echo \FSFramework\Translation\trans('login-text');
 ```
 
 ```twig
-{# En Twig #}
-{{ trans('login-text') }}
-{{ trans('hello', {'%name%': 'Juan'}) }}
-{{ 'save'|trans }}
+{{ trans('save') }}
+{{ 'hello'|trans({'%name%': user.nombre}) }}
 ```
 
-Formatos soportados:
-- `translations/messages.{locale}.yaml` - Formato nuevo (recomendado)
-- `Translation/{locale}.json` - Formato FS2025 (compatibilidad)
+Formatos: `translations/messages.{locale}.yaml` (recomendado) y `Translation/{locale}.json` (FS2025).
 
-### Gestión de Caché
+**Caché:**
 
 ```php
 use FSFramework\Cache\CacheManager;
 
 $cache = CacheManager::getInstance();
-
-// Get con callback (auto-genera si no existe)
 $users = $cache->get('all_users', fn() => $this->db->select("SELECT * FROM fs_users"));
-
-// Limpiar todas las cachés (Symfony + Twig + RainTPL legacy)
-$cache->clearAll();
+$cache->clearAll(); // Symfony + Twig + legacy
 ```
 
-## Plugin business_data
+## Compatibilidad FacturaScripts 2025
 
-Los modelos de negocio que fueron eliminados del core se encuentran en el plugin **`business_data`**:
+Soporte **parcial** vía plugin `facturascripts_support`:
 
-- `empresa` - Datos de empresa
-- `ejercicio` - Ejercicios contables
-- `serie` - Series de facturación
-- `divisa` - Divisas/monedas
-- `forma_pago` - Formas de pago
-- `almacen` - Almacenes
-- `pais` - Países
-- `cuenta_banco` / `cuenta_banco_cliente` - Cuentas bancarias
+- Estructura dual: `Controller/` (FS2025) y `controller/` (legacy)
+- Vistas: `View/` (PascalCase) además de `view/`
+- Traducciones JSON en `Translation/{locale}.json`
+- Bridges en `src/Core/` (`Html`, `Tools`, `Controller`)
 
-**Si vas a usar plugins que dependan de estos modelos (como `facturacion_base`), activa `business_data` primero.**
+Probar siempre en entorno de desarrollo antes de producción.
 
-```
-Orden de activación recomendado:
-1. AdminLTE (tema, activo por defecto)
-2. business_data (modelos de negocio)
-3. facturacion_base (si se necesita facturación)
-4. Otros plugins
-```
-
-## Sistema de Temas
-
-El tema **AdminLTE** se activa automáticamente, proporcionando una interfaz moderna y responsive.
-
-### Características
-- Interfaz basada en AdminLTE
-- Diseño responsive
-- Múltiples skins de color
-- Menú lateral colapsable
-- Compatible con Bootstrap 3 y capa de compatibilidad Bootstrap 5 (para plugins FS2025)
-
-### Configuración
-
-```php
-// config.php
-define('FS_DEFAULT_THEME', 'AdminLTE');
-```
-
-## Estructura del Proyecto
+## Estructura del proyecto
 
 ```
 /
-├── base/                    # Clases core (fs_model, fs_controller, etc.)
-├── config/                  # Configuración de rutas Symfony
-├── controller/              # Controladores principales
-├── model/                   # Modelos y esquemas XML
-│   └── table/              # Definiciones XML de tablas
-├── plugins/                 # Plugins
-│   ├── AdminLTE/           # Tema AdminLTE
-│   └── business_data/      # Modelos de negocio
-├── src/                     # Código moderno (Symfony, Traits, etc.)
-│   ├── Attribute/          # Atributos PHP 8 (FSRoute)
-│   ├── Cache/              # CacheManager
-│   ├── Controller/         # Controladores Symfony
-│   ├── Core/               # Kernel y Router
-│   ├── DependencyInjection/ # Container de servicios
-│   ├── Event/              # Sistema de eventos
-│   ├── FacturaScripts/     # Capa de compatibilidad FS2025
-│   │   ├── Core/           # Bridges (Controller, Tools, Html, Cache)
-│   │   └── Dinamic/        # Modelos dinámicos
-│   ├── Form/               # FormHelper
-│   ├── Security/           # CSRF, Password Hasher, UserAdapter
-│   ├── Traits/             # ResponseTrait, ValidatorTrait
-│   ├── Translation/        # FSTranslator, FS2025JsonLoader
-│   └── Twig/               # Extensiones Twig
+├── base/                    # Clases core legacy (fs_model, fs_controller, fs_db2…)
+├── controller/              # Controladores del core
+├── model/                   # Modelos y esquemas XML (model/table/)
+├── src/                     # Código moderno PSR-4 (FSFramework\)
+│   ├── Api/                 # Contratos REST (atributos, excepciones, auth)
+│   ├── Attribute/           # FSRoute
+│   ├── Cache/               # CacheManager, DataSrcRepository
+│   ├── Core/                # Kernel, Router, ThemeManager, Html, Plugins
+│   ├── Database/            # SchemaComparator, TypeNormalizer
+│   ├── DependencyInjection/ # Container
+│   ├── Event/               # FSEventDispatcher, ModelEvent, ControllerEvent
+│   ├── Form/                # FormHelper
+│   ├── Security/            # CSRF, PasswordHasher, SessionManager, SafeRedirect…
+│   ├── Translation/         # FSTranslator, FS2025JsonLoader
+│   └── Twig/                # Extensiones Twig
+├── themes/                  # Temas (AdminLTE por defecto)
+│   └── AdminLTE/
+├── plugins/                 # Plugins de dominio y compatibilidad
+│   ├── catalogo_core/
+│   ├── business_data/
+│   ├── clientes_core/
+│   ├── legacy_support/
+│   └── facturascripts_support/
+├── view/                    # Assets estáticos compartidos (css, js, fonts)
 ├── translations/            # Traducciones del core (YAML)
-├── view/                    # Plantillas Twig y assets
-│   ├── Master/             # Templates base
-│   ├── Login/              # Login
-│   ├── Macro/              # Macros reutilizables
-│   ├── css/                # Estilos
-│   ├── js/                 # JavaScript
-│   └── img/                # Imágenes
-├── tests/                   # Pruebas unitarias (PHPUnit)
-│   ├── Base/               # Tests de clases core (base/)
-│   ├── Security/           # Tests de PasswordHasherService
-│   ├── Traits/             # Tests de ValidatorTrait
-│   └── Cache/              # Tests de CacheManager
-├── vendor/                  # Dependencias Composer
+├── tests/                   # PHPUnit 11 (Base, Core, Security, Traits, Cache, Api)
+├── scripts/                 # Utilidades CLI (remediación passwords, dev-tools)
 ├── docs/                    # Documentación
-└── extras/                  # Librerías terceros (PHPMailer, XLSXWriter)
+├── api.php                  # Entrada API REST
+├── index.php                # Entrada web
+├── install.php              # Asistente de instalación
+└── SECURITY.md              # Modelo de amenazas y controles
 ```
 
 ## Requisitos
 
-- PHP 8.2 o superior
+- PHP 8.2+ (preferible **8.3**)
 - MySQL o PostgreSQL
-- Servidor web (Apache/Nginx/PHP built-in server)
-- Composer
+- Servidor web (Apache/Nginx) o DDEV
+- Composer (vía DDEV en desarrollo)
 
 ## Instalación
 
 1. Clonar el repositorio
-2. Instalar dependencias:
+2. Arrancar DDEV e instalar dependencias:
    ```bash
-   composer install
+   ddev start
+   ddev exec composer install
    ./build.sh
    ```
-3. Configurar base de datos en `config.php`
-4. Acceder a `index.php` en el navegador
+3. Copiar y configurar `config.php` (conexión BD, secretos)
+4. Acceder a `install.php` o `index.php` en el navegador
+5. Activar plugins según el dominio necesario (ver sección de ecosistema)
 
-## Pruebas Unitarias
+## Pruebas unitarias
 
-El proyecto utiliza **PHPUnit 11** con **symfony/phpunit-bridge** para pruebas unitarias.
+**PHPUnit 11** con suites organizadas por área:
 
 ```bash
-# Ejecutar todas las pruebas
-ddev exec php vendor/bin/phpunit
-
-# Solo tests de clases core (base/)
-ddev exec php vendor/bin/phpunit --testsuite Base
-
-# Solo tests de plugins descubiertos dinámicamente
-ddev exec php vendor/bin/phpunit --testsuite Plugins
-
-# Ejecutar la suite aislada de un plugin
-ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml
+ddev exec php vendor/bin/phpunit                        # todas
+ddev exec php vendor/bin/phpunit --testsuite Base       # clases core (base/)
+ddev exec php vendor/bin/phpunit --testsuite Core       # src/Core, Database…
+ddev exec php vendor/bin/phpunit --testsuite Security   # CSRF, sesiones, headers…
+ddev exec php vendor/bin/phpunit --testsuite Plugins    # tests en plugins/*/tests/
+ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml  # suite aislada
 ```
 
-> **119 tests, 193 assertions** cubriendo: `fs_model`, `fs_core_log`, `fs_functions`, `fs_ip_filter`, `fs_query_builder`, `PasswordHasherService`, `ValidatorTrait` y `CacheManager`.
+Los tests de plugins viven en `plugins/<PluginName>/tests/` y se descubren automáticamente desde el `phpunit.xml` raíz.
 
-Los tests específicos de plugins deben vivir en `plugins/<PluginName>/tests/`. El `phpunit.xml` raíz descubre automáticamente cualquier `*Test.php` dentro de esas carpetas cuando el plugin está presente en el workspace.
+Cobertura actual: **400+ tests** en core, seguridad, caché, traducciones y plugins versionados.
 
-## Documentación Adicional
+## Documentación adicional
 
-- [Sistema de Traducciones](docs/TRANSLATION.md)
-- [Sistema de Temas](THEME_SYSTEM.md)
-- [Guía para Agentes de IA](AGENTS.md)
+- [Sistema de traducciones](docs/TRANSLATION.md)
+- [Roadmap migración legacy](docs/reviews/legacy-migration-roadmap.md)
+- [Mejoras propuestas](docs/MEJORAS_PROPUESTAS.md)
+- [Seguridad](SECURITY.md)
+- [Guía para agentes de IA](AGENTS.md)
 
 ## Contribuciones
 
