@@ -53,10 +53,10 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEPS-01 | Phase 12 | Pending |
-| DEPS-02 | Phase 12 | Pending |
+| DEPS-01 | Phase 12 | Planned |
+| DEPS-02 | Phase 12 | Planned |
 | DEPS-03 | Phase 13 | Pending |
-| DEPS-04 | Phase 12 | Pending |
+| DEPS-04 | Phase 12 | Planned |
 | CORE-01 | Phase 13 | Pending |
 | CORE-02 | Phase 13 | Pending |
 | CORE-03 | Phase 13 | Pending |
