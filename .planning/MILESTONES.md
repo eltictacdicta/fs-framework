@@ -1,5 +1,24 @@
 # Milestones
 
+## v0.12.0 Security Audit & Hardening (Shipped: 2026-05-23)
+
+**Phases completed:** 4 phases (Phases 8-11), 21/21 requirements met
+
+**Key accomplishments:**
+
+- Security baseline audit across core + 5 core plugins (`.planning/security/BASELINE-AUDIT.md`)
+- CSRF policy unified: `pre_private_core()` blocks invalid POST; no double token consumption
+- Input hardening: `ventas_clientes` migrated from `$_GET` to `fs_filter_input_req()`
+- CSP `connect-src` fixed for CDN source maps; DebugBar restricted to local IPs
+- `SECURITY.md` published with threat model and REQ traceability
+- Security test suite: 140 tests, 0 failures
+
+**Deferred to v2:** CSP strict (no `unsafe-inline`), SHA1/MD5 sunset, SonarQube CI gate
+
+**Archive:** `.planning/milestones/v0.12.0-ROADMAP.md`, `.planning/milestones/v0.12.0-REQUIREMENTS.md`
+
+---
+
 ## v0.11.0 Deferred Items Cleanup (Shipped: 2026-05-16)
 
 **Phases completed:** 4 phases, 5 plans, 16 tasks

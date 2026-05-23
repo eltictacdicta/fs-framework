@@ -2,6 +2,39 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v0.12.0 — Security Audit & Hardening
+
+**Shipped:** 2026-05-23
+**Phases:** 4 (8-11) | **Requirements:** 21/21
+
+### What Was Built
+- Security baseline audit (`.planning/security/BASELINE-AUDIT.md`) across core + 5 core plugins
+- CSRF policy: `pre_private_core()` blocks invalid POST; `requireCsrf()` uses `isCsrfValid()` (no double validation)
+- Input hardening in `ventas_clientes` (`fs_filter_input_req` for pagination/sort)
+- CSP `connect-src` CDN fix; DebugBar gated to local IPs when `FS_DEBUG=true`
+- `SECURITY.md` + phase verification document published
+
+### What Worked
+- Reusing prior review artifacts (02-REVIEW, CONCERNS) accelerated baseline audit
+- Inline milestone execution without formal phase directories still delivered all 21 requirements
+- Security test suite (140 tests) gave fast feedback on CSRF/header changes
+
+### What Was Inefficient
+- No formal SUMMARY.md per phase — roadmap analyzer reported 0% progress until manual reconciliation
+- CSP `unsafe-inline` removal blocked by legacy AdminLTE inline JS — needs dedicated UI milestone
+
+### Patterns Established
+- CSRF: validate once in `pre_private_core()`, gate mutations with `isCsrfValid()` / `requireMutationCsrf()`
+- DebugBar: `shouldRender()` checks `fs_is_local_ip()` unless `FS_DEBUGBAR_ALLOW_REMOTE=true`
+- Security docs live in repo root (`SECURITY.md`) + planning artifacts (`.planning/security/`)
+
+### Key Lessons
+1. Security milestones benefit from a written baseline before code changes — prioritization was clear
+2. Double CSRF validation is a subtle bug class when tokens are one-time use
+3. Production debug tooling needs IP gating, not just a boolean flag
+
+---
+
 ## Milestone: v0.11.0 — Deferred Items Cleanup
 
 **Shipped:** 2026-05-16
@@ -76,6 +109,7 @@
 
 | Milestone | Sessions | Phases | Key Change |
 |-----------|----------|--------|------------|
+| v0.12.0 | 1 | 4 | Security-first milestone; baseline audit → remediate → verify |
 | v0.10.8 | 1 | 3 | Initial structure established, deferred items list created |
 | v0.11.0 | 1 | 4 | Risk-ascending ordering adopted, pattern mapper skipped, inline execution |
 
