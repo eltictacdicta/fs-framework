@@ -177,6 +177,7 @@ class admin_home extends fs_controller
 
         $this->exec_actions();
 
+        $this->plugin_manager->cleanupOrphanPages();
         $this->paginas = $this->all_pages();
         $this->load_menu(TRUE);
     }
@@ -337,7 +338,7 @@ class admin_home extends fs_controller
             return;
         }
 
-        if ($this->request->isMethod('POST') && !$this->requireCsrf()) {
+        if ($this->request->isMethod('POST') && !$this->isCsrfValid()) {
             return;
         }
 
@@ -493,8 +494,8 @@ class admin_home extends fs_controller
                 }
             }
             if (!$encontrada) {
-                $p->enabled = TRUE;
-                $pages[] = $p;
+                /// Página en BD sin controlador (plugin desactivado u obsoleto): no mostrar.
+                continue;
             }
         }
 
@@ -676,6 +677,7 @@ class admin_home extends fs_controller
         }
 
         $enabled = filter_input(INPUT_POST, 'enabled', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
+        $this->plugin_manager->cleanupOrphanPages();
         foreach ($this->all_pages() as $p) {
             if (!$p->exists) { /// la página está en la base de datos pero ya no existe el controlador
                 if ($p->delete()) {

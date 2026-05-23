@@ -48,7 +48,7 @@ final class SecurityHeaders
             self::STYLE_SRC_DIRECTIVE,
             "img-src 'self' data: https:",
             "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
-            "connect-src 'self'",
+            "connect-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
             "frame-src 'self'",
             "manifest-src 'self'",
             "media-src 'self' data:",

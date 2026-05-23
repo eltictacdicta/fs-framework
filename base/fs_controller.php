@@ -221,16 +221,18 @@ class fs_controller extends fs_app
             } else if ($name === 'force_password_change' && $this->shouldForcePasswordChange()) {
                 $this->template = $name;
                 $this->set_default_items();
-                $this->pre_private_core();
-                $this->private_core();
+                if ($this->pre_private_core()) {
+                    $this->private_core();
+                }
             } else if ($this->user->have_access_to($this->page->name)) {
                 if ($name == __CLASS__) {
                     $this->template = 'index';
                 } else {
                     $this->template = $name;
                     $this->set_default_items();
-                    $this->pre_private_core();
-                    $this->private_core();
+                    if ($this->pre_private_core()) {
+                        $this->private_core();
+                    }
                 }
             } else if ($name == '') {
                 $this->template = 'index';
@@ -448,30 +450,16 @@ class fs_controller extends fs_app
             return true;
         }
 
-        $token = $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME);
-        if (empty($token)) {
-            $token = $this->request->request->get('_token');
-        }
-        if (empty($token)) {
-            $token = $this->request->headers->get(\FSFramework\Security\CsrfManager::HEADER_NAME);
+        // pre_private_core() already validated the token; avoid double consumption.
+        if ($this->isCsrfValid()) {
+            return true;
         }
 
-        if (empty($token)) {
-            error_log("CSRF requireCsrf: Token ausente en POST ({$this->class_name})");
-            $this->new_error_msg('Sesión expirada o token de seguridad faltante. Por favor, recarga la página.');
-            $this->csrf_valid = false;
-            return false;
-        }
-
-        if (!\FSFramework\Security\CsrfManager::isValidWithReuseCheck($token, $tokenId, true)) {
-            error_log("CSRF requireCsrf: Token inválido en ({$this->class_name})");
+        if (empty($this->get_errors())) {
             $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
-            $this->csrf_valid = false;
-            return false;
         }
 
-        $this->csrf_valid = true;
-        return true;
+        return false;
     }
 
     /**
@@ -895,7 +883,7 @@ class fs_controller extends fs_app
         return false;
     }
 
-    private function pre_private_core()
+    private function pre_private_core(): bool
     {
         $this->query = fs_filter_input_req('query');
 
@@ -904,7 +892,7 @@ class fs_controller extends fs_app
         }
 
         // Validar CSRF para peticiones POST.
-        $this->validateCsrf();
+        $csrfOk = $this->validateCsrf();
 
         /// quitamos extensiones de páginas a las que el usuario no tenga acceso
         foreach ($this->extensions as $i => $value) {
@@ -912,6 +900,8 @@ class fs_controller extends fs_app
                 unset($this->extensions[$i]);
             }
         }
+
+        return $csrfOk;
     }
 
     /**

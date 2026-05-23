@@ -79,12 +79,36 @@ class DebugBar
     }
 
     /**
+     * Indica si la barra de debug debe renderizarse.
+     * Solo en FS_DEBUG y, por defecto, solo desde IPs locales (DDEV/LAN).
+     * Definir FS_DEBUGBAR_ALLOW_REMOTE=true para permitir en otros entornos.
+     */
+    public static function shouldRender(): bool
+    {
+        if (!defined('FS_DEBUG') || !FS_DEBUG) {
+            return false;
+        }
+
+        if (defined('FS_DEBUGBAR_ALLOW_REMOTE') && FS_DEBUGBAR_ALLOW_REMOTE) {
+            return true;
+        }
+
+        if (!function_exists('fs_is_local_ip')) {
+            require_once FS_FOLDER . '/base/fs_functions.php';
+        }
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+
+        return fs_is_local_ip($ip);
+    }
+
+    /**
      * Renderiza la barra de debug HTML.
-     * Solo se muestra cuando FS_DEBUG es true y la respuesta es HTML.
+     * Solo se muestra cuando FS_DEBUG es true, la IP es local y la respuesta es HTML.
      */
     public static function render(): string
     {
-        if (!defined('FS_DEBUG') || !FS_DEBUG) {
+        if (!self::shouldRender()) {
             return '';
         }
 

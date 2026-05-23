@@ -14,7 +14,6 @@ if (!defined('FS_LAZY_MODELS')) {
 }
 
 require_once dirname(__DIR__, 2) . '/base/fs_controller.php';
-require_once dirname(__DIR__, 2) . '/plugins/OidcProvider/controller/admin_oidc_diagnostics.php';
 
 final class FsControllerCsrfReusePolicyTest extends TestCase
 {
@@ -40,6 +39,13 @@ final class FsControllerCsrfReusePolicyTest extends TestCase
 
     public function testDiagnosticsAjaxAllowsReusingSameCsrfTokenAcrossSteps(): void
     {
+        $diagnosticsPath = dirname(__DIR__, 2) . '/plugins/OidcProvider/controller/admin_oidc_diagnostics.php';
+        if (!is_file($diagnosticsPath)) {
+            $this->markTestSkipped('OidcProvider plugin not installed');
+        }
+
+        require_once $diagnosticsPath;
+
         $token = CsrfManager::generateToken();
 
         $controller = (new \ReflectionClass(\admin_oidc_diagnostics::class))->newInstanceWithoutConstructor();

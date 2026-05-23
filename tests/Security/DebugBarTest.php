@@ -10,13 +10,42 @@ class DebugBarTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $_SERVER['REMOTE_ADDR'] = '203.0.113.50';
         DebugBar::init();
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_SERVER['REMOTE_ADDR']);
+        parent::tearDown();
     }
 
     public function testRenderReturnsEmptyWhenDebugDisabled(): void
     {
         $output = DebugBar::render();
         $this->assertSame('', $output);
+    }
+
+    public function testShouldRenderReturnsFalseForRemoteIpWhenDebugEnabled(): void
+    {
+        if (!defined('FS_DEBUG')) {
+            define('FS_DEBUG', true);
+        }
+
+        $_SERVER['REMOTE_ADDR'] = '203.0.113.50';
+
+        $this->assertFalse(DebugBar::shouldRender());
+    }
+
+    public function testShouldRenderReturnsTrueForLocalIpWhenDebugEnabled(): void
+    {
+        if (!defined('FS_DEBUG')) {
+            define('FS_DEBUG', true);
+        }
+
+        $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+
+        $this->assertTrue(DebugBar::shouldRender());
     }
 
     public function testAddQueryStoresSqlStatements(): void
