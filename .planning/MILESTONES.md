@@ -1,5 +1,19 @@
 # Milestones
 
+## v0.13.0 API Plugin Autonomy (Shipped: 2026-05-23)
+
+**Phases completed:** 3 phases (Phases 12-14), 13/13 requirements met
+
+**Key accomplishments:**
+
+- api_base owns swagger-php via isolated Composer vendor loaded at DI registration.
+- Root composer slimmed; OpenAPI now resolves exclusively from api_base plugin vendor.
+- Core `tests/Api/` removed; documentation and PHPUnit config reflect plugin-owned API tests and dependencies.
+
+**Deferred to v2:** Composer merge-plugin (API-04), JWT in consumer plugins (API-05)
+
+**Archive:** `.planning/milestones/v0.13.0-ROADMAP.md`, `.planning/milestones/v0.13.0-REQUIREMENTS.md`
+
 ## v0.12.0 Security Audit & Hardening (Shipped: 2026-05-23)
 
 **Phases completed:** 4 phases (Phases 8-11), 21/21 requirements met
