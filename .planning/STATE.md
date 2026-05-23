@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.13.0
 milestone_name: API Plugin Autonomy
 status: planning
-last_updated: "2026-05-23T23:00:00.000Z"
-last_activity: 2026-05-23 — Phase 12 executed (Plan 01 complete)
+last_updated: "2026-05-23T23:30:00.000Z"
+last_activity: 2026-05-23 — Phase 13 planned (research skipped)
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 1
+  total_plans: 2
   completed_plans: 1
   percent: 33
 ---
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-23 for v0.13.0)
 
 ## Current Position
 
-Phase: 12 — Plugin Composer Setup (complete)
-Plan: 12-01-SUMMARY.md
-Status: Ready for Phase 13
-Last activity: 2026-05-23 — Phase 12 executed; DEPS-01/02/04 complete
+Phase: 13 — Core Trim & Dependency Removal
+Plan: 13-01-PLAN.md (1 plan, wave 1)
+Status: Ready to execute
+Last activity: 2026-05-23 — Phase 13 planned (--skip-research)
 
 ## Performance Metrics
 
@@ -47,7 +47,7 @@ Recent decisions affecting current work:
 
 - `api_base` vendor aislado con `composer.json` + lock versionado
 - Autoload del plugin cargado en `config/services.php` (fail-fast si falta vendor)
-- Root `composer.json` sin cambios hasta Phase 13
+- Root `composer.json` pendiente de quitar swagger-php y firebase/php-jwt (Phase 13 plan listo)
 
 ### Pending Todos
 
@@ -69,10 +69,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-23
-Stopped at: Phase 12 complete
-Resume file: `.planning/phases/12-plugin-composer-setup/12-01-SUMMARY.md`
+Stopped at: Phase 13 planned
+Resume file: `.planning/phases/13-core-trim-dependency-removal/13-01-PLAN.md`
 
 ## Operator Next Steps
 
-- `/gsd-discuss-phase 13` — core trim and remove swagger-php from root composer
-- `/gsd-plan-phase 13` — plan Phase 13 directly
+- `/gsd-execute-phase 13` — remove core deps and verify suites

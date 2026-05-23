@@ -55,11 +55,11 @@ Deferred to future release.
 |-------------|-------|--------|
 | DEPS-01 | Phase 12 | Complete |
 | DEPS-02 | Phase 12 | Complete |
-| DEPS-03 | Phase 13 | Pending |
+| DEPS-03 | Phase 13 | Planned |
 | DEPS-04 | Phase 12 | Complete |
-| CORE-01 | Phase 13 | Pending |
-| CORE-02 | Phase 13 | Pending |
-| CORE-03 | Phase 13 | Pending |
+| CORE-01 | Phase 13 | Planned |
+| CORE-02 | Phase 13 | Planned |
+| CORE-03 | Phase 13 | Planned |
 | TEST-01 | Phase 14 | Pending |
 | TEST-02 | Phase 14 | Pending |
 | TEST-03 | Phase 14 | Pending |
