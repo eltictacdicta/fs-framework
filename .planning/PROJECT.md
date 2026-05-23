@@ -8,7 +8,17 @@ Incremental remediation of technical debt and security hardening in the FSFramew
 
 Fix real issues with minimal risk. Every change must be verifiable by the existing test suite and must not break plugins that depend on current behavior.
 
-## Current State (v0.12.0)
+## Current Milestone: v0.13.0 API Plugin Autonomy
+
+**Goal:** Completar la extracción de la API moviendo dependencias Composer y tests al plugin `api_base`, dejando en el core solo bootstrap mínimo y contratos declarativos.
+
+**Target features:**
+- `composer.json` propio en `plugins/api_base` con dependencias API
+- Eliminar del core las deps que solo consume `api_base`
+- Tests API solo en `plugins/api_base/tests/`; limpiar restos en core
+- Mantener `src/Api/` como contratos (`#[ApiResource]`, interfaces, excepciones)
+
+## Previous Milestone (v0.12.0)
 
 - **Shipped:** 2026-05-23
 - **4 phases (8-11), 21/21 requirements met**
@@ -73,7 +83,9 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 
 ## Context
 
-- **Version:** 0.12.0 (see `VERSION`)
+- **Version:** 0.12.0 core (see `VERSION`); v0.13.0 milestone in progress
+- **API architecture:** Runtime in `plugins/api_base`; core entry `api.php` + `src/Api/` contracts
+- **Note:** `plugins/api_base/.planning/codebase/STACK.md` documents current plugin stack (2026-05-23)
 - **Test suite:** Security 140 tests; full suite via `ddev exec php vendor/bin/phpunit`
 - **Philosophy**: Core stays thin, plugins extend. Domain models live in plugins.
 - **Legacy compatibility**: `legacy_support` plugin is the designated compatibility layer.
@@ -108,4 +120,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 after v0.12.0 milestone shipped*
+*Last updated: 2026-05-23 — milestone v0.13.0 API Plugin Autonomy started*

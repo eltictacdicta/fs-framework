@@ -1,58 +1,41 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.12.0
-milestone_name: Security Audit & Hardening
-status: Awaiting next milestone
-last_updated: "2026-05-23T18:07:35.603Z"
-last_activity: 2026-05-23 — Milestone v0.12.0 completed and archived
+milestone: v0.13.0
+milestone_name: API Plugin Autonomy
+status: planning
+last_updated: "2026-05-23T21:00:00.000Z"
+last_activity: 2026-05-23 — Milestone v0.13.0 started
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-23 after v0.12.0)
+See: .planning/PROJECT.md (updated 2026-05-23 for v0.13.0)
 
 **Core value:** Fix real issues with minimal risk.
-**Current focus:** Planning next milestone
+**Current focus:** API dependency and test ownership in `plugins/api_base`
 
 ## Current Position
 
-Phase: Milestone v0.12.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-23 — Milestone v0.12.0 archived; VERSION bumped to 0.12.0
+Status: Defining requirements
+Last activity: 2026-05-23 — Milestone v0.13.0 started
 
 ## Performance Metrics
 
-**Velocity (v0.12.0):**
+**Velocity (v0.12.0 — prior milestone):**
 
 - Total phases: 4 (Phases 8-11)
 - Requirements met: 21/21
 - Security tests: 140 passing
-
-**By Phase (v0.10.8):**
-
-| Phase | Plans | Status |
-|-------|-------|--------|
-| 1. Quick Wins | 4/4 | ✓ Complete |
-| 2. Type Safety | 2/2 | ✓ Complete |
-| 3. Decomposition | 3/3 | ✓ Complete |
-
-**By Phase (v0.11.0):**
-
-| Phase | Plans | Status |
-|-------|-------|--------|
-| 4. Test Suite Recovery | 2/2 | ✓ Complete |
-| 5. MailService Delegation | 1/1 | ✓ Complete |
-| 6. Plugin Mgmt Extraction | 1/1 | ✓ Complete |
-| 7. fs_mysql Decomposition | 1/1 | ✓ Complete |
 
 ## Accumulated Context
 
@@ -62,17 +45,17 @@ Full log in PROJECT.md Key Decisions table.
 
 Recent decisions affecting current work:
 
-- SHA1/MD5 lives only in legacy_support plugin (Phase 3)
-- StealthMode facade pattern preserves backward compatibility (Phase 3)
-- admin_cache controller deferred — admin_home cache is trivial (5 lines)
+- API runtime already delegated to `api_base` plugin (`api.runtime` service)
+- Core `src/Api/` retains declarative contracts for consumer plugins (`#[ApiResource]`)
+- `firebase/php-jwt` in core composer appears unused in workspace code — candidate for removal in Phase 13
 
 ### Pending Todos
 
-(None — all milestone items completed)
+(None)
 
 ### Blockers/Concerns
 
-None — milestone complete.
+None.
 
 ## Deferred Items
 
@@ -85,10 +68,11 @@ None — milestone complete.
 
 ## Session Continuity
 
-Last session: 2026-05-16
-Stopped at: Milestone v0.11.0 complete
+Last session: 2026-05-23
+Stopped at: Milestone v0.13.0 initialized
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- `/gsd-discuss-phase 12` — gather context for Plugin Composer Setup
+- `/gsd-plan-phase 12` — skip discussion, plan directly
