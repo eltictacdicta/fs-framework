@@ -106,6 +106,30 @@ class FsFunctionsTest extends TestCase
         );
     }
 
+    // =====================================================================
+    // fs_parse_github_release_version()
+    // =====================================================================
+
+    public function testParseGithubReleaseVersionStripsVPrefix(): void
+    {
+        $json = json_encode(['tag_name' => 'v0.12.0'], JSON_THROW_ON_ERROR);
+
+        $this->assertSame('0.12.0', fs_parse_github_release_version($json));
+    }
+
+    public function testParseGithubReleaseVersionWithoutPrefix(): void
+    {
+        $json = json_encode(['tag_name' => '0.11.3'], JSON_THROW_ON_ERROR);
+
+        $this->assertSame('0.11.3', fs_parse_github_release_version($json));
+    }
+
+    public function testParseGithubReleaseVersionReturnsNullForInvalidJson(): void
+    {
+        $this->assertNull(fs_parse_github_release_version('not-json'));
+        $this->assertNull(fs_parse_github_release_version('{"name":"Release"}'));
+    }
+
     public function testFsGetIpReturnsFirstValidForwardedIp(): void
     {
         $_SERVER['HTTP_X_FORWARDED_FOR'] = 'bad-ip, 203.0.113.10, 198.51.100.20';

@@ -3,6 +3,7 @@
 namespace Tests\Security;
 
 use FSFramework\Core\DebugBar;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 class DebugBarTest extends TestCase
@@ -26,8 +27,12 @@ class DebugBarTest extends TestCase
         $this->assertSame('', $output);
     }
 
+    #[RunInSeparateProcess]
     public function testShouldRenderReturnsFalseForRemoteIpWhenDebugEnabled(): void
     {
+        if (defined('FS_DEBUG') && !FS_DEBUG) {
+            $this->markTestSkipped('FS_DEBUG está desactivado en la configuración local.');
+        }
         if (!defined('FS_DEBUG')) {
             define('FS_DEBUG', true);
         }
@@ -37,8 +42,12 @@ class DebugBarTest extends TestCase
         $this->assertFalse(DebugBar::shouldRender());
     }
 
+    #[RunInSeparateProcess]
     public function testShouldRenderReturnsTrueForLocalIpWhenDebugEnabled(): void
     {
+        if (defined('FS_DEBUG') && !FS_DEBUG) {
+            $this->markTestSkipped('FS_DEBUG está desactivado en la configuración local.');
+        }
         if (!defined('FS_DEBUG')) {
             define('FS_DEBUG', true);
         }

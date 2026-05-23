@@ -75,4 +75,45 @@ final class AdminHomePageDiscoveryTest extends TestCase
         self::assertSame(1, count(array_filter($pageNames, static fn ($name) => $name === 'admin_almacenes')));
         self::assertFalse(class_exists('FSFramework\\Plugins\\catalogo_core\\Controller\\admin_almacenes', false));
     }
+
+    public function testAllPagesSkipsDbEntriesWithoutActiveController(): void
+    {
+        $orphanPage = new \fs_page([
+            'name' => 'tarif_articulos',
+            'title' => 'Artículos',
+            'folder' => 'tarifario',
+            'show_on_menu' => true,
+            'important' => false,
+        ]);
+        $orphanPage->enabled = true;
+
+        $controller = (new \ReflectionClass(\admin_home::class))->newInstanceWithoutConstructor();
+
+        // @phpstan-ignore assign.propertyType (doble anónimo suficiente para all_pages())
+        $controller->plugin_manager = new class {
+            public function enabled(): array
+            {
+                return ['catalogo_core'];
+            }
+        };
+        // @phpstan-ignore assign.propertyType (doble anónimo suficiente para all_pages())
+        $controller->page = new class($orphanPage) {
+            public function __construct(private \fs_page $orphanPage)
+            {
+            }
+
+            public function all(): array
+            {
+                return [$this->orphanPage];
+            }
+        };
+
+        $method = new \ReflectionMethod('admin_home', 'all_pages');
+        $method->setAccessible(true);
+        $pages = $method->invoke($controller);
+
+        $pageNames = array_map(static fn ($page) => $page->name, $pages);
+
+        self::assertNotContains('tarif_articulos', $pageNames);
+    }
 }

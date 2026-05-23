@@ -11,6 +11,12 @@
     "nyquist_validation": false,
     "auto_advance": true
   },
+  "release": {
+    "core_version_file": "VERSION",
+    "github_repo": "eltictacdicta/fs-framework",
+    "auto_detect_plugins": true,
+    "plugins": []
+  },
   "ship": {
     "pr_body_sections": []
   }

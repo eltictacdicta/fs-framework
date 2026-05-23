@@ -668,27 +668,28 @@ class fs_plugin_manager
         fs_file_manager::clear_raintpl_cache();
     }
 
-    private function existsPageInEnabledPlugins($pageName)
+    /**
+     * Elimina entradas de fs_pages cuyo controlador ya no existe
+     * (plugin desactivado, fichero eliminado, etc.).
+     */
+    public function cleanupOrphanPages(): void
     {
-        foreach ($this->enabled() as $plugin) {
-            if (file_exists($this->pluginsPath($plugin . self::CONTROLLER_PATH . $pageName . '.php'))) {
-                return true;
-            }
+        if (!function_exists('fs_page_has_controller')) {
+            require_once FS_FOLDER . '/base/fs_functions.php';
         }
 
-        return false;
-    }
-
-    private function disable_unused_pages()
-    {
         $eliminadas = [];
         $page_model = new fs_page();
         foreach ($page_model->all() as $page) {
-            if (file_exists(FS_FOLDER . self::CONTROLLER_PATH . $page->name . '.php')) {
+            if (!is_string($page->name) || $page->name === '') {
                 continue;
             }
 
-            if (!$this->existsPageInEnabledPlugins($page->name) && $page->delete()) {
+            if (fs_page_has_controller($page->name)) {
+                continue;
+            }
+
+            if ($page->delete()) {
                 $eliminadas[] = $page->name;
             }
         }
@@ -696,6 +697,11 @@ class fs_plugin_manager
         if (!empty($eliminadas)) {
             $this->core_log->new_message('Se han eliminado automáticamente las siguientes páginas: ' . implode(', ', $eliminadas));
         }
+    }
+
+    private function disable_unused_pages()
+    {
+        $this->cleanupOrphanPages();
     }
 
     private function saveControllerPage($controller, $pageName, $errorPrefix)

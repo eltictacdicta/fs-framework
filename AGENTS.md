@@ -1005,91 +1005,84 @@ class UserAdapter implements UserInterface
 
 ## REST API System
 
-Located in `src/Api/` directory with full middleware, authentication, and routing support:
+La API REST usa un bootstrap mínimo en el core y delega todo el runtime en el plugin **`api_base`** (repositorio git separado).
 
-### Directory Structure
+### Entrada HTTP (core)
+
+- [`api.php`](api.php) arranca el Kernel, conecta BD y delega en `$container->get('api.runtime')->handle()`
+- Si `api_base` no está activo, responde `404` con `"API no habilitada"`
+
+### Contratos declarativos (core en `src/Api/`)
 
 ```
 src/Api/
-├── ApiKernel.php              # API entry point and kernel
-├── Attribute/                 # API attributes (ApiResource, ApiField, ApiHidden, Operation)
-├── Auth/                      # Authentication adapters
-│   ├── ChainedAuthAdapter.php # Multi-auth provider chain
-│   └── Contract/              # Auth interfaces
-│       ├── ApiAuthInterface.php
-│       ├── AllowedUserInterface.php
-│       ├── ApiLogInterface.php
-│       └── User-facing runtime contracts only
-├── Endpoint/                  # API base endpoint abstractions
-│   └── ApiEndpoint.php
-├── Exception/                 # API exceptions
-│   ├── ApiException.php
-│   ├── ConflictException.php
-│   ├── ForbiddenException.php
-│   ├── NotFoundException.php
-│   ├── UnauthorizedException.php
-│   └── ValidationException.php
-├── Helper/                    # Shared API helpers
-│   └── RequestHelper.php
-├── Middleware/               # API middleware
-│   ├── AuthMiddleware.php
-│   ├── CorsMiddleware.php
-│   ├── RateLimitMiddleware.php
-│   └── MiddlewareInterface.php
-├── Resource/                 # Shared resource transformation
-│   └── ResourceTransformer.php
-└── Runtime ownership         # Active API runtime now lives in plugins/api_base
-    └── Router, endpoint registry, model registry and generic model endpoint moved to the plugin
+├── Attribute/          # ApiResource, ApiField, ApiHidden, Operation
+├── Auth/Contract/      # ApiAuthInterface, AllowedUserInterface, ApiLogInterface
+└── Exception/          # ApiException, ValidationException, etc.
 ```
 
-### API Attributes
+El core **no** incluye router, middleware ni transformadores de runtime.
+
+### Runtime (plugin `api_base`)
+
+```
+plugins/api_base/
+├── Init.php
+├── config/services.php     # Registra servicio api.runtime
+├── Api/
+│   ├── Runtime/ApiRuntime.php
+│   ├── Registry/ModelRegistry.php
+│   ├── Endpoint/GenericModelEndpoint.php
+│   ├── Resource/ResourceTransformer.php
+│   └── Middleware/         # Auth, CORS, RateLimit
+└── model/                  # Auth token, tablas api_*, paneles admin
+```
+
+### URL
+
+```
+/api.php/v1/{plugin}/{resource}
+/api.php/v1/{plugin}/{resource}/{id}
+```
+
+Rutas especiales: `/`, `/health`, `/docs`, `/openapi.json`, `/plugins`
+
+### Definir recursos en plugins consumidores
 
 ```php
 use FSFramework\Api\Attribute\ApiResource;
 use FSFramework\Api\Attribute\ApiField;
-use FSFramework\Api\Attribute\ApiHidden;
 use FSFramework\Api\Attribute\Operation;
 
 #[ApiResource(
     operations: [Operation::LIST, Operation::GET, Operation::CREATE],
     version: 'v1',
-    searchable: ['nombre', 'email'],
-    sortable: ['nombre', 'fechaalta'],
-    filterable: ['activo'],
-    perPage: 50,
+    plugin: 'mi_plugin',
+    resource: 'cliente',
     requiresAuth: true
 )]
 class cliente extends fs_model {
     #[ApiField(readable: true, writable: false)]
     public $id;
-    
+
     #[ApiField(readable: true, writable: true)]
     public $nombre;
-    
-    #[ApiHidden(reason: 'Internal use only')]
-    public $internal_data;
 }
 ```
 
-**Available Operations:**
-- `Operation::LIST` - GET collection
-- `Operation::GET` - GET single item
-- `Operation::CREATE` - POST
-- `Operation::UPDATE` - PUT/PATCH
-- `Operation::DELETE` - DELETE
+`ModelRegistry` escanea modelos activos con `#[ApiResource]` y expone CRUD genérico.
 
-### API Registration via Container
+### Plugin de ejemplo
 
-```php
-use FSFramework\DependencyInjection\Container;
+El repo `api_base` incluye `api_example` (desactivable) con un modelo `demo_item` de referencia.
 
-// Register API authentication implementation
-Container::registerApiAuth(
-    MyApiAuth::class,           // Implements ApiAuthInterface
-    MyAllowedUser::class,       // Implements AllowedUserInterface
-    MyApiLogger::class          // Optional: Implements ApiLogInterface
-);
-```
+### Instalación
+
+1. Clonar/instalar el plugin `api_base` en `plugins/api_base/`
+2. Activar el plugin desde el panel de administración
+3. Opcional: activar `api_example` para pruebas
+4. Autenticación: tokens Bearer gestionados por `api_base`; login/OIDC en plugins satélite futuros
+
 
 ## Response Helpers
 

@@ -121,10 +121,10 @@ class admin_home extends fs_controller
         }
 
         if (!$updates) {
-            /// comprobamos actualizaciones del núcleo
-            $version = file_get_contents('VERSION');
-            $internet_version = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-framework/refs/heads/master/VERSION');
-            if (floatval($version) < floatval($internet_version)) {
+            /// comprobamos actualizaciones del núcleo contra el último GitHub Release
+            $version = trim((string) file_get_contents('VERSION'));
+            $internet_version = fs_github_latest_release_version();
+            if ($internet_version !== null && version_compare($version, $internet_version, '<')) {
                 $updates = TRUE;
             }
         }

@@ -78,6 +78,7 @@ AdminLTE-2.4.18
 .phpunit.result.cache
 coverage/
 .sonar-token
+test_sql.php
 
 # =============================================================================
 # SECURITY: SENSITIVE FILES (NEVER COMMIT)
@@ -106,6 +107,12 @@ reset_admin_password.php
 
 # Composer auth tokens
 auth.json
+
+# Password remediation imports (scripts/remediate-legacy-passwords.php --password-file)
+*credentials*.csv
+*credenciales*.csv
+*passwords*.csv
+*-password-file.csv
 
 # SSH keys accidentally placed in project
 *.pem

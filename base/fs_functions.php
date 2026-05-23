@@ -5,6 +5,7 @@ const FS_PLUGIN_MODERN_CONTROLLER_PATH = '/Controller/';
 const FS_HTTP_SEPARATOR = "\r\n\r\n";
 const FS_GITHUB_ACCEPT_HEADER = 'Accept: application/vnd.github.v3.raw';
 const FS_GITHUB_AUTH_HEADER_PREFIX = 'Authorization: token ';
+const FS_GITHUB_CORE_REPO = 'eltictacdicta/fs-framework';
 if (!defined('FS_PLUGINS_PREFIX')) {
     define('FS_PLUGINS_PREFIX', 'plugins/');
 }
@@ -113,6 +114,34 @@ function find_controller($name)
     }
 
     return 'base/fs_controller.php';
+}
+
+/**
+ * Comprueba si una página tiene un controlador disponible en el núcleo o en plugins activos.
+ * Reutilizable desde el panel de control, permisos y limpieza de páginas huérfanas.
+ *
+ * @param string $pageName
+ * @param array<string>|null $plugins Lista de plugins activos; usa $GLOBALS['plugins'] por defecto.
+ */
+function fs_page_has_controller(string $pageName, ?array $plugins = null): bool
+{
+    if (file_exists(FS_FOLDER . '/controller/' . $pageName . '.php')) {
+        return true;
+    }
+
+    $plugins = $plugins ?? ($GLOBALS['plugins'] ?? []);
+    foreach ($plugins as $plugin) {
+        $legacyPath = FS_FOLDER . '/' . FS_PLUGINS_PREFIX . $plugin . FS_PLUGIN_LEGACY_CONTROLLER_PATH . $pageName . '.php';
+        if (file_exists($legacyPath)) {
+            return true;
+        }
+
+        if (fs_find_modern_controller_in_plugin($plugin, $pageName) !== false) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -1096,4 +1125,49 @@ function fs_file_get_contents_github_api($api_url, $token, $timeout = 10)
     }
 
     return 'ERROR';
+}
+
+/**
+ * Extrae la versión semver del tag de una respuesta JSON de GitHub Releases.
+ *
+ * @param string $json Respuesta de /repos/{owner}/{repo}/releases/latest
+ * @return string|null Versión sin prefijo v (ej. 0.12.0) o null si no es válida
+ */
+function fs_parse_github_release_version(string $json): ?string
+{
+    $data = json_decode($json, true);
+    if (!is_array($data) || empty($data['tag_name'])) {
+        return null;
+    }
+
+    $tag = trim((string) $data['tag_name']);
+    if ($tag === '') {
+        return null;
+    }
+
+    $version = ltrim($tag, 'vV');
+    return $version !== '' ? $version : null;
+}
+
+/**
+ * Obtiene la versión del último GitHub Release publicado del repositorio del core.
+ *
+ * @param string $repo owner/repo (por defecto FSFramework)
+ * @param int $timeout Timeout HTTP en segundos
+ * @return string|null Versión semver o null si no hay release / falla la petición
+ */
+function fs_github_latest_release_version(string $repo = FS_GITHUB_CORE_REPO, int $timeout = 10): ?string
+{
+    $repo = trim($repo, " \t\n\r\0\x0B/");
+    if ($repo === '' || strpos($repo, '/') === false) {
+        return null;
+    }
+
+    $api_url = 'https://api.github.com/repos/' . $repo . '/releases/latest';
+    $response = fs_file_get_contents($api_url, $timeout);
+    if ($response === false || $response === 'ERROR' || $response === '') {
+        return null;
+    }
+
+    return fs_parse_github_release_version($response);
 }
