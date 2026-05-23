@@ -15,6 +15,8 @@
 
 **Requirements:** DEPS-01, DEPS-02, DEPS-04
 
+**Status:** ✓ Complete (2026-05-23) — [Summary](phases/12-plugin-composer-setup/12-01-SUMMARY.md)
+
 **Success Criteria:**
 1. `plugins/api_base/composer.json` exists with API-specific packages and PSR-4 autoload for plugin code
 2. Plugin loads `vendor/autoload.php` when active without breaking core autoload
@@ -56,7 +58,7 @@
 
 | Phase | Milestone | Status | Requirements |
 |-------|-----------|--------|--------------|
-| 12. Plugin Composer Setup | v0.13.0 | Planned | DEPS-01, DEPS-02, DEPS-04 |
+| 12. Plugin Composer Setup | v0.13.0 | ✓ Complete | DEPS-01, DEPS-02, DEPS-04 |
 | 13. Core Trim & Dependency Removal | v0.13.0 | Pending | DEPS-03, CORE-01–03 |
 | 14. Test Migration & Documentation | v0.13.0 | Pending | TEST-01–04, DOC-01–02 |
 

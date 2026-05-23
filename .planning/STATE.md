@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.13.0
 milestone_name: API Plugin Autonomy
 status: planning
-last_updated: "2026-05-23T22:00:00.000Z"
-last_activity: 2026-05-23 — Phase 12 context gathered
+last_updated: "2026-05-23T23:00:00.000Z"
+last_activity: 2026-05-23 — Phase 12 executed (Plan 01 complete)
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -20,22 +20,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-23 for v0.13.0)
 
 **Core value:** Fix real issues with minimal risk.
-**Current focus:** API dependency and test ownership in `plugins/api_base`
+**Current focus:** Phase 13 — core trim and dependency removal
 
 ## Current Position
 
-Phase: 12 — Plugin Composer Setup
-Plan: 12-01-PLAN.md (1 plan, wave 1)
-Status: Ready to execute
-Last activity: 2026-05-23 — Phase 12 planned (research skipped)
+Phase: 12 — Plugin Composer Setup (complete)
+Plan: 12-01-SUMMARY.md
+Status: Ready for Phase 13
+Last activity: 2026-05-23 — Phase 12 executed; DEPS-01/02/04 complete
 
 ## Performance Metrics
 
-**Velocity (v0.12.0 — prior milestone):**
+**Velocity (v0.13.0 — Phase 12):**
 
-- Total phases: 4 (Phases 8-11)
-- Requirements met: 21/21
-- Security tests: 140 passing
+- Plans: 1/1 complete
+- Requirements: DEPS-01, DEPS-02, DEPS-04 ✓
+- Plugin tests: 4 passing (api_base phpunit)
 
 ## Accumulated Context
 
@@ -45,9 +45,9 @@ Full log in PROJECT.md Key Decisions table.
 
 Recent decisions affecting current work:
 
-- API runtime already delegated to `api_base` plugin (`api.runtime` service)
-- Core `src/Api/` retains declarative contracts for consumer plugins (`#[ApiResource]`)
-- `firebase/php-jwt` in core composer appears unused in workspace code — candidate for removal in Phase 13
+- `api_base` vendor aislado con `composer.json` + lock versionado
+- Autoload del plugin cargado en `config/services.php` (fail-fast si falta vendor)
+- Root `composer.json` sin cambios hasta Phase 13
 
 ### Pending Todos
 
@@ -69,10 +69,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-23
-Stopped at: Milestone v0.13.0 initialized
-Resume file: None
+Stopped at: Phase 12 complete
+Resume file: `.planning/phases/12-plugin-composer-setup/12-01-SUMMARY.md`
 
 ## Operator Next Steps
 
-- `/gsd-plan-phase 12` — create execution plan from 12-CONTEXT.md
-- Resume file: `.planning/phases/12-plugin-composer-setup/12-CONTEXT.md`
+- `/gsd-discuss-phase 13` — core trim and remove swagger-php from root composer
+- `/gsd-plan-phase 13` — plan Phase 13 directly

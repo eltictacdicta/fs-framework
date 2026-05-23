@@ -8,10 +8,10 @@
 
 ### Dependencies — Plugin Composer
 
-- [ ] **DEPS-01**: `plugins/api_base/composer.json` declares all API-only Composer packages (`zircote/swagger-php` and any Symfony packages used exclusively by the API runtime)
-- [ ] **DEPS-02**: Plugin bootstrap loads plugin vendor autoload when `api_base` is active (e.g. `Init.php` or `config/services.php`)
+- [x] **DEPS-01**: `plugins/api_base/composer.json` declares all API-only Composer packages (`zircote/swagger-php` and any Symfony packages used exclusively by the API runtime)
+- [x] **DEPS-02**: Plugin bootstrap loads plugin vendor autoload when `api_base` is active (e.g. `Init.php` or `config/services.php`)
 - [ ] **DEPS-03**: Core `composer.json` removes packages that only `api_base` consumes after migration is verified
-- [ ] **DEPS-04**: Documented install path works: root `ddev exec composer install` plus plugin dependency resolution without breaking `api.php`
+- [x] **DEPS-04**: Documented install path works: root `ddev exec composer install` plus plugin dependency resolution without breaking `api.php`
 
 ### Core — Slim Surface
 
@@ -53,10 +53,10 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEPS-01 | Phase 12 | Planned |
-| DEPS-02 | Phase 12 | Planned |
+| DEPS-01 | Phase 12 | Complete |
+| DEPS-02 | Phase 12 | Complete |
 | DEPS-03 | Phase 13 | Pending |
-| DEPS-04 | Phase 12 | Planned |
+| DEPS-04 | Phase 12 | Complete |
 | CORE-01 | Phase 13 | Pending |
 | CORE-02 | Phase 13 | Pending |
 | CORE-03 | Phase 13 | Pending |
