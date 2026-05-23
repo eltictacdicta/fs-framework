@@ -2,13 +2,27 @@
 
 ## What This Is
 
-Incremental remediation of technical debt in the FSFramework codebase. Completed v0.11.0 which extracted plugin management into service classes, delegated email to MailService, decomposed the monolithic MySQL driver into 3 focused classes, and fixed 5 pre-existing test failures — all without breaking backward compatibility.
+Incremental remediation of technical debt and security hardening in the FSFramework codebase. Completed v0.11.0 (tech debt) and now executing v0.12.0 (security audit & hardening) across core and versioned core plugins.
 
 ## Core Value
 
 Fix real issues with minimal risk. Every change must be verifiable by the existing test suite and must not break plugins that depend on current behavior.
 
-## Current State (v0.11.0)
+## Current Milestone: v0.12.0 Security Audit & Hardening
+
+**Goal:** Inventariar riesgos reales en core + plugins core, remediar críticos/altos, y dejar SECURITY.md verificable con tests.
+
+**Target features:**
+- Baseline audit automatizado + manual (9 categorías FSFramework)
+- Remediación CSRF (política de bloqueo unificada en fs_controller)
+- Hardening inyección/XSS en core y plugins core
+- Revisión seguridad api_base (auth, CORS, rate limit, tokens)
+- Headers/sesión/CSP y controles de producción (DebugBar)
+- Reporte SECURITY.md + tests de regresión
+
+**Scope:** `base/`, `controller/`, `src/`, `themes/AdminLTE/`, `plugins/business_data`, `catalogo_core`, `clientes_core`, `api_base`, `legacy_support`
+
+## Current State (v0.11.0 — previous milestone)
 
 - **Shipped:** 2026-05-16
 - **4 phases, 5 plans, 16 tasks** all complete (continuing from v0.10.8 Phase 3)
@@ -46,8 +60,12 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 - ✓ Plugin management extracted from admin_home (1053→698 lines) — v0.11.0 Phase 6
 - ✓ fs_mysql decomposed into TypeNormalizer + SchemaInspector + SchemaComparator — v0.11.0 Phase 7
 
-### Active
+### Active (v0.12.0)
 
+- [ ] Security baseline audit (AUDIT-01..03) — Phase 8
+- [ ] CSRF policy unification (CSRF-01..04) — Phase 9
+- [ ] Injection & input hardening (INJ-01..03) — Phase 10
+- [ ] Headers, API, session verification (HDR/API/AUTH/DOC) — Phase 11
 - [ ] Database migration system — separate initiative
 
 ### Out of Scope
@@ -109,4 +127,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-16 after v0.11.0 milestone*
+*Last updated: 2026-05-23 — milestone v0.12.0 Security Audit & Hardening started*

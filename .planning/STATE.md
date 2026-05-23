@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.11.0
-milestone_name: Deferred Items Cleanup
-status: Awaiting next milestone
-stopped_at: Milestone v0.11.0 complete
-last_updated: "2026-05-16T17:53:19.618Z"
-last_activity: 2026-05-16 — Milestone v0.11.0 completed and archived
+milestone: v0.12.0
+milestone_name: Security Audit & Hardening
+status: planning
+last_updated: "2026-05-23T18:03:49.831Z"
+last_activity: 2026-05-23
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-16 after v0.11.0)
 
 ## Current Position
 
-Phase: Milestone v0.11.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-16 — Milestone v0.11.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-05-23 — Milestone v0.12.0 started
 
 ## Performance Metrics
 
