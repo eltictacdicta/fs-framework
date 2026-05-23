@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v0.12.0 Security Audit & Hardening** — Phases 8-11 (in progress)
+- 🔄 **v0.12.0 Security Audit & Hardening** — Phases 8-11 (shipped 2026-05-23)
 - ✅ **v0.11.0 Deferred Items Cleanup** — Phases 4-7 (shipped 2026-05-16) — [Archive](milestones/v0.11.0-ROADMAP.md)
 - ✅ **v0.10.8 Tech Debt Cleanup** — Phases 1-3 (shipped 2026-05-16) — [Archive](milestones/v0.10.8-ROADMAP.md)
 
@@ -69,10 +69,10 @@
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
-| 8. Security Baseline Audit | v0.12.0 | 0/1 | Pending | — |
-| 9. CSRF & Auth Fixes | v0.12.0 | 0/1 | Pending | — |
-| 10. Injection & Input Hardening | v0.12.0 | 0/1 | Pending | — |
-| 11. Headers, API & Verification | v0.12.0 | 0/1 | Pending | — |
+| 8. Security Baseline Audit | v0.12.0 | 1/1 | ✓ | 2026-05-23 |
+| 9. CSRF & Auth Fixes | v0.12.0 | 1/1 | ✓ | 2026-05-23 |
+| 10. Injection & Input Hardening | v0.12.0 | 1/1 | ✓ | 2026-05-23 |
+| 11. Headers, API & Verification | v0.12.0 | 1/1 | ✓ | 2026-05-23 |
 
 ## Requirement Traceability
 

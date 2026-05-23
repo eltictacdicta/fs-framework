@@ -60,15 +60,22 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 - ✓ Plugin management extracted from admin_home (1053→698 lines) — v0.11.0 Phase 6
 - ✓ fs_mysql decomposed into TypeNormalizer + SchemaInspector + SchemaComparator — v0.11.0 Phase 7
 
-### Active (v0.12.0)
+### Validated (v0.12.0)
 
-- [ ] Security baseline audit (AUDIT-01..03) — Phase 8
-- [ ] CSRF policy unification (CSRF-01..04) — Phase 9
-- [ ] Injection & input hardening (INJ-01..03) — Phase 10
-- [ ] Headers, API, session verification (HDR/API/AUTH/DOC) — Phase 11
+- ✓ Security baseline audit — Phase 8
+- ✓ CSRF blocking in pre_private_core + no double validation — Phase 9
+- ✓ ventas_clientes input via fs_filter_input_req — Phase 10
+- ✓ CSP connect-src CDN fix + DebugBar local-IP gate — Phase 11
+- ✓ SECURITY.md published — Phase 11
+
+### Active
+
 - [ ] Database migration system — separate initiative
 
-### Out of Scope
+## Context
+
+- **Version:** 0.12.0 (security hardening shipped 2026-05-23)
+- **Test suite:** Security suite 140 tests; full suite run recommended before deploy
 
 - Queue/job system — infrastructure change, not tech debt
 - API versioning beyond v1 — premature until API stabilizes
@@ -85,8 +92,9 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 - **Testing**: PHPUnit 11 with `ddev exec php vendor/bin/phpunit`. Tests in `tests/` and `plugins/*/tests/`.
 - **Plugin independence**: catalogo_core autonomous, business_data independent, proxy pattern confirmed.
 - **New architecture**: Service classes in `src/Core/` (MailService, PluginInstaller, PluginActionHandler) and `src/Database/` (TypeNormalizer, SchemaInspector, SchemaComparator)
+- **Security**: `SECURITY.md`, baseline audit in `.planning/security/`
 
-## Constraints
+### Out of Scope
 
 - **Backward compatibility**: Plugins depending on current class names, method signatures, and global state must continue to work
 - **No breaking changes to public API**: `fs_model`, `fs_controller`, `fs_db2` interfaces are sacred
@@ -108,8 +116,10 @@ Fix real issues with minimal risk. Every change must be verifiable by the existi
 | TypeNormalizer as pure static class | No DB dependency, zero risk extraction | ✓ Good — Phase 7 |
 | SchemaInspector/SchemaComparator DI pattern | DB dependency injected via constructor | ✓ Good — Phase 7 |
 | compare_constraints kept in fs_mysql | Constraint signature normalization too complex for safe extraction | ✓ Good — pragmatic scope Phase 7 |
+| CSRF block in pre_private_core | Invalid tokens must not run private_core mutations | ✓ Good — v0.12.0 Phase 9 |
+| DebugBar local-IP only | Prevent SQL/log leak when FS_DEBUG left on in production | ✓ Good — v0.12.0 Phase 11 |
 
-## Evolution
+## Constraints
 
 This document evolves at phase transitions and milestone boundaries.
 
