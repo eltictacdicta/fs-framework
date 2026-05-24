@@ -8,8 +8,8 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
 {
     public static $files = array (
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
-        '0e6d7bf4a5811bfa5cf40c5ccd6fae6a' => __DIR__ . '/..' . '/symfony/polyfill-mbstring/bootstrap.php',
         '320cde22f66dd4f5d3fd621d3e88b98f' => __DIR__ . '/..' . '/symfony/polyfill-ctype/bootstrap.php',
+        '0e6d7bf4a5811bfa5cf40c5ccd6fae6a' => __DIR__ . '/..' . '/symfony/polyfill-mbstring/bootstrap.php',
         '8825ede83f2f289127722d4e842cf7e8' => __DIR__ . '/..' . '/symfony/polyfill-intl-grapheme/bootstrap.php',
         'e69f7f6ee287b969198c3c9d6777bd38' => __DIR__ . '/..' . '/symfony/polyfill-intl-normalizer/bootstrap.php',
         'b6b991a57620e2fb6b2f66f03fe9ddc2' => __DIR__ . '/..' . '/symfony/string/Resources/functions.php',
@@ -145,19 +145,13 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
             'Symfony\\Component\\HttpFoundation\\' => 33,
             'Symfony\\Component\\HttpClient\\' => 29,
             'Symfony\\Component\\Form\\' => 23,
-            'Symfony\\Component\\Finder\\' => 25,
             'Symfony\\Component\\Filesystem\\' => 29,
             'Symfony\\Component\\EventDispatcher\\' => 34,
             'Symfony\\Component\\Dotenv\\' => 25,
             'Symfony\\Component\\DependencyInjection\\' => 38,
-            'Symfony\\Component\\Console\\' => 26,
             'Symfony\\Component\\Config\\' => 25,
             'Symfony\\Component\\Cache\\' => 24,
             'Sabberworm\\CSS\\' => 15,
-        ),
-        'R' =>
-        array (
-            'Radebatz\\TypeInfoExtras\\' => 24,
         ),
         'P' =>
         array (
@@ -168,12 +162,7 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
             'Psr\\Cache\\' => 10,
             'PhpParser\\' => 10,
             'PhpOffice\\PhpSpreadsheet\\' => 25,
-            'PHPStan\\PhpDocParser\\' => 21,
             'PHPMailer\\PHPMailer\\' => 20,
-        ),
-        'O' =>
-        array (
-            'OpenApi\\' => 8,
         ),
         'M' =>
         array (
@@ -181,7 +170,6 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
         ),
         'F' =>
         array (
-            'Firebase\\JWT\\' => 13,
             'FSFramework\\Plugins\\' => 20,
             'FSFramework\\' => 12,
         ),
@@ -317,10 +305,6 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
         array (
             0 => __DIR__ . '/..' . '/symfony/form',
         ),
-        'Symfony\\Component\\Finder\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/symfony/finder',
-        ),
         'Symfony\\Component\\Filesystem\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/filesystem',
@@ -337,10 +321,6 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
         array (
             0 => __DIR__ . '/..' . '/symfony/dependency-injection',
         ),
-        'Symfony\\Component\\Console\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/symfony/console',
-        ),
         'Symfony\\Component\\Config\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/config',
@@ -352,10 +332,6 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
         'Sabberworm\\CSS\\' =>
         array (
             0 => __DIR__ . '/..' . '/sabberworm/php-css-parser/src',
-        ),
-        'Radebatz\\TypeInfoExtras\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/radebatz/type-info-extras/src',
         ),
         'Psr\\SimpleCache\\' =>
         array (
@@ -385,25 +361,13 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
         array (
             0 => __DIR__ . '/..' . '/phpoffice/phpspreadsheet/src/PhpSpreadsheet',
         ),
-        'PHPStan\\PhpDocParser\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/phpstan/phpdoc-parser/src',
-        ),
         'PHPMailer\\PHPMailer\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
         ),
-        'OpenApi\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/zircote/swagger-php/src',
-        ),
         'Matrix\\' =>
         array (
             0 => __DIR__ . '/..' . '/markbaker/matrix/classes/src',
-        ),
-        'Firebase\\JWT\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/firebase/php-jwt/src',
         ),
         'FSFramework\\Plugins\\' =>
         array (
