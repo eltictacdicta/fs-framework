@@ -61,7 +61,7 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260524-fvg | Revisar fallo Twig CoercesChildrenToStringInterface en /account | 2026-05-24 | — (vendor only) | [260524-fvg-revisa-el-fallo-twig-coerceschildrentost](./quick/260524-fvg-revisa-el-fallo-twig-coerceschildrentost/) |
-| 260524-p73 | Corregir vendor incompleto Twig/Yaml tras instalacion | 2026-05-24 | pending | [260524-p73-corregir-vendor-incompleto-twig-yaml-tra](./quick/260524-p73-corregir-vendor-incompleto-twig-yaml-tra/) |
+| 260524-p73 | Corregir vendor incompleto Twig/Yaml tras instalacion | 2026-05-24 | 8656ac90 | [260524-p73-corregir-vendor-incompleto-twig-yaml-tra](./quick/260524-p73-corregir-vendor-incompleto-twig-yaml-tra/) |
 
 ## Operator Next Steps
 
