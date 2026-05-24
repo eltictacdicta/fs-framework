@@ -10,6 +10,7 @@
  */
 
 use FSFramework\Security\SessionManager;
+use FSFramework\Security\CsrfManager;
 
 /**
  * Gestiona sesiones de usuario de forma segura
@@ -35,11 +36,6 @@ class fs_session_manager
      * @var bool
      */
     private static $initialized = false;
-
-    /**
-     * @var string|null
-     */
-    private static $csrfToken = null;
 
     /**
      * @var bool Si usar el SessionManager moderno (Symfony)
@@ -82,11 +78,13 @@ class fs_session_manager
         // Si el moderno está disponible, usarlo
         if (self::canUseModern()) {
             $modern = self::getModern();
-            self::$csrfToken = $modern !== null ? $modern->getCsrfToken() : null;
+            if ($modern !== null) {
+                $modern->getCsrfToken();
+            }
             self::$initialized = true;
         } elseif (self::$initialized || session_status() === PHP_SESSION_ACTIVE) {
             self::$initialized = true;
-            self::$csrfToken = isset($_SESSION['_csrf_token']) ? $_SESSION['_csrf_token'] : null;
+            CsrfManager::generateToken();
         } elseif (!headers_sent()) {
             self::initializeLegacySession();
         } else {
@@ -132,11 +130,7 @@ class fs_session_manager
             self::regenerateId();
         }
 
-        // Inicializar CSRF token
-        if (!isset($_SESSION['_csrf_token'])) {
-            $_SESSION['_csrf_token'] = self::generateToken();
-        }
-        self::$csrfToken = $_SESSION['_csrf_token'];
+        CsrfManager::generateToken();
         self::$initialized = true;
     }
 
@@ -199,21 +193,6 @@ class fs_session_manager
         $normalized = '/' . ltrim($normalized, '/');
 
         return str_ends_with($normalized, '/') ? $normalized : $normalized . '/';
-    }
-
-    /**
-     * Genera un token seguro
-     *
-     * @param int $length Longitud en bytes
-     * @return string
-     */
-    private static function generateToken($length = 32)
-    {
-        if (function_exists('random_bytes')) {
-            return bin2hex(random_bytes($length));
-        }
-        // Fallback para PHP < 7.0
-        return bin2hex(openssl_random_pseudo_bytes($length));
     }
 
     /**
@@ -379,7 +358,6 @@ class fs_session_manager
         if (self::canUseModern()) {
             self::getModern()->logout();
             self::$initialized = false;
-            self::$csrfToken = null;
             return;
         }
 
@@ -404,7 +382,6 @@ class fs_session_manager
 
         session_destroy();
         self::$initialized = false;
-        self::$csrfToken = null;
     }
 
     /**
@@ -415,10 +392,8 @@ class fs_session_manager
     public static function getCsrfToken()
     {
         self::initialize();
-        if (self::canUseModern()) {
-            return self::getModern()->getCsrfToken();
-        }
-        return self::$csrfToken !== null ? self::$csrfToken : '';
+
+        return CsrfManager::generateToken();
     }
 
     /**
@@ -430,13 +405,8 @@ class fs_session_manager
     public static function verifyCsrfToken($token)
     {
         self::initialize();
-        if (self::canUseModern()) {
-            return self::getModern()->verifyCsrfToken((string) $token);
-        }
-        if (self::$csrfToken === null || $token === '') {
-            return false;
-        }
-        return hash_equals(self::$csrfToken, $token);
+
+        return $token !== '' && CsrfManager::isValid((string) $token);
     }
 
     /**
@@ -446,13 +416,9 @@ class fs_session_manager
      */
     public static function csrfField()
     {
-        if (self::canUseModern()) {
-            return self::getModern()->csrfField();
-        }
-        $token = self::getCsrfToken();
-        $safeToken = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
-        return '<input type="hidden" name="_csrf_token" value="' . $safeToken . '">'
-            . '<input type="hidden" name="_token" value="' . $safeToken . '">';
+        self::initialize();
+
+        return CsrfManager::field();
     }
 
     /**
@@ -462,11 +428,9 @@ class fs_session_manager
      */
     public static function csrfMeta()
     {
-        if (self::canUseModern()) {
-            return self::getModern()->csrfMeta();
-        }
-        $token = self::getCsrfToken();
-        return '<meta name="csrf-token" content="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '">';
+        self::initialize();
+
+        return CsrfManager::metaTag();
     }
 
     /**

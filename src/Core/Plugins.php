@@ -45,6 +45,14 @@ class Plugins
      */
     private static array $stealthHomeOverrides = [];
 
+    /**
+     * Public login redirects: plugins can register a redirect URL to use instead
+     * of the default legacy login route for anonymous users.
+     *
+     * @var array<string, array{url: string, priority: int}>
+     */
+    private static array $publicLoginRedirects = [];
+
     public static function init(): void
     {
         foreach (self::enabled() as $pluginName) {
@@ -192,6 +200,34 @@ class Plugins
      */
     public static function registerStealthHomeOverride(string $pluginName, string $redirectUrl, int $priority = 0): void
     {
+        self::registerStealthRedirect($pluginName, $redirectUrl, $priority, self::$stealthHomeOverrides);
+    }
+
+    /**
+     * Register a public login redirect for a plugin.
+     *
+     * When anonymous users would normally reach the legacy login route,
+     * the system will instead redirect to the URL registered by the
+     * highest-priority active plugin.
+     *
+     * @param string $pluginName The plugin registering the redirect
+     * @param string $redirectUrl The URL to redirect to (e.g., '/oauth/login')
+     * @param int $priority Higher priority redirects take precedence (default: 0)
+     */
+    public static function registerPublicLoginRedirect(string $pluginName, string $redirectUrl, int $priority = 0): void
+    {
+        self::registerStealthRedirect($pluginName, $redirectUrl, $priority, self::$publicLoginRedirects);
+    }
+
+    /**
+     * @param array<string, array{url: string, priority: int}> $target
+     */
+    private static function registerStealthRedirect(
+        string $pluginName,
+        string $redirectUrl,
+        int $priority,
+        array &$target
+    ): void {
         $url = trim($redirectUrl);
         if ($url === '') {
             return;
@@ -201,7 +237,7 @@ class Plugins
             return;
         }
 
-        self::$stealthHomeOverrides[$pluginName] = [
+        $target[$pluginName] = [
             'url' => $url,
             'priority' => $priority,
         ];
@@ -247,18 +283,36 @@ class Plugins
      */
     public static function getStealthHomeOverride(): ?string
     {
+        return self::pickHighestPriorityUrl(self::$stealthHomeOverrides);
+    }
+
+    /**
+     * Get the public login redirect URL from the highest-priority active plugin.
+     *
+     * @return string|null The redirect URL, or null if no redirect is registered
+     */
+    public static function getPublicLoginRedirect(): ?string
+    {
+        return self::pickHighestPriorityUrl(self::$publicLoginRedirects);
+    }
+
+    /**
+     * @param array<string, array{url: string, priority: int}> $entries
+     */
+    private static function pickHighestPriorityUrl(array $entries): ?string
+    {
         $bestUrl = null;
         $bestPriority = PHP_INT_MIN;
 
         foreach (self::enabled() as $pluginName) {
-            if (!isset(self::$stealthHomeOverrides[$pluginName])) {
+            if (!isset($entries[$pluginName])) {
                 continue;
             }
 
-            $override = self::$stealthHomeOverrides[$pluginName];
-            if ($override['priority'] > $bestPriority) {
-                $bestPriority = $override['priority'];
-                $bestUrl = $override['url'];
+            $entry = $entries[$pluginName];
+            if ($entry['priority'] > $bestPriority) {
+                $bestPriority = $entry['priority'];
+                $bestUrl = $entry['url'];
             }
         }
 
@@ -271,5 +325,6 @@ class Plugins
         self::$routeConfigurators = [];
         self::$automaticRouteLoadingDisabled = [];
         self::$stealthHomeOverrides = [];
+        self::$publicLoginRedirects = [];
     }
 }

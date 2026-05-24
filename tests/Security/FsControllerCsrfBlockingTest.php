@@ -55,14 +55,9 @@ final class FsControllerCsrfBlockingTest extends TestCase
             $this->markTestSkipped('FS_CSRF_SOFT is enabled in config.php');
         }
 
-        $mutated = false;
-
-        $controller = new class($mutated) extends \fs_controller {
-            private bool $mutated;
-
-            public function __construct(bool &$mutated)
+        $controller = new class() extends \fs_controller {
+            public function __construct()
             {
-                $this->mutated = &$mutated;
                 // Skip full fs_controller bootstrap — test validateCsrf + guard only.
             }
 
@@ -77,11 +72,6 @@ final class FsControllerCsrfBlockingTest extends TestCase
                 return $this->validateCsrfPublic();
             }
 
-            public function wouldRunMutation(): void
-            {
-                $this->mutated = true;
-            }
-
             protected function validateCsrfPublic(): bool
             {
                 $ref = new \ReflectionMethod(\fs_controller::class, 'validateCsrf');
@@ -93,12 +83,6 @@ final class FsControllerCsrfBlockingTest extends TestCase
 
         $this->assertFalse($controller->runCsrfGuard());
         $this->assertFalse($controller->isCsrfValid());
-
-        if ($controller->isCsrfValid()) {
-            $controller->wouldRunMutation();
-        }
-
-        $this->assertFalse($mutated);
     }
 
     public function testRequireCsrfDoesNotRevalidateConsumedToken(): void

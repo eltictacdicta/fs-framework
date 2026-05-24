@@ -10,6 +10,11 @@
 // Autoloader de Composer
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// Vendors aislados de plugins (p. ej. OidcProvider firebase/php-jwt)
+foreach (glob(dirname(__DIR__) . '/plugins/*/composer_autoload.php') ?: [] as $pluginComposerBootstrap) {
+    require_once $pluginComposerBootstrap;
+}
+
 // Reutilizar la configuracion real cuando exista, por ejemplo en ddev.
 $appConfig = dirname(__DIR__) . '/config.php';
 if (file_exists($appConfig)) {

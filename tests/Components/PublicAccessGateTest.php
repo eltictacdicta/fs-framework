@@ -86,6 +86,54 @@ class PublicAccessGateTest extends TestCase
         $this->assertNull($response);
     }
 
+    public function testInterceptRedirectsToPluginPublicLoginWhenStealthDisabledAndOverrideRegistered(): void
+    {
+        Plugins::registerPublicLoginRedirect('TestPlugin', '/oauth/login', 10);
+        $GLOBALS['plugins'] = ['TestPlugin'];
+
+        $stealth = new StealthMode($this->createDbStub(['stealth_enabled' => '0']));
+        $gate = new PublicAccessGate($stealth);
+
+        $response = $gate->intercept(Request::create('/'));
+
+        $this->assertNotNull($response);
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertSame('/oauth/login', $response->headers->get('Location'));
+    }
+
+    public function testInterceptRedirectsAnonymousLoginPageToPluginWhenOverrideRegistered(): void
+    {
+        $_GET['page'] = 'login';
+        $_SERVER['REQUEST_URI'] = '/index.php?page=login';
+        Plugins::registerPublicLoginRedirect('TestPlugin', '/oauth/login', 10);
+        $GLOBALS['plugins'] = ['TestPlugin'];
+
+        $stealth = new StealthMode($this->createDbStub(['stealth_enabled' => '0']));
+        $gate = new PublicAccessGate($stealth);
+
+        $response = $gate->intercept(Request::create('/index.php', 'GET', ['page' => 'login']));
+
+        $this->assertNotNull($response);
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertSame('/oauth/login', $response->headers->get('Location'));
+    }
+
+    public function testInterceptRedirectsToOauthLoginWhenOidcProviderOverrideRegistered(): void
+    {
+        Plugins::registerStealthHomeOverride('OidcProvider', '/oauth/login', 10);
+        Plugins::registerPublicLoginRedirect('OidcProvider', '/oauth/login', 10);
+        $GLOBALS['plugins'] = ['OidcProvider'];
+
+        $stealth = new StealthMode($this->createDbStub(['stealth_enabled' => '0']));
+        $gate = new PublicAccessGate($stealth);
+
+        $response = $gate->intercept(Request::create('/'));
+
+        $this->assertNotNull($response);
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertSame('/oauth/login', $response->headers->get('Location'));
+    }
+
     public function testInterceptAllowsLegacyLoginSubmissionWhenStealthDisabled(): void
     {
         $_GET['nlogin'] = 'admin';
@@ -336,6 +384,21 @@ class PublicAccessGateTest extends TestCase
         $this->assertNotNull($response);
         $this->assertSame(302, $response->getStatusCode());
         $this->assertSame('/enabled/login', $response->headers->get('Location'));
+    }
+
+    public function testPluginsRejectUnsafePublicLoginRedirectsAndResetState(): void
+    {
+        Plugins::registerPublicLoginRedirect('UnsafeJs', 'javascript:alert(1)', 100);
+        Plugins::registerPublicLoginRedirect('UnsafeHost', 'https://example.com/login', 90);
+        Plugins::registerPublicLoginRedirect('EnabledPlugin', '/enabled/login', 10);
+        $GLOBALS['plugins'] = ['UnsafeJs', 'UnsafeHost', 'EnabledPlugin'];
+
+        $this->assertSame('/enabled/login', Plugins::getPublicLoginRedirect());
+
+        Plugins::resetRuntimeState();
+        $GLOBALS['plugins'] = ['EnabledPlugin'];
+
+        $this->assertNull(Plugins::getPublicLoginRedirect());
     }
 
     /**

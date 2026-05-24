@@ -3,6 +3,9 @@
 namespace FSFramework\Core\Base;
 
 use FSFramework\Core\Html;
+use FSFramework\Core\Plugins;
+use FSFramework\Security\CsrfManager;
+use FSFramework\Security\SafeRedirect;
 
 /**
  * Modern Controller base class for FSFramework.
@@ -457,22 +460,22 @@ class Controller
 
     /**
      * Validate the CSRF form token.
+     *
+     * @deprecated multireqtoken support has been removed; submit CsrfManager tokens via _csrf_token or _token.
      * @return bool
      */
     protected function validateFormToken(): bool
     {
-        // Get token from POST (multireqtoken is used by FS2025)
-        $token = $this->request->request->get('multireqtoken')
-            ?? $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME)
-            ?? $this->request->query->get('multireqtoken');
+        $token = $this->request->request->get(CsrfManager::FIELD_NAME)
+            ?? $this->request->request->get('_token')
+            ?? '';
 
         if (empty($token)) {
             error_log("CSRF: Token missing in form submission ({$this->className})");
             return false;
         }
 
-        // Use FSFramework CSRF manager
-        if (!\FSFramework\Security\CsrfManager::isValid($token)) {
+        if (!CsrfManager::isValid($token)) {
             error_log("CSRF: Invalid token in ({$this->className})");
             return false;
         }
@@ -486,13 +489,105 @@ class Controller
      */
     public function redirect(string $url): void
     {
-        // If just a page name, build full URL
-        if (!str_contains($url, '://') && !str_starts_with($url, '/') && !str_starts_with($url, 'index.php')) {
-            $url = 'index.php?page=' . $url;
-        }
-        
-        header('Location: ' . $url);
+        header('Location: ' . $this->resolveRedirectUrl($url));
         exit;
+    }
+
+    protected function resolveRedirectUrl(string $url): string
+    {
+        $candidateUrl = $url;
+        if (
+            !str_contains($candidateUrl, '://')
+            && !str_starts_with($candidateUrl, '/')
+            && !str_starts_with($candidateUrl, 'index.php')
+            && preg_match('#^[a-zA-Z][a-zA-Z0-9+.-]*:#', $candidateUrl) !== 1
+        ) {
+            $candidateUrl = 'index.php?page=' . $candidateUrl;
+        }
+
+        $validatedUrl = SafeRedirect::validate($candidateUrl, $this->resolvePublicHomeFallback());
+        if ($validatedUrl !== $candidateUrl) {
+            $this->logBlockedRedirectAttempt($candidateUrl);
+        }
+
+        return $validatedUrl;
+    }
+
+    protected function resolvePublicHomeFallback(): string
+    {
+        $overrideUrl = Plugins::getStealthHomeOverride();
+        if (is_string($overrideUrl) && $this->isValidLocalPath($overrideUrl)) {
+            return $overrideUrl;
+        }
+
+        return 'index.php';
+    }
+
+    protected function isValidLocalPath(string $url): bool
+    {
+        $candidate = trim($url);
+        if ($candidate === '' || str_starts_with($candidate, '//')) {
+            return false;
+        }
+
+        if (parse_url($candidate, PHP_URL_SCHEME) !== null || parse_url($candidate, PHP_URL_HOST) !== null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function logBlockedRedirectAttempt(string $url): void
+    {
+        $controllerName = is_string($this->className) && $this->className !== '' ? $this->className : static::class;
+        error_log(sprintf(
+            'SafeRedirect: blocked redirect attempt [%s] %s',
+            $controllerName,
+            $this->sanitizeRedirectUrlForLog($url)
+        ));
+    }
+
+    protected function sanitizeRedirectUrlForLog(string $url): string
+    {
+        $candidate = trim($url);
+        if ($candidate === '') {
+            return '[empty]';
+        }
+
+        $parts = parse_url($candidate);
+        if ($parts === false) {
+            return substr($candidate, 0, 512);
+        }
+
+        $sanitized = '';
+        if (isset($parts['scheme'])) {
+            $sanitized .= $parts['scheme'] . ':';
+        }
+
+        if (isset($parts['host'])) {
+            $sanitized .= '//'.$parts['host'];
+            if (isset($parts['port'])) {
+                $sanitized .= ':' . $parts['port'];
+            }
+        }
+
+        if (isset($parts['path'])) {
+            $sanitized .= $parts['path'];
+        }
+
+        if (isset($parts['query'])) {
+            $sanitized .= '?' . $parts['query'];
+        }
+
+        if (isset($parts['fragment'])) {
+            $sanitized .= '#' . $parts['fragment'];
+        }
+
+        if ($sanitized === '') {
+            $sanitized = $candidate;
+        }
+
+        return substr($sanitized, 0, 512);
     }
 
     /**

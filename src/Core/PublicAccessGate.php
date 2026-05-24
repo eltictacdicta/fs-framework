@@ -57,10 +57,10 @@ class PublicAccessGate
         }
 
         if ($this->stealth->isLegacyLoginRequest() || $this->stealth->isLegacyLoginSubmission()) {
-            return null;
+            return $this->resolvePublicLoginRedirect();
         }
 
-        return $this->stealth->createLegacyLoginRedirectResponse();
+        return $this->createAnonymousLoginRedirectResponse();
     }
 
     /**
@@ -78,6 +78,26 @@ class PublicAccessGate
         }
 
         return $this->stealth->createPublicHomepageResponse();
+    }
+
+    private function resolvePublicLoginRedirect(): ?RedirectResponse
+    {
+        $overrideUrl = Plugins::getPublicLoginRedirect();
+
+        if ($overrideUrl === null || !$this->isValidLocalPath($overrideUrl)) {
+            return null;
+        }
+
+        $base = defined('FS_PATH') ? rtrim((string) FS_PATH, '/') : '';
+        $path = '/' . ltrim($overrideUrl, '/');
+
+        return new RedirectResponse($base . $path);
+    }
+
+    private function createAnonymousLoginRedirectResponse(): RedirectResponse
+    {
+        return $this->resolvePublicLoginRedirect()
+            ?? $this->stealth->createLegacyLoginRedirectResponse();
     }
 
     private function isValidLocalPath(string $url): bool

@@ -19,6 +19,8 @@
  */
 
 // Importar clase para redirecciones seguras (prevención de Open Redirect)
+use FSFramework\Core\Plugins;
+use FSFramework\Core\StealthMode;
 use FSFramework\Security\SafeRedirect;
 
 /**
@@ -55,6 +57,11 @@ class login extends fs_controller
      */
     private function process_login_logic()
     {
+        $publicLoginRedirect = $this->resolveAnonymousPublicLoginRedirect();
+        if ($publicLoginRedirect !== null) {
+            $this->redirectToPublicLogin($publicLoginRedirect);
+        }
+
         $defaultRedirectUrl = $this->url();
 
         $this->restoreBufferedVariables();
@@ -77,6 +84,25 @@ class login extends fs_controller
         }
 
         $this->showInitialSetupMessageIfPending();
+    }
+
+    protected function resolveAnonymousPublicLoginRedirect(): ?string
+    {
+        if (isset($this->user) && !empty($this->user->logged_on)) {
+            return null;
+        }
+
+        $stealth = $this->createStealthMode();
+        if ($stealth->isEnabled() && $stealth->hasAccess()) {
+            return null;
+        }
+
+        $redirectUrl = Plugins::getPublicLoginRedirect();
+        if ($redirectUrl === null) {
+            return null;
+        }
+
+        return SafeRedirect::validate($redirectUrl, 'index.php?page=login');
     }
 
     /**
@@ -173,6 +199,16 @@ class login extends fs_controller
         $safeUrl = SafeRedirect::getFromRequest($defaultRedirectUrl);
         header(self::LOCATION_HEADER . $safeUrl);
         exit();
+    }
+
+    protected function redirectToPublicLogin(string $url): void
+    {
+        SafeRedirect::redirect($url, 'index.php?page=login');
+    }
+
+    protected function createStealthMode(): StealthMode
+    {
+        return new StealthMode($this->db instanceof \fs_db2 ? $this->db : new \fs_db2());
     }
 
     public function loginActionUrl(): string
