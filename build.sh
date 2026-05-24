@@ -1,11 +1,6 @@
 #!/bin/bash
 
-if command -v ddev >/dev/null 2>&1; then
-    ddev exec composer install --no-interaction
-else
-    composer install
-fi
-./scripts/verify-vendor-integrity.sh
+composer install
 npm install
 cp node_modules/bootbox/dist/bootbox.min.js view/js/
 cp node_modules/bootstrap/dist/css/bootstrap.min.css view/css/
