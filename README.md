@@ -38,6 +38,7 @@ El entorno local recomendado es **[DDEV](https://ddev.com/)** (PHP 8.3, MariaDB 
 ```bash
 ddev start
 ddev exec composer install          # dependencias de producción
+./scripts/verify-vendor-integrity.sh # repara vendor incompleto si faltan archivos nuevos
 ./scripts/install-dev-tools.sh      # PHPStan, PHPUnit tooling (opcional)
 ./build.sh                          # assets frontend (Bootstrap, jQuery, Font Awesome)
 ```
