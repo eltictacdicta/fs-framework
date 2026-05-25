@@ -477,6 +477,7 @@ class fs_plugin_manager
 
         require_all_models();
 
+        $this->runPluginUpgrade($name);
         $this->ensurePluginTables($name);
 
         if ($wizard) {
@@ -629,6 +630,24 @@ class fs_plugin_manager
         $this->core_log->new_error('Imposible eliminar el plugin ' . $plugin_name);
         $this->auditLog('remove', $plugin_name, ['success' => false, 'reason' => 'del_tree_failed']);
         return false;
+    }
+
+    /**
+     * Ejecuta migraciones del plugin antes de sincronizar tablas desde XML.
+     * Los plugins modernos pueden exponer Init::upgrade().
+     */
+    private function runPluginUpgrade(string $plugin_name): void
+    {
+        $initClass = '\\FSFramework\\Plugins\\' . $plugin_name . '\\Init';
+        if (!class_exists($initClass) || !method_exists($initClass, 'upgrade')) {
+            return;
+        }
+
+        try {
+            $initClass::upgrade();
+        } catch (\Throwable $e) {
+            error_log('fs_plugin_manager: plugin upgrade failed for ' . $plugin_name . ': ' . $e->getMessage());
+        }
     }
 
     /**
