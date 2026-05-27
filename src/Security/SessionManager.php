@@ -99,7 +99,7 @@ class SessionManager
         }
 
         $idleTimeout = SessionPolicy::getIdleTimeout();
-        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        $secure = SecureRequestDetector::isSecure();
         $sessionName = self::resolveSessionName();
 
         $options = [

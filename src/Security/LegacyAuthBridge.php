@@ -211,7 +211,7 @@ final class LegacyAuthBridge
      */
     private function resolveLegacyCookiePaths(int $expire): array
     {
-        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        $secure = SecureRequestDetector::isSecure();
         $paths = [$this->resolveLegacyCookiePath()];
 
         if ($expire < time() && $paths[0] !== '/') {

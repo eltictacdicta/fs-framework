@@ -3,6 +3,7 @@
 namespace FSFramework\Core;
 
 use FSFramework\Core\Exception\KernelNotBootedException;
+use FSFramework\Security\TrustedProxyConfigurator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -34,89 +35,7 @@ class Kernel
      */
     private function configureTrustedProxies(): void
     {
-        $proxies = $this->resolveTrustedProxies();
-        if (empty($proxies)) {
-            return;
-        }
-
-        $trustedHeaderSet = $this->resolveTrustedHeaderSet();
-        Request::setTrustedProxies($proxies, $trustedHeaderSet);
-
-        // Backward-compatible hook for Symfony versions exposing setTrustedHeaders().
-        if (method_exists(Request::class, 'setTrustedHeaders')) {
-            Request::setTrustedHeaders($trustedHeaderSet);
-        }
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function resolveTrustedProxies(): array
-    {
-        $configured = defined('FS_TRUSTED_PROXIES') ? FS_TRUSTED_PROXIES : getenv('FS_TRUSTED_PROXIES');
-
-        if (is_array($configured)) {
-            $items = $configured;
-        } elseif (is_string($configured) && $configured !== '') {
-            $items = preg_split('/[\s,]+/', $configured) ?: [];
-        } else {
-            $items = [];
-        }
-
-        $result = [];
-        foreach ($items as $item) {
-            $proxy = trim((string) $item);
-            if ($proxy !== '') {
-                $result[] = $proxy;
-            }
-        }
-
-        return array_values(array_unique($result));
-    }
-
-    private function resolveTrustedHeaderSet(): int
-    {
-        $default = Request::HEADER_X_FORWARDED_FOR
-            | Request::HEADER_X_FORWARDED_HOST
-            | Request::HEADER_X_FORWARDED_PROTO
-            | Request::HEADER_X_FORWARDED_PORT
-            | Request::HEADER_X_FORWARDED_PREFIX;
-
-        $configured = defined('FS_TRUSTED_HEADERS') ? FS_TRUSTED_HEADERS : getenv('FS_TRUSTED_HEADERS');
-
-        if (is_int($configured)) {
-            return $configured;
-        }
-
-        if (!is_string($configured) || trim($configured) === '') {
-            return $default;
-        }
-
-        $map = [
-            'forwarded' => Request::HEADER_FORWARDED,
-            'x_forwarded_for' => Request::HEADER_X_FORWARDED_FOR,
-            'x_forwarded_host' => Request::HEADER_X_FORWARDED_HOST,
-            'x_forwarded_proto' => Request::HEADER_X_FORWARDED_PROTO,
-            'x_forwarded_port' => Request::HEADER_X_FORWARDED_PORT,
-            'x_forwarded_prefix' => Request::HEADER_X_FORWARDED_PREFIX,
-            'x_forwarded_aws_elb' => Request::HEADER_X_FORWARDED_AWS_ELB,
-            'x_forwarded_traefik' => Request::HEADER_X_FORWARDED_TRAEFIK,
-            'aws_elb' => Request::HEADER_X_FORWARDED_AWS_ELB,
-            'traefik' => Request::HEADER_X_FORWARDED_TRAEFIK,
-        ];
-
-        $set = 0;
-        $tokens = preg_split('/[\s,|]+/', strtolower($configured)) ?: [];
-        foreach ($tokens as $token) {
-            if ($token === '') {
-                continue;
-            }
-            if (isset($map[$token])) {
-                $set |= $map[$token];
-            }
-        }
-
-        return $set > 0 ? $set : $default;
+        TrustedProxyConfigurator::configure();
     }
 
     /**

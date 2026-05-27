@@ -90,11 +90,12 @@ final class LegacyLoginRedirectTest extends TestCase
     private function createController(array $stealthSettings, bool $loggedOn = false): object
     {
         $stealth = new StealthMode($this->createDbStub($stealthSettings));
+        $user = $this->createUserStub($loggedOn);
 
-        return new class($stealth, $loggedOn) extends \login {
-            public function __construct(private readonly StealthMode $stealth, bool $loggedOn)
+        return new class($stealth, $user) extends \login {
+            public function __construct(private readonly StealthMode $stealth, \fs_user $user)
             {
-                $this->user = (object) ['logged_on' => $loggedOn];
+                $this->user = $user;
             }
 
             public function probeAnonymousPublicLoginRedirect(): ?string
@@ -105,6 +106,16 @@ final class LegacyLoginRedirectTest extends TestCase
             protected function createStealthMode(): StealthMode
             {
                 return $this->stealth;
+            }
+        };
+    }
+
+    private function createUserStub(bool $loggedOn): \fs_user
+    {
+        return new class($loggedOn) extends \fs_user {
+            public function __construct(bool $loggedOn)
+            {
+                $this->logged_on = $loggedOn;
             }
         };
     }

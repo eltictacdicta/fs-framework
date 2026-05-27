@@ -32,6 +32,11 @@ class SqlInjectionPreventionTest extends TestCase
                 $hasSaveMethod = strpos($content, 'function save') !== false;
 
                 if ($hasSaveMethod) {
+                    // Schema-only stubs (e.g. oidc_auth_code) delegate persistence to repositories.
+                    if (preg_match('/function\s+save\s*\([^)]*\)\s*\{\s*return\s+false\s*;/s', $content)) {
+                        continue;
+                    }
+
                     $this->assertStringContainsString(
                         'var2str',
                         $content,
@@ -85,11 +90,11 @@ class SqlInjectionPreventionTest extends TestCase
 
         $this->assertStringContainsString('var2str', $content);
         $this->assertMatchesRegularExpression(
-            '/INSERT\s+INTO\s*\'\s*\.\s*self::TABLE.*?var2str/s',
+            '/SQL_INSERT_INTO\s*\.\s*self::TABLE.*?var2str/s',
             $content
         );
         $this->assertMatchesRegularExpression(
-            '/UPDATE\s*\'\s*\.\s*self::TABLE.*?var2str/s',
+            '/UPDATE\s+\'\s*\.\s*self::TABLE.*?var2str/s',
             $content
         );
     }
