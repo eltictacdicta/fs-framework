@@ -52,10 +52,6 @@ final class fs_maintenance_mode
             return false;
         }
 
-        if (self::isLoginAccessRequest($server, $query, $post)) {
-            return false;
-        }
-
         if (self::hasStealthAdminAccess($server, $query, $post)) {
             return false;
         }
@@ -463,19 +459,6 @@ final class fs_maintenance_mode
         return in_array($path, $allowedPaths, true);
     }
 
-    private static function isLoginAccessRequest(array $server, array $query, array $post): bool
-    {
-        if (($query['page'] ?? '') === 'login') {
-            return true;
-        }
-
-        if (self::isOidcLoginRequest($server)) {
-            return true;
-        }
-
-        return self::isStealthLoginSubmission($server, $query, $post);
-    }
-
     private static function isBackendPageRequest(array $query): bool
     {
         $page = strtolower(trim((string) ($query['page'] ?? '')));
@@ -489,29 +472,6 @@ final class fs_maintenance_mode
 
         return in_array($page, self::BACKEND_ALLOWED_PAGES, true);
     }
-
-    private static function isOidcLoginRequest(array $server): bool
-    {
-        $path = parse_url((string) ($server['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?? '/';
-        $path = $path === '/' ? '/' : rtrim($path, '/');
-        if ($path === '') {
-            $path = '/';
-        }
-
-        $base = defined('FS_PATH') ? rtrim((string) FS_PATH, '/') : '';
-        $allowedPaths = [
-            '/oauth',
-            '/oauth/login',
-        ];
-
-        if ($base !== '') {
-            $allowedPaths[] = $base . '/oauth';
-            $allowedPaths[] = $base . '/oauth/login';
-        }
-
-        return in_array($path, $allowedPaths, true);
-    }
-
     private static function isStealthLoginSubmission(array $server, array $query, array $post): bool
     {
         if (strtoupper((string) ($server['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {

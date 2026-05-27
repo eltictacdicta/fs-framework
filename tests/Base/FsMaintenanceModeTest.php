@@ -191,11 +191,11 @@ class FsMaintenanceModeTest extends TestCase
         ));
     }
 
-    public function testLoginPageSkipsMaintenance(): void
+    public function testLoginPageShowsMaintenance(): void
     {
         $this->assertTrue(\fs_maintenance_mode::writeLock());
 
-        $this->assertFalse(\fs_maintenance_mode::isActive(
+        $this->assertTrue(\fs_maintenance_mode::isActive(
             ['REQUEST_URI' => '/index.php?page=login', 'REQUEST_METHOD' => 'GET'],
             ['page' => 'login'],
             [],
@@ -203,11 +203,11 @@ class FsMaintenanceModeTest extends TestCase
         ));
     }
 
-    public function testLoginSubmissionSkipsMaintenance(): void
+    public function testLoginSubmissionShowsMaintenance(): void
     {
         $this->assertTrue(\fs_maintenance_mode::writeLock());
 
-        $this->assertFalse(\fs_maintenance_mode::isActive(
+        $this->assertTrue(\fs_maintenance_mode::isActive(
             ['REQUEST_URI' => '/index.php?page=login', 'REQUEST_METHOD' => 'POST'],
             ['page' => 'login'],
             [],
@@ -215,11 +215,11 @@ class FsMaintenanceModeTest extends TestCase
         ));
     }
 
-    public function testOidcLoginPathSkipsMaintenance(): void
+    public function testOidcLoginPathShowsMaintenance(): void
     {
         $this->assertTrue(\fs_maintenance_mode::writeLock());
 
-        $this->assertFalse(\fs_maintenance_mode::isActive(
+        $this->assertTrue(\fs_maintenance_mode::isActive(
             ['REQUEST_URI' => '/oauth/login', 'REQUEST_METHOD' => 'GET'],
             [],
             [],
@@ -227,12 +227,24 @@ class FsMaintenanceModeTest extends TestCase
         ));
     }
 
-    public function testOidcEntrypointSkipsMaintenance(): void
+    public function testOidcEntrypointShowsMaintenance(): void
     {
         $this->assertTrue(\fs_maintenance_mode::writeLock());
 
-        $this->assertFalse(\fs_maintenance_mode::isActive(
+        $this->assertTrue(\fs_maintenance_mode::isActive(
             ['REQUEST_URI' => '/oauth', 'REQUEST_METHOD' => 'GET'],
+            [],
+            [],
+            [],
+        ));
+    }
+
+    public function testOidcRegisterPathShowsMaintenance(): void
+    {
+        $this->assertTrue(\fs_maintenance_mode::writeLock());
+
+        $this->assertTrue(\fs_maintenance_mode::isActive(
+            ['REQUEST_URI' => '/oauth/register', 'REQUEST_METHOD' => 'GET'],
             [],
             [],
             [],
