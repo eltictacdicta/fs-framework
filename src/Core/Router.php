@@ -370,7 +370,12 @@ class Router
         } catch (MethodNotAllowedException) {
             return new Response('Method Not Allowed', 405);
         } catch (\Throwable $e) {
-            error_log('Router Error: ' . $e->getMessage());
+            $details = $e->getMessage();
+            $previous = $e->getPrevious();
+            if ($previous instanceof \Throwable && $previous->getMessage() !== '') {
+                $details .= ' | caused by: ' . $previous->getMessage();
+            }
+            error_log('Router Error: ' . $details);
             return new Response('Internal Server Error', 500);
         }
     }
