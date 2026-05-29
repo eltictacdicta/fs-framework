@@ -513,12 +513,61 @@ class fs_user extends \fs_model
         return Date('d-m-Y', strtotime($this->last_login)) . ' ' . $this->last_login_time;
     }
 
+    /**
+     * Authenticate user with credentials, delegating to fs_login.
+     * Sets POST values so fs_login::log_in() can read them, then
+     * passes $this by reference so logged_on is mutated in place.
+     *
+     * @param string $nick
+     * @param string $password
+     * @return bool
+     */
+    public function login(string $nick, string $password): bool
+    {
+        $_POST['user'] = $nick;
+        $_POST['password'] = $password;
+        $_POST['nick'] = $nick;
+
+        $login = new \fs_login();
+        $login->log_in($this);
+
+        return $this->logged_on;
+    }
+
+    /**
+     * Log out the current user, clearing session and legacy cookies.
+     */
+    public function logout(): void
+    {
+        $login = new \fs_login();
+        $login->log_out();
+        $this->logged_on = false;
+    }
+
+    /**
+     * Restore session from an autologin cookie value.
+     * Sets cookies so fs_login::log_in() can read them and authenticate.
+     *
+     * @param string $autologin
+     * @return bool
+     */
+    public function login_from_cookie(string $autologin): bool
+    {
+        $_COOKIE['autologin'] = $autologin;
+
+        $login = new \fs_login();
+        $login->log_in($this);
+
+        return $this->logged_on;
+    }
+
     public function set_password($pass = '')
     {
         $pass = trim($pass);
         if (mb_strlen($pass) >= 8 && mb_strlen($pass) <= 32) {
             // Usar password_hash con Argon2 para mayor seguridad
             $this->password = password_hash($pass, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+            $this->rotate_logkey();
             return TRUE;
         }
 
@@ -626,6 +675,10 @@ class fs_user extends \fs_model
     public function save()
     {
         if ($this->test()) {
+            // Ensure log_key is never persisted as NULL
+            if ($this->log_key === null || $this->log_key === '') {
+                $this->rotate_logkey();
+            }
             $this->clean_cache();
 
             if ($this->exists()) {

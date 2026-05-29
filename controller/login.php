@@ -62,7 +62,7 @@ class login extends fs_controller
             $this->redirectToPublicLogin($publicLoginRedirect);
         }
 
-        $defaultRedirectUrl = $this->url();
+        $defaultRedirectUrl = 'index.php?page=admin_home';
 
         $this->restoreBufferedVariables();
         $this->switchDatabaseIfRequested();
@@ -214,7 +214,6 @@ class login extends fs_controller
     public function loginActionUrl(): string
     {
         $query = $this->request->query->all();
-        unset($query['page']);
         unset($query['logout']);
         $query['nlogin'] = $query['nlogin'] ?? '';
 

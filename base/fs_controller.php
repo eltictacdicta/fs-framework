@@ -632,7 +632,7 @@ class fs_controller extends fs_app
 
         if (!is_null($this->user->fs_page)) {
             header('Location: index.php?page=' . $this->user->fs_page);
-            return;
+            exit;
         }
 
         /*
@@ -651,6 +651,7 @@ class fs_controller extends fs_app
             }
         }
         header('Location: index.php?page=' . $page);
+        exit;
     }
 
     /**

@@ -1,0 +1,35 @@
+# OpenSpec — fs-framework
+# Initialized: 2026-05-29 by sdd-init
+
+context: >
+  PHP 8.2+/8.3 ERP/accounting framework (fork of FacturaScripts 2017).
+  Symfony 7.4 integration with legacy base/ + modern src/ split.
+  DDEV required for all PHP/Composer/PHPUnit commands.
+  Twig 3 templates, AdminLTE theme. Plugin architecture with PSR-4 autoloading.
+
+strict_tdd: true
+persistence: hybrid
+
+testing:
+  runner: ddev exec php vendor/bin/phpunit
+  framework: PHPUnit 11.5.55 (symfony/phpunit-bridge)
+  config: phpunit.xml
+  bootstrap: tests/bootstrap.php
+  test_count: 436
+  assertion_count: 815
+  unit: true
+  integration: true
+  e2e: false
+  coverage: false
+  linter: phpstan (configured, binary unavailable in container)
+  type_checker: phpstan level 5 (configured, same limitation)
+  formatter: none
+
+phase_rules:
+  proposal: require intent, scope, and approach before spec/design
+  spec: use delta specs with requirements and scenarios
+  design: document architecture approach and tradeoffs
+  tasks: break into implementation units with dependencies
+  apply: implement tasks, run tests after each
+  verify: execute full test suite, confirm spec compliance
+  archive: sync delta specs, archive change

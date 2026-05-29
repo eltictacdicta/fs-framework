@@ -511,6 +511,7 @@ class fs_login
         // 0. Regenerar session ID para prevenir session fixation
         if ($this->session->isStarted()) {
             $this->session->migrate(true);
+            \FSFramework\Security\CsrfManager::refreshToken();
         } elseif (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }
