@@ -351,7 +351,7 @@ class fs_login
 
         $user->new_logkey();
         if ($user->save()) {
-            $this->save_session_data($user);
+            $this->save_session_data($user, regenerateSession: true);
             $controller_user = $user;
         }
 
@@ -446,8 +446,9 @@ class fs_login
             $this->core_log->new_error('No puedes acceder desde esta IP.');
             $this->core_log->save('No puedes acceder desde esta IP.', 'login', TRUE);
         } else if ($user->save()) {
-            // Guardamos en sesión Y en cookies (legacy)
-            $this->save_session_data($user);
+            // Guardamos en sesión Y en cookies (legacy).
+            // regenerateSession: true porque es login por formulario → prevenir session fixation.
+            $this->save_session_data($user, regenerateSession: true);
             $this->completeInitialSetupIfPending();
 
             // Marcar en sesión si requiere cambio de contraseña
@@ -502,18 +503,23 @@ class fs_login
 
     /**
      * Guarda los datos de sesión en Symfony Session y Cookies (para compatibilidad)
+     *
      * @param fs_user $user
+     * @param bool $regenerateSession Solo true en login por formulario (previene
+     *             session fixation). En re-autenticación por cookie/sesión debe
+     *             ser false para no invalidar el token CSRF del formulario actual.
      */
-    private function save_session_data($user)
+    private function save_session_data($user, bool $regenerateSession = false)
     {
         $logKey = $this->ensurePersistentLogKey($user);
 
-        // 0. Regenerar session ID para prevenir session fixation
-        if ($this->session->isStarted()) {
-            $this->session->migrate(true);
+        if ($regenerateSession) {
+            if ($this->session->isStarted()) {
+                $this->session->migrate(true);
+            } elseif (session_status() === PHP_SESSION_ACTIVE) {
+                session_regenerate_id(true);
+            }
             \FSFramework\Security\CsrfManager::refreshToken();
-        } elseif (session_status() === PHP_SESSION_ACTIVE) {
-            session_regenerate_id(true);
         }
 
         $now = time();
