@@ -56,12 +56,6 @@ class force_password_change extends fs_controller
 
     private function processPasswordChange(): void
     {
-        // CSRF ya validado en pre_private_core() del padre
-        if (!$this->isCsrfValid()) {
-            $this->new_error_msg(FSTranslator::trans('invalid-csrf-token'));
-            return;
-        }
-
         $newPassword = (string) $this->request->request->get('new_password');
         $confirmPassword = (string) $this->request->request->get('confirm_password');
 

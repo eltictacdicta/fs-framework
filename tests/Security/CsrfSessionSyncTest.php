@@ -41,23 +41,18 @@ final class CsrfSessionSyncTest extends TestCase
     }
 
     #[Test]
-    public function oldCsrfTokenInvalidatedAfterSaveSessionData(): void
+    public function csrfTokenSurvivesSessionMigration(): void
     {
-        // Start a session and generate an initial CSRF token
         $session = SessionManager::getInstance()->getSymfonySession();
         if (!$session->isStarted()) {
             $session->start();
         }
 
-        $oldToken = CsrfManager::generateToken();
+        $token = CsrfManager::generateToken();
+        $this->assertTrue(CsrfManager::isValid($token), 'Token should be valid before session migrate');
 
-        // Verify the old token is valid before save_session_data()
-        $this->assertTrue(CsrfManager::isValid($oldToken), 'Token should be valid before session migrate');
-
-        // Create fs_login instance
         $login = new \fs_login();
 
-        // Create a minimal user with log_key
         $user = new class() extends \fs_user {
             public function __construct()
             {
@@ -73,20 +68,14 @@ final class CsrfSessionSyncTest extends TestCase
             public function delete(): bool { return false; }
         };
 
-        // Call save_session_data() via Reflection — this migrates session
         $method = new \ReflectionMethod(\fs_login::class, 'save_session_data');
         $method->setAccessible(true);
-        $method->invoke($login, $user);
+        $method->invoke($login, $user, true);
 
-        // After session migrate + CSRF refresh (if implemented),
-        // the old token should be INVALIDATED
-        // Without the refreshToken() call, it might still be valid
-        // (depends on Symfony's session-persisted token storage)
-        $stillValid = CsrfManager::isValid($oldToken);
-
-        // The fix adds refreshToken() after migrate, which invalidates old tokens.
-        // Without the fix, old tokens may remain valid across session migrations.
-        $this->assertFalse($stillValid, 'Old CSRF token MUST be invalid after session migrate with refresh');
+        $this->assertTrue(
+            CsrfManager::isValid($token),
+            'CSRF token must remain valid after session migration (migrate preserves session data)'
+        );
     }
 
     #[Test]

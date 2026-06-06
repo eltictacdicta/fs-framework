@@ -211,22 +211,6 @@ class login extends fs_controller
         return new StealthMode($this->db instanceof \fs_db2 ? $this->db : new \fs_db2());
     }
 
-    public function loginActionUrl(): string
-    {
-        $query = $this->request->query->all();
-        unset($query['logout']);
-        $query['nlogin'] = $query['nlogin'] ?? '';
-
-        return 'index.php?' . http_build_query($query);
-    }
-
-    public function shouldShowPasswordResetLink(): bool
-    {
-        require_once FS_FOLDER . '/src/Core/StealthMode.php';
-
-        return !(new \FSFramework\Core\StealthMode())->isEnabled();
-    }
-
     protected function public_core()
     {
         $this->template = 'login.html.twig';

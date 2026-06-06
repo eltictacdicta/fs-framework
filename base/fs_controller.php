@@ -341,33 +341,22 @@ class fs_controller extends fs_app
     /**
      * Valida el token CSRF para peticiones POST.
      *
-     * Por defecto el modo es estricto (rechaza peticiones sin token válido).
-     * Para migraciones o entornos de desarrollo, definir FS_CSRF_SOFT=true en
-     * config.php para permitir continuar tras un aviso en el log.
-     *
-     * Para forzar modo estricto incluso si FS_CSRF_SOFT está activo,
-     * definir FS_CSRF_STRICT=true en config.php.
-     *
-     * NOTA: Para proteger operaciones mutantes (POST que modifican estado),
-     * use requireCsrf() en lugar de validateCsrf(). En modo soft,
-     * validateCsrf() permite continuar con un aviso, mientras que
-     * requireCsrf() siempre rechaza tokens inválidos.
+     * Usa la validación estándar de Symfony CsrfTokenManager (token por sesión).
+     * En modo soft (FS_CSRF_SOFT=true) registra el fallo pero permite continuar.
+     * En modo estricto (por defecto o FS_CSRF_STRICT=true) bloquea la petición.
      *
      * @param string|null $tokenId ID del token (por defecto 'fs_form')
      * @return bool True si la validación pasa
      */
     protected function validateCsrf(?string $tokenId = null): bool
     {
-        // Solo validar peticiones POST
         if ($this->request->getMethod() !== 'POST') {
             return true;
         }
 
-        // FS_CSRF_STRICT overrides FS_CSRF_SOFT for backward compatibility
         $strict = defined('FS_CSRF_STRICT') && FS_CSRF_STRICT;
         $soft = !$strict && defined('FS_CSRF_SOFT') && FS_CSRF_SOFT;
 
-        // Obtener token de POST o header (para AJAX)
         $token = $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME);
         if (empty($token)) {
             $token = $this->request->request->get('_token');
@@ -377,30 +366,26 @@ class fs_controller extends fs_app
         }
 
         if (empty($token)) {
-            $msg = "CSRF: Token ausente en formulario POST ({$this->class_name})";
-            error_log($msg);
+            error_log("CSRF: Token ausente en formulario POST ({$this->class_name})");
+            $this->csrf_valid = false;
 
             if ($soft) {
-                $this->csrf_valid = false;
                 return true;
             }
 
             $this->new_error_msg('Sesión expirada o token de seguridad faltante. Por favor, recarga la página.');
-            $this->csrf_valid = false;
             return false;
         }
 
-        if (!\FSFramework\Security\CsrfManager::isValidWithReuseCheck($token, $tokenId, $this->shouldPreventCsrfReuse())) {
-            $msg = "CSRF: Token inválido en ({$this->class_name})";
-            error_log($msg);
+        if (!\FSFramework\Security\CsrfManager::isValid($token, $tokenId)) {
+            error_log("CSRF: Token inválido en ({$this->class_name})");
+            $this->csrf_valid = false;
 
             if ($soft) {
-                $this->csrf_valid = false;
                 return true;
             }
 
             $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
-            $this->csrf_valid = false;
             return false;
         }
 
@@ -409,22 +394,8 @@ class fs_controller extends fs_app
     }
 
     /**
-     * Decide si validateCsrf() debe bloquear la reutilización del token.
-     *
-     * Algunos POST idempotentes o flujos AJAX por pasos pueden necesitar
-     * reutilizar el mismo token dentro de la misma página. Los controladores
-     * que lo requieran pueden sobreescribir este método y devolver false solo
-     * para esos casos concretos.
-     */
-    protected function shouldPreventCsrfReuse(): bool
-    {
-        return true;
-    }
-
-    /**
      * Indica si el último POST tenía un token CSRF válido.
-     * Útil para logging y auditoría durante la transición.
-     * 
+     *
      * @return bool
      */
     public function isCsrfValid(): bool
@@ -727,6 +698,44 @@ class fs_controller extends fs_app
     public function url()
     {
         return $this->page->url();
+    }
+
+    /**
+     * URL de acción del formulario de login.
+     * Garantiza que el parámetro logout se elimina para evitar loops.
+     * El controlador login puede sobreescribir con lógica adicional.
+     */
+    public function loginActionUrl(): string
+    {
+        $query = $this->request->query->all();
+        unset($query['logout']);
+        $query['nlogin'] = $query['nlogin'] ?? '';
+
+        return 'index.php?' . http_build_query($query);
+    }
+
+    /**
+     * Indica si se debe mostrar el enlace de recuperación de contraseña.
+     * El controlador login puede sobreescribir con lógica de StealthMode.
+     */
+    public function shouldShowPasswordResetLink(): bool
+    {
+        if (!class_exists('\FSFramework\Core\StealthMode')) {
+            $stealthPath = FS_FOLDER . '/src/Core/StealthMode.php';
+            if (file_exists($stealthPath)) {
+                require_once $stealthPath;
+            }
+        }
+
+        if (!class_exists('\FSFramework\Core\StealthMode')) {
+            return true;
+        }
+
+        try {
+            return !(new \FSFramework\Core\StealthMode())->isEnabled();
+        } catch (\Throwable) {
+            return true;
+        }
     }
 
     public function logoutUrl()
