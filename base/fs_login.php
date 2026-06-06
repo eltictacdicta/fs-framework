@@ -519,7 +519,6 @@ class fs_login
             } elseif (session_status() === PHP_SESSION_ACTIVE) {
                 session_regenerate_id(true);
             }
-            \FSFramework\Security\CsrfManager::refreshToken();
         }
 
         $now = time();
