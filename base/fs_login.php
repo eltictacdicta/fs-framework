@@ -385,7 +385,7 @@ class fs_login
             }
             $dummyHash = class_exists('\\FSFramework\\Security\\LoginThrottle')
                 ? \FSFramework\Security\LoginThrottle::getDummyHash()
-                : '$2y$10$A0b56LIq1wcnJW0G1XtkcetlZdkMb0FNgbj.ulLVPIH2zo.BjDMD2';
+                : password_hash('dummy-timing-protection', PASSWORD_BCRYPT);
             password_verify($password, $dummyHash);
             $this->core_log->new_error(class_exists('\\FSFramework\\Security\\LoginThrottle')
                 ? \FSFramework\Security\LoginThrottle::GENERIC_ERROR

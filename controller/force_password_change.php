@@ -59,18 +59,9 @@ class force_password_change extends fs_controller
         $newPassword = (string) $this->request->request->get('new_password');
         $confirmPassword = (string) $this->request->request->get('confirm_password');
 
-        if (empty($newPassword) || empty($confirmPassword)) {
-            $this->new_error_msg(FSTranslator::trans('password-required'));
-            return;
-        }
-
-        if ($newPassword !== $confirmPassword) {
-            $this->new_error_msg(FSTranslator::trans('password-reset-passwords-dont-match'));
-            return;
-        }
-
-        if (mb_strlen($newPassword) < 8 || mb_strlen($newPassword) > 32) {
-            $this->new_error_msg(FSTranslator::trans('password-reset-invalid-length'));
+        $error = $this->validatePasswords($newPassword, $confirmPassword);
+        if ($error !== null) {
+            $this->new_error_msg($error);
             return;
         }
 
@@ -81,21 +72,38 @@ class force_password_change extends fs_controller
 
         $this->user->rotate_logkey();
 
-        if ($this->user->save()) {
-            $this->password_changed = true;
-            $this->completeInitialSetupIfPending();
-
-            $session = $this->getSession();
-            $session->remove('force_password_change');
-            $session->remove('force_password_change_reason');
-
-            $this->flashMessage(FSTranslator::trans('password-changed-success'));
-
-            SafeRedirect::redirect('index.php');
+        if (!$this->user->save()) {
+            $this->new_error_msg(FSTranslator::trans('password-change-error'));
             return;
         }
 
-        $this->new_error_msg(FSTranslator::trans('password-change-error'));
+        $this->password_changed = true;
+        $this->completeInitialSetupIfPending();
+
+        $session = $this->getSession();
+        $session->remove('force_password_change');
+        $session->remove('force_password_change_reason');
+
+        $this->flashMessage(FSTranslator::trans('password-changed-success'));
+
+        SafeRedirect::redirect('index.php');
+    }
+
+    private function validatePasswords(string $newPassword, string $confirmPassword): ?string
+    {
+        if (empty($newPassword) || empty($confirmPassword)) {
+            return FSTranslator::trans('password-required');
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            return FSTranslator::trans('password-reset-passwords-dont-match');
+        }
+
+        if (mb_strlen($newPassword) < 8 || mb_strlen($newPassword) > 32) {
+            return FSTranslator::trans('password-reset-invalid-length');
+        }
+
+        return null;
     }
 
     private function completeInitialSetupIfPending(): void
@@ -122,7 +130,8 @@ class force_password_change extends fs_controller
             if (Container::has('logger')) {
                 return Container::get('logger');
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('force_password_change::resolveLogger: ' . $e->getMessage());
         }
 
         return class_exists('fs_core_log') ? new \fs_core_log(__CLASS__) : new class {
