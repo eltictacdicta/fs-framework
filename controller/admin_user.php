@@ -293,6 +293,7 @@ class admin_user extends fs_controller
             $this->new_error_msg('No tienes permiso para modificar estos datos.');
         } else {
             $error = FALSE;
+            $password_changed = FALSE;
             $spassword = trim((string) filter_input(INPUT_POST, 'spassword'));
             $spassword2 = trim((string) filter_input(INPUT_POST, 'spassword2'));
             if ($spassword !== '' || $spassword2 !== '') {
@@ -300,10 +301,24 @@ class admin_user extends fs_controller
                     if ($this->suser->set_password($spassword)) {
                         $this->suser->rotate_logkey();
                         $this->new_message('Se ha cambiado la contraseña del usuario ' . $this->suser->nick, TRUE, 'login', TRUE);
+                        $password_changed = TRUE;
+                    } else {
+                        $this->new_error_msg('No se ha podido cambiar la contraseña.');
+                        $error = TRUE;
                     }
                 } else {
-                    $this->new_error_msg('Las contraseñas no coinciden. El resto de cambios sí se han guardado.');
+                    $this->new_error_msg('Las contraseñas no coinciden. No se ha guardado ningún cambio.');
+                    $error = TRUE;
                 }
+            }
+
+            /// Si la validación de contraseña falló, abortamos el guardado
+            /// completo: ningún cambio debe persistir (atomicidad).
+            if ($error) {
+                /// Refetch para descartar cambios en memoria y que la vista
+                /// muestre los valores reales de la BD.
+                $this->suser = $this->user->get($this->suser->nick);
+                return;
             }
 
             if (isset($_POST['email'])) {
@@ -335,9 +350,7 @@ class admin_user extends fs_controller
                 $this->suser->css = filter_input(INPUT_POST, 'css');
             }
 
-            if ($error) {
-                /// si se han producido errores, no hacemos nada más
-            } else if ($this->suser->save()) {
+            if ($this->suser->save()) {
                 /// Los permisos ahora se gestionan exclusivamente por roles.
                 /// No se modifican permisos individuales (fs_access) desde aquí.
                 $this->new_message("Datos modificados correctamente.");
