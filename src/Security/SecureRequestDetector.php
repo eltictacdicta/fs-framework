@@ -28,6 +28,10 @@ final class SecureRequestDetector
     {
         TrustedProxyConfigurator::configure();
 
-        return Request::createFromGlobals()->isSecure();
+        // No usamos Request::createFromGlobals() porque hidrata $_FILES y
+        // revienta con FileNotFoundException cuando un tmp_name apunta a un
+        // archivo borrado (caso real: upload interrumpido). isSecure() solo
+        // necesita $_SERVER + state de trusted proxies.
+        return Request::create('', 'GET', [], [], [], $_SERVER)->isSecure();
     }
 }
