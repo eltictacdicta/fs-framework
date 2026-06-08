@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'facturascripts/fs-framework-modern',
-        'pretty_version' => 'dev-master',
-        'version' => 'dev-master',
-        'reference' => 'b08716b4e5405ff0f48f485415cd291f4a126c8f',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'b7c0387328685980895bf79f6db1d84cbd996900',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -20,9 +20,9 @@
             'dev_requirement' => false,
         ),
         'facturascripts/fs-framework-modern' => array(
-            'pretty_version' => 'dev-master',
-            'version' => 'dev-master',
-            'reference' => 'b08716b4e5405ff0f48f485415cd291f4a126c8f',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'b7c0387328685980895bf79f6db1d84cbd996900',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
