@@ -22,6 +22,7 @@
 !/tmp/index.php
 /MyFiles/
 /.artifacts/
+.atl/
 
 # Configuration (contains credentials)
 config.php
