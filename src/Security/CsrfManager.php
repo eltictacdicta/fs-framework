@@ -20,13 +20,11 @@
 namespace FSFramework\Security;
 
 use Throwable;
-use FSFramework\Core\Kernel;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use Symfony\Component\Security\Csrf\TokenGenerator\UriSafeTokenGenerator;
-use Symfony\Component\Security\Csrf\TokenStorage\SessionTokenStorage;
+use Symfony\Component\Security\Csrf\TokenStorage\TokenStorageInterface;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\PhpBridgeSessionStorage;
 
@@ -50,6 +48,11 @@ class CsrfManager
 {
     private static ?CsrfTokenManager $manager = null;
     private static ?Session $session = null;
+
+    /**
+     * Per-request cache: evita re-chequeos del token-presence guard.
+     */
+    private static bool $tokenVerified = false;
 
     /**
      * ID por defecto para tokens de formularios
@@ -92,34 +95,26 @@ class CsrfManager
             // Asegurar que la sesión está iniciada
             self::ensureSession();
             
-            // Reutilizar el request activo evita volver a hidratar $_FILES tras mover
-            // o eliminar un upload temporal durante el mismo ciclo de petición.
-            $request = self::resolveRequest();
-            $request->setSession(self::$session);
-            
-            // Crear RequestStack y añadir el request
-            $requestStack = new RequestStack();
-            $requestStack->push($request);
-            
-            // Usar almacenamiento en sesión (Symfony 7.x requiere RequestStack)
-            $storage = new SessionTokenStorage($requestStack);
-            
+            // Usar almacenamiento directo en $_SESSION — evita la complejidad
+            // de SessionTokenStorage + PhpBridgeSessionStorage que no persiste
+            // correctamente los tokens entre requests.
+            $storage = new NativeSessionCsrfStorage();
+
             // Generador de tokens seguros
             $generator = new UriSafeTokenGenerator();
             
             self::$manager = new CsrfTokenManager($generator, $storage);
+
+            // Token-presence guard: ensure a default token exists.
+            // Uses getToken() which respects the manager's internal namespace
+            // (e.g. 'https-' prefix) and only creates a token if one doesn't exist.
+            if (!self::$tokenVerified) {
+                self::$manager->getToken(self::DEFAULT_TOKEN_ID);
+                self::$tokenVerified = true;
+            }
         }
         
         return self::$manager;
-    }
-
-    private static function resolveRequest(): Request
-    {
-        try {
-            return Kernel::request();
-        } catch (Throwable) {
-            return new Request();
-        }
     }
 
     /**
@@ -360,5 +355,62 @@ class CsrfManager
         }
 
         return true;
+    }
+}
+
+/**
+ * Almacenamiento de tokens CSRF que lee/escribe directamente en $_SESSION.
+ * 
+ * Evita la complejidad de SessionTokenStorage + PhpBridgeSessionStorage,
+ * donde los bags de Symfony no sincronizan correctamente con $_SESSION
+ * y los tokens no persisten entre requests.
+ */
+class NativeSessionCsrfStorage implements TokenStorageInterface
+{
+    private const SESSION_KEY = '_csrf';
+
+    public function getToken(string $tokenId): string
+    {
+        $this->ensureSession();
+        $token = (string) ($_SESSION[self::SESSION_KEY][$tokenId] ?? '');
+        error_log(sprintf('[NativeCsrf] getToken(%s) → exists=%s len=%d', $tokenId, isset($_SESSION['_csrf'][$tokenId]) ? 'yes' : 'NO', strlen($token)));
+        return $token;
+    }
+
+    public function setToken(string $tokenId, string $token): void
+    {
+        $this->ensureSession();
+        $_SESSION[self::SESSION_KEY][$tokenId] = $token;
+        error_log(sprintf('[NativeCsrf] setToken(%s) → _SESSION[_csrf]=%s', $tokenId, isset($_SESSION['_csrf'][$tokenId]) ? 'yes' : 'NO'));
+    }
+
+    public function hasToken(string $tokenId): bool
+    {
+        $this->ensureSession();
+        return isset($_SESSION[self::SESSION_KEY][$tokenId]);
+    }
+
+    public function removeToken(string $tokenId): ?string
+    {
+        $this->ensureSession();
+        $token = $_SESSION[self::SESSION_KEY][$tokenId] ?? null;
+        unset($_SESSION[self::SESSION_KEY][$tokenId]);
+        return $token;
+    }
+
+    private function ensureSession(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            if (class_exists(SessionManager::class)) {
+                session_name(SessionManager::resolveSessionName());
+            }
+            @session_start();
+            // Garantizar guardado incluso con exit() tempranos
+            register_shutdown_function(function () {
+                if (session_status() === PHP_SESSION_ACTIVE) {
+                    session_write_close();
+                }
+            });
+        }
     }
 }

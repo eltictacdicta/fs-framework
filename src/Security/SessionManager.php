@@ -85,11 +85,27 @@ class SessionManager
             return;
         }
 
-        // Si ya hay una sesión PHP activa, usarla
-        if (session_status() === PHP_SESSION_ACTIVE) {
+        // Migrar sesión legacy PHPSESSID si existe
+        $legacyData = [];
+        if (!empty($_COOKIE['PHPSESSID']) && session_status() === PHP_SESSION_NONE) {
+            $legacyData = $this->migrateLegacyPhpSession();
+        }
+
+        // Si ya hay una sesión PHP activa con el nombre correcto, usarla
+        if (session_status() === PHP_SESSION_ACTIVE && session_name() === self::resolveSessionName()) {
             $this->session = new Session(new PhpBridgeSessionStorage(), new AttributeBag(), new FlashBag());
+            $this->session->start();
             $this->initialized = true;
             return;
+        }
+
+        // Si hay sesión activa con nombre incorrecto, advertir y continuar al path de migración
+        if (session_status() === PHP_SESSION_ACTIVE && session_name() !== self::resolveSessionName()) {
+            trigger_error(
+                '[FSFramework] SessionManager: sesión activa con nombre distinto (' . session_name()
+                . '), no se envuelve con PhpBridgeSessionStorage — se intentará migrar a ' . self::resolveSessionName(),
+                E_USER_WARNING
+            );
         }
 
         if (headers_sent()) {
@@ -124,13 +140,56 @@ class SessionManager
         $this->session = new Session($storage, new AttributeBag(), new FlashBag());
         $this->session->start();
 
+        // Merge de datos legacy migrados via $session->set() (puebla los bags correctamente)
+        foreach ($legacyData as $key => $value) {
+            $this->session->set($key, $value);
+        }
+        if (!empty($legacyData)) {
+            $this->session->set('_migrated_from_phpsessid', true);
+        }
+
         // Regenerar ID periódicamente
         $this->maybeRegenerateId();
 
         $this->initialized = true;
     }
 
-    private static function resolveSessionName(): string
+    /**
+     * Migra datos de sesión desde una cookie PHPSESSID legacy.
+     *
+     * Detecta si existe la cookie PHPSESSID, abre la sesión legacy,
+     * copia $_SESSION, cierra la sesión antigua, expira la cookie
+     * y devuelve los datos para que initialize() los mezcle via $session->set().
+     *
+     * @return array<string, mixed>
+     */
+    private function migrateLegacyPhpSession(): array
+    {
+        $legacySessionId = $_COOKIE['PHPSESSID'] ?? '';
+
+        if ($legacySessionId === '') {
+            return [];
+        }
+
+        // Abrir sesión legacy PHPSESSID
+        session_name('PHPSESSID');
+        session_id($legacySessionId);
+
+        $legacyData = [];
+        if (@session_start()) {
+            $legacyData = $_SESSION;
+            session_write_close();
+        }
+
+        // Expirar cookie PHPSESSID en el cliente
+        $secure = SecureRequestDetector::isSecure();
+        setcookie('PHPSESSID', '', time() - 3600, self::resolveCookiePath(), '', $secure, true);
+        unset($_COOKIE['PHPSESSID']);
+
+        return $legacyData;
+    }
+
+    public static function resolveSessionName(): string
     {
         if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
             return trim((string) FS_SESSION_NAME);

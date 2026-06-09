@@ -137,6 +137,47 @@ class CsrfManagerTest extends TestCase
         $this->assertTrue(CsrfManager::isReused($token, 'marked_form'));
     }
 
+    public function testTokenPresenceGuardRefreshesWhenAbsent(): void
+    {
+        // Simula sesión sin token CSRF
+        $_SESSION = [];
+        SessionManager::reset();
+
+        // Limpia la caché estática de CsrfManager
+        $this->resetCsrfState();
+
+        // Fuerza tokenVerified a false para que la guarda se ejecute
+        $ref = new ReflectionClass(CsrfManager::class);
+        $prop = $ref->getProperty('tokenVerified');
+        $prop->setAccessible(true);
+        $prop->setValue(null, false);
+
+        // Al llamar a getManager() el guard debe crear el token
+        $manager = CsrfManager::getManager();
+        $token = $manager->getToken(CsrfManager::DEFAULT_TOKEN_ID);
+
+        $this->assertNotSame('', $token->getValue(), 'El valor del token no debe estar vacío');
+
+        // Verifica que la bandera tokenVerified quedó activada
+        $this->assertTrue($prop->getValue(), 'tokenVerified debe ser true después de la guarda');
+    }
+
+    public function testTokenPresenceGuardCachesPerRequest(): void
+    {
+        // Primera llamada activa el guard
+        $first = CsrfManager::getManager();
+
+        $ref = new ReflectionClass(CsrfManager::class);
+        $prop = $ref->getProperty('tokenVerified');
+        $prop->setAccessible(true);
+
+        $this->assertTrue($prop->getValue(), 'tokenVerified debe ser true después de la primera llamada');
+
+        // Segunda llamada devuelve la misma instancia sin re-chequear
+        $second = CsrfManager::getManager();
+        $this->assertSame($first, $second, 'Segunda llamada debe devolver el mismo manager');
+    }
+
     private function resetCsrfState(): void
     {
         $ref = new ReflectionClass(CsrfManager::class);
@@ -146,5 +187,9 @@ class CsrfManagerTest extends TestCase
             $property->setAccessible(true);
             $property->setValue(null, null);
         }
+
+        $prop = $ref->getProperty('tokenVerified');
+        $prop->setAccessible(true);
+        $prop->setValue(null, false);
     }
 }

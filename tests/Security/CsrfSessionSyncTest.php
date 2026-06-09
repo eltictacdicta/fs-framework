@@ -59,7 +59,7 @@ final class CsrfSessionSyncTest extends TestCase
                 $this->nick = 'admin';
                 $this->log_key = bin2hex(random_bytes(32));
                 $this->logged_on = false;
-                $this->email = null;
+                $this->email = '';
                 $this->admin = false;
             }
 

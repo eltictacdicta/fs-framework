@@ -286,6 +286,57 @@ class SessionManagerTest extends TestCase
         return (string) $method->invoke(null, $preferredPath, $server);
     }
 
+    /**
+     * @runInSeparateProcess
+     */
+    public function testInitializeSkipsReinitOnMatchingNamedSession(): void
+    {
+        $sessionName = SessionManager::resolveSessionName();
+        session_name($sessionName);
+        session_start();
+
+        SessionManager::reset();
+        $manager = SessionManager::getInstance();
+        $session = $manager->getSymfonySession();
+
+        $storageProperty = new \ReflectionProperty(\Symfony\Component\HttpFoundation\Session\Session::class, 'storage');
+        $this->assertInstanceOf(PhpBridgeSessionStorage::class, $storageProperty->getValue($session));
+
+        // Verify session was NOT restarted (name still matches, no double-start)
+        $this->assertSame($sessionName, session_name());
+    }
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testMigrateLegacyPhpSessionTransfersData(): void
+    {
+        // Step 1: Create a legacy PHPSESSID session with test data
+        session_name('PHPSESSID');
+        session_id('legacy-phpsessid-test-' . uniqid());
+        session_start();
+        $_SESSION['legacy_key'] = 'legacy_value';
+        $_SESSION['legacy_count'] = 42;
+        $legacySessionId = session_id();
+        session_write_close();
+
+        // Step 2: Set the legacy cookie and clear global session state
+        $_COOKIE['PHPSESSID'] = $legacySessionId;
+        $_SESSION = [];
+
+        // Step 3: Trigger migration via SessionManager init
+        SessionManager::reset();
+        $manager = SessionManager::getInstance();
+
+        // Step 4: Assert legacy data was transferred to the unified session
+        $this->assertSame('legacy_value', $manager->get('legacy_key'));
+        $this->assertSame(42, $manager->get('legacy_count'));
+
+        // Step 5: Assert the session is now under FSSESS_xxx, not PHPSESSID
+        $this->assertNotSame('PHPSESSID', session_name());
+        $this->assertStringStartsWith('FSSESS_', session_name());
+    }
+
     private function invokeResolveSessionName(): string
     {
         $method = new \ReflectionMethod(SessionManager::class, 'resolveSessionName');

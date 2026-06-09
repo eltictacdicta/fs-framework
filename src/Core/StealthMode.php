@@ -11,6 +11,7 @@
 
 namespace FSFramework\Core;
 
+use FSFramework\Security\SessionManager;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -470,8 +471,38 @@ class StealthMode
     private function ensurePhpSessionStarted(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
+            session_name(SessionManager::resolveSessionName());
             @session_start();
         }
+
+        // Sincronizar el cookie de sesión con el browser SIEMPRE.
+        // Sin esto, si otro componente (SessionManager, CsrfManager) abre la sesión
+        // antes que StealthMode, PHP no envía Set-Cookie y el browser conserva
+        // una cookie vieja con un session ID que ya no existe en el servidor.
+        if (session_status() === PHP_SESSION_ACTIVE && !headers_sent()) {
+            $name = session_name();
+            $id = session_id();
+            $browserCookie = $_COOKIE[$name] ?? '(none)';
+            error_log(sprintf('[StealthMode] cookie sync | browser=%s | session=%s | match=%s', $browserCookie, $id, $browserCookie === $id ? 'yes' : 'NO'));
+            if (!isset($_COOKIE[$name]) || $_COOKIE[$name] !== $id) {
+                setcookie($name, $id, [
+                    'expires' => 0,
+                    'path' => '/',
+                    'httponly' => true,
+                    'samesite' => 'Lax',
+                ]);
+                error_log('[StealthMode] cookie sync: Set-Cookie sent');
+            }
+        } else {
+            error_log(sprintf('[StealthMode] cookie sync SKIPPED | status=%s | headers_sent=%s', session_status(), headers_sent() ? 'yes' : 'no'));
+        }
+
+        // Forzar session_write_close() al final del request.
+        register_shutdown_function(function () {
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
+        });
     }
 
     private function redirectToHiddenLogin(): RedirectResponse

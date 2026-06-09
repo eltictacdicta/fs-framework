@@ -12,6 +12,7 @@ if (!defined('FS_LAZY_MODELS')) {
 }
 
 require_once dirname(__DIR__, 2) . '/base/fs_controller.php';
+require_once dirname(__DIR__, 2) . '/model/core/fs_user.php';
 
 /**
  * Verifies that select_default_page() sends correct Location headers
@@ -19,44 +20,36 @@ require_once dirname(__DIR__, 2) . '/base/fs_controller.php';
  */
 final class SelectDefaultPageRedirectTest extends TestCase
 {
-    private array $headers = [];
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->headers = [];
     }
 
     protected function tearDown(): void
     {
-        $this->headers = [];
-
         parent::tearDown();
     }
 
     #[Test]
     public function selectDefaultPageSendsLocationHeaderForUserFsPage(): void
     {
-        $headers = [];
-
-        $controller = new class($headers) extends \fs_controller {
-            private array $capturedHeaders;
-
-            public function __construct(array &$headers)
+        $controller = new class() extends \fs_controller {
+            public function __construct()
             {
-                $this->capturedHeaders = &$headers;
             }
 
             public function triggerSelectDefaultPage(string $userPage): void
             {
-                $this->user = new class($userPage) {
-                    public bool $logged_on = true;
-                    public ?string $fs_page;
-
-                    public function __construct(?string $fsPage)
+                $this->user = new class($userPage) extends \fs_user {
+                    public function __construct(string $fsPage)
                     {
+                        $this->logged_on = true;
                         $this->fs_page = $fsPage;
                     }
+
+                    public function save(): bool { return true; }
+                    public function exists(): bool { return false; }
+                    public function delete(): bool { return false; }
                 };
 
                 $this->db = new class() extends \fs_db2 {
@@ -64,16 +57,11 @@ final class SelectDefaultPageRedirectTest extends TestCase
                     public function connected(): bool { return true; }
                     public function connect(): bool { return true; }
                 };
-
-                // Override header() via output buffering — we cannot mock
-                // built-in functions, so we capture the expected URL instead.
-                // The real header() call happens in select_default_page().
-                // We verify the URL that WOULD be sent.
             }
 
             public function getExpectedRedirectUrl(): string
             {
-                return 'index.php?page=' . ($this->user->fs_page ?? 'admin_home');
+                return 'index.php?page=' . $this->user->fs_page;
             }
         };
 
@@ -93,10 +81,16 @@ final class SelectDefaultPageRedirectTest extends TestCase
 
             public function getRedirectUrl(): string
             {
-                // Replicate the select_default_page() logic
-                $this->user = new class() {
-                    public bool $logged_on = true;
-                    public ?string $fs_page = null;
+                $this->user = new class() extends \fs_user {
+                    public function __construct()
+                    {
+                        $this->logged_on = true;
+                        $this->fs_page = '';
+                    }
+
+                    public function save(): bool { return true; }
+                    public function exists(): bool { return false; }
+                    public function delete(): bool { return false; }
                 };
 
                 $this->db = new class() extends \fs_db2 {
@@ -105,10 +99,11 @@ final class SelectDefaultPageRedirectTest extends TestCase
                     public function connect(): bool { return true; }
                 };
 
-                $this->menu = []; // Empty menu
+                /** @var array<int, object> $menu */
+                $menu = [];
 
                 $page = 'admin_home';
-                foreach ($this->menu as $p) {
+                foreach ($menu as $p) {
                     if (!$p->show_on_menu) {
                         continue;
                     }
@@ -135,8 +130,15 @@ final class SelectDefaultPageRedirectTest extends TestCase
 
             public function probeShouldSkip(): bool
             {
-                $this->user = new class() {
-                    public bool $logged_on = false;
+                $this->user = new class() extends \fs_user {
+                    public function __construct()
+                    {
+                        $this->logged_on = false;
+                    }
+
+                    public function save(): bool { return true; }
+                    public function exists(): bool { return false; }
+                    public function delete(): bool { return false; }
                 };
 
                 $this->db = new class() extends \fs_db2 {
@@ -145,12 +147,11 @@ final class SelectDefaultPageRedirectTest extends TestCase
                     public function connect(): bool { return true; }
                 };
 
-                // Replicate the guard logic from select_default_page()
                 if (!$this->db->connected() || !$this->user->logged_on) {
-                    return true; // Skip (no redirect)
+                    return true;
                 }
 
-                return false; // Would redirect
+                return false;
             }
         };
 
@@ -167,8 +168,15 @@ final class SelectDefaultPageRedirectTest extends TestCase
 
             public function probeShouldSkip(): bool
             {
-                $this->user = new class() {
-                    public bool $logged_on = true;
+                $this->user = new class() extends \fs_user {
+                    public function __construct()
+                    {
+                        $this->logged_on = true;
+                    }
+
+                    public function save(): bool { return true; }
+                    public function exists(): bool { return false; }
+                    public function delete(): bool { return false; }
                 };
 
                 $this->db = new class() extends \fs_db2 {
@@ -178,10 +186,10 @@ final class SelectDefaultPageRedirectTest extends TestCase
                 };
 
                 if (!$this->db->connected() || !$this->user->logged_on) {
-                    return true; // Skip
+                    return true;
                 }
 
-                return false; // Would redirect
+                return false;
             }
         };
 

@@ -4,7 +4,9 @@ namespace Tests\Components;
 
 use FSFramework\Core\Plugins;
 use FSFramework\Core\StealthMode;
+use FSFramework\Security\SessionManager;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 require_once __DIR__ . '/../../base/fs_db2.php';
 
@@ -137,6 +139,34 @@ class StealthModeTest extends TestCase
         $this->assertStringNotContainsString('javascript:alert(1)', $db->lastExecSql);
         $this->assertStringNotContainsString('<script>alert(1)</script>', $db->lastExecSql);
         $this->assertStringContainsString('cdn.jsdelivr.net', $db->lastExecSql);
+    }
+
+    /**
+     * @runInSeparateProcess
+     */
+    public function testEnsurePhpSessionStartedSetsSessionName(): void
+    {
+        // Simula define faltante en proceso aislado
+        if (!defined('FS_FOLDER')) {
+            define('FS_FOLDER', '/var/www/html');
+        }
+
+        // Cierra la sesión iniciada por setUp() para forzar el camino
+        // session_status() === PHP_SESSION_NONE en ensurePhpSessionStarted()
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $stealth = new StealthMode($this->createDbStub());
+
+        $ref = new ReflectionClass(StealthMode::class);
+        $method = $ref->getMethod('ensurePhpSessionStarted');
+        $method->setAccessible(true);
+        $method->invoke($stealth);
+
+        $expectedName = SessionManager::resolveSessionName();
+        $this->assertSame($expectedName, session_name(), 'session_name() debe coincidir con resolveSessionName() después de ensurePhpSessionStarted()');
+        $this->assertSame(PHP_SESSION_ACTIVE, session_status(), 'La sesión debe quedar activa después de ensurePhpSessionStarted()');
     }
 
     /**
