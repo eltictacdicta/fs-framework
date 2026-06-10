@@ -335,7 +335,7 @@ $log_manager = new fs_log_manager();
 $log_manager->save();
 
 /// redireccionamos a la página definida por el usuario
-if (is_null(filter_input(INPUT_GET, 'page'))) {
+if (!$fsc_error && is_null(filter_input(INPUT_GET, 'page'))) {
     $fsc->select_default_page();
 }
 

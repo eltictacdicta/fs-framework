@@ -99,13 +99,63 @@ class SessionManager
             return;
         }
 
-        // Si hay sesión activa con nombre incorrecto, advertir y continuar al path de migración
+        // Si hay sesión activa con nombre incorrecto (típicamente PHPSESSID tras migración legacy),
+        // envolver con PhpBridgeSessionStorage en lugar de intentar iniciar una nueva.
+        // NativeSessionStorage::start() lanzaría "already started by PHP" porque session_status()
+        // sigue siendo PHP_SESSION_ACTIVE después de session_write_close().
         if (session_status() === PHP_SESSION_ACTIVE && session_name() !== self::resolveSessionName()) {
+            $oldName = session_name();
+            $newName = self::resolveSessionName();
+
             trigger_error(
-                '[FSFramework] SessionManager: sesión activa con nombre distinto (' . session_name()
-                . '), no se envuelve con PhpBridgeSessionStorage — se intentará migrar a ' . self::resolveSessionName(),
+                '[FSFramework] SessionManager: sesión activa con nombre distinto (' . $oldName
+                . '), envolviendo con PhpBridgeSessionStorage y migrando a ' . $newName,
                 E_USER_WARNING
             );
+
+            $this->session = new Session(new PhpBridgeSessionStorage(), new AttributeBag(), new FlashBag());
+            $this->session->start();
+
+            // Merge de datos legacy migrados
+            foreach ($legacyData as $key => $value) {
+                $this->session->set($key, $value);
+            }
+            if (!empty($legacyData)) {
+                $this->session->set('_migrated_from_phpsessid', true);
+            }
+
+            // Establecer cookie con el nombre correcto para futuros requests.
+            // El ID de sesión se reutiliza — el almacenamiento (archivos) usa el ID, no el nombre.
+            if (!headers_sent()) {
+                $idleTimeout = SessionPolicy::getIdleTimeout();
+                $secure = SecureRequestDetector::isSecure();
+                $cookiePath = self::resolveCookiePath();
+                $currentId = session_id();
+
+                // Expirar la cookie antigua (si migrateLegacyPhpSession no la expiró)
+                // para evitar dos cookies de sesión activas que confligirían con session_id()
+                if ($oldName !== $newName) {
+                    setcookie($oldName, '', [
+                        'expires' => time() - 3600,
+                        'path' => $cookiePath,
+                        'secure' => $secure,
+                        'httponly' => true,
+                        'samesite' => 'Lax',
+                    ]);
+                }
+
+                setcookie($newName, $currentId, [
+                    'expires' => time() + $idleTimeout,
+                    'path' => $cookiePath,
+                    'secure' => $secure,
+                    'httponly' => true,
+                    'samesite' => 'Lax',
+                ]);
+            }
+
+            $this->maybeRegenerateId();
+            $this->initialized = true;
+            return;
         }
 
         if (headers_sent()) {
