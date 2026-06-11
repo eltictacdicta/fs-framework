@@ -213,30 +213,9 @@ class fs_user extends \fs_model
     {
         $this->clean_cache(TRUE);
 
-        $defaultPassword = rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
-
-        $installMessage = '<strong>¡Instalación completada!</strong><br>' .
-            'Usuario: <code>admin</code><br>' .
-            'Contraseña temporal: <code>' . htmlspecialchars($defaultPassword, ENT_QUOTES, 'UTF-8') . '</code><br>' .
-            '<strong>¡IMPORTANTE!</strong> Esta contraseña se muestra SOLO UNA VEZ. ' .
-            'Anótala y cámbiala inmediatamente después de iniciar sesión.';
-
-        $this->new_message($installMessage);
-
-        // Persistir en sesión flash para sobrevivir redirecciones del PublicAccessGate
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            @session_start();
-        }
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            if (!isset($_SESSION['flash_messages']) || !is_array($_SESSION['flash_messages'])) {
-                $_SESSION['flash_messages'] = [];
-            }
-            $_SESSION['flash_messages'][] = $installMessage;
-        }
-
         self::markInitialSetupPending();
 
-        $adminHash = password_hash($defaultPassword, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+        $adminHash = password_hash('admin', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
         if ($this->db->select("SELECT * FROM agentes WHERE codagente = '1';")) {
             return "INSERT INTO " . $this->table_name . " (nick,password,log_key,codagente,admin,enabled)
             VALUES ('admin'," . $this->var2str($adminHash) . ",NULL,'1',TRUE,TRUE);";
@@ -266,7 +245,7 @@ class fs_user extends \fs_model
 
     /**
      * Verifica si la configuración inicial del admin está pendiente.
-     * Esto significa que el admin debe cambiar su contraseña temporal.
+     * Esto significa que el admin debe cambiar su contraseña por defecto.
      */
     public static function isInitialSetupPending(): bool
     {

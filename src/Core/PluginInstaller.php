@@ -24,7 +24,7 @@ namespace FSFramework\Core;
 use fs_file_manager;
 use fs_plugin_manager;
 
-final class PluginInstaller
+class PluginInstaller
 {
     private fs_plugin_manager $pluginManager;
 
@@ -33,18 +33,24 @@ final class PluginInstaller
         $this->pluginManager = $pluginManager;
     }
 
+    public function installSystemUpdater(): array
+    {
+        return $this->installSystemUpdaterIn(FS_FOLDER);
+    }
+
     /**
      * @return array{errors: string[], messages: string[], redirect?: string}
      */
-    public function installSystemUpdater(): array
+    public function installSystemUpdaterIn(string $rootPath): array
     {
         $result = ['errors' => [], 'messages' => []];
         $pluginName = 'system_updater';
-        $pluginsDir = FS_FOLDER . '/plugins/';
-        $downloadPath = FS_FOLDER . '/download_updater.zip';
+        $pluginsDir = $rootPath . '/plugins/';
+        $downloadPath = $rootPath . '/download_updater.zip';
         $githubUrl = 'https://github.com/eltictacdicta/system_updater/archive/refs/heads/master.zip';
 
         if (file_exists($pluginsDir . $pluginName . '/controller/admin_updater.php')) {
+            @unlink($downloadPath);
             if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
                 $result['errors'][] = 'No se pudo activar el plugin <b>' . $pluginName . '</b>.';
                 return $result;
@@ -64,35 +70,39 @@ final class PluginInstaller
             return $result;
         }
 
-        if (!$this->extractSystemUpdater($downloadPath, $pluginsDir)) {
-            $result['errors'][] = 'No se pudo extraer el ZIP del plugin <b>' . $pluginName . '</b>.';
+        try {
+            if (!$this->extractSystemUpdater($downloadPath, $pluginsDir)) {
+                $result['errors'][] = 'No se pudo extraer el ZIP del plugin <b>' . $pluginName . '</b>.';
+                return $result;
+            }
+
+            $extractedName = $this->findExtractedFolder($pluginsDir, $pluginName);
+            if ($extractedName && !$this->movePluginDirectory($pluginsDir, $extractedName, $pluginName)) {
+                $result['errors'][] = 'No se pudo mover el directorio del plugin <b>' . $pluginName . '</b> a su ubicación final.';
+                return $result;
+            }
+
+            $this->verifyInstallation($pluginName, $pluginsDir);
+
+            if (!file_exists($pluginsDir . $pluginName . '/controller/admin_updater.php')) {
+                $result['errors'][] = 'La instalación del plugin <b>' . $pluginName . '</b> no se completó correctamente.';
+                return $result;
+            }
+
+            if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
+                $result['errors'][] = 'El plugin <b>' . $pluginName . '</b> se instaló, pero no se pudo activar.';
+                return $result;
+            }
+
+            $result['messages'][] = 'Plugin <b>' . $pluginName . '</b> instalado correctamente.';
+            $result['redirect'] = 'index.php?page=admin_updater';
             return $result;
+        } finally {
+            @unlink($downloadPath);
         }
-
-        $extractedName = $this->findExtractedFolder($pluginsDir, $pluginName);
-        if ($extractedName && !$this->movePluginDirectory($pluginsDir, $extractedName, $pluginName)) {
-            $result['errors'][] = 'No se pudo mover el directorio del plugin <b>' . $pluginName . '</b> a su ubicación final.';
-            return $result;
-        }
-
-        $this->verifyInstallation($pluginName, $pluginsDir);
-
-        if (!file_exists($pluginsDir . $pluginName . '/controller/admin_updater.php')) {
-            $result['errors'][] = 'La instalación del plugin <b>' . $pluginName . '</b> no se completó correctamente.';
-            return $result;
-        }
-
-        if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
-            $result['errors'][] = 'El plugin <b>' . $pluginName . '</b> se instaló, pero no se pudo activar.';
-            return $result;
-        }
-
-        $result['messages'][] = 'Plugin <b>' . $pluginName . '</b> instalado correctamente.';
-        $result['redirect'] = 'index.php?page=admin_updater';
-        return $result;
     }
 
-    private function downloadSystemUpdater(string $githubUrl, string $downloadPath): bool
+    protected function downloadSystemUpdater(string $githubUrl, string $downloadPath): bool
     {
         if (!function_exists('curl_init')) {
             return false;

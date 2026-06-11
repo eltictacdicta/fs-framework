@@ -67,7 +67,7 @@ class login extends fs_controller
         $this->restoreBufferedVariables();
         $this->switchDatabaseIfRequested();
 
-        if (isset($_GET['logout'])) {
+        if ($this->request->query->get('logout') !== null) {
             $this->user->logout();
         }
 
@@ -107,9 +107,8 @@ class login extends fs_controller
 
     /**
      * Muestra un mensaje si la configuración inicial está pendiente.
-     * La contraseña temporal se genera en fs_user::install() y se persiste
-     * en $_SESSION['flash_messages'] para sobrevivir las redirecciones del
-     * PublicAccessGate, por lo que puede aparecer junto a este mensaje.
+     * Indica al administrador las credenciales por defecto (admin/admin)
+     * y que deberá cambiar la contraseña tras iniciar sesión.
      */
     private function showInitialSetupMessageIfPending(): void
     {
@@ -119,8 +118,8 @@ class login extends fs_controller
 
         $this->core_log->new_message(
             "Configuración inicial pendiente.<br>"
-            . "Inicia sesión con el usuario admin y la contraseña temporal que se mostró durante la instalación.<br>"
-            . "Recuerda cambiar la contraseña después de iniciar sesión."
+            . "Inicia sesión con las credenciales por defecto: usuario <code>admin</code> / contraseña <code>admin</code>.<br>"
+            . "Tras iniciar sesión, deberás elegir una nueva contraseña segura."
         );
     }
 
@@ -143,7 +142,7 @@ class login extends fs_controller
             return;
         }
 
-        $requestedDb = $_POST['cdb'] ?? ($_GET['cdb'] ?? null);
+        $requestedDb = $this->request->request->get('cdb') ?? $this->request->query->get('cdb');
         if (!$requestedDb || $requestedDb == FS_DB_NAME) {
             return;
         }
@@ -155,8 +154,8 @@ class login extends fs_controller
 
     private function handleCredentialLogin($defaultRedirectUrl)
     {
-        $nick = $_POST['nick'] ?? ($_POST['user'] ?? null);
-        $password = $_POST['password'] ?? null;
+        $nick = $this->request->request->get('nick') ?? $this->request->request->get('user');
+        $password = $this->request->request->get('password');
 
         if ($nick === null || $password === null) {
             return false;
@@ -175,9 +174,7 @@ class login extends fs_controller
             return true;
         }
 
-        \fs_user::completeInitialSetup();
-
-        $rememberMe = isset($_POST['remember_me']) && $_POST['remember_me'] === '1';
+        $rememberMe = $this->request->request->get('remember_me') === '1';
         fs_session_manager::set('remember_me', $rememberMe);
 
         $this->redirectToSafeUrl($defaultRedirectUrl);
@@ -185,11 +182,10 @@ class login extends fs_controller
 
     private function handleAutoLogin($defaultRedirectUrl)
     {
-        if (!isset($_GET['autologin']) || !$this->user->login_from_cookie($_GET['autologin'])) {
+        $autologinToken = $this->request->query->get('autologin');
+        if ($autologinToken === null || !$this->user->login_from_cookie($autologinToken)) {
             return false;
         }
-
-        \fs_user::completeInitialSetup();
 
         $this->redirectToSafeUrl($defaultRedirectUrl);
     }

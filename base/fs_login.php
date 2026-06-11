@@ -449,7 +449,14 @@ class fs_login
             // Guardamos en sesión Y en cookies (legacy).
             // regenerateSession: true porque es login por formulario → prevenir session fixation.
             $this->save_session_data($user, regenerateSession: true);
-            $this->completeInitialSetupIfPending();
+
+            // Check initial setup pending BEFORE completing it
+            if (class_exists('fs_user') && \fs_user::isInitialSetupPending()) {
+                $this->session->set('force_password_change', true);
+                $this->session->set('force_password_change_reason', 'initial_setup');
+            } else {
+                $this->completeInitialSetupIfPending();
+            }
 
             // Marcar en sesión si requiere cambio de contraseña
             if ($requiresPasswordChange) {

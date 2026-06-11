@@ -29,8 +29,8 @@ require_once dirname(__DIR__, 2) . '/model/core/fs_user.php';
 require_once dirname(__DIR__, 2) . '/model/fs_var.php';
 
 /**
- * Tests para verificar que el mensaje de login no expone la contraseña temporal.
- * La contraseña solo se muestra UNA VEZ durante la instalación.
+ * Tests para verificar que el flujo de credenciales por defecto no expone contraseñas.
+ * La contraseña por defecto es 'admin' y se fuerza el cambio en el primer login.
  */
 final class LoginInitialCredentialsMessageTest extends TestCase
 {

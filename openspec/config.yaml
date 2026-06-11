@@ -1,28 +1,65 @@
 # OpenSpec — fs-framework
 # Initialized: 2026-05-29 by sdd-init
+# Re-initialized: 2026-06-10 by sdd-init
 
 context: >
   PHP 8.2+/8.3 ERP/accounting framework (fork of FacturaScripts 2017).
   Symfony 7.4 integration with legacy base/ + modern src/ split.
   DDEV required for all PHP/Composer/PHPUnit commands.
   Twig 3 templates, AdminLTE theme. Plugin architecture with PSR-4 autoloading.
+  Version: 0.14.8. Production stable.
 
 strict_tdd: true
 persistence: hybrid
 
 testing:
   runner: ddev exec php vendor/bin/phpunit
-  framework: PHPUnit 11.5.55 (symfony/phpunit-bridge)
+  framework: PHPUnit 11 (symfony/phpunit-bridge)
   config: phpunit.xml
   bootstrap: tests/bootstrap.php
-  test_count: 436
-  assertion_count: 815
+  test_files_core: 65
+  test_files_plugin: 23
+  test_files_total: 88
+  suites:
+    - name: Base
+      dir: tests/Base
+      files: 13
+    - name: Core
+      dir: tests/Core
+      files: 8
+    - name: Security
+      dir: tests/Security
+      files: 29
+    - name: Traits
+      dir: tests/Traits
+      files: 1
+    - name: Cache
+      dir: tests/Cache
+      files: 2
+    - name: Integration
+      dir: tests/Integration
+      files: 2
+    - name: Plugins
+      dir: "plugins/*/tests/**/*Test.php"
+      files: 23
+      isolated_suites:
+        - plugins/api_base/phpunit.xml
+        - plugins/clientes_core/phpunit.xml
+        - plugins/legacy_support/phpunit.xml
+        - plugins/system_updater/phpunit.xml
+  additional_dirs:
+    - tests/ClientesCore (3 files)
+    - tests/Components (2 files)
+    - tests/Event (1 file)
+    - tests/Form (1 file)
+    - tests/Service (2 files)
+    - tests/Translation (1 file)
   unit: true
   integration: true
   e2e: false
   coverage: false
-  linter: phpstan (configured, binary unavailable in container)
-  type_checker: phpstan level 5 (configured, same limitation)
+  linter: phpstan level 5 (configured, binary in vendor/dev-tools)
+  type_checker: phpstan level 5 (configured)
   formatter: none
 
 phase_rules:

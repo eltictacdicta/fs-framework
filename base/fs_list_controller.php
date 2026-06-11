@@ -351,8 +351,8 @@ abstract class fs_list_controller extends fs_controller
         $sql .= " WHERE 1 = 1";
         $query = '';
         if (!empty($this->query)) {
-            // Limpiamos la consulta sin depender de la empresa
-            $clean_query = htmlspecialchars(trim($this->query), ENT_QUOTES, 'UTF-8');
+            // Escapamos la consulta para contexto SQL (no HTML)
+            $clean_query = $this->db->escape_string(trim($this->query));
             $query = mb_strtolower($clean_query, 'UTF8');
         }
         if (!empty($query)) {

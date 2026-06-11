@@ -184,6 +184,10 @@ class fs_controller extends fs_app
             || $this->request->request->has('ajax');
 
         if ($this->db->connect()) {
+            // Ensure fs_vars table exists before fs_user (needed for initial setup flag)
+            if (class_exists('fs_var')) {
+                new fs_var();
+            }
             $this->user = new fs_user();
             $this->check_fs_page($name, $title, $folder, $shmenu, $important);
 
@@ -869,7 +873,8 @@ class fs_controller extends fs_app
 
     /**
      * Verifica si el usuario debe cambiar su contraseña de forma obligatoria.
-     * Esto ocurre cuando la contraseña actual es insegura (menor a 8 caracteres).
+     * Esto ocurre cuando la contraseña actual es insegura (menor a 8 caracteres)
+     * o cuando es el primer login tras la instalación inicial.
      * @return bool
      */
     private function shouldForcePasswordChange(): bool
@@ -878,16 +883,21 @@ class fs_controller extends fs_app
             return false;
         }
 
-        if (isset($_SESSION['force_password_change']) && $_SESSION['force_password_change'] === true) {
-            return true;
+        // Leer directamente de SessionManager (misma instancia que usa fs_login)
+        if (class_exists('\FSFramework\Security\SessionManager')) {
+            try {
+                $sessionManager = \FSFramework\Security\SessionManager::getInstance();
+                if ($sessionManager->get('force_password_change', false) === true) {
+                    return true;
+                }
+            } catch (\Throwable $e) {
+                error_log('FSFramework fs_controller: error checking force_password_change via SessionManager: ' . $e->getMessage());
+            }
         }
 
-        if ($this->request && $this->request->hasSession()) {
-            try {
-                return $this->request->getSession()->get('force_password_change', false) === true;
-            } catch (\Throwable $e) {
-                error_log('FSFramework fs_controller: error checking force_password_change session flag: ' . $e->getMessage());
-            }
+        // Fallback: verificar $_SESSION nativo (compatibilidad legacy)
+        if (isset($_SESSION['force_password_change']) && $_SESSION['force_password_change'] === true) {
+            return true;
         }
 
         return false;

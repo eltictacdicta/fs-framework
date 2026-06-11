@@ -428,9 +428,14 @@ class fs_auth
      */
     public static function verifyCsrfRequest()
     {
-        $token = isset($_POST['_token']) ? $_POST['_token'] : '';
+        try {
+            $request = \FSFramework\Core\Kernel::request();
+        } catch (\Throwable $e) {
+            $request = null;
+        }
+        $token = $request?->request->get('_token', '');
         if ($token === '') {
-            $token = isset($_SERVER['HTTP_X_CSRF_TOKEN']) ? $_SERVER['HTTP_X_CSRF_TOKEN'] : '';
+            $token = $request?->headers->get('X-CSRF-TOKEN', '');
         }
 
         return self::verifyCsrf($token);
