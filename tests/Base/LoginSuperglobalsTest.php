@@ -11,6 +11,8 @@ declare(strict_types=1);
 namespace Tests\Base;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -93,7 +95,18 @@ class LoginSuperglobalsTest extends TestCase
     // H3-1: Credential login with valid nick and password
     // =====================================================================
 
+    /**
+     * Must run in a separate process: handleCredentialLogin() ends in
+     * redirectToSafeUrl() → exit() when login() succeeds. The test relies
+     * on fs_session_manager NOT being loaded so the call at login.php:178
+     * throws an Error: Class not found (Throwable, catchable). In suite
+     * mode FsAuthCsrfRequestTest loads fs_auth.php which loads the class,
+     * so the call succeeds and the child process hits exit() before the
+     * assertions can run, hanging the parent in sigsuspend.
+     */
     #[Test]
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function credentialLoginReadsFromRequest(): void
     {
         $request = Request::create('/login', 'POST', [
@@ -189,7 +202,12 @@ class LoginSuperglobalsTest extends TestCase
     // H3-5: Remember-me checkbox submitted
     // =====================================================================
 
+    /**
+     * See credentialLoginReadsFromRequest docblock for why this is required.
+     */
     #[Test]
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function rememberMeReadsFromRequest(): void
     {
         $request = Request::create('/login', 'POST', [
@@ -212,7 +230,12 @@ class LoginSuperglobalsTest extends TestCase
     // H3-6: Alternate user field name
     // =====================================================================
 
+    /**
+     * See credentialLoginReadsFromRequest docblock for why this is required.
+     */
     #[Test]
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function credentialLoginWithUserField(): void
     {
         $request = Request::create('/login', 'POST', [
