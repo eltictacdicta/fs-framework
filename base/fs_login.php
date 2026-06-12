@@ -450,11 +450,10 @@ class fs_login
             // regenerateSession: true porque es login por formulario → prevenir session fixation.
             $this->save_session_data($user, regenerateSession: true);
 
-            // Check initial setup pending BEFORE completing it
+            // Check initial setup pending and complete it after setting force flags
             if (class_exists('fs_user') && \fs_user::isInitialSetupPending()) {
                 $this->session->set('force_password_change', true);
                 $this->session->set('force_password_change_reason', 'initial_setup');
-            } else {
                 $this->completeInitialSetupIfPending();
             }
 
