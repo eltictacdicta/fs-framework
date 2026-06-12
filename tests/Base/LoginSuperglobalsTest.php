@@ -97,12 +97,20 @@ class LoginSuperglobalsTest extends TestCase
 
     /**
      * Must run in a separate process: handleCredentialLogin() ends in
-     * redirectToSafeUrl() → exit() when login() succeeds. The test relies
-     * on fs_session_manager NOT being loaded so the call at login.php:178
-     * throws an Error: Class not found (Throwable, catchable). In suite
-     * mode FsAuthCsrfRequestTest loads fs_auth.php which loads the class,
-     * so the call succeeds and the child process hits exit() before the
-     * assertions can run, hanging the parent in sigsuspend.
+     * redirectToSafeUrl() → exit() when login() succeeds. In suite mode,
+     * other tests (FsAuthCsrfRequestTest) load fs_auth.php before this
+     * test runs, which transitively loads fs_session_manager. Once that
+     * class is in memory, the call at controller/login.php:178 no longer
+     * throws the Error we were relying on to short-circuit before
+     * exit(), and the child process is killed before assertions run.
+     * The parent phpunit then sits in sigsuspend waiting for a signal
+     * that never arrives, hanging the suite at 148/155 tests.
+     *
+     * #[RunInSeparateProcess] + #[PreserveGlobalState(false)] gives each
+     * test a fresh child process where fs_session_manager is NOT loaded,
+     * so the original Error-throws-before-exit path is preserved.
+     *
+     * @see commit 7c3e652f (audit-2026-06-12) for the full diagnosis
      */
     #[Test]
     #[RunInSeparateProcess]
@@ -203,7 +211,8 @@ class LoginSuperglobalsTest extends TestCase
     // =====================================================================
 
     /**
-     * See credentialLoginReadsFromRequest docblock for why this is required.
+     * Same process-isolation rationale as credentialLoginReadsFromRequest.
+     * @see credentialLoginReadsFromRequest() docblock above
      */
     #[Test]
     #[RunInSeparateProcess]
@@ -231,7 +240,8 @@ class LoginSuperglobalsTest extends TestCase
     // =====================================================================
 
     /**
-     * See credentialLoginReadsFromRequest docblock for why this is required.
+     * Same process-isolation rationale as credentialLoginReadsFromRequest.
+     * @see credentialLoginReadsFromRequest() docblock above
      */
     #[Test]
     #[RunInSeparateProcess]

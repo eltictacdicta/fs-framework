@@ -263,11 +263,11 @@ class admin_user extends fs_controller
         
         $age0 = new agente();
         $age0->codagente = $age0->get_new_codigo();
-        $age0->nombre = filter_input(INPUT_POST, 'nnombre');
-        $age0->apellidos = filter_input(INPUT_POST, 'napellidos');
-        $age0->dnicif = filter_input(INPUT_POST, 'ndnicif');
-        $age0->telefono = filter_input(INPUT_POST, 'ntelefono');
-        $age0->email = strtolower(filter_input(INPUT_POST, 'nemail'));
+        $age0->nombre = $this->request->request->get('nnombre');
+        $age0->apellidos = $this->request->request->get('napellidos');
+        $age0->dnicif = $this->request->request->get('ndnicif');
+        $age0->telefono = $this->request->request->get('ntelefono');
+        $age0->email = strtolower((string) $this->request->request->get('nemail'));
 
         if (!$this->user->admin) {
             $this->new_error_msg('Solamente un administrador puede crear y asignar un empleado desde aquí.');
@@ -295,8 +295,8 @@ class admin_user extends fs_controller
         } else {
             $error = FALSE;
             $password_changed = FALSE;
-            $spassword = trim((string) filter_input(INPUT_POST, 'spassword'));
-            $spassword2 = trim((string) filter_input(INPUT_POST, 'spassword2'));
+            $spassword = trim((string) $this->request->request->get('spassword'));
+            $spassword2 = trim((string) $this->request->request->get('spassword2'));
             if ($spassword !== '' || $spassword2 !== '') {
                 if ($spassword !== '' && $spassword === $spassword2) {
                     if ($this->suser->set_password($spassword)) {
@@ -323,14 +323,14 @@ class admin_user extends fs_controller
             }
 
             if ($this->request->request->has('email')) {
-                $this->suser->email = strtolower(filter_input(INPUT_POST, 'email'));
+                $this->suser->email = strtolower((string) $this->request->request->get('email'));
             }
 
             if ($this->request->request->has('scodagente')) {
                 $this->suser->codagente = NULL;
                 $scodagente = (string) $this->request->request->get('scodagente');
                 if ($scodagente !== '') {
-                    $this->suser->codagente = filter_input(INPUT_POST, 'scodagente');
+                    $this->suser->codagente = $this->request->request->get('scodagente');
                 }
             }
 
@@ -345,11 +345,11 @@ class admin_user extends fs_controller
 
             $this->suser->fs_page = NULL;
             if ($this->request->request->has('udpage')) {
-                $this->suser->fs_page = filter_input(INPUT_POST, 'udpage');
+                $this->suser->fs_page = $this->request->request->get('udpage');
             }
 
             if ($this->request->request->has('css')) {
-                $this->suser->css = filter_input(INPUT_POST, 'css');
+                $this->suser->css = $this->request->request->get('css');
             }
 
             if ($this->suser->save()) {
@@ -409,7 +409,7 @@ class admin_user extends fs_controller
         }
 
         /// Ahora asignamos los roles seleccionados
-        $roles_seleccionados = filter_input(INPUT_POST, 'roles', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
+        $roles_seleccionados = $this->request->request->all('roles');
         if ($roles_seleccionados) {
             foreach ($roles_seleccionados as $codrol) {
                 $rol = $this->rol->get($codrol);

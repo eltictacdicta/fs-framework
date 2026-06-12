@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace Tests\Security;
 
 use FSFramework\Security\CsrfManager;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
@@ -30,6 +31,7 @@ use ReflectionClass;
  *
  * @see docs/reviews/audit-2026-06-12-spec.md sección 3.1.4
  */
+#[CoversClass(CsrfManager::class)]
 final class CsrfStorageNoErrorLogTest extends TestCase
 {
     private const SOURCE_FILE = __DIR__ . '/../../src/Security/CsrfManager.php';
@@ -42,6 +44,9 @@ final class CsrfStorageNoErrorLogTest extends TestCase
      * archivo temporal. Esta es la forma estándar de capturar
      * `error_log()` en PHP desde CLI (no se puede hookear como un
      * error handler porque es un builtin).
+     *
+     * NativeSessionCsrfStorage llama a session_start() internamente
+     * en su ensureSession(); no necesitamos arrancarla desde el test.
      */
     public function testGetTokenDoesNotWriteToErrorLog(): void
     {

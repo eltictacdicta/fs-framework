@@ -28,11 +28,16 @@ use PHPUnit\Framework\TestCase;
  *
  * L1 enforces the architectural rule that admin_user.php must read all
  * HTTP inputs through the Symfony Request object ($this->request->query
- * and $this->request->request) instead of the raw $_GET / $_POST
- * superglobals. This brings admin_user into line with the rest of the
- * core controllers (login.php, force_password_change.php,
- * password_reset.php, admin_email.php, admin_system_branding.php,
- * admin_stealth.php, admin_home.php) which already migrated.
+ * and $this->request->request) instead of either:
+ *   - raw $_GET / $_POST superglobals, OR
+ *   - the legacy filter_input(INPUT_GET, ...) / filter_input(INPUT_POST, ...)
+ *     helper (used in fs_login.php pre-migration; the rest of the core
+ *     controllers no longer use it).
+ *
+ * This brings admin_user into line with the rest of the core controllers
+ * (login.php, force_password_change.php, password_reset.php,
+ * admin_email.php, admin_system_branding.php, admin_stealth.php,
+ * admin_home.php) which already migrated.
  *
  * Why static source analysis (instead of behaviour tests):
  *   - The fs_controller base constructor is heavy: it boots a database
@@ -45,19 +50,20 @@ use PHPUnit\Framework\TestCase;
  *     for the str_shuffle → random_bytes migration.
  *
  * Scenarios covered (per spec 3.5.3):
- *   L1.1 — snick comes from $this->request->query, not $_GET
+ *   L1.1 — snick comes from $this->request->query, not $_GET/filter_input
  *   L1.2 — POST mutations read from $this->request->request->has()
+ *   L1.2+ — POST values read from $this->request->request->get()
  */
 final class AdminUserInputAccessTest extends TestCase
 {
     private const TARGET_FILE = __DIR__ . '/../../controller/admin_user.php';
 
     /**
-     * L1.1 — no direct $_GET[ reads.
+     * L1.1 — no direct $_GET[...] reads AND no filter_input(INPUT_GET, ...).
      *
-     * Covers lines 63-64 (snick lookup). Allowed: filter_input (none
-     * expected after migration), $_SERVER (legit for IP). Not allowed:
-     * $_GET[...] in any form.
+     * Covers the snick lookup and any future GET parameter access.
+     * Allowed: $_SERVER (legit for IP). Not allowed: $_GET[...] in any
+     * form, nor the legacy filter_input(INPUT_GET, ...) helper.
      */
     public function testNoDirectGetSuperglobalReadsInAdminUser(): void
     {
@@ -66,17 +72,25 @@ final class AdminUserInputAccessTest extends TestCase
 
         $content = file_get_contents(self::TARGET_FILE);
 
-        $this->assertStringNotContainsString('$_GET[', $content,
-            'admin_user.php no debe leer $_GET directamente. '
-            . 'Usar $this->request->query->get() / ->has() para mantener '
-            . 'consistencia con login.php, admin_email.php, etc.');
+        $superGlobal = preg_match_all('/\$_GET\[/', $content);
+        $filterInput = preg_match_all('/filter_input\s*\(\s*INPUT_GET\s*,/', $content);
+
+        $total = $superGlobal + $filterInput;
+        $this->assertSame(0, $total,
+            'admin_user.php no debe leer GET params via $_GET[...] '
+            . '(' . $superGlobal . ' ocurrencias) ni via '
+            . 'filter_input(INPUT_GET, ...) (' . $filterInput . ' ocurrencias). '
+            . 'Usar $this->request->query->get() / ->has(). '
+            . 'Total: ' . $total . ' ocurrencias.'
+        );
     }
 
     /**
-     * L1.2 — no isset($_POST[ existence checks.
+     * L1.2 — no isset($_POST[ existence checks AND no filter_input(INPUT_POST, ...).
      *
-     * Covers lines 79, 84, 324, 328, 340, 345, 349 (seven isset
-     * superglobal checks). All must become $this->request->request->has().
+     * All POST parameter presence checks must use
+     * $this->request->request->has(), not the legacy isset() or
+     * filter_input(INPUT_POST, ...) helpers.
      */
     public function testPostExistenceChecksUseRequest(): void
     {
@@ -85,19 +99,27 @@ final class AdminUserInputAccessTest extends TestCase
 
         $content = file_get_contents(self::TARGET_FILE);
 
-        $matches = preg_match_all('/isset\s*\(\s*\$_POST\[/', $content);
-        $this->assertSame(0, $matches,
+        $issetPost = preg_match_all('/isset\s*\(\s*\$_POST\[/', $content);
+        $filterInput = preg_match_all('/filter_input\s*\(\s*INPUT_POST\s*,/', $content);
+
+        $total = $issetPost + $filterInput;
+        $this->assertSame(0, $total,
             'admin_user.php debe usar $this->request->request->has() '
-            . 'en lugar de isset($_POST[...]). '
-            . 'Encontradas: ' . $matches . ' ocurrencias.');
+            . 'en lugar de isset($_POST[...]) (' . $issetPost . ' ocurrencias) '
+            . 'o filter_input(INPUT_POST, ...) (' . $filterInput . ' ocurrencias). '
+            . 'Total: ' . $total . ' ocurrencias.'
+        );
     }
 
     /**
-     * L1.2 (extension) — no direct $_POST[ value reads.
+     * L1.2+ — no direct $_POST[ value reads.
      *
-     * Covers line 330 (`if ($_POST['scodagente'] != '')`), which is
-     * NOT an isset check but a direct value comparison. The migration
-     * must use $this->request->request->get() and then compare to ''.
+     * Direct $_POST[...] reads in conditionals or assignments. (The
+     * filter_input case is covered by testPostExistenceChecksUseRequest
+     * since filter_input always reads both presence and value at once.)
+     *
+     * Allowed: the result of a $this->request->request->get() call.
+     * Not allowed: `if ($_POST[...] ...)`, `= $_POST[...]`, etc.
      */
     public function testNoDirectPostValueReadsInAdminUser(): void
     {

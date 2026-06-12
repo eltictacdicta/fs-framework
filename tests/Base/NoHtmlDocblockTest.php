@@ -7,17 +7,25 @@
  *
  * Decisión de diseño (spec H1, sección 3.3.3, opción A): mantener el
  * comportamiento actual (convertir ") y corregir el docblock.
+ *
+ * NOTA: fs_model es una clase legacy en base/fs_model.php (no PSR-4).
+ * tests/bootstrap.php ya la carga vía require_once, así que NO
+ * necesitamos un require_once explícito acá.
  */
 
 declare(strict_types=1);
 
 namespace Tests\Base;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(\fs_model::class)]
 final class NoHtmlDocblockTest extends TestCase
 {
-    public function testDocblockStatesDoubleQuoteIsConverted(): void
+    #[Test]
+    public function docblockStatesDoubleQuoteIsConverted(): void
     {
         $reflection = new \ReflectionMethod(\fs_model::class, 'no_html');
         $docComment = $reflection->getDocComment();
@@ -37,7 +45,8 @@ final class NoHtmlDocblockTest extends TestCase
             'El docblock debe afirmar que las comillas dobles se convierten');
     }
 
-    public function testNoHtmlCodeConvertsDoubleQuote(): void
+    #[Test]
+    public function noHtmlCodeConvertsDoubleQuote(): void
     {
         // El código SÍ convierte " → &quot; (debe mantenerse)
         $model = new class extends \fs_model {
