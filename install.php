@@ -234,7 +234,7 @@ function test_postgresql(&$errors, &$errors2)
 
 function random_string($length = 20)
 {
-    return substr(str_shuffle("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"), 0, $length);
+    return substr(bin2hex(random_bytes((int) ceil($length / 2))), 0, $length);
 }
 
 function random_secret_key(int $length = 64): string
