@@ -8,26 +8,7 @@ Este documento detalla las mejoras implementadas y propuestas para reducir dupli
 
 ## ✅ MEJORAS IMPLEMENTADAS
 
-### 1. Consolidación de Cache (`src/Core/Cache.php`)
-
-**Antes**: Wrapper simple sobre `fs_cache` legacy (87 líneas redundantes)
-**Después**: Facade estática sobre `CacheManager` (Symfony Cache)
-
-```php
-// Uso simple
-Cache::set('key', $value, 300);
-$value = Cache::get('key', 'default');
-
-// Con callback (nuevo)
-$value = Cache::remember('key', fn() => expensiveOperation(), 600);
-```
-
-**Beneficios**:
-- Elimina duplicación con `CacheManager`
-- API estática simple para casos comunes
-- `CacheManager` para operaciones avanzadas
-
-### 2. Trait CRUD para Modelos (`base/fs_model_crud_trait.php`)
+### 1. Trait CRUD para Modelos (`base/fs_model_crud_trait.php`)
 
 **Problema**: Código repetitivo en todos los modelos (exists, save, delete, get, all)
 **Solución**: Trait reutilizable que genera SQL automáticamente
@@ -54,7 +35,7 @@ class mi_modelo extends fs_model {
 - Métodos adicionales: `findBy()`, `findOneBy()`, `count()`, `toArray()`
 - Compatible con modelos existentes (opt-in)
 
-### 3. SessionManager con Symfony (`src/Security/SessionManager.php`)
+### 2. SessionManager con Symfony (`src/Security/SessionManager.php`)
 
 **Antes**: Implementación custom con `$_SESSION` directo
 **Después**: Usa Symfony HttpFoundation Session internamente
@@ -81,15 +62,7 @@ $valid = $session->verifyCsrfToken($token);
 - Configuración de cookies más robusta
 - Mantiene compatibilidad con cookies legacy
 
-### 4. Eliminación de Controlador Duplicado
-
-**Antes**: `Controller.php` duplicado en:
-- `src/FacturaScripts/Core/Base/Controller.php` (511 líneas)
-- `plugins/facturascripts_support/Core/Base/Controller.php` (511 líneas)
-
-**Después**: Solo existe en `src/FacturaScripts/Core/Base/Controller.php`
-
-### 5. Extracción del dominio de clientes (`clientes_core`)
+### 3. Extracción del dominio de clientes (`clientes_core`)
 
 **Antes**: Modelos de cliente, dirección y grupo embebidos en `facturacion_base`
 **Después**: Plugin independiente `clientes_core` con:
@@ -105,7 +78,7 @@ $valid = $session->verifyCsrfToken($token);
 - Dominio de terceros aislado de integraciones contables
 - Plugin modernizado desde el inicio (Twig nativo, YAML, sin RainTPL)
 
-### 6. Sistema de Backup de Plugins
+### 4. Sistema de Backup de Plugins
 
 Backup automático al sobrescribir plugins con restore desde el admin:
 - `fs_plugin_manager`: `has_backup()`, `create_backup()`, `restore_backup()`
@@ -116,7 +89,7 @@ Backup automático al sobrescribir plugins con restore desde el admin:
 
 ## 🟡 MEJORAS PROPUESTAS (Pendientes)
 
-### 7. Migrar Modelos a usar el Trait CRUD
+### 5. Migrar Modelos a usar el Trait CRUD
 
 **Esfuerzo**: Medio
 **Impacto**: Alto
@@ -148,7 +121,7 @@ class empresa extends fs_model {
 }
 ```
 
-### 8. Unificar fs_session_manager con SessionManager
+### 6. Unificar fs_session_manager con SessionManager
 
 **Esfuerzo**: Bajo
 **Impacto**: Medio
@@ -165,7 +138,7 @@ class fs_session_manager {
 }
 ```
 
-### 9. Integrar Symfony Validator en Modelos
+### 7. Integrar Symfony Validator en Modelos
 
 **Estado**: IMPLEMENTADO
 **Esfuerzo**: Alto
@@ -191,7 +164,7 @@ class cliente extends fs_model {
 }
 ```
 
-### 10. Query Builder Integrado con Modelos
+### 8. Query Builder Integrado con Modelos
 
 **Esfuerzo**: Medio
 **Impacto**: Alto
@@ -213,7 +186,7 @@ $clientes = cliente::query()
     ->get();
 ```
 
-### 11. Event Dispatcher para Hooks de Modelo
+### 9. Event Dispatcher para Hooks de Modelo
 
 **Estado**: IMPLEMENTADO
 **Esfuerzo**: Medio
@@ -252,10 +225,8 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 
 | Mejora | Esfuerzo | Impacto | Riesgo | Prioridad |
 |--------|----------|---------|--------|-----------|
-| Cache consolidado | ✅ Hecho | Alto | Bajo | - |
 | Trait CRUD | ✅ Hecho | Alto | Bajo | - |
 | SessionManager Symfony | ✅ Hecho | Medio | Bajo | - |
-| Eliminar duplicados | ✅ Hecho | Bajo | Bajo | - |
 | Extracción clientes_core | ✅ Hecho | Alto | Bajo | - |
 | Backup de plugins | ✅ Hecho | Medio | Bajo | - |
 | Migrar modelos a trait | Medio | Alto | Bajo | 🔴 Alta |
@@ -269,11 +240,9 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 ## 🚀 Plan de Migración Sugerido
 
 ### Fase 1: Consolidación (1-2 días)
-1. ✅ Consolidar Cache
-2. ✅ Crear trait CRUD
-3. ✅ SessionManager con Symfony
-4. ✅ Eliminar duplicados
-5. Unificar fs_session_manager → SessionManager
+1. ✅ Crear trait CRUD
+2. ✅ SessionManager con Symfony
+3. Unificar fs_session_manager → SessionManager
 
 ### Fase 2: Migración de Modelos (1 semana)
 1. Migrar modelos core (fs_user, fs_page, fs_access)
@@ -298,12 +267,6 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 - `base/fs_model_crud_trait.php` - Trait CRUD genérico
 - `src/Security/SessionManager.php` - Session con Symfony
 - `docs/MEJORAS_PROPUESTAS.md` - Este documento
-
-### Modificados
-- `src/Core/Cache.php` - Ahora facade sobre CacheManager
-
-### Eliminados
-- `plugins/facturascripts_support/Core/Base/Controller.php` - Duplicado
 
 ---
 

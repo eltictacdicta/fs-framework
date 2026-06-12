@@ -2,7 +2,7 @@
 
 Fork modernizado de FacturaScripts 2017 con integración Symfony 7.4, motor Twig 3 y arquitectura **Symfony-first** con compatibilidad legacy controlada.
 
-**Versión actual:** ver [`VERSION`](VERSION) (v0.12.x)
+**Versión actual:** ver [`VERSION`](VERSION) (v0.16.2)
 
 Software libre bajo licencia GNU/LGPL.
 
@@ -341,7 +341,7 @@ ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml  # suite ai
 
 Los tests de plugins viven en `plugins/<PluginName>/tests/` y se descubren automáticamente desde el `phpunit.xml` raíz.
 
-Cobertura actual: **400+ tests** en core, seguridad, caché, traducciones y plugins versionados.
+Cobertura actual: **500+ tests** en core, seguridad, caché, traducciones y plugins versionados.
 
 ## Documentación adicional
 

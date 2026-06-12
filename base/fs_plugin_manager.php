@@ -33,6 +33,7 @@ class fs_plugin_manager
     private const FS_VAR_MODEL = 'model/fs_var.php';
     private const TMP_PLUGIN_UPLOAD_PATH = '/tmp/plugin_upload_temp/';
     private const TMP_PLUGIN_DETECT_PATH = '/tmp/plugin_detect_temp/';
+    private const AUDIT_LOG_DIR = '/tmp/audit/';
     private const AUDIT_LOG_FILE = 'plugin_audit.log';
 
     /**
@@ -122,8 +123,11 @@ class fs_plugin_manager
             'context' => $context,
         ];
 
-        $tmpDirName = trim((string) FS_TMP_NAME, '/\\');
-        $logDir = FS_FOLDER . DIRECTORY_SEPARATOR . ($tmpDirName === '' ? 'tmp' : $tmpDirName);
+        // Audit log always lands in a stable, gitignored location under tmp/audit/.
+        // Do NOT use FS_TMP_NAME here: that constant holds a per-session random
+        // token, and writing the audit under it scatters plugin_audit.log across
+        // sibling folders of tmp/ (e.g. the project root) on every rotation.
+        $logDir = FS_FOLDER . self::AUDIT_LOG_DIR;
         if (!is_dir($logDir) && !mkdir($logDir, 0750, true) && !is_dir($logDir)) {
             error_log('fs_plugin_manager: Cannot create audit log directory: ' . $logDir);
             return;
