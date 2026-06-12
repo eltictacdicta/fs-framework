@@ -202,13 +202,12 @@ abstract class fs_model
      * Esta función convierte:
      * < en &lt;
      * > en &gt;
+     * " en &quot;
      * ' en &#39;
-     * 
-     * Las comillas dobles (") NO se convierten porque no afectan a las consultas
-     * SQL (MySQL usa comillas simples), var2str()/escape_string() ya protegen 
-     * contra SQL injection, y Twig auto-escapa en las vistas.
-     * Convertirlas causaba corrupción de datos (" → &quot;) en importaciones 
-     * y saves repetidos.
+     *
+     * Las comillas dobles se convierten por simetría con las simples
+     * y para preservar el contrato documentado. var2str()/escape_string()
+     * siguen siendo la única protección contra SQL injection.
      * @param string $txt
      * @return string
      */
