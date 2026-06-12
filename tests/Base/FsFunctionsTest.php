@@ -132,10 +132,15 @@ class FsFunctionsTest extends TestCase
 
     public function testFsGetIpReturnsFirstValidForwardedIp(): void
     {
+        // X-Forwarded-For debe ser IGNORADO cuando no hay proxies confiables
+        // (FS_TRUSTED_PROXIES no configurado). El bug que este test codificaba
+        // (devolver 203.0.113.10) permitía a un atacante falsificar su IP en
+        // los logs de auditoría. Ver tests/Security/LoginThrottleProxyTest.php
+        // para el escenario completo N2.2/N3.1.
         $_SERVER['HTTP_X_FORWARDED_FOR'] = 'bad-ip, 203.0.113.10, 198.51.100.20';
         $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 
-        $this->assertSame('203.0.113.10', fs_get_ip());
+        $this->assertSame('127.0.0.1', fs_get_ip());
 
         unset($_SERVER['HTTP_X_FORWARDED_FOR'], $_SERVER['REMOTE_ADDR']);
     }

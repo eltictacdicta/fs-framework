@@ -140,15 +140,25 @@ class LoginThrottle
 
     private static function getClientIp(): string
     {
-        if (function_exists('fs_get_ip')) {
-            return fs_get_ip();
+        // Delegar a Symfony Request que respeta FS_TRUSTED_PROXIES
+        // (configurado en TrustedProxyConfigurator al boot del Kernel).
+        // Fallback a $_SERVER['REMOTE_ADDR'] si Symfony no está disponible.
+        if (class_exists(\Symfony\Component\HttpFoundation\Request::class)) {
+            try {
+                $request = \Symfony\Component\HttpFoundation\Request::createFromGlobals();
+                $ip = $request->getClientIp();
+                if ($ip !== null && $ip !== '') {
+                    return $ip;
+                }
+            } catch (\Throwable) {
+                // Fallar silenciosamente al fallback legacy
+            }
         }
 
-        foreach (['HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP', 'REMOTE_ADDR'] as $header) {
-            $ip = $_SERVER[$header] ?? '';
-            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
+        // Fallback de seguridad: solo REMOTE_ADDR (no headers forwarded)
+        $remote = $_SERVER['REMOTE_ADDR'] ?? '';
+        if (filter_var($remote, FILTER_VALIDATE_IP)) {
+            return $remote;
         }
 
         return '127.0.0.1';

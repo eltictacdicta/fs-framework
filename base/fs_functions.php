@@ -633,22 +633,31 @@ function fs_fix_html($txt)
 
 /**
  * Devuelve la IP del usuario.
+ *
+ * Delega en Symfony Request::getClientIp() para respetar la configuración
+ * FS_TRUSTED_PROXIES (aplicada por TrustedProxyConfigurator al boot del Kernel).
+ * Solo se cae al REMOTE_ADDR si Symfony no está disponible o no devuelve
+ * resultado: NUNCA se leen headers forwarded directamente sin proxy confiable.
+ *
  * @return string
  */
 function fs_get_ip()
 {
-    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $field) {
-        if (isset($_SERVER[$field])) {
-            foreach (explode(',', (string) $_SERVER[$field]) as $candidate) {
-                $ip = trim($candidate);
-                if (filter_var($ip, FILTER_VALIDATE_IP) !== false) {
-                    return $ip;
-                }
+    // Delegar a Symfony Request que respeta FS_TRUSTED_PROXIES.
+    if (class_exists(\Symfony\Component\HttpFoundation\Request::class)) {
+        try {
+            $ip = \Symfony\Component\HttpFoundation\Request::createFromGlobals()->getClientIp();
+            if (is_string($ip) && $ip !== '') {
+                return $ip;
             }
+        } catch (\Throwable) {
+            // Fallback abajo
         }
     }
 
-    return '';
+    // Fallback: solo REMOTE_ADDR (no headers forwarded)
+    $remote = $_SERVER['REMOTE_ADDR'] ?? '';
+    return filter_var($remote, FILTER_VALIDATE_IP) ? $remote : '';
 }
 
 /**
