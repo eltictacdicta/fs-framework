@@ -373,7 +373,6 @@ class NativeSessionCsrfStorage implements TokenStorageInterface
     {
         $this->ensureSession();
         $token = (string) ($_SESSION[self::SESSION_KEY][$tokenId] ?? '');
-        error_log(sprintf('[NativeCsrf] getToken(%s) → exists=%s len=%d', $tokenId, isset($_SESSION['_csrf'][$tokenId]) ? 'yes' : 'NO', strlen($token)));
         return $token;
     }
 
@@ -381,7 +380,6 @@ class NativeSessionCsrfStorage implements TokenStorageInterface
     {
         $this->ensureSession();
         $_SESSION[self::SESSION_KEY][$tokenId] = $token;
-        error_log(sprintf('[NativeCsrf] setToken(%s) → _SESSION[_csrf]=%s', $tokenId, isset($_SESSION['_csrf'][$tokenId]) ? 'yes' : 'NO'));
     }
 
     public function hasToken(string $tokenId): bool
