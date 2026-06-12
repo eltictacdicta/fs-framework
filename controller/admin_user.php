@@ -60,8 +60,9 @@ class admin_user extends fs_controller
         $this->allow_modify = $this->user->admin || $this->user->have_access_to(__CLASS__);
 
         $this->suser = FALSE;
-        if (isset($_GET['snick'])) {
-            $this->suser = $this->user->get(filter_input(INPUT_GET, 'snick'));
+        $snick = $this->request->query->get('snick');
+        if ($snick !== null && $snick !== '') {
+            $this->suser = $this->user->get((string) $snick);
         }
 
         if ($this->suser) {
@@ -76,12 +77,12 @@ class admin_user extends fs_controller
                 $this->allow_delete = FALSE;
             }
 
-            if (isset($_POST['nnombre'])) {
+            if ($this->request->request->has('nnombre')) {
                 $this->nuevo_empleado();
             } else if ($this->request->getMethod() === 'POST') {
                 $this->modificar_user();
 
-                if (isset($_POST['roles_form_present'])) {
+                if ($this->request->request->has('roles_form_present')) {
                     $this->aplicar_roles();
                 }
             } else if (fs_filter_input_req('senabled')) {
@@ -321,13 +322,14 @@ class admin_user extends fs_controller
                 return;
             }
 
-            if (isset($_POST['email'])) {
+            if ($this->request->request->has('email')) {
                 $this->suser->email = strtolower(filter_input(INPUT_POST, 'email'));
             }
 
-            if (isset($_POST['scodagente'])) {
+            if ($this->request->request->has('scodagente')) {
                 $this->suser->codagente = NULL;
-                if ($_POST['scodagente'] != '') {
+                $scodagente = (string) $this->request->request->get('scodagente');
+                if ($scodagente !== '') {
                     $this->suser->codagente = filter_input(INPUT_POST, 'scodagente');
                 }
             }
@@ -337,16 +339,16 @@ class admin_user extends fs_controller
              */
             if ($this->user->admin) {
                 if ($this->user->nick != $this->suser->nick) {
-                    $this->suser->admin = isset($_POST['sadmin']);
+                    $this->suser->admin = $this->request->request->has('sadmin');
                 }
             }
 
             $this->suser->fs_page = NULL;
-            if (isset($_POST['udpage'])) {
+            if ($this->request->request->has('udpage')) {
                 $this->suser->fs_page = filter_input(INPUT_POST, 'udpage');
             }
 
-            if (isset($_POST['css'])) {
+            if ($this->request->request->has('css')) {
                 $this->suser->css = filter_input(INPUT_POST, 'css');
             }
 
