@@ -272,6 +272,12 @@ class LoginSuperglobalsTest extends TestCase
     #[Test]
     public function databaseSwitchReadsFromRequest(): void
     {
+        // This test exercises switchDatabaseIfRequested() across four scenarios
+        // (POST/GET match, POST priority, no cdb). Each call is expected to
+        // complete without throwing — the assertion is implicit in reaching
+        // the end of the method.
+        $this->expectNotToPerformAssertions();
+
         // Enable multi_db so the method doesn't return early
         $ref = new ReflectionClass(\login::class);
         $multiDbProp = $ref->getProperty('multi_db');
@@ -304,6 +310,5 @@ class LoginSuperglobalsTest extends TestCase
         $this->callPrivateMethod('switchDatabaseIfRequested');
 
         // All scenarios completed without exception → cdb is read from Request, not superglobals
-        $this->assertTrue(true);
     }
 }

@@ -108,25 +108,4 @@ final class FirstLoginForcePasswordTest extends TestCase
 
         self::assertNull($_SESSION['force_password_change'] ?? null);
     }
-
-    #[Test]
-    public function sessionFlagIsReadableByInterceptor(): void
-    {
-        $_SESSION['force_password_change'] = true;
-
-        // The interceptor in fs_controller checks $_SESSION['force_password_change'] === true
-        self::assertTrue(
-            isset($_SESSION['force_password_change']) && $_SESSION['force_password_change'] === true
-        );
-    }
-
-    #[Test]
-    public function noSessionFlagIsNotReadableByInterceptor(): void
-    {
-        unset($_SESSION['force_password_change']);
-
-        self::assertFalse(
-            isset($_SESSION['force_password_change']) && $_SESSION['force_password_change'] === true
-        );
-    }
 }

@@ -119,7 +119,6 @@ final class CsrfStorageNoErrorLogTest extends TestCase
         try {
             $token = CsrfManager::generateToken('fs_form');
 
-            $this->assertIsString($token, 'generateToken() debe retornar string.');
             $this->assertNotSame('', $token, 'generateToken() no debe retornar string vacío.');
 
             $this->assertTrue(

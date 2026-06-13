@@ -80,7 +80,6 @@ class FsPluginManagerAuditLogTest extends TestCase
                 @unlink($this->auditFile);
             }
         } else {
-            // @phpstan-ignore-next-line
             @file_put_contents($this->auditFile, $this->auditFileSnapshot, LOCK_EX);
         }
 
