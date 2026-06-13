@@ -32,6 +32,8 @@ class fs_plugin_downloader
     private const DEFAULT_TIMEOUT = 60;
     private const MAX_REDIRECTS = 5;
     private const HASH_ALGORITHM = 'sha256';
+    private const AUDIT_LOG_DIR = '/tmp/audit/';
+    private const AUDIT_LOG_FILE = 'download_audit.log';
 
     private static ?HttpClientInterface $httpClient = null;
 
@@ -269,13 +271,30 @@ class fs_plugin_downloader
             'context' => $context,
         ];
 
-        $logDir = defined('FS_FOLDER') ? FS_FOLDER . '/tmp/' : sys_get_temp_dir() . '/';
-        $logFile = $logDir . (defined('FS_TMP_NAME') ? FS_TMP_NAME : '') . 'download_audit.log';
+        // Audit log lands in a stable, gitignored location under tmp/audit/.
+        // Do NOT use FS_TMP_NAME here: that constant holds a per-session random
+        // token, and writing the audit under it scatters download_audit.log
+        // across sibling folders of tmp/ (e.g. the project root) on every
+        // rotation. Same convention as fs_plugin_manager::auditLog().
+        $baseDir = defined('FS_FOLDER') ? FS_FOLDER : sys_get_temp_dir();
+        $logDir = $baseDir . self::AUDIT_LOG_DIR;
+        if (!is_dir($logDir) && !mkdir($logDir, 0750, true) && !is_dir($logDir)) {
+            error_log('fs_plugin_downloader: Cannot create audit log directory: ' . $logDir);
+            return;
+        }
 
-        file_put_contents(
-            $logFile,
-            json_encode($logEntry) . PHP_EOL,
-            FILE_APPEND | LOCK_EX
-        );
+        $logFile = $logDir . DIRECTORY_SEPARATOR . self::AUDIT_LOG_FILE;
+        $payload = json_encode($logEntry);
+        if ($payload === false || json_last_error() !== JSON_ERROR_NONE) {
+            error_log(
+                'fs_plugin_downloader: JSON encode failed for audit log: '
+                . json_last_error_msg()
+            );
+            return;
+        }
+
+        if (file_put_contents($logFile, $payload . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+            error_log('fs_plugin_downloader: Cannot write audit log file: ' . $logFile);
+        }
     }
 }
