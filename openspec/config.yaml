@@ -1,35 +1,36 @@
 # OpenSpec — fs-framework
 # Initialized: 2026-05-29 by sdd-init
 # Re-initialized: 2026-06-10 by sdd-init
+# Re-initialized: 2026-06-18 by sdd-init (active change: unificar-exportador-importador-excel-sap)
 
 context: >
   PHP 8.2+/8.3 ERP/accounting framework (fork of FacturaScripts 2017).
   Symfony 7.4 integration with legacy base/ + modern src/ split.
   DDEV required for all PHP/Composer/PHPUnit commands.
   Twig 3 templates, AdminLTE theme. Plugin architecture with PSR-4 autoloading.
-  Version: 0.14.8. Production stable.
+  Version: 0.17.0. Production stable.
 
 strict_tdd: true
-persistence: hybrid
+persistence: openspec
 
 testing:
   runner: ddev exec php vendor/bin/phpunit
   framework: PHPUnit 11 (symfony/phpunit-bridge)
   config: phpunit.xml
   bootstrap: tests/bootstrap.php
-  test_files_core: 65
-  test_files_plugin: 23
-  test_files_total: 88
+  test_files_core: 75
+  test_files_plugin: 42
+  test_files_total: 117
   suites:
     - name: Base
       dir: tests/Base
-      files: 13
+      files: 19
     - name: Core
       dir: tests/Core
-      files: 8
+      files: 9
     - name: Security
       dir: tests/Security
-      files: 29
+      files: 31
     - name: Traits
       dir: tests/Traits
       files: 1
@@ -41,9 +42,8 @@ testing:
       files: 2
     - name: Plugins
       dir: "plugins/*/tests/**/*Test.php"
-      files: 23
+      files: 42
       isolated_suites:
-        - plugins/api_base/phpunit.xml
         - plugins/clientes_core/phpunit.xml
         - plugins/legacy_support/phpunit.xml
         - plugins/system_updater/phpunit.xml
@@ -54,6 +54,13 @@ testing:
     - tests/Form (1 file)
     - tests/Service (2 files)
     - tests/Translation (1 file)
+  plugin_test_distribution:
+    - business_data: 1
+    - catalogo_core: 23
+    - clientes_core: 4
+    - legacy_support: 2
+    - system_updater: 6
+    - system_updater_back: 6
   unit: true
   integration: true
   e2e: false
@@ -70,3 +77,10 @@ phase_rules:
   apply: implement tasks, run tests after each
   verify: execute full test suite, confirm spec compliance
   archive: sync delta specs, archive change
+  apply:
+    tdd: true
+    test_command: ddev exec php vendor/bin/phpunit
+  verify:
+    test_command: ddev exec php vendor/bin/phpunit
+    build_command: ddev exec composer install
+    coverage_threshold: 0
