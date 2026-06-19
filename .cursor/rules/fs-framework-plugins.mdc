@@ -440,6 +440,77 @@ function mi_plugin_portal_section() {
 - El contenido HTML se renderiza directamente — sanitizar si incluye datos dinámicos
 - Ver `plugins/hola_mundo/` como ejemplo mínimo funcional
 
+## OpenSpec del Plugin (SDD propio)
+
+> **Regla arquitectónica**: el código del core no debe contener restos de
+> los plugins. Cada plugin es dueño de su propio ciclo de vida SDD. Ver
+> `AGENTS.md → "OpenSpec per Plugin (SDD ownership)"` para la regla
+> canónica y la matriz de routing. Esta sección es la **guía operativa**
+> de Cursor.
+
+### Estructura típica
+
+```
+plugins/MiPlugin/openspec/
+├── config.yaml                # ownership: plugin-local; change_root; archive_root
+├── specs/                     # fuente de verdad de specs del plugin
+│   └── {domain}/spec.md
+└── changes/
+    ├── {name}/                # cambios activos
+    │   ├── specs/{domain}/spec.md   (delta)
+    │   ├── tasks.md
+    │   └── verify-report.md
+    └── archive/               # cambios cerrados
+        └── YYYY-MM-DD-{name}/
+            ├── specs/...
+            ├── tasks.md
+            ├── verify-report.md
+            └── archive-report.md
+```
+
+### Config obligatorio (`plugins/MiPlugin/openspec/config.yaml`)
+
+```yaml
+ownership: plugin-local
+change_root: plugins/MiPlugin/openspec/changes/{name}/
+archive_root: plugins/MiPlugin/openspec/changes/archive/{YYYY-MM-DD}-{name}/
+```
+
+Ver `plugins/tarifario/openspec/config.yaml` como referencia canónica con
+ejemplo completo (incluye bloque de comentarios, context, testing, phase_rules).
+
+### Routing Core vs Plugin
+
+| Si el change... | Ubicación del SDD |
+|---|---|
+| Solo toca `plugins/MiPlugin/` | `plugins/MiPlugin/openspec/` (este skill) |
+| Toca `base/`, `src/`, `controller/`, `model/` raíz, o convenciones cross-plugin | `openspec/` (core) |
+| Híbrido | Default al plugin si el plugin es el beneficiario principal |
+
+**Anti-patrón**: ~~crear entry en `openspec/changes/{name}/` (core) para
+trackear un change que solo toca el plugin~~. Borralo, contamina el core.
+
+### Limitación del Dispatcher
+
+`gentle-ai sdd-status` solo conoce el `openspec/` raíz. Para plugin SDDs
+el reporte de status va a ser "blocked" o vacío — **es esperado, no es un
+problema real**. El plugin es su propio openspec y se archiva de forma
+independiente.
+
+Para archivar un plugin SDD, pasale al skill `sdd-archive` (o al
+sub-agent que corresponda) el path completo del plugin como contexto
+explícito. No intentes crear entradas en el core para "engañar" al
+dispatcher.
+
+### Cuándo cargar el skill `fsframework-plugin-sdd`
+
+Cargá este skill (instalado en `.opencode/skills/` y mirror en
+`.cursor/skills/`) cuando:
+- Inicies un nuevo SDD sobre un plugin existente
+- Decidas si un change híbrido va al plugin o al core
+- Vayas a archivar, verificar o explorar un plugin SDD
+- Tengas dudas sobre dónde van los artefactos de un change de plugin
+
 ## Checklist de Calidad antes de Publicar
 
 ### Seguridad

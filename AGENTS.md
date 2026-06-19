@@ -1452,6 +1452,65 @@ When extracting a shared domain (e.g., clients, products) into its own plugin:
 3. Keep domain models focused — avoid mixing external integrations (accounting, cross-plugin relations) into core domain models
 4. Consumers (`facturacion_base`, etc.) become dependents of the shared plugin, not the other way around
 
+### OpenSpec per Plugin (SDD ownership)
+
+> **Regla arquitectónica del proyecto**: el código del core no debe contener
+> restos de los plugins que se van implementando. Cada plugin es dueño de su
+> propio ciclo de vida SDD.
+
+**Ubicaciones canónicas**:
+
+| Tipo de change | Ubicación del SDD completo | Ejemplos |
+|---|---|---|
+| Change **interno al plugin** (toca solo `plugins/{name}/`) | `plugins/{name}/openspec/changes/{name}/` + `plugins/{name}/openspec/specs/` | Nuevo modelo en tarifario, fix de import, refactor interno |
+| Change **del core** (toca `base/`, `src/`, `controller/`, `model/` raíz, o convenciones que cruzan plugins) | `openspec/changes/{name}/` + `openspec/specs/` | Migración de `facturacion_base` a `catalogo_core`, fix de CSRF, refactor del container |
+| Change **híbrido** (toca plugin + core) | El SDD vive donde vive el **beneficiario principal** (default: el plugin). Si el toque a core es incidental, referenciar desde el SDD del plugin. Si el toque a core es la pieza grande, abrir en core y referenciar al plugin. | Plugin nuevo que necesita registrar un servicio en el container del core |
+
+**Regla práctica**: si el change **NO** modifica archivos fuera de
+`plugins/{name}/`, todo el SDD vive en el plugin. El core solo recibe
+cambios cuando el cambio **es** del core.
+
+**Anti-patrón explícito**: ~~crear un `openspec/changes/{name}/` en el
+core para trackear un change que solo toca el plugin~~. Eso contamina el
+core y rompe el aislamiento. El plugin es el dueño; el core ni se entera.
+
+**Config por plugin**: cada plugin con SDD propio debe declarar
+explícitamente su `ownership: plugin-local` en
+`plugins/{name}/openspec/config.yaml`, con `change_root` y
+`archive_root` apuntando a su propio árbol. Ver
+`plugins/tarifario/openspec/config.yaml` como referencia.
+
+**Archivos típicos de un plugin con OpenSpec propio**:
+```
+plugins/{name}/openspec/
+├── config.yaml          # ownership, scope, change_root, archive_root
+├── specs/               # fuente de verdad de specs del plugin
+│   └── {domain}/spec.md
+└── changes/
+    ├── {name}/          # cambios activos
+    │   ├── specs/{domain}/spec.md  (delta)
+    │   ├── tasks.md
+    │   └── verify-report.md
+    └── archive/         # cambios cerrados
+        └── YYYY-MM-DD-{name}/
+            ├── specs/...
+            ├── tasks.md
+            ├── verify-report.md
+            └── archive-report.md
+```
+
+> **Nota sobre el dispatcher nativo**: `gentle-ai sdd-status` actualmente
+> solo conoce el `openspec/` raíz. Para plugin SDDs hay que usar
+> herramientas que entiendan el multi-openspec, o archivar manualmente
+> con el skill `sdd-archive` pasándole el path completo del plugin.
+
+> **Skill dedicado**: cuando se trabaje SDD sobre un plugin (cualquier
+> fase: propose, spec, tasks, apply, verify, archive), cargar el skill
+> `fsframework-plugin-sdd` (instalado en `.opencode/skills/` y mirror en
+> `.cursor/skills/`). Encapsula la decisión de routing, las paths
+> canónicas, el workflow de archive paralelo y la limitación del
+> dispatcher nativo.
+
 ### Plugin Backup System
 
 `fs_plugin_manager` provides automatic backup and restore when plugins are overwritten:
