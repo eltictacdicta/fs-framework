@@ -492,4 +492,38 @@ class ModelLoadingTest extends TestCase
             'is_object() guard must appear BEFORE the get_class_name() call in url().'
         );
     }
+
+    /**
+     * File-move contract for ventas_clientes.php (fix-batch-4 / v0.17.5).
+     *
+     * Context: ventas_clientes.php has a hard `require_once 'plugins/facturacion_base/extras/fbase_controller.php'`
+     * on line 25, which means the controller extends fbase_controller (a facturacion_base
+     * extension class) and depends on facturacion_base being active. This is the same
+     * cross-plugin coupling pattern that fix batch 1 (v0.17.1) and fix batch 2 (v0.17.2)
+     * resolved by moving coupled controllers back to facturacion_base. The fix-batch-2
+     * audit missed this one because it grepped for `new \\Xxx` patterns, not
+     * `require_once` patterns.
+     *
+     * This test asserts the file is in facturacion_base and NOT in clientes_facturacion,
+     * preventing a future regression where the file gets accidentally re-moved.
+     */
+    public function testVentasClientesIsBackInFacturacionBase(): void
+    {
+        $this->assertFileDoesNotExist(
+            FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_clientes.php',
+            'ventas_clientes.php must NOT live in clientes_facturacion/ — it has a hard require_once to facturacion_base/extras/fbase_controller.php and extends fbase_controller.'
+        );
+        $this->assertFileExists(
+            FS_FOLDER . '/plugins/facturacion_base/controller/ventas_clientes.php',
+            'ventas_clientes.php must live in facturacion_base/ (its parent class fbase_controller lives there).'
+        );
+        $this->assertFileDoesNotExist(
+            FS_FOLDER . '/plugins/clientes_facturacion/view/ventas_clientes.html',
+            'ventas_clientes.html view must travel with the controller — back to facturacion_base/.'
+        );
+        $this->assertFileExists(
+            FS_FOLDER . '/plugins/facturacion_base/view/ventas_clientes.html',
+            'ventas_clientes.html view must live with the controller in facturacion_base/.'
+        );
+    }
 }
