@@ -1,0 +1,63 @@
+# OpenSpec — plugin clientes_facturacion
+# Initialized: 2026-06-20
+
+project: clientes_facturacion-plugin
+scope: plugins/clientes_facturacion/
+parent_project: fs-framework
+parent_openspec: ../../openspec/   # referencia, NO tracker — no crear cambios aquí
+artifact_store: openspec
+
+# =============================================================================
+# OpenSpec per plugin — esta es la ÚNICA ubicación de SDD para el plugin.
+# =============================================================================
+# Regla arquitectónica del proyecto (ver AGENTS.md → "OpenSpec per plugin"):
+#
+#   - Plugin openspec (este archivo): fuente de verdad para TODO SDD del plugin
+#     (proposal, specs, tasks, verify-report, archive-report).
+#
+#   - Core openspec (../../openspec/): SOLO para cambios que tocan código del
+#     core (base/, src/, controller/, model/ raíz, o convenciones que cruzan
+#     múltiples plugins).
+#
+#   - NO crear entradas en el core openspec para cambios 100% internos al
+#     plugin. Mantiene el core limpio y respeta la autonomía del plugin.
+#
+#   - Criterio rápido: si el change NO toca archivos fuera de plugins/clientes_facturacion/,
+#     todo el SDD vive aquí. Si toca algo del core, abrir el SDD en el core
+#     y referenciar al plugin si es necesario.
+# =============================================================================
+
+ownership: plugin-local
+change_root: plugins/clientes_facturacion/openspec/changes/{name}/
+archive_root: plugins/clientes_facturacion/openspec/changes/archive/{YYYY-MM-DD}-{name}/
+
+context: >
+  Plugin de documentos de venta de cliente (facturas, albaranes, pedidos,
+  presupuestos y sus líneas) extraído de facturacion_base. Ya contiene el
+  modelo cliente_facturacion (tabla clientesfacturacion) y la integración
+  comercial de clientes. Es el destino del refactor "extract-sales-docs"
+  y se espera que plugins como tpvmod lo requieran en lugar de facturacion_base.
+  Specs de dominio del plugin viven aquí; referenciar openspec/ del core
+  solo cuando el cambio toque servicios o convenciones transversales del
+  framework.
+
+strict_tdd: true
+
+testing:
+  runner: ddev exec php vendor/bin/phpunit
+  plugin_tests: true
+  plugin_phpunit_config: plugins/clientes_facturacion/phpunit.xml
+  plugin_run_command: ddev exec php vendor/bin/phpunit -c plugins/clientes_facturacion/phpunit.xml
+  linter: ddev exec composer phpstan
+
+phase_rules:
+  proposal: require intent, scope, and approach before spec/design
+  spec: use delta specs under changes/<name>/specs/
+  tasks: break into implementation units with dependencies
+  apply: implement tasks; run root PHPUnit for regression
+  verify: grep audit + phpstan + manual smoke checklist
+  archive: >
+    Sync delta into openspec/specs/ (the plugin's specs/) and move the
+    change dir to changes/archive/YYYY-MM-DD-<name>/. The plugin's own
+    archive/, NOT the parent core's archive/. See AGENTS.md
+    "OpenSpec per plugin" for the full convention.
