@@ -65,8 +65,8 @@ class ventas_clientes extends fbase_controller
             $cliente->codcliente = $_POST['codigo'];
         }
 
-        $cliente->nombre = $_POST['nombre'];
-        $cliente->razonsocial = $_POST['nombre'];
+        $cliente->nombre = $_POST['nombre'] ?? '';
+        $cliente->razonsocial = $_POST['nombre'] ?? '';
         $cliente->tipoidfiscal = $_POST['tipoidfiscal'] ?? FS_CIFNIF;
         $cliente->cifnif = $_POST['cifnif'] ?? '';
         $cliente->personafisica = isset($_POST['personafisica']);
