@@ -61,6 +61,15 @@ class ventas_clientes extends fbase_controller
 
         $cliente = new cliente();
         $cliente->codcliente = $cliente->get_new_codigo();
+
+        /// Skip the save block on GET requests — the form is being
+        /// displayed, not submitted. Running \$cliente->save() on initial
+        /// GET fires cliente::validateFields() with empty fields and
+        /// produces "Nombre de cliente no válido".
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return;
+        }
+
         if (isset($_POST['codigo']) && !empty($_POST['codigo'])) {
             $cliente->codcliente = $_POST['codigo'];
         }
