@@ -15,7 +15,7 @@
 
 # Dependencies (installed via composer/npm)
 /node_modules/
-/vendor/
+# vendor/ se versiona a propósito para despliegues/actualizaciones sin composer install.
 
 # Temporary and cache files
 /tmp/*

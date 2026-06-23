@@ -160,9 +160,14 @@ class ModelLoadingTest extends TestCase
      * so the next refactor cannot silently re-introduce the runtime fatal:
      * `Uncaught Error: Class "albaran_proveedor" not found in
      * plugins/clientes_facturacion/controller/informe_albaranes.php`.
+     *
+     * Skip when `facturacion_base` is not installed on disk. The contract
+     * is only meaningful when the target plugin exists; mirrors the
+     * tarifario skip pattern in catalogo_core.
      */
     public function testInformeAlbaranesIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/informe_albaranes.php',
             'informe_albaranes depends on albaran_proveedor and proveedor '
@@ -177,6 +182,7 @@ class ModelLoadingTest extends TestCase
 
     public function testInformeFacturasIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/informe_facturas.php',
             'informe_facturas depends on factura_proveedor, linea_iva_factura_proveedor '
@@ -191,6 +197,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasFacturaIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_factura.php',
             'ventas_factura is full-coupled to the accounting alta flow '
@@ -206,6 +213,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasFacturaDevolucionIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_factura_devolucion.php',
             'ventas_factura_devolucion is full-coupled to asiento_factura '
@@ -220,6 +228,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasClienteIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_cliente.php',
             'ventas_cliente has mixed compras (proveedor, direccion_proveedor, '
@@ -235,6 +244,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasImprimirIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_imprimir.php',
             'ventas_imprimir is full-coupled to accounting (cuenta_banco_cliente) '
@@ -271,6 +281,7 @@ class ModelLoadingTest extends TestCase
      */
     public function testNuevaVentaIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/nueva_venta.php',
             'nueva_venta depends on catalogo_core (articulo, almacen, fabricante, '
@@ -287,6 +298,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasAgruparAlbaranesIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_agrupar_albaranes.php',
             'ventas_agrupar_albaranes depends on business_data (ejercicio, '
@@ -301,6 +313,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasAlbaranIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_albaran.php',
             'ventas_albaran depends on catalogo_core (articulo, almacen, fabricante, '
@@ -316,6 +329,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasAlbaranesIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_albaranes.php',
             'ventas_albaranes depends on catalogo_core (articulo, almacen) and '
@@ -330,6 +344,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasFacturasIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_facturas.php',
             'ventas_facturas depends on catalogo_core (articulo, almacen) and '
@@ -344,6 +359,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasGrupoIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_grupo.php',
             'ventas_grupo depends on tarifario (tarifa) and business_data (pais); '
@@ -358,6 +374,7 @@ class ModelLoadingTest extends TestCase
 
     public function testVentasTrazabilidadIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_trazabilidad.php',
             'ventas_trazabilidad depends on catalogo_core (articulo, articulo_traza); '
@@ -368,6 +385,21 @@ class ModelLoadingTest extends TestCase
             FS_FOLDER . '/plugins/facturacion_base/controller/ventas_trazabilidad.php',
             'ventas_trazabilidad must be present in facturacion_base/controller/.'
         );
+    }
+
+    /**
+     * Skip the test when the optional `facturacion_base` plugin is not
+     * installed on disk. The "controller must live in facturacion_base"
+     * contract is only meaningful when that plugin is the actual home.
+     */
+    private function skipIfFacturacionBaseMissing(): void
+    {
+        if (!is_dir(FS_FOLDER . '/plugins/facturacion_base')) {
+            $this->markTestSkipped(
+                'facturacion_base plugin is not installed; '
+                . 'controller-coupling contract test skipped'
+            );
+        }
     }
 
     /**
@@ -509,6 +541,7 @@ class ModelLoadingTest extends TestCase
      */
     public function testVentasClientesIsBackInFacturacionBase(): void
     {
+        $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_clientes.php',
             'ventas_clientes.php must NOT live in clientes_facturacion/ — it has a hard require_once to facturacion_base/extras/fbase_controller.php and extends fbase_controller.'

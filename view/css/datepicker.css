@@ -416,3 +416,25 @@
 .ui-datepicker .ui-datepicker-unselectable .ui-state-default {
     color: #ccc;
 }
+
+.ui-datepicker .ui-datepicker-buttonpane {
+    border-top: 1px solid #eee;
+    margin: 8px 0 0 0;
+    padding-top: 8px;
+    text-align: center;
+}
+
+.ui-datepicker .ui-datepicker-buttonpane button {
+    background-color: #f4f4f4;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    color: #333;
+    cursor: pointer;
+    font-size: 13px;
+    margin: 0 4px;
+    padding: 4px 10px;
+}
+
+.ui-datepicker .ui-datepicker-buttonpane button:hover {
+    background-color: #e6e6e6;
+}
