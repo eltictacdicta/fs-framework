@@ -63,9 +63,51 @@ El campo `require` lista dependencias de otros plugins separadas por coma (ej: `
 name = 'mi_plugin'
 version = 1
 min_version = 2017.901
-description = 'Descripción del plugin'
+description = 'Mi plugin'
 require = ""
 ```
+
+## Dependencias del Plugin — `vendor/` se versiona (Composer)
+
+A diferencia de la convención típica de Composer (donde `vendor/` se ignora),
+**los plugins de FSFramework DEBEN versionar `vendor/`** junto con
+`composer.json` y `composer.lock`. El cargador del plugin NO ejecuta
+`composer install` en el arranque:
+
+```
+Init.php → require_once __DIR__ . '/composer_autoload.php';
+  → require_once __DIR__ . '/vendor/autoload.php';
+```
+
+Un clone fresco del plugin sin `vendor/` falla al cargar (`composer_autoload.php`
+escribe un `error_log` pidiendo correr `composer install` manual). Para que
+el plugin sea autónomo y la entrega sea self-contained, `vendor/` es parte
+del entregable.
+
+**Reglas operativas**:
+
+- NUNCA agregar `/vendor/` al `.gitignore` de un plugin. La única línea
+  relacionada a Composer que se mantiene ignorada es `/composer.phar`.
+- Versionar SIEMPRE `composer.json`, `composer.lock` y el árbol `vendor/`
+  completo juntos. Si modificás una dependencia, commitealas en el mismo
+  cambio (o en commits consecutivos), pero NUNCA dejar `composer.lock`
+  y `vendor/` desincronizados.
+- Si un SDD del plugin agrega una dependencia Composer, su `tasks.md`
+  DEBE incluir el paso de `git add vendor/` y el commit correspondiente.
+- El core sigue la misma convención: ver la línea del `.gitignore` raíz
+  — "vendor/ se versiona a propósito para despliegues/actualizaciones
+  sin composer install".
+
+**Cómo agregar una nueva dependencia Composer a un plugin**:
+
+1. `ddev exec composer --working-dir=plugins/<PluginName> require vendor/package:^1.0`
+2. `cd plugins/<PluginName> && git add composer.json composer.lock vendor/`
+3. Commit con mensaje tipo:
+   `chore(<plugin>): add vendor/package for <propósito>`
+
+**Anti-patrón explícito**: ~~agregar `/vendor/` al `.gitignore` del
+plugin porque "es lo que dice la documentación de Composer"~~. Acá la
+documentación de Composer NO aplica: el plugin se entrega completo.
 
 ## Clase Init — Inicialización del Plugin
 

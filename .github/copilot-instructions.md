@@ -33,6 +33,13 @@
 - Keep plugin-specific tests inside `plugins/<PluginName>/tests/`; the root PHPUnit configuration auto-discovers them when the plugin is present.
 - Keep changes minimal, consistent with FSFramework conventions, and compatible with the existing plugin architecture.
 
+## Plugin And Core Dependencies (vendor/ IS committed)
+
+- `vendor/` is versioned in BOTH the core and every plugin. Do NOT add `/vendor/` to any `.gitignore`. The only Composer-related line that stays ignored is `/composer.phar`.
+- `composer.json`, `composer.lock`, and the full `vendor/` tree are committed together. A fresh clone must boot without running `composer install`.
+- Each plugin's `composer_autoload.php` requires `vendor/autoload.php`; without it, the plugin fails to load (see `AGENTS.md` → "Plugin Composer Dependencies").
+- When a plugin SDD adds a Composer dependency, its `tasks.md` MUST include the `git add vendor/` and commit step.
+
 ## Maintenance Rule
 
 - Update `AGENTS.md` first when changing shared guidance, then synchronize this file and the affected Cursor rule files in the same task.

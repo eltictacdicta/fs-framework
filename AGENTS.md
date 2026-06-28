@@ -1452,6 +1452,36 @@ When extracting a shared domain (e.g., clients, products) into its own plugin:
 3. Keep domain models focused — avoid mixing external integrations (accounting, cross-plugin relations) into core domain models
 4. Consumers (`facturacion_base`, etc.) become dependents of the shared plugin, not the other way around
 
+### Plugin Composer Dependencies (vendor/ MUST be committed)
+
+Unlike typical Composer projects where `vendor/` is gitignored, FSFramework
+plugins **MUST** commit their `vendor/` directory along with `composer.json`
+and `composer.lock`. The plugin loader does NOT run `composer install` at boot:
+
+```
+Init.php → require_once __DIR__ . '/composer_autoload.php';
+  → require_once __DIR__ . '/vendor/autoload.php';
+```
+
+A fresh clone of a plugin without `vendor/` will fail to load. The plugin
+bootstrap (`composer_autoload.php`) writes an `error_log` directing the
+operator to run `composer install` manually — for a plugin deliverable that
+is not acceptable. The plugin system treats `vendor/` as part of the plugin
+itself; `vendor/` is part of the shipping artifact.
+
+**Rules**:
+
+- NEVER add `/vendor/` to a plugin's `.gitignore`. The only Composer-related
+  line that stays ignored is `/composer.phar`.
+- Commit `composer.json`, `composer.lock`, and the full `vendor/` tree
+  together whenever you add or update a dependency. Do not let the lockfile
+  drift from the on-disk `vendor/`.
+- When a plugin SDD adds a Composer dependency, its `tasks.md` MUST include
+  the steps to `git add vendor/` and commit.
+- The same convention applies to the core: `vendor/` is intentionally
+  versioned (see the root `.gitignore` — `vendor/ se versiona a propósito
+  para despliegues/actualizaciones sin composer install`).
+
 ### OpenSpec per Plugin (SDD ownership)
 
 > **Regla arquitectónica del proyecto**: el código del core no debe contener
