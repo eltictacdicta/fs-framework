@@ -134,6 +134,12 @@ Options +FollowSymLinks -ExecCGI
     RewriteRule ^tmp(/.*)?$ - [F,L]
     
     # Block backups directory
+    # NOTE (secure-backup-access): backups now live OUTSIDE FS_FOLDER
+    # (sibling path resolved by backup_manager::resolve_backup_dir()).
+    # This rule stays as defence in depth: if a legacy deployment still
+    # has FS_FOLDER/backups/ on disk (operator has not yet migrated),
+    # Apache still returns 403.  Remove only after confirming the new
+    # sibling path is in use and the old FS_FOLDER/backups/ is empty.
     RewriteRule ^backups(/.*)?$ - [F,L]
     
     # Block controller directory
@@ -143,8 +149,8 @@ Options +FollowSymLinks -ExecCGI
     RewriteRule ^translations(/.*)?$ - [F,L]
 
     # Plugins: block PHP source and internals; allow themes/view static assets (*.css|js|fonts|images)
-    # system_updater process scripts are accessed by AJAX/SSE and must bypass this block
-    RewriteRule ^plugins/system_updater/(process_backup|process_core_update|process_restore|recovery)\.php$ - [L]
+    # system_updater endpoints are accessed by AJAX/SSE/HTTP and must bypass this block
+    RewriteRule ^plugins/system_updater/(process_backup|process_core_update|process_restore|recovery|download_backup)\.php$ - [L]
     RewriteRule ^plugins/.+\.php$ - [F,L]
     RewriteRule ^plugins/[^/]+/(model|controller|Controller|Model|src|tests|config|translations|Translation)(/|$) - [F,L]
 
