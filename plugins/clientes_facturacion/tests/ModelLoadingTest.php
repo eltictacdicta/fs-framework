@@ -526,25 +526,22 @@ class ModelLoadingTest extends TestCase
     }
 
     /**
-     * File-move contract for ventas_clientes.php (fix-batch-4 / v0.17.5).
+     * File-move contract for ventas_clientes.php (corrected 2026-07-01).
      *
-     * Context: ventas_clientes.php has a hard `require_once 'plugins/facturacion_base/extras/fbase_controller.php'`
-     * on line 25, which means the controller extends fbase_controller (a facturacion_base
-     * extension class) and depends on facturacion_base being active. This is the same
-     * cross-plugin coupling pattern that fix batch 1 (v0.17.1) and fix batch 2 (v0.17.2)
-     * resolved by moving coupled controllers back to facturacion_base. The fix-batch-2
-     * audit missed this one because it grepped for `new \\Xxx` patterns, not
-     * `require_once` patterns.
-     *
-     * This test asserts the file is in facturacion_base and NOT in clientes_facturacion,
-     * preventing a future regression where the file gets accidentally re-moved.
+     * Current repo state: ventas_clientes.php lives at
+     * plugins/clientes_core/controller/ventas_clientes.php:25 and extends
+     * clientes_controller (plugins/clientes_core/extras/clientes_controller.php:24,
+     * which extends fs_controller). It has NO require_once to fbase_controller.php.
+     * The test body is the historical file-move contract, gated by
+     * skipIfFacturacionBaseMissing(); the correction is only to this docblock
+     * + the message at line 547.
      */
     public function testVentasClientesIsBackInFacturacionBase(): void
     {
         $this->skipIfFacturacionBaseMissing();
         $this->assertFileDoesNotExist(
             FS_FOLDER . '/plugins/clientes_facturacion/controller/ventas_clientes.php',
-            'ventas_clientes.php must NOT live in clientes_facturacion/ — it has a hard require_once to facturacion_base/extras/fbase_controller.php and extends fbase_controller.'
+            'ventas_clientes.php must NOT live in clientes_facturacion/ (file-move contract, see docblock).'
         );
         $this->assertFileExists(
             FS_FOLDER . '/plugins/facturacion_base/controller/ventas_clientes.php',
