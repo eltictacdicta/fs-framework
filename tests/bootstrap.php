@@ -94,6 +94,10 @@ if (!defined('FS_COOKIES_EXPIRE')) {
     define('FS_COOKIES_EXPIRE', 31536000);
 }
 
+if (!defined('FS_VENTAS_SIN_STOCK')) {
+    define('FS_VENTAS_SIN_STOCK', false);
+}
+
 if (!defined('FS_DB_HISTORY')) {
     define('FS_DB_HISTORY', false);
 }
