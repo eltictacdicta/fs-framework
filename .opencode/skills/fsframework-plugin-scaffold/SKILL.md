@@ -185,6 +185,115 @@ See skill [fsframework-model-crud](../fsframework-model-crud/SKILL.md) for the c
 
 ## Step 6: Controller
 
+### Plugin Controller Requires (HARD RULE)
+
+> **Every `base/*` class used in a plugin controller needs an explicit
+> `require_once` at the top of the file. Without exceptions. The
+> framework autoloader (`fs_autoload::register()`) is not reliable in
+> the plugin-controller execution path: only some legacy `fs_*`
+> classes are registered in its class map (e.g., `fs_settings` is, but
+> `fs_session_manager` is not), and the composer PSR-4 autoloader for
+> namespaced `FSFramework\…` classes does not always fire in time
+> during a plugin request.**
+
+**Path pattern** (use the exact same depth from any plugin controller at
+`plugins/{name}/controller/*.php`):
+
+```php
+require_once dirname(__DIR__, 3) . '/base/<class>.php';
+```
+
+`dirname(__DIR__, 3)` resolves three directory levels up from the
+controller's directory, landing on the project root
+(`/var/www/html/` in ddev, or whatever `FS_FOLDER` points to in
+production). The trailing `/base/<class>.php` then references the
+target file in the core's `base/` directory.
+
+**Common `base/*` classes that need explicit requires in a plugin
+controller**:
+
+| Class | When you need it |
+|-------|------------------|
+| `fs_controller` | Always (or rely on the legacy autoload if your project is already working — explicit is safer) |
+| `fs_settings` | Any read/write via the global INI config (`new fs_settings()`) |
+| `fs_session_manager` | Any CSRF field generation, session helpers, or `csrfField()` calls |
+| `fs_auth` | Any cookie signing, `isCsrfValid()` custom checks, or auth helpers |
+| `fs_functions` | Any global helper like `bround()`, `fs_fix_html()`, `fs_is_local_ip()` |
+
+**Minimal legacy controller template with the requires** (note the
+explicit `require_once` block before the `class` declaration):
+
+```php
+<?php
+/**
+ * This file is part of NombrePlugin.
+ * Copyright (C) <year> <author> <email>
+ * License: LGPL-3.0-or-later
+ */
+
+require_model('...');   // plugin-local models, as before
+
+// === Plugin Controller Requires (HARD RULE) ============================
+// Any base/* class used in this controller MUST be required explicitly.
+// The framework autoloader is unreliable in plugin context.
+require_once dirname(__DIR__, 3) . '/base/fs_controller.php';
+require_once dirname(__DIR__, 3) . '/base/fs_settings.php';      // if used
+require_once dirname(__DIR__, 3) . '/base/fs_session_manager.php'; // if used
+// =======================================================================
+
+class admin_mi_modulo extends fs_controller
+{
+    public function __construct()
+    {
+        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', true, true);
+    }
+
+    protected function private_core(): void
+    {
+        $settings = new fs_settings();
+        // ...
+    }
+}
+```
+
+**Modern route controllers** in `Controller/*.php` (PSR-4, namespaced
+under `FSFramework\Plugins\{NamePlugin}\Controller`) follow a
+different rule: they use the composer PSR-4 autoloader plus
+`use FSFramework\…;` statements, so the explicit `require_once` of
+`base/*` is generally **not** needed. The only exception is when
+calling legacy helpers like `fs_session_manager::csrfField()` from a
+modern controller — in that case, add the explicit
+`require_once dirname(__DIR__, 4) . '/base/fs_session_manager.php';`
+(one extra level up because modern controllers sit in
+`Controller/`, not `controller/`).
+
+**Why this rule exists (background, not a runtime concern)**: a
+real-world example is the `terminal-opcional` change in
+`plugins/tpvmod/` (2026-06-20), which hit the bug three times in
+succession: F2 (`fs_settings` not found), F3 (no F4 consequence but
+it would have been), F4 (`fs_session_manager` not found). Each fix
+followed the same pattern: "add a new `base/*` class use without the
+require, get a runtime fatal, add the require, re-verify." Scaffolding
+new plugin controllers with the requires block in place from day
+one eliminates the entire class of bug.
+
+**Verification rule** (also a hard rule): after every controller
+edit, run an actual HTTP request to the new/modified page in
+ddev, e.g.:
+
+```bash
+curl -sL "https://<project>.ddev.site/index.php?page=<controller_name>" \
+    -o /tmp/resp.html -w "HTTP %{http_code}\n"
+grep -ci 'fatal\|class .* not found' /tmp/resp.html
+```
+
+If the grep returns 0, the class loading is fine. `php -l` and
+PHPUnit do NOT catch this class of error — they only check syntax
+and pre-existing test coverage. The HTTP smoke is the only safety
+net for missing requires.
+
+### Legacy Controller Template
+
 **Legacy controller** in `controller/admin_mi_modulo.php`:
 
 ```php
@@ -431,11 +540,41 @@ After scaffolding and before merging, run the security audit via
 verify:
 
 - All SQL uses `$this->var2str()` — never string concatenation
-- All POST forms include `{{ csrf_field() }}`
+- All POST forms include `{{ csrf_field() }}` (Twig) or `{$fsc->csrf_field}` (RainTPL — see Step 6)
 - All controllers processing POST validate CSRF with `$this->isCsrfValid()`
 - All user input is sanitized with `$this->no_html()` or Symfony Request type methods
 - No plaintext passwords, `md5()`, or `sha1()` — only `PasswordHasherService`
 - No open redirects from request parameters without validation
+
+### Runtime Smoke (Required for any controller change)
+
+`php -l`, PHPUnit, and PHPStan do NOT catch runtime class-loading
+errors introduced by a new `base/*` class use in a plugin controller.
+After any edit to a plugin controller (scaffold, feature add, or
+bug fix), verify the page actually loads in a browser via ddev:
+
+```bash
+# 1. Syntax check (catches parse errors only)
+ddev exec php -l plugins/<Plugin>/controller/<controller>.php
+
+# 2. PHPUnit (catches test regressions; does NOT catch missing requires)
+ddev exec php vendor/bin/phpunit --testsuite Base
+ddev exec php vendor/bin/phpunit --testsuite Plugins
+
+# 3. HTTP smoke (catches the F2/F4 class — missing requires — and fatals)
+curl -sL "https://<project>.ddev.site/index.php?page=<controller>" \
+    -o /tmp/resp.html -w "HTTP %{http_code}\n"
+grep -ci 'fatal\|class .* not found' /tmp/resp.html   # must be 0
+
+# 4. For templates: also grep for literal Twig tokens in RainTPL files (and vice versa)
+grep -nE '\{\{[ ]*[a-z_]+\(\)[ ]*\}\}' plugins/<Plugin>/view/*.html      # Twig-style calls in RainTPL — bad
+grep -nE '\{[ ]*[a-z_]+\(\)[ ]*\}' plugins/<Plugin>/view/*.html.twig    # RainTPL-style in Twig — bad
+```
+
+If step 3 returns any matches OR a non-200 status, the change is
+broken at runtime even if the syntax check and tests passed. The
+fix is almost always "add the missing `require_once`" per the
+**Plugin Controller Requires** rule in Step 6.
 
 ## API REST (Deferred)
 
