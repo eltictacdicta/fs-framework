@@ -256,4 +256,44 @@ $(document).ready(function() {
             return false;
         }
     });
+
+    // Clickable table rows (FacturaScripts / tpvmod list pattern)
+    $(document).on('click', 'tr.clickableRow[href]', function(e) {
+        if ($(e.target).closest('.cancel_clickable, a, button, input, select, textarea, label').length) {
+            return;
+        }
+        var href = $(this).attr('href');
+        if (fsIsSafeClickableHref(href)) {
+            window.location.href = href;
+        }
+    });
 });
+
+/**
+ * Allows only same-origin http(s) navigation; blocks javascript:/data:/vbscript: and external URLs.
+ *
+ * @param {string} href
+ * @returns {boolean}
+ */
+function fsIsSafeClickableHref(href) {
+    if (!href || href === '#') {
+        return false;
+    }
+
+    var trimmed = $.trim(href);
+    if (/^(javascript|data|vbscript):/i.test(trimmed)) {
+        return false;
+    }
+
+    try {
+        var url = new URL(trimmed, window.location.href);
+        if (url.origin !== window.location.origin) {
+            return false;
+        }
+
+        var scheme = url.protocol.replace(':', '').toLowerCase();
+        return scheme === 'http' || scheme === 'https';
+    } catch (e) {
+        return false;
+    }
+}

@@ -334,16 +334,23 @@ class factura_cliente extends \fs_model
             $this->fecha = $fecha;
             $this->hora = $hora;
         } else {
-            /// nos guardamos la secuencia para abanq/eneboo
-            $sec0 = new \secuencia();
-            $sec = $sec0->get_by_params2($this->codejercicio, $this->codserie, 'nfacturacli');
-            if ($sec && $sec->valorout <= $this->numero) {
-                $sec->valorout = 1 + $this->numero;
-                $sec->save();
+            /// nos guardamos la secuencia para abanq/eneboo (requiere facturacion_base)
+            if (class_exists('secuencia', false)) {
+                $sec0 = new \secuencia();
+                $sec = $sec0->get_by_params2($this->codejercicio, $this->codserie, 'nfacturacli');
+                if ($sec && $sec->valorout <= $this->numero) {
+                    $sec->valorout = 1 + $this->numero;
+                    $sec->save();
+                }
+            } elseif (FS_NEW_CODIGO === 'eneboo') {
+                error_log(
+                    'clientes_facturacion: secuencia no disponible con FS_NEW_CODIGO=eneboo; '
+                    . 'número ' . $this->numero . ' asignado desde BD sin actualizar valorout'
+                );
             }
         }
 
-        $this->codigo = fs_documento_new_codigo(FS_FACTURA, $this->codejercicio, $this->codserie, $this->numero);
+        $this->codigo = \fs_documento_new_codigo(FS_FACTURA, $this->codejercicio, $this->codserie, $this->numero);
     }
 
     /**
@@ -823,7 +830,7 @@ class factura_cliente extends \fs_model
         $error = TRUE;
         $huecolist = $this->cache->get_array2('factura_cliente_huecos', $error);
         if ($error) {
-            $huecolist = fs_huecos_facturas_cliente($this->db, $this->table_name);
+            $huecolist = \fs_huecos_facturas_cliente($this->db, $this->table_name);
             $this->cache->set('factura_cliente_huecos', $huecolist, 3600);
         }
 

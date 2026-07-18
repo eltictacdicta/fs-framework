@@ -181,7 +181,7 @@ class presupuesto_cliente extends \fs_model
      */
     public function new_codigo()
     {
-        $this->numero = fs_documento_new_numero($this->db, $this->table_name, $this->codejercicio, $this->codserie, 'npresupuestocli');
+        $this->numero = \fs_documento_new_numero($this->db, $this->table_name, $this->codejercicio, $this->codserie, 'npresupuestocli');
 
         /**
          * Para evitar confusiones, si se elige "factura proforma" o algo similar
@@ -191,7 +191,7 @@ class presupuesto_cliente extends \fs_model
         if ($tipodoc == 'FAC') {
             $tipodoc = 'PRO';
         }
-        $this->codigo = fs_documento_new_codigo($tipodoc, $this->codejercicio, $this->codserie, $this->numero);
+        $this->codigo = \fs_documento_new_codigo($tipodoc, $this->codejercicio, $this->codserie, $this->numero);
     }
 
     /**
