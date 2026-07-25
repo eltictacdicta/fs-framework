@@ -96,6 +96,8 @@ return array(
     'fe43ca06499ac37bc2dedd823af71eb5' => $vendorDir . '/thecodingmachine/safe/generated/zip.php',
     '356736db98a6834f0a886b8d509b0ecd' => $vendorDir . '/thecodingmachine/safe/generated/zlib.php',
     'ec07570ca5a812141189b1fa81503674' => $vendorDir . '/phpunit/phpunit/src/Framework/Assert/Functions.php',
+    'd5fa61a7f6cbc1df09dd4df84549a2dc' => $vendorDir . '/rospdf/pdf-php/src/Cpdf.php',
+    '2d15964294879de66053d54f6bde65d7' => $vendorDir . '/rospdf/pdf-php/src/Cezpdf.php',
     '0174385c3be07e86008907d06ee66531' => $vendorDir . '/sabberworm/php-css-parser/src/Rule/Rule.php',
     '98aea6e41b9cb79b379b10f37ba1f0b7' => $vendorDir . '/sabberworm/php-css-parser/src/RuleSet/RuleContainer.php',
     'a1105708a18b76903365ca1c4aa61b02' => $vendorDir . '/symfony/translation/Resources/functions.php',

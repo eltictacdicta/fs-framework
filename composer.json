@@ -33,7 +33,8 @@
         "symfony/dependency-injection": "^7.4",
         "symfony/form": "^7.4",
         "sabberworm/php-css-parser": "^9.0",
-        "symfony/http-client": "^7.4"
+        "symfony/http-client": "^7.4",
+        "rospdf/pdf-php": "^0.12"
     },
     "suggest": {
         "monolog/monolog": "^3.0 - Para logging avanzado con múltiples handlers"
