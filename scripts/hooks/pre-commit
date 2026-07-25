@@ -14,14 +14,19 @@ fi
 
 echo "composer.json changed — regenerating autoload..."
 
-# Ensure composer is available
-if ! command -v composer &>/dev/null; then
+# Detect composer command: try native first, then ddev
+COMPOSER_CMD=""
+if command -v composer &>/dev/null; then
+    COMPOSER_CMD="composer"
+elif command -v ddev &>/dev/null && ddev exec which composer &>/dev/null 2>&1; then
+    COMPOSER_CMD="ddev exec composer"
+else
     echo "ERROR: composer not found. Install it or run 'composer dump-autoload' manually before committing."
     exit 1
 fi
 
 # Regenerate autoload files
-composer dump-autoload --no-interaction 2>/dev/null
+$COMPOSER_CMD dump-autoload --no-interaction 2>/dev/null
 
 if [ $? -ne 0 ]; then
     echo "ERROR: composer dump-autoload failed. Fix the issue before committing."
