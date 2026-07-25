@@ -10,6 +10,7 @@
 *.swo
 *~
 .DS_Store
+.opencode/tmp/
 # Documentation (generated)
 /doc/
 
