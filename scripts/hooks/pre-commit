@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# Pre-commit hook: regenerate Composer autoload when composer.json changes.
+# Ensures vendor/composer/ files are always in sync with composer.json,
+# preventing stale autoload references on production after git pull.
+#
+
+# Check if composer.json is staged
+STAGED_COMPOSER=$(git diff --cached --name-only | grep -x 'composer\.json')
+
+if [ -z "$STAGED_COMPOSER" ]; then
+    exit 0
+fi
+
+echo "composer.json changed — regenerating autoload..."
+
+# Ensure composer is available
+if ! command -v composer &>/dev/null; then
+    echo "ERROR: composer not found. Install it or run 'composer dump-autoload' manually before committing."
+    exit 1
+fi
+
+# Regenerate autoload files
+composer dump-autoload --no-interaction 2>/dev/null
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: composer dump-autoload failed. Fix the issue before committing."
+    exit 1
+fi
+
+# Stage the regenerated autoload files
+git add vendor/composer/
+
+echo "Autoload regenerated and staged."
