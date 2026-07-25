@@ -9,6 +9,7 @@
 *.swp
 *.swo
 *~
+.phpstan-cache/
 .DS_Store
 .opencode/tmp/
 # Documentation (generated)
