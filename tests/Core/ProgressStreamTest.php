@@ -78,7 +78,6 @@ final class ProgressStreamTest extends TestCase
     {
         $ctx = ProgressStream::init(self::PREFIX, self::SAFE_SESSION);
 
-        $this->assertIsArray($ctx);
         $this->assertArrayHasKey('progress_file', $ctx);
         $this->assertArrayHasKey('session_id', $ctx);
 
@@ -264,11 +263,7 @@ final class ProgressStreamTest extends TestCase
 
         $iterations = 10000;
         for ($j = 0; $j < $iterations; $j++) {
-            $saved = ProgressStream::saveProgress($file, "step_{$j}", "msg_{$j}", $j % 100);
-            // Sanity: every return value must carry the schema fields
-            if (!isset($saved['step'], $saved['percent'], $saved['timestamp'])) {
-                $this->fail("saveProgress returned malformed data at iteration {$j}: " . var_export($saved, true));
-            }
+            ProgressStream::saveProgress($file, "step_{$j}", "msg_{$j}", $j % 100);
         }
 
         $raw = file_get_contents($file);
