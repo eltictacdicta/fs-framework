@@ -3,7 +3,7 @@
         'name' => 'facturascripts/fs-framework-modern',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => 'a56090738e30cf7a035e78741037c684873c9e77',
+        'reference' => '3d90023378948e7bbfed7cec2d7b17dcef86a03a',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -22,7 +22,7 @@
         'facturascripts/fs-framework-modern' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => 'a56090738e30cf7a035e78741037c684873c9e77',
+            'reference' => '3d90023378948e7bbfed7cec2d7b17dcef86a03a',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -249,6 +249,15 @@
             'provided' => array(
                 0 => '1.0|2.0|3.0',
             ),
+        ),
+        'rospdf/pdf-php' => array(
+            'pretty_version' => '0.12.67',
+            'version' => '0.12.67.0',
+            'reference' => 'fce993f08f99305569bb238644c5c35c0db0f85a',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../rospdf/pdf-php',
+            'aliases' => array(),
+            'dev_requirement' => false,
         ),
         'sabberworm/php-css-parser' => array(
             'pretty_version' => 'v9.3.0',
