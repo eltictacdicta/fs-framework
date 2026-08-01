@@ -299,7 +299,8 @@ class CsrfManager
 
             $usedTokens[$cacheKey] = time();
             $cache->set(self::USED_TOKENS_CACHE_KEY, $usedTokens, self::USED_TOKENS_TTL);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('[CsrfManager] ' . $e->getMessage());
         }
     }
 
@@ -319,7 +320,8 @@ class CsrfManager
             $cacheKey = $tokenIdKey . ':' . md5($token);
 
             return isset($usedTokens[$cacheKey]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('[CsrfManager] ' . $e->getMessage());
             return false;
         }
     }

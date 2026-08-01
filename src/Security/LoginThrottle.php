@@ -74,7 +74,8 @@ class LoginThrottle
         try {
             $cache = CacheManager::getInstance();
             $cache->set($key, $attempts, self::THROTTLE_WINDOW);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('[LoginThrottle] ' . $e->getMessage());
             // Si la caché no está disponible, no bloqueamos
         }
     }
@@ -90,7 +91,8 @@ class LoginThrottle
         try {
             $cache = CacheManager::getInstance();
             $cache->delete($key);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('[LoginThrottle] ' . $e->getMessage());
         }
     }
 
@@ -128,7 +130,8 @@ class LoginThrottle
             $value = $cache->getItem($key, 0);
 
             return is_numeric($value) ? (int) $value : 0;
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('[LoginThrottle] ' . $e->getMessage());
             return 0;
         }
     }
@@ -150,7 +153,8 @@ class LoginThrottle
                 if ($ip !== null && $ip !== '') {
                     return $ip;
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                error_log('[LoginThrottle] ' . $e->getMessage());
                 // Fallar silenciosamente al fallback legacy
             }
         }
