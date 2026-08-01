@@ -992,7 +992,7 @@ class fs_plugin_manager
         }
 
         if (isset($ini_file['require']) && $ini_file['require'] != '') {
-            $plugin['require'] = explode(',', $ini_file['require']);
+            $plugin['require'] = array_map('trim', explode(',', $ini_file['require']));
         }
 
         if ($plugin['enabled']) {
