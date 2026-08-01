@@ -26,6 +26,15 @@ class StealthModeTest extends TestCase
         $GLOBALS['plugins'] = [];
     }
 
+    protected function tearDown(): void
+    {
+        // Cierra la sesión dejada por setUp() para no filtrar una sesión PHPSESSID
+        // activa a otros tests de la suite (p. ej. FormHelperTest lo detectaba como warning).
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+    }
+
     public function testHasAccessDeniesWhenSecretIsMissing(): void
     {
         $stealth = new StealthMode($this->createDbStub([
@@ -162,7 +171,17 @@ class StealthModeTest extends TestCase
         $ref = new ReflectionClass(StealthMode::class);
         $method = $ref->getMethod('ensurePhpSessionStarted');
         $method->setAccessible(true);
-        $method->invoke($stealth);
+        // Aísla la salida de error_log() que produce ensurePhpSessionStarted() para
+        // evitar un falso "risky"/error por output del subproceso. Se redirige el log
+        // a /dev/null SOLO durante esta invocación y se restaura después; no altera la
+        // lógica de sesión verificada abajo ni el código de producción.
+        $prevErrorLog = ini_get('error_log');
+        ini_set('error_log', '/dev/null');
+        try {
+            $method->invoke($stealth);
+        } finally {
+            ini_set('error_log', $prevErrorLog);
+        }
 
         $expectedName = SessionManager::resolveSessionName();
         $this->assertSame($expectedName, session_name(), 'session_name() debe coincidir con resolveSessionName() después de ensurePhpSessionStarted()');

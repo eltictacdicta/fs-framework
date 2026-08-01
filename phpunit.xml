@@ -27,6 +27,14 @@
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <testsuite name="Modern">
+            <directory>tests/Components</directory>
+            <directory>tests/Controller</directory>
+            <directory>tests/Event</directory>
+            <directory>tests/Form</directory>
+            <directory>tests/Translation</directory>
+            <directory>tests/View</directory>
+        </testsuite>
         <testsuite name="Plugins">
             <directory suffix="Test.php">plugins</directory>
         </testsuite>
