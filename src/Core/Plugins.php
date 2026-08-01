@@ -12,7 +12,7 @@ class Plugins
     /**
      * Rutas GET exactas que deben saltar PublicAccessGate (stealth / login legacy) sin depender
      * de plugins. Evita que probes del navegador (/favicon.ico, etc.) abran sesión PHP por defecto
-     * ni provoquen redirecciones; no mezcla lógica con OIDC ni con el panel.
+     * ni provoquen redirecciones; no mezcla lógica con el panel.
      *
      * @var list<string>
      */

@@ -271,7 +271,7 @@ class StealthMode
     }
 
     /**
-     * Comprueba si es una ruta OIDC/API que no debe bloquearse.
+     * Comprueba si es una ruta que no debe bloquearse por el modo stealth.
      */
     public function isExemptRoute(): bool
     {

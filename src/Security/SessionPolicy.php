@@ -17,9 +17,9 @@ namespace FSFramework\Security;
 /**
  * Centralised session timeout policy.
  *
- * Both the framework SessionManager and the OidcProvider plugin
- * delegate to this class so that idle / absolute timeouts and
- * remember-me cookie lifetimes are consistent everywhere.
+ * The framework's session and remember-me logic delegates to this
+ * class so that idle / absolute timeouts and remember-me cookie
+ * lifetimes are consistent everywhere.
  */
 final class SessionPolicy
 {

@@ -34,7 +34,7 @@ class Router
 
     /**
      * Huella de los ficheros fuente de rutas (config + controladores con atributos).
-     * Si cambia cualquier archivo, la caché serializada se invalida (evita rutas OIDC / API obsoletas).
+     * Si cambia cualquier archivo, la caché serializada se invalida (evita rutas obsoletas).
      */
     private function getRoutesSourceFingerprint(): string
     {

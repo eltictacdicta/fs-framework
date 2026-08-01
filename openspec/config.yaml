@@ -53,7 +53,6 @@ testing:
     - tests/Components (2 files)
     - tests/Event (1 file)
     - tests/Form (1 file)
-    - tests/Service (2 files)
     - tests/Translation (1 file)
   plugin_test_distribution:
     - business_data: 1

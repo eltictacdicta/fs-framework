@@ -82,9 +82,8 @@ tarifario              → catalogo_core
 | `tests/Components` | 2 |
 | `tests/Event` | 1 |
 | `tests/Form` | 1 |
-| `tests/Service` | 2 |
 | `tests/Translation` | 1 |
-| **Core total** | **75** |
+| **Core total** | **73** |
 | Plugin `business_data` | 1 |
 | Plugin `catalogo_core` | 23 |
 | Plugin `clientes_core` | 4 |

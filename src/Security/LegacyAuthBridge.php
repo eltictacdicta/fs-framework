@@ -267,7 +267,7 @@ final class LegacyAuthBridge
     /**
      * Restaura sesión fs_user desde cookies solo cuando no hay conflicto con otro nick ya cargado en sesión.
      * Antes se exigía session[user_nick] !== usuario cookie (idea equivocada de “refresco”), lo que permitía
-     * sustituir una sesión (p. ej. sujeto OIDC portal o usuario caducado) por otro usuario con cookies válidas
+     * sustituir una sesión (p. ej. sujeto de portal o usuario caducado) por otro usuario con cookies válidas
      * — típicamente escalando a administrador por cookies remember-me antiguas.
      *
      * @param mixed $user
