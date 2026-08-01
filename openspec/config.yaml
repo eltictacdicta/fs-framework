@@ -2,6 +2,7 @@
 # Initialized: 2026-05-29 by sdd-init
 # Re-initialized: 2026-06-10 by sdd-init
 # Re-initialized: 2026-06-18 by sdd-init (active change: unificar-exportador-importador-excel-sap)
+# Re-initialized: 2026-07-26 by sdd-init
 
 context: >
   PHP 8.2+/8.3 ERP/accounting framework (fork of FacturaScripts 2017).

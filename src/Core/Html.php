@@ -8,6 +8,7 @@ use FSFramework\Translation\FSTranslator;
 use FSFramework\Security\SecurityHeaders;
 use FSFramework\Twig\TranslationExtension;
 use FSFramework\Security\CsrfManager;
+use FSFramework\View\ViewHookRegistry;
 
 /**
  * Bridge for HTML rendering (RainTPL + Twig)
@@ -365,6 +366,33 @@ class Html
             },
             ['is_safe' => ['html']]
         ));
+
+        // render_hook: core view hook function for injecting plugin content
+        try {
+            $twig->addFunction(new \Twig\TwigFunction(
+                'render_hook',
+                function (string $name, array $context = []) use ($twig): string {
+                    return ViewHookRegistry::render($twig, $name, $context);
+                },
+                ['is_safe' => ['html']]
+            ));
+        } catch (\LogicException) {
+            // Duplicate registration — idempotent, ignore
+        }
+
+        // clientes_render_hook: deprecated alias for render_hook
+        try {
+            $twig->addFunction(new \Twig\TwigFunction(
+                'clientes_render_hook',
+                function (string $name, array $context = []) use ($twig): string {
+                    trigger_error('clientes_render_hook() is deprecated. Use render_hook() instead.', E_USER_DEPRECATED);
+                    return ViewHookRegistry::render($twig, $name, $context);
+                },
+                ['is_safe' => ['html']]
+            ));
+        } catch (\LogicException) {
+            // Duplicate registration — idempotent, ignore
+        }
     }
 
     private static function registerCorePHPFunctions(Environment $twig): void
@@ -520,50 +548,33 @@ class Html
     /**
      * Scan plugin Extension/View directories and render matching templates.
      *
-<<<<<<< HEAD
-     * **FS2025 Extension/View Pattern** — permite a los plugins inyectar contenido
-     * en cualquier plantilla del sistema sin modificar los archivos originales.
+     * **FS2025 Extension/View Pattern** — plugins can inject content into any
+     * parent template without modifying the original files.
      *
-     * ### Cómo funciona
+     * Plugins create files in their `Extension/View/` directory following this format:
      *
-     * Los plugins crean archivos en su directorio `Extension/View/` con este formato:
+     *     {ParentTemplate}_{position}_{order}.html.twig
      *
-     *     {NombreTemplate}_{posición}_{orden}.html.twig
-     *
-     * Ejemplos:
+     * Examples:
      *   - `Extension/View/MenuTemplate_footer_10.html.twig`
-     *     → Se inyecta en MenuTemplate, posición "footer", orden 10
+     *     → Injects into MenuTemplate's "footer" position with order 10
      *   - `Extension/View/BaseView_sidebar_20.html.twig`
-     *     → Se inyecta en BaseView, posición "sidebar", orden 20
-     *   - `Extension/View/edit_controller_footer_5.html.twig`
-     *     → Se inyecta en edit_controller, posición "footer", orden 5
+     *     → Injects into BaseView's "sidebar" position with order 20
      *
-     * ### Uso en plantillas Twig
+     * Usage in Twig templates:
      *
-     *     {# Inyectar extensiones en el footer de la plantilla actual #}
+     *     {# Inject extensions in the footer of the current template #}
      *     {{ getIncludeViews(template, 'footer') | raw }}
      *
-     *     {# Inyectar en una plantilla específica #}
+     *     {# Inject into a specific template #}
      *     {{ getIncludeViews('MenuTemplate_footer', '') | raw }}
      *
-     * Las extensiones se renderizan en orden ascendente (menor número primero).
-     * Si una extensión falla al renderizar, se registra en error_log y se continúa.
-     *
-     * @param string|null $parentTemplate Nombre de la plantilla padre (sin extensión)
-     * @param string|null $position Posición donde inyectar (e.g., 'footer', 'header', 'sidebar')
-     * @return string HTML renderizado de todas las extensiones coincidentes
-=======
-     * Plugins can inject content into any parent template by creating files
-     * named: {ParentTemplate}_{position}_{order}.html.twig in their Extension/View/ directory.
-     *
-     * Example:
-     *   Extension/View/MenuTemplate_footer_10.html.twig
-     *   → injects into MenuTemplate's "footer" position with order 10
+     * Extensions are rendered in ascending order (lowest number first).
+     * If an extension fails to render, the error is logged and rendering continues.
      *
      * @param string|null $parentTemplate Parent template name (without extension)
      * @param string|null $position Position name (e.g., 'footer', 'header', 'sidebar')
      * @return string Rendered HTML from all matching extension templates
->>>>>>> 939273fcbaa22c5371c3b36983776857342492bf
      */
     public static function getPluginIncludeViews(?string $parentTemplate = null, ?string $position = null): string
     {

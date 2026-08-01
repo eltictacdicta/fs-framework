@@ -56,7 +56,7 @@ class GrupoClientesModelTest extends TestCase
     public function testUrlWithCode(): void
     {
         $this->model->codgrupo = '000001';
-        $this->assertSame('index.php?page=ventas_grupo&cod=000001', $this->model->url());
+        $this->assertSame('index.php?page=ventas_clientes#grupos', $this->model->url());
     }
 
     public function testUrlWithoutCode(): void

@@ -11,12 +11,10 @@
 
 namespace FSFramework\Plugins\clientes_catalogo;
 
-require_once __DIR__ . '/../clientes_core/src/ViewHookRegistry.php';
-
 use FSFramework\Event\FSEventDispatcher;
 use FSFramework\Event\TwigInitEvent;
 use FSFramework\Event\TwigLoaderEvent;
-use FSFramework\Plugins\clientes_core\ViewHookRegistry;
+use FSFramework\View\ViewHookRegistry;
 use Twig\Loader\FilesystemLoader;
 
 class Init

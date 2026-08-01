@@ -119,6 +119,7 @@ class ClienteModelTest extends TestCase
         $this->model->observaciones = '';
         $this->model->debaja = false;
         $this->model->diaspago = '';
+        $this->model->codgrupo = '000001';
 
         $this->assertTrue($this->model->test());
     }
@@ -158,6 +159,7 @@ class ClienteModelTest extends TestCase
         $this->model->observaciones = '';
         $this->model->debaja = false;
         $this->model->diaspago = '';
+        $this->model->codgrupo = '000001';
 
         $this->assertTrue($this->model->test());
     }
@@ -218,6 +220,7 @@ class ClienteModelTest extends TestCase
         $this->model->cifnif = '';
         $this->model->observaciones = '';
         $this->model->debaja = false;
+        $this->model->codgrupo = '000001';
         $this->setModelProperty('diaspago', null);
 
         $this->assertTrue($this->model->test());
