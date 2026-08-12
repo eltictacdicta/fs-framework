@@ -548,6 +548,71 @@ class fs_schema
         return $changes;
     }
 
+    /**
+     * Sincroniza todas las tablas definidas en XML de un directorio de plugin.
+     *
+     * @return array{
+     *     changes: list<string>,
+     *     errors: list<string>,
+     *     tables: list<string>,
+     *     error?: string
+     * }
+     */
+    public static function syncPluginTables(string $tableDir): array
+    {
+        $result = [
+            'changes' => [],
+            'errors' => [],
+            'tables' => [],
+        ];
+
+        if (!is_dir($tableDir)) {
+            return $result;
+        }
+
+        $xmlFiles = glob($tableDir . '/*.xml');
+        if ($xmlFiles === false || $xmlFiles === []) {
+            return $result;
+        }
+
+        sort($xmlFiles);
+        foreach ($xmlFiles as $xmlFile) {
+            $tableName = pathinfo($xmlFile, PATHINFO_FILENAME);
+            $result['tables'][] = $tableName;
+            self::collectSyncTableChanges($tableName, $xmlFile, $result);
+        }
+
+        // Second pass: parent tables may now exist for deferred foreign keys.
+        foreach ($xmlFiles as $xmlFile) {
+            $tableName = pathinfo($xmlFile, PATHINFO_FILENAME);
+            self::collectSyncTableChanges($tableName, $xmlFile, $result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array{changes: list<string>, errors: list<string>, tables: list<string>} $result
+     */
+    private static function collectSyncTableChanges(string $tableName, string $xmlFile, array &$result): void
+    {
+        try {
+            $changes = self::syncTable($tableName, $xmlFile);
+            if (isset($changes['error'])) {
+                $result['errors'][] = (string) $changes['error'];
+                return;
+            }
+
+            foreach ($changes as $change) {
+                if (is_string($change) && $change !== '') {
+                    $result['changes'][] = $change;
+                }
+            }
+        } catch (Exception $e) {
+            $result['errors'][] = basename($xmlFile) . ': ' . $e->getMessage();
+        }
+    }
+
     private static function syncColumns($db, $tableName, $xml, $dbColumns, array &$changes)
     {
         $xmlColumns = [];

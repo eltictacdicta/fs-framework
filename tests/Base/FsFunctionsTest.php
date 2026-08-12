@@ -15,6 +15,19 @@ class FsFunctionsTest extends TestCase
     }
 
     // =====================================================================
+    // fs_normalize_plugin_version()
+    // =====================================================================
+
+    public function testFsNormalizePluginVersionPadsSegments(): void
+    {
+        $this->assertSame('1.0.0', fs_normalize_plugin_version('1'));
+        $this->assertSame('1.1.0', fs_normalize_plugin_version('1.1'));
+        $this->assertSame('1.1.1', fs_normalize_plugin_version('1.1.1'));
+        $this->assertSame('0.14.0', fs_normalize_plugin_version('v0.14.0'));
+        $this->assertSame('1.2.0', fs_normalize_plugin_version('release-1.2'));
+    }
+
+    // =====================================================================
     // bround() — Redondeo bancario
     // =====================================================================
 

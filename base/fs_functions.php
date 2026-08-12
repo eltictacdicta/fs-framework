@@ -35,6 +35,42 @@ if (!defined('FS_PLUGINS_PREFIX')) {
  * @param integer $iDec
  * @return float
  */
+/**
+ * Normaliza versiones de plugins (fsframework.ini) a major.minor.patch.
+ * 1 → 1.0.0, 1.1 → 1.1.0, 1.1.1 → 1.1.1
+ *
+ * @param string|int|float $version
+ */
+function fs_normalize_plugin_version($version): string
+{
+    $version = trim((string) $version);
+    if ($version === '') {
+        return '';
+    }
+
+    if (preg_match('/^v/i', $version)) {
+        $version = ltrim(substr($version, 1));
+    }
+
+    if (preg_match('/^(\d+)\.(\d+)\.(\d+)/', $version, $matches)) {
+        return $matches[1] . '.' . $matches[2] . '.' . $matches[3];
+    }
+
+    if (preg_match('/^(\d+)\.(\d+)$/', $version, $matches)) {
+        return $matches[1] . '.' . $matches[2] . '.0';
+    }
+
+    if (preg_match('/^(\d+)$/', $version, $matches)) {
+        return $matches[1] . '.0.0';
+    }
+
+    if (preg_match('/v?(\d+(?:\.\d+)+)/i', $version, $matches)) {
+        return fs_normalize_plugin_version($matches[1]);
+    }
+
+    return $version;
+}
+
 function bround($dVal, $iDec = 2)
 {
     // banker's style rounding or round-half-even
@@ -923,18 +959,45 @@ function fs_detect_controller_page_name($fullClass, $default)
         return null;
     }
 
+    $detected = fs_detect_controller_page_name_from_class($fullClass);
+    if ($detected !== null) {
+        return $detected;
+    }
+
+    return $default;
+}
+
+/**
+ * Resuelve el nombre de página CMS de un controlador moderno.
+ * Prioriza PAGE_NAME, luego getPageData()['name'].
+ */
+function fs_detect_controller_page_name_from_class(string $fullClass): ?string
+{
+    if (!class_exists($fullClass)) {
+        return null;
+    }
+
     try {
         $reflection = new \ReflectionClass($fullClass);
+        if ($reflection->hasConstant('PAGE_NAME')) {
+            $name = $reflection->getConstant('PAGE_NAME');
+            if (is_string($name) && $name !== '') {
+                return $name;
+            }
+        }
+
         $tempInstance = $reflection->newInstanceWithoutConstructor();
-        $pd = $tempInstance->getPageData();
-        if (isset($pd['name']) && !empty($pd['name'])) {
-            return $pd['name'];
+        if (method_exists($tempInstance, 'getPageData')) {
+            $pd = $tempInstance->getPageData();
+            if (isset($pd['name']) && !empty($pd['name'])) {
+                return (string) $pd['name'];
+            }
         }
     } catch (\Throwable $e) {
         return null;
     }
 
-    return $default;
+    return null;
 }
 
 function fs_is_modern_controller_basename(string $className): bool

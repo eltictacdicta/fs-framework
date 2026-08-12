@@ -87,7 +87,28 @@ Prioridad de resolución de plantillas Twig: **tema activo → plugins (orden in
 
 ### Ecosistema de plugins core
 
-Los dominios de negocio se distribuyen en plugins modulares con dependencias declaradas en `fsframework.ini`:
+Los dominios de negocio se distribuyen en plugins modulares con dependencias declaradas en `fsframework.ini`. Cada plugin core vive en un **repositorio git separado** bajo [eltictacdicta](https://github.com/eltictacdicta) (mismo patrón que `api_base`):
+
+| Plugin | Repositorio |
+|--------|-------------|
+| `catalogo_core` | https://github.com/eltictacdicta/catalogo_core |
+| `business_data` | https://github.com/eltictacdicta/business_data |
+| `clientes_core` | https://github.com/eltictacdicta/clientes_core |
+| `clientes_facturacion` | https://github.com/eltictacdicta/clientes_facturacion |
+| `clientes_catalogo` | https://github.com/eltictacdicta/clientes_catalogo |
+| `legacy_support` | https://github.com/eltictacdicta/legacy_support |
+| `facturascripts_support` | https://github.com/eltictacdicta/facturascripts_support |
+
+Instalación (desde la raíz del proyecto):
+
+```bash
+git clone https://github.com/eltictacdicta/catalogo_core.git plugins/catalogo_core
+git clone https://github.com/eltictacdicta/business_data.git plugins/business_data
+git clone https://github.com/eltictacdicta/clientes_core.git plugins/clientes_core
+# … resto según necesidad
+```
+
+Dependencias entre plugins:
 
 ```
 catalogo_core          ← artículos, familias, fabricantes, impuestos, divisas, almacenes, países

@@ -22,7 +22,7 @@ El panel **system_updater** compara la versión local con el **GitHub Release** 
 ## Qué va en el core (este repo)
 
 - `src/`, `base/`, `model/`, `index.php`, `tests/`, `VERSION`
-- Plugins bajo `plugins/*` están en **gitignore** (repos separados); no forman parte del tag del core salvo plugins core embebidos (`clientes_core`, `legacy_support`, etc.)
+- Plugins bajo `plugins/*` están en **gitignore** (repos separados en `eltictacdicta/*`); no forman parte del tag del core
 
 ## Workflow estándar (patch release)
 

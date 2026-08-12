@@ -432,6 +432,14 @@ class fs_plugin_manager
 
     public function enable($plugin_name)
     {
+        return $this->getEnableOrchestrator()->enable((string) $plugin_name);
+    }
+
+    /**
+     * Activa un plugin sin resolver dependencias (uso interno del orquestador).
+     */
+    public function enableWithoutDependencyResolution($plugin_name)
+    {
         if (in_array($plugin_name, $GLOBALS['plugins'])) {
             $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> ya activado.');
             return true;
@@ -439,8 +447,6 @@ class fs_plugin_manager
 
         $name = $this->rename_plugin($plugin_name);
 
-        /// comprobamos las dependencias
-        $install = TRUE;
         $wizard = FALSE;
         foreach ($this->installed() as $pitem) {
             if ($pitem['name'] != $name) {
@@ -448,26 +454,7 @@ class fs_plugin_manager
             }
 
             $wizard = $pitem['wizard'];
-            foreach ($pitem['require'] as $req) {
-                if (in_array($req, $GLOBALS['plugins'])) {
-                    continue;
-                }
-
-                $install = FALSE;
-                $txt = 'Dependencias incumplidas: <b>' . $req . '</b>';
-                if (!$this->disable_add_plugins && file_exists(FS_FOLDER . '/plugins/system_updater')) {
-                    $txt .= '. Puedes instalarlo desde <b>system_updater</b> en la tienda de plugins.';
-                }
-
-                $this->core_log->new_error($txt);
-            }
             break;
-        }
-
-        if (!$install) {
-            $this->core_log->new_error('Imposible activar el plugin <b>' . $name . '</b>.');
-            $this->auditLog('enable', $name, ['success' => false, 'reason' => 'missing_dependencies']);
-            return false;
         }
 
         /// Añadimos el plugin al final de la lista para respetar el orden de dependencias
@@ -479,10 +466,18 @@ class fs_plugin_manager
             return false;
         }
 
+        if (class_exists('fs_model_autoloader', false)) {
+            fs_model_autoloader::refreshModelDirs();
+        }
+
         require_all_models();
 
-        $this->runPluginUpgrade($name);
-        $this->ensurePluginTables($name);
+        $schemaResult = $this->applyPluginSchemaUpdates($name);
+        if (!$schemaResult['success']) {
+            $this->rollbackPluginActivation($name, $schemaResult['errors']);
+
+            return false;
+        }
 
         if ($wizard) {
             $this->core_log->new_advice('Ya puedes <a href="index.php?page=' . $wizard . '">configurar el plugin</a>.');
@@ -498,6 +493,26 @@ class fs_plugin_manager
         $this->auditLog('enable', $name, ['success' => true]);
         $this->clean_cache();
         return true;
+    }
+
+    public function resolvePluginName($plugin_name): string
+    {
+        return $this->rename_plugin($plugin_name);
+    }
+
+    public function logPluginError(string $message): void
+    {
+        $this->core_log->new_error($message);
+    }
+
+    private function getEnableOrchestrator(): \FSFramework\Core\Plugin\PluginEnableOrchestrator
+    {
+        static $orchestrator = null;
+        if ($orchestrator === null) {
+            $orchestrator = new \FSFramework\Core\Plugin\PluginEnableOrchestrator($this);
+        }
+
+        return $orchestrator;
     }
 
     public function enabled()
@@ -575,6 +590,31 @@ class fs_plugin_manager
         // Limpiar carpeta temporal
         fs_file_manager::del_tree($temp_dir);
 
+        if ($was_update) {
+            $schemaResult = $this->applyPluginSchemaUpdates($plugin_name);
+            if (!$schemaResult['success']) {
+                if ($create_backup) {
+                    $this->restore_backup($plugin_name);
+                }
+
+                foreach ($schemaResult['errors'] as $error) {
+                    $this->core_log->new_error('Error de esquema en <b>' . $plugin_name . '</b>: ' . $error);
+                }
+
+                $this->core_log->new_error(
+                    'La actualización del plugin <b>' . $plugin_name . '</b> falló al sincronizar el esquema.'
+                );
+                $this->auditLog('install', $plugin_name, [
+                    'success' => false,
+                    'reason' => 'schema_sync_failed',
+                    'errors' => $schemaResult['errors'],
+                ]);
+                $this->clean_cache();
+
+                return false;
+            }
+        }
+
         $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> añadido correctamente. Ya puede activarlo.');
         $this->auditLog('install', $plugin_name, [
             'success' => true,
@@ -637,52 +677,63 @@ class fs_plugin_manager
     }
 
     /**
-     * Ejecuta migraciones del plugin antes de sincronizar tablas desde XML.
-     * Los plugins modernos pueden exponer Init::upgrade().
+     * Ejecuta migraciones del plugin y sincroniza tablas XML con la BD.
+     * Seguro llamar tras instalar/actualizar un plugin, incluso si ya está activo.
+     *
+     * @return array{success: bool, changes: list<string>, errors: list<string>}
      */
-    private function runPluginUpgrade(string $plugin_name): void
+    public function applyPluginSchemaUpdates(string $plugin_name): array
     {
-        $initClass = '\\FSFramework\\Plugins\\' . $plugin_name . '\\Init';
-        if (!class_exists($initClass) || !method_exists($initClass, 'upgrade')) {
-            return;
+        $name = $this->rename_plugin($plugin_name);
+
+        $synchronizer = new \FSFramework\Core\Plugin\PluginSchemaSynchronizer();
+        $result = $synchronizer->synchronize($name, FS_FOLDER . self::PLUGINS_PATH);
+
+        if (class_exists('fs_model_autoloader', false)) {
+            fs_model_autoloader::refreshModelDirs();
         }
 
-        try {
-            $initClass::upgrade();
-        } catch (\Throwable $e) {
-            error_log('fs_plugin_manager: plugin upgrade failed for ' . $plugin_name . ': ' . $e->getMessage());
+        if ($result['success'] && $this->is_plugin_enabled($name)) {
+            $this->enable_plugin_controllers($name);
         }
+
+        $this->clean_cache();
+
+        return $result;
     }
 
     /**
-     * Crea las tablas de un plugin a partir de sus XMLs antes de
-     * instanciar controladores, para evitar errores de "table doesn't exist"
-     * cuando un controlador consulta una tabla recién definida.
+     * @param list<string> $errors
      */
-    private function ensurePluginTables(string $plugin_name): void
+    private function rollbackPluginActivation(string $name, array $errors): void
     {
-        $tableDir = $this->pluginsPath($plugin_name . '/model/table');
-        if (!is_dir($tableDir)) {
-            return;
+        $key = array_search($name, $GLOBALS['plugins'], true);
+        if ($key !== false) {
+            unset($GLOBALS['plugins'][$key]);
+            $GLOBALS['plugins'] = array_values($GLOBALS['plugins']);
         }
 
-        if (!class_exists('fs_schema', false)) {
-            require_once FS_FOLDER . '/base/fs_schema.php';
+        if (!$this->save()) {
+            $this->core_log->new_error('Imposible revertir la activación del plugin <b>' . $name . '</b>.');
         }
 
-        $xmlFiles = glob($tableDir . '/*.xml');
-        if (empty($xmlFiles)) {
-            return;
+        if (class_exists('fs_model_autoloader', false)) {
+            fs_model_autoloader::refreshModelDirs();
         }
 
-        sort($xmlFiles);
-        foreach ($xmlFiles as $xmlFile) {
-            try {
-                fs_schema::createFromXml($xmlFile);
-            } catch (\Throwable $e) {
-                error_log('fs_plugin_manager: error creando tabla desde ' . basename($xmlFile) . ': ' . $e->getMessage());
-            }
+        foreach ($errors as $error) {
+            $this->core_log->new_error('Error de esquema en <b>' . $name . '</b>: ' . $error);
         }
+
+        $this->core_log->new_error(
+            'Imposible activar el plugin <b>' . $name . '</b>: falló la sincronización del esquema.'
+        );
+        $this->auditLog('enable', $name, [
+            'success' => false,
+            'reason' => 'schema_sync_failed',
+            'errors' => $errors,
+        ]);
+        $this->clean_cache();
     }
 
     private function clean_cache()
@@ -925,11 +976,17 @@ class fs_plugin_manager
     private function applyPluginCompatibility(array &$plugin, $isFsFrameworkIni)
     {
         if ($isFsFrameworkIni) {
-            if (version_compare($this->version, $plugin['min_version'], '>=')) {
-                $plugin['compatible'] = true;
-            } else {
+            $compatible = version_compare($this->version, $plugin['min_version'], '>=');
+            if ($compatible && !empty($plugin['max_version'])) {
+                $compatible = version_compare($this->version, (string) $plugin['max_version'], '<=');
+                if (!$compatible) {
+                    $plugin['error_msg'] = 'Compatible hasta FSFramework ' . $plugin['max_version'];
+                }
+            } elseif (!$compatible) {
                 $plugin['error_msg'] = 'Requiere FSFramework ' . $plugin['min_version'];
             }
+
+            $plugin['compatible'] = $compatible;
 
             return;
         }
@@ -952,6 +1009,7 @@ class fs_plugin_manager
             'error_msg' => 'Falta archivo de configuración del plugin',
             'idplugin' => NULL,
             'min_version' => $this->version,
+            'max_version' => '',
             'name' => $plugin_name,
             'prioridad' => '-',
             'require' => [],
@@ -970,20 +1028,16 @@ class fs_plugin_manager
 
         $plugin['error_msg'] = '';
 
-        foreach (['description', 'idplugin', 'min_version', 'update_url', 'version', 'version_url', 'wizard'] as $field) {
+        foreach (['description', 'idplugin', 'min_version', 'max_version', 'update_url', 'version', 'version_url', 'wizard'] as $field) {
             if (isset($ini_file[$field])) {
                 $plugin[$field] = $ini_file[$field];
             }
         }
 
         $plugin['enabled'] = in_array($plugin_name, $this->enabled());
-        // Mantener versión como string si tiene formato semántico (x.y.z), sino convertir a int
-        if (strpos($plugin['version'], '.') !== false) {
-            $plugin['version'] = (string) $plugin['version'];
-        } else {
-            $plugin['version'] = (int) $plugin['version'];
-        }
+        $plugin['version'] = fs_normalize_plugin_version((string) $plugin['version']);
         $plugin['min_version'] = (string) $plugin['min_version'];
+        $plugin['max_version'] = (string) ($plugin['max_version'] ?? '');
 
         $this->applyPluginCompatibility($plugin, $isFsFrameworkIni);
 

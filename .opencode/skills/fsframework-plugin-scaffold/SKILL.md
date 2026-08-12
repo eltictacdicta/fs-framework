@@ -18,8 +18,8 @@ Plugin Scaffold:
 - [ ] Step 1: Gather requirements (name, description, dependencies)
 - [ ] Step 2: Create directory structure
 - [ ] Step 3: Create fsframework.ini
-- [ ] Step 4: Create Init.php (register event listeners, delegate to core)
-- [ ] Step 5: Create model(s) with XML schema
+- [ ] Step 4: Create Init.php (InitClass: init + update + uninstall)
+- [ ] Step 5: Create model(s) with XML schema and optional install() seeds
 - [ ] Step 6: Create controller(s)
 - [ ] Step 7: Create view template(s)
 - [ ] Step 8: Create translations
@@ -103,11 +103,12 @@ declare(strict_types=1);
 
 namespace FSFramework\Plugins\NombrePlugin;
 
+use FSFramework\Core\Template\InitClass;
 use FSFramework\Event\FSEventDispatcher;
 use FSFramework\Event\ModelEvent;
 use FSFramework\Event\ControllerEvent;
 
-class Init
+class Init extends InitClass
 {
     public function init(): void
     {
@@ -142,6 +143,16 @@ class Init
         });
     }
 
+    public function update(): void
+    {
+        // Migraciones idempotentes al activar/actualizar — ver sección siguiente
+    }
+
+    public function uninstall(): void
+    {
+        // Limpieza al desinstalar permanentemente
+    }
+
     private function cumpleRequisitosPlugin(\cliente $cliente): bool
     {
         // Plugin-specific business rules
@@ -155,6 +166,71 @@ class Init
 > **Delegate to core whenever possible.** If `fs_controller`, `fs_model`, `Container`, 
 > or a Symfony component already provides the capability, use it. Only create 
 > plugin-specific logic for truly plugin-specific behavior.
+
+### Migraciones al activar o actualizar (InitClass::update)
+
+El core distingue **arranque diario** (`init()`) de **migraciones** (`update()`).
+Al activar o actualizar un plugin, `fs_plugin_manager::applyPluginSchemaUpdates()`
+delega en `FSFramework\Core\Plugin\PluginSchemaSynchronizer`, que ejecuta en orden:
+
+1. **`Init::update()`** — migraciones PHP del plugin (`InitClass`, instancia o legacy `Init::upgrade()`)
+2. **`fs_schema::syncPluginTables()`** — sincroniza todos los XML de `model/table/`
+3. **Refresco de modelos legacy** — `fs_model::forgetCheckedTables()` + `check_table()` + `install()`
+
+**Patrón recomendado para plugins nuevos** — extender `InitClass`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace FSFramework\Plugins\NombrePlugin;
+
+use FSFramework\Core\Template\InitClass;
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Event\ModelEvent;
+
+class Init extends InitClass
+{
+    /** Wiring runtime: listeners, Twig, providers. Se ejecuta en cada boot. */
+    public function init(): void
+    {
+        $dispatcher = FSEventDispatcher::getInstance();
+        $dispatcher->addListener(ModelEvent::AFTER_SAVE, function (ModelEvent $event) {
+            // Side effects en runtime — no migraciones aquí
+        });
+    }
+
+    /** Migraciones idempotentes al activar o actualizar el plugin. */
+    public function update(): void
+    {
+        // SQL puntual, backfill de datos, settings por defecto del plugin
+    }
+
+    /** Limpieza al desinstalar el plugin permanentemente. */
+    public function uninstall(): void
+    {
+        // tmp, ficheros, entradas de configuración del plugin
+    }
+}
+```
+
+#### Qué poner en cada capa
+
+| Capa | Cuándo | Ejemplo |
+|------|--------|---------|
+| `model/table/*.xml` | Estructura declarativa | Nueva columna, PK, FK |
+| `fs_model::install()` | Semillas al crear tabla nueva | Fila `DEFAULT` |
+| `Init::update()` | Datos/SQL no expresable en XML | Renombrar valores, migrar filas |
+| `Init::init()` | Solo runtime | Listeners — **nunca** ALTER/INSERT masivo |
+
+#### Reglas
+
+- **No** sincronices esquema ni datos en `init()` — corre en cada request con el plugin activo.
+- **Sí** haz `update()` idempotente (comprueba existencia antes de alterar/insertar).
+- Retrocompat: sin `InitClass`, basta `public function update(): void` o estático `Init::upgrade()`.
+- Tras cambiar XML, actualizar el plugin desde el panel basta: el core invoca el sincronizador
+  en activación, instalación con overwrite y descarga desde tienda/updater.
 
 ## Step 5: Model with XML Schema
 
@@ -181,6 +257,20 @@ class Init
 ```
 
 **Model class** in `model/mi_tabla.php` — must implement `test()`, `save()`, `delete()`, `exists()`, and should point to the plural DB table name (for example, `mi_tablas`).
+
+Opcionalmente implementa `install()` para datos semilla cuando la tabla se crea por
+primera vez (invocado vía `check_table()` durante la sincronización del plugin):
+
+```php
+protected function install(): bool
+{
+    return $this->db->exec(
+        "INSERT INTO " . $this->table_name . " (nombre) VALUES ('DEFAULT');",
+        false
+    );
+}
+```
+
 See skill [fsframework-model-crud](../fsframework-model-crud/SKILL.md) for the complete pattern.
 
 ## Step 6: Controller

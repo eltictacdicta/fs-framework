@@ -76,6 +76,40 @@ final class AdminHomePageDiscoveryTest extends TestCase
         self::assertFalse(class_exists('FSFramework\\Plugins\\catalogo_core\\Controller\\admin_almacenes', false));
     }
 
+    public function testAllPagesUsesPageNameConstantForLegacyShimControllers(): void
+    {
+        if (!is_dir(FS_FOLDER . '/plugins/factura_pdf1')) {
+            self::markTestSkipped('factura_pdf1 plugin not present');
+        }
+
+        $controller = (new \ReflectionClass(\admin_home::class))->newInstanceWithoutConstructor();
+
+        // @phpstan-ignore assign.propertyType (doble anónimo suficiente para all_pages())
+        $controller->plugin_manager = new class {
+            public function enabled(): array
+            {
+                return ['factura_pdf1'];
+            }
+        };
+        // @phpstan-ignore assign.propertyType (doble anónimo suficiente para all_pages())
+        $controller->page = new class {
+            public function all(): array
+            {
+                return [];
+            }
+        };
+
+        $method = new \ReflectionMethod('admin_home', 'all_pages');
+        $method->setAccessible(true);
+        $pages = $method->invoke($controller);
+
+        $pageNames = array_map(static fn ($page) => $page->name, $pages);
+
+        self::assertContains('factura_detallada', $pageNames);
+        self::assertNotContains('FacturaPdf1Controller', $pageNames);
+        self::assertSame(1, count(array_filter($pageNames, static fn ($name) => $name === 'factura_detallada')));
+    }
+
     public function testAllPagesSkipsDbEntriesWithoutActiveController(): void
     {
         $orphanPage = new \fs_page([

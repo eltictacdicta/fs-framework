@@ -36,16 +36,6 @@ $action = trim((string) ($_REQUEST['action'] ?? 'status'));
 
 switch ($action) {
     case 'enable':
-        $stealthStatus = fs_maintenance_mode::stealthAccessStatus();
-        if (empty($stealthStatus['ready'])) {
-            http_response_code(409);
-            echo json_encode([
-                'success' => false,
-                'error' => 'Activa primero el modo stealth desde admin_stealth para mantener una ruta de acceso del administrador durante el mantenimiento.',
-            ]);
-            exit;
-        }
-
         $message = trim((string) ($_REQUEST['message'] ?? 'Mantenimiento activado manualmente.'));
         $retryAfter = (int) ($_REQUEST['retry_after'] ?? 300);
         $success = fs_maintenance_mode::writeLock([

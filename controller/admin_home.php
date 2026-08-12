@@ -440,22 +440,8 @@ class admin_home extends fs_controller
                         continue;
                     }
 
-                    // Get page name from getPageData() if available
-                    $pageName = $className;
-                    if (class_exists($fullClass)) {
-                        try {
-                            $reflection = new \ReflectionClass($fullClass);
-                            $tempInstance = $reflection->newInstanceWithoutConstructor();
-                            if (method_exists($tempInstance, 'getPageData')) {
-                                $pd = $tempInstance->getPageData();
-                                if (isset($pd['name']) && !empty($pd['name'])) {
-                                    $pageName = $pd['name'];
-                                }
-                            }
-                        } catch (\Throwable $e) {
-                            // Use class name as fallback
-                        }
-                    }
+                    // Resolve CMS page name (PAGE_NAME, getPageData(), or class basename)
+                    $pageName = fs_detect_controller_page_name_from_class($fullClass) ?? $className;
 
                     if (!in_array($pageName, $page_names)) {
                         $p = new fs_page();

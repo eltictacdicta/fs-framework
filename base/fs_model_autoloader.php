@@ -233,6 +233,8 @@ class fs_model_autoloader
 
     private static function resolveLoadedModelClass(string $requestedClass, string $shortClass): bool
     {
+        self::ensureGlobalAlias($shortClass);
+
         if (class_exists($requestedClass, false)) {
             return true;
         }
@@ -258,6 +260,36 @@ class fs_model_autoloader
         }
 
         return false;
+    }
+
+    /**
+     * Registers the legacy global class name (e.g. impuesto) when the model
+     * lives under FSFramework\model\*.
+     */
+    public static function ensureGlobalAlias(string $shortClass): void
+    {
+        if ($shortClass === '' || class_exists($shortClass, false)) {
+            return;
+        }
+
+        foreach (self::MODEL_NAMESPACES as $prefix) {
+            $fqcn = $prefix . $shortClass;
+            if (class_exists($fqcn, false)) {
+                class_alias($fqcn, $shortClass);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Rebuilds model search paths after the active plugin list changes mid-request.
+     */
+    public static function refreshModelDirs(): void
+    {
+        self::clearCache();
+        self::$modelDirs = [];
+        $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
+        self::buildModelDirs($folder);
     }
 
     /**

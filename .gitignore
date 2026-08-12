@@ -35,18 +35,6 @@ package-lock.json
 # PLUGINS (exclude all except core)
 # =============================================================================
 /plugins/*
-!/plugins/adminlte/
-!/plugins/AdminLTE/
-!/plugins/business_data/
-!/plugins/catalogo_core/
-!/plugins/catalogo_core/**
-!/plugins/legacy_support/
-!/plugins/facturascripts_support/
-!/plugins/portal/
-!/plugins/hola_mundo/
-!/plugins/clientes_core/
-!/plugins/clientes_catalogo/
-!/plugins/clientes_facturacion
 
 # =============================================================================
 # USER UPLOADS AND GENERATED CONTENT

@@ -420,7 +420,7 @@ require_once 'base/fs_db2.php';
 ### Important Notes
 - This is a **fork** of FacturaScripts with some components removed
 - Not 100% compatible with base FacturaScripts
-- Plugins in `/plugins/*/` (except core plugins like business_data, clientes_core) are gitignored. AdminLTE is a **theme** (`/themes/AdminLTE/`), not a plugin
+- Plugins in `/plugins/*/` are gitignored (each plugin has its own repository). AdminLTE is a **theme** (`/themes/AdminLTE/`), not a plugin
 - Never commit `config.php`, `package-lock.json`, or `node_modules/`
 - The framework uses `$GLOBALS['plugins']` for plugin discovery
 
@@ -1283,7 +1283,7 @@ class mi_modelo extends \fs_model
 
 1. **This is a fork** of FacturaScripts with significant modifications and modern architecture
 2. **Not 100% compatible** with base FacturaScripts plugins
-3. **Plugins** in `/plugins/*/` (except core plugins like business_data, clientes_core) are gitignored. AdminLTE is a **theme** in `/themes/AdminLTE/`, not a plugin
+3. **Plugins** in `/plugins/*/` are gitignored (each plugin has its own repository). AdminLTE is a **theme** in `/themes/AdminLTE/`, not a plugin
 4. **Never commit**: `config.php`, `package-lock.json`, `node_modules/`
 5. **PHP 8.2+ features**: Attributes, typed properties, union types, match expressions, named arguments
 6. **Twig is primary** template engine. Default theme is **AdminLTE** in `/themes/AdminLTE/view/`, RainTPL supported for compatibility

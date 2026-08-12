@@ -409,6 +409,31 @@ abstract class fs_model
     }
 
     /**
+     * Elimina tablas concretas de la caché de tablas ya comprobadas.
+     * Útil tras actualizar el esquema de un plugin.
+     *
+     * @param list<string> $tableNames
+     */
+    public static function forgetCheckedTables(array $tableNames): void
+    {
+        if ($tableNames === []) {
+            return;
+        }
+
+        $cache = new fs_cache();
+
+        if (!isset(self::$checked_tables)) {
+            self::$checked_tables = $cache->get_array('fs_checked_tables');
+            if (!is_array(self::$checked_tables)) {
+                self::$checked_tables = [];
+            }
+        }
+
+        self::$checked_tables = array_values(array_diff(self::$checked_tables, $tableNames));
+        $cache->set('fs_checked_tables', self::$checked_tables, 5400);
+    }
+
+    /**
      * Devuelve un array con todas las fechas entre $first y $last.
      * @param string $first
      * @param string $last
