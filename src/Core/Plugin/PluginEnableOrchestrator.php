@@ -59,7 +59,8 @@ final class PluginEnableOrchestrator
                 continue;
             }
 
-            if ($installProvider->installIfAvailable($plannedPlugin)) {
+            if ($this->installMissingPlugin($plannedPlugin, $installProvider)) {
+                $installProvider = PluginInstallProviderRegistry::get();
                 continue;
             }
 
@@ -97,9 +98,77 @@ final class PluginEnableOrchestrator
 
     private function bootstrapInstallProvider(): PluginInstallProvider
     {
-        $this->ensureSystemUpdaterPresent();
-
         return $this->resolveCatalogInstallProvider();
+    }
+
+    private function installMissingPlugin(string $pluginName, PluginInstallProvider $installProvider): bool
+    {
+        if ($installProvider->installIfAvailable($pluginName)) {
+            return true;
+        }
+
+        if (!$this->shouldBootstrapCatalogFor($pluginName)) {
+            return false;
+        }
+
+        $this->ensureSystemUpdaterPresent();
+        $catalogProvider = $this->resolveCatalogInstallProvider();
+        if ($catalogProvider === $installProvider) {
+            return false;
+        }
+
+        PluginInstallProviderRegistry::register($catalogProvider);
+
+        return $catalogProvider->installIfAvailable($pluginName);
+    }
+
+    private function shouldBootstrapCatalogFor(string $pluginName): bool
+    {
+        if (is_dir(FS_FOLDER . '/plugins/system_updater/controller')) {
+            return true;
+        }
+
+        $lookupFile = FS_FOLDER . '/plugins/system_updater/lib/public_catalog_lookup.php';
+        if (is_file($lookupFile)) {
+            require_once $lookupFile;
+
+            return system_updater_catalog_lists_plugin($pluginName);
+        }
+
+        return $this->isPluginListedInRemoteCatalog($pluginName);
+    }
+
+    private function isPluginListedInRemoteCatalog(string $pluginName): bool
+    {
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 5,
+                'header' => "User-Agent: FSFramework-CatalogLookup/1.0\r\n",
+            ],
+        ]);
+
+        foreach ([
+            'https://raw.githubusercontent.com/eltictacdicta/fs-cusmtom-plugins/main/custom_plugins.json',
+            'https://raw.githubusercontent.com/eltictacdicta/fs-cusmtom-plugins/master/custom_plugins.json',
+        ] as $url) {
+            $json = @file_get_contents($url, false, $context);
+            if ($json === false) {
+                continue;
+            }
+
+            $entries = json_decode($json, true);
+            if (!is_array($entries)) {
+                continue;
+            }
+
+            foreach ($entries as $entry) {
+                if (is_array($entry) && isset($entry['nombre']) && (string) $entry['nombre'] === $pluginName) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function ensureSystemUpdaterPresent(): void
