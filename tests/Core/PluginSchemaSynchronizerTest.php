@@ -83,6 +83,20 @@ final class PluginSchemaSynchronizerTest extends TestCase
     }
 
     #[Test]
+    public function syncsEmptyModelTableDirectoryWithoutNamespaceError(): void
+    {
+        $pluginName = 'test_xml_empty_plugin';
+        $tableDir = $this->tempDir . '/' . $pluginName . '/model/table';
+        mkdir($tableDir, 0777, true);
+
+        $synchronizer = new PluginSchemaSynchronizer();
+        $result = $synchronizer->synchronize($pluginName, $this->tempDir);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame([], $result['errors']);
+    }
+
+    #[Test]
     public function forgetCheckedTablesRemovesOnlyRequestedTables(): void
     {
         $ref = new \ReflectionClass(\fs_model::class);

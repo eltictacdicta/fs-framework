@@ -87,11 +87,11 @@ final class PluginSchemaSynchronizer
             return [];
         }
 
-        if (!class_exists('fs_schema', false)) {
+        if (!class_exists('\fs_schema', false)) {
             require_once $this->frameworkPath('base/fs_schema.php');
         }
 
-        $syncResult = fs_schema::syncPluginTables($tableDir);
+        $syncResult = \fs_schema::syncPluginTables($tableDir);
 
         if (isset($syncResult['error'])) {
             $result['errors'][] = (string) $syncResult['error'];
@@ -124,11 +124,11 @@ final class PluginSchemaSynchronizer
         array $tableNames,
         array &$result
     ): void {
-        if (!class_exists('fs_model', false)) {
+        if (!class_exists('\fs_model', false)) {
             require_once $this->frameworkPath('base/fs_model.php');
         }
 
-        fs_model::forgetCheckedTables($tableNames);
+        \fs_model::forgetCheckedTables($tableNames);
         $this->ensureModelAutoloader();
 
         $pluginPath = rtrim($pluginsRoot, '/\\') . '/' . $pluginName;
@@ -166,7 +166,7 @@ final class PluginSchemaSynchronizer
             require_once $file;
         }
 
-        if (!class_exists($className, false) || !is_subclass_of($className, 'fs_model')) {
+        if (!class_exists($className, false) || !is_subclass_of($className, \fs_model::class)) {
             return;
         }
 
@@ -182,8 +182,8 @@ final class PluginSchemaSynchronizer
 
     private function ensureModelAutoloader(): void
     {
-        if (class_exists('fs_model_autoloader', false)) {
-            fs_model_autoloader::refreshModelDirs();
+        if (class_exists('\fs_model_autoloader', false)) {
+            \fs_model_autoloader::refreshModelDirs();
 
             return;
         }
@@ -194,9 +194,9 @@ final class PluginSchemaSynchronizer
         }
 
         require_once $autoloaderPath;
-        if (class_exists('fs_model_autoloader', false)) {
-            fs_model_autoloader::register(false);
-            fs_model_autoloader::refreshModelDirs();
+        if (class_exists('\fs_model_autoloader', false)) {
+            \fs_model_autoloader::register(false);
+            \fs_model_autoloader::refreshModelDirs();
         }
     }
 
