@@ -47,24 +47,29 @@ final class FsLoginCookieAuthTest extends TestCase
 
             public function clean_cache(bool $force): void
             {
+                // No-op intencional: el test no usa caché de usuarios.
             }
         });
         $this->setPrivateProperty($login, 'core_log', new class {
             public function new_error(string $message): void
             {
+                // No-op intencional: el test no valida mensajes de log.
             }
 
             public function set_user_nick($user): void
             {
+                // No-op intencional: stub de fs_core_log.
             }
 
             public function save(string $message, string $channel = '', bool $important = false): void
             {
+                // No-op intencional: stub de fs_core_log.
             }
         });
         $this->setPrivateProperty($login, 'cache', new class {
             public function clean(): void
             {
+                // No-op intencional: stub de fs_cache.
             }
         });
 

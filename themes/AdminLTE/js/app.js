@@ -239,12 +239,11 @@ function _init() {
    */
   $.AdminLTE.layout = {
     activate: function () {
-      var _this = this;
-      _this.fix();
-      _this.fixSidebar();
-      $(window, ".wrapper").resize(function () {
-        _this.fix();
-        _this.fixSidebar();
+      this.fix();
+      this.fixSidebar();
+      $(window, ".wrapper").resize(() => {
+        this.fix();
+        this.fixSidebar();
       });
     },
     fix: function () {
@@ -350,20 +349,19 @@ function _init() {
       }
     },
     expandOnHover: function () {
-      var _this = this;
       var screenWidth = $.AdminLTE.options.screenSizes.sm - 1;
       //Expand sidebar on hover
-      $('.main-sidebar').hover(function () {
+      $('.main-sidebar').hover(() => {
         if ($('body').hasClass('sidebar-mini')
                 && $("body").hasClass('sidebar-collapse')
                 && $(window).width() > screenWidth) {
-          _this.expand();
+          this.expand();
         }
-      }, function () {
+      }, () => {
         if ($('body').hasClass('sidebar-mini')
                 && $('body').hasClass('sidebar-expanded-on-hover')
                 && $(window).width() > screenWidth) {
-          _this.collapse();
+          this.collapse();
         }
       });
     },
@@ -386,7 +384,6 @@ function _init() {
    * @Usage: $.AdminLTE.tree('.sidebar')
    */
   $.AdminLTE.tree = function (menu) {
-    var _this = this;
     var animationSpeed = $.AdminLTE.options.animationSpeed;
     $(document).on('click', menu + ' li a', function (e) {
       //Get the clicked link and the next element
@@ -421,7 +418,7 @@ function _init() {
           parent.find('li.active').removeClass('active');
           parent_li.addClass('active');
           //Fix the layout in case the sidebar stretches over the height of the window
-          _this.layout.fix();
+          $.AdminLTE.layout.fix();
         });
       }
       //if this isn't a link, prevent the page from being redirected
@@ -441,8 +438,6 @@ function _init() {
   $.AdminLTE.controlSidebar = {
     //instantiate the object
     activate: function () {
-      //Get the object
-      var _this = this;
       //Update options
       var o = $.AdminLTE.options.controlSidebarOptions;
       //Get the sidebar
@@ -451,29 +446,29 @@ function _init() {
       var btn = $(o.toggleBtnSelector);
 
       //Listen to the click event
-      btn.on('click', function (e) {
+      btn.on('click', (e) => {
         e.preventDefault();
         //If the sidebar is not open
         if (!sidebar.hasClass('control-sidebar-open')
                 && !$('body').hasClass('control-sidebar-open')) {
           //Open the sidebar
-          _this.open(sidebar, o.slide);
+          this.open(sidebar, o.slide);
         } else {
-          _this.close(sidebar, o.slide);
+          this.close(sidebar, o.slide);
         }
       });
 
       //If the body has a boxed layout, fix the sidebar bg position
       var bg = $(".control-sidebar-bg");
-      _this._fix(bg);
+      this._fix(bg);
 
       //If the body has a fixed layout, make the control sidebar fixed
       if ($('body').hasClass('fixed')) {
-        _this._fixForFixed(sidebar);
+        this._fixForFixed(sidebar);
       } else {
         //If the content height is less than the sidebar's height, force max height
         if ($('.content-wrapper, .right-side').height() < sidebar.height()) {
-          _this._fixForContent(sidebar);
+          this._fixForContent(sidebar);
         }
       }
     },
@@ -497,12 +492,11 @@ function _init() {
       }
     },
     _fix: function (sidebar) {
-      var _this = this;
       if ($("body").hasClass('layout-boxed')) {
         sidebar.css('position', 'absolute');
         sidebar.height($(".wrapper").height());
-        $(window).resize(function () {
-          _this._fix(sidebar);
+        $(window).resize(() => {
+          this._fix(sidebar);
         });
       } else {
         sidebar.css({
@@ -538,24 +532,22 @@ function _init() {
     icons: $.AdminLTE.options.boxWidgetOptions.boxWidgetIcons,
     animationSpeed: $.AdminLTE.options.animationSpeed,
     activate: function (_box) {
-      var _this = this;
       if (!_box) {
         _box = document; // activate all boxes per default
       }
       //Listen for collapse event triggers
-      $(_box).on('click', _this.selectors.collapse, function (e) {
+      $(_box).on('click', this.selectors.collapse, (e) => {
         e.preventDefault();
-        _this.collapse($(this));
+        this.collapse($(e.currentTarget));
       });
 
       //Listen for remove event triggers
-      $(_box).on('click', _this.selectors.remove, function (e) {
+      $(_box).on('click', this.selectors.remove, (e) => {
         e.preventDefault();
-        _this.remove($(this));
+        this.remove($(e.currentTarget));
       });
     },
     collapse: function (element) {
-      var _this = this;
       //Find the box parent
       var box = element.parents(".box").first();
       //Find the body and the footer
@@ -563,19 +555,19 @@ function _init() {
       if (!box.hasClass("collapsed-box")) {
         //Convert minus into plus
         element.children(":first")
-                .removeClass(_this.icons.collapse)
-                .addClass(_this.icons.open);
+                .removeClass(this.icons.collapse)
+                .addClass(this.icons.open);
         //Hide the content
-        box_content.slideUp(_this.animationSpeed, function () {
+        box_content.slideUp(this.animationSpeed, function () {
           box.addClass("collapsed-box");
         });
       } else {
         //Convert plus into minus
         element.children(":first")
-                .removeClass(_this.icons.open)
-                .addClass(_this.icons.collapse);
+                .removeClass(this.icons.open)
+                .addClass(this.icons.collapse);
         //Show the content
-        box_content.slideDown(_this.animationSpeed, function () {
+        box_content.slideDown(this.animationSpeed, function () {
           box.removeClass("collapsed-box");
         });
       }

@@ -25,6 +25,8 @@ use FSFramework\Translation\FSTranslator;
  */
 class admin_email extends fs_controller
 {
+    private const NOT_CONFIGURED_LABEL = '(no configurado)';
+
     public MailService $mailService;
 
     public array $emailConfig = [];
@@ -131,10 +133,10 @@ class admin_email extends fs_controller
 
     private function buildTestEmailBody(array $config): string
     {
-        $host = $this->no_html($config['mail_host'] ?: '(no configurado)');
-        $port = $this->no_html($config['mail_port'] ?: '(no configurado)');
+        $host = $this->no_html($config['mail_host'] ?: self::NOT_CONFIGURED_LABEL);
+        $port = $this->no_html($config['mail_port'] ?: self::NOT_CONFIGURED_LABEL);
         $mailer = $this->no_html($config['mail_mailer'] ?: 'smtp');
-        $from = $this->no_html($config['mail_from_email'] ?: '(no configurado)');
+        $from = $this->no_html($config['mail_from_email'] ?: self::NOT_CONFIGURED_LABEL);
         $date = $this->no_html(date('d/m/Y H:i:s'));
 
         return <<<HTML

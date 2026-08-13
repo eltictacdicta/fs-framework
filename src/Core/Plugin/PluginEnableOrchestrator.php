@@ -42,24 +42,46 @@ final class PluginEnableOrchestrator
             return false;
         }
 
+        if (!$this->installMissingDependencies($plan, $pluginName, $installProvider)) {
+            return false;
+        }
+
+        return $this->enablePlannedPlugins($plan);
+    }
+
+    /**
+     * @param list<string> $plan
+     */
+    private function installMissingDependencies(array $plan, string $pluginName, PluginInstallProvider $installProvider): bool
+    {
         foreach ($plan as $plannedPlugin) {
             if ($installProvider->isInstalled($plannedPlugin)) {
                 continue;
             }
 
-            if (!$installProvider->installIfAvailable($plannedPlugin)) {
-                $message = $installProvider->getLastError();
-                if ($message === '') {
-                    $message = 'No se pudo instalar la dependencia <b>' . $plannedPlugin . '</b>.';
-                }
-
-                $this->pluginManager->logPluginError($message);
-                $this->pluginManager->logPluginError('Imposible activar el plugin <b>' . $pluginName . '</b>.');
-
-                return false;
+            if ($installProvider->installIfAvailable($plannedPlugin)) {
+                continue;
             }
+
+            $message = $installProvider->getLastError();
+            if ($message === '') {
+                $message = 'No se pudo instalar la dependencia <b>' . $plannedPlugin . '</b>.';
+            }
+
+            $this->pluginManager->logPluginError($message);
+            $this->pluginManager->logPluginError('Imposible activar el plugin <b>' . $pluginName . '</b>.');
+
+            return false;
         }
 
+        return true;
+    }
+
+    /**
+     * @param list<string> $plan
+     */
+    private function enablePlannedPlugins(array $plan): bool
+    {
         foreach ($plan as $plannedPlugin) {
             if ($this->pluginManager->is_plugin_enabled($plannedPlugin)) {
                 continue;

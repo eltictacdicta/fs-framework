@@ -135,6 +135,7 @@ final class TestInitWithUpdate
 
     public function init(): void
     {
+        // Hook vacío intencional: el test verifica solo update().
     }
 
     public function update(): void
@@ -149,6 +150,7 @@ final class TestInitWithUpgrade
 
     public function init(): void
     {
+        // Hook vacío intencional: el test verifica solo upgrade().
     }
 
     public static function upgrade(): void
@@ -163,10 +165,12 @@ final class TestInitClassPlugin extends InitClass
 
     public function init(): void
     {
+        // Hook vacío intencional: el test verifica solo update().
     }
 
     public function uninstall(): void
     {
+        // Hook vacío intencional: el test verifica solo update().
     }
 
     public function update(): void

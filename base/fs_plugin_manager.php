@@ -539,80 +539,26 @@ class fs_plugin_manager
             return false;
         }
 
-        // Extraer temporalmente para detectar el nombre real del plugin
-        $temp_dir = FS_FOLDER . self::TMP_PLUGIN_UPLOAD_PATH;
-        $this->ensureDirectory($temp_dir);
-
-        if (!fs_file_manager::extract_zip_safe($path, $temp_dir)) {
-            $this->core_log->new_error('Error al extraer el archivo ZIP.');
-            $this->auditLog('install', $name ?? 'unknown', ['success' => false, 'reason' => 'zip_extraction_failed']);
+        $extracted = $this->extractUploadedPluginArchive($path, $name);
+        if ($extracted === null) {
             return false;
         }
 
-        // Detectar el nombre del plugin extraído
-        $plugin_folder_name = $this->getFirstDirectoryFromPath($temp_dir);
-        if (empty($plugin_folder_name)) {
-            fs_file_manager::del_tree($temp_dir);
-            $this->core_log->new_error('El archivo ZIP no contiene ninguna carpeta de plugin válida.');
-            $this->auditLog('install', $name ?? 'unknown', ['success' => false, 'reason' => 'invalid_zip_structure']);
-            return false;
-        }
-
-        $plugin_name = $this->rename_plugin($plugin_folder_name, $temp_dir);
-
-        // Si el plugin ya existe y se solicita backup, crearlo
+        ['temp_dir' => $temp_dir, 'plugin_folder_name' => $plugin_folder_name, 'plugin_name' => $plugin_name] = $extracted;
         $was_update = file_exists(FS_FOLDER . self::PLUGINS_PATH . $plugin_name);
-        if ($create_backup && $was_update) {
-            if (!$this->create_backup($plugin_name)) {
-                fs_file_manager::del_tree($temp_dir);
-                $this->auditLog('install', $plugin_name, ['success' => false, 'reason' => 'backup_failed']);
-                return false;
-            }
-        }
 
-        // Mover el plugin de la carpeta temporal a plugins/
-        $source = $temp_dir . $plugin_folder_name;
-        $destination = FS_FOLDER . self::PLUGINS_PATH . $plugin_name;
-
-        // Si existe, eliminarlo primero
-        if (file_exists($destination)) {
-            fs_file_manager::del_tree($destination);
-        }
-
-        // Mover la carpeta
-        if (!rename($source, $destination)) {
+        if ($create_backup && $was_update && !$this->create_backup($plugin_name)) {
             fs_file_manager::del_tree($temp_dir);
-            $this->core_log->new_error('Error al mover el plugin a la carpeta de plugins.');
-            $this->auditLog('install', $plugin_name, ['success' => false, 'reason' => 'move_failed']);
+            $this->auditLog('install', $plugin_name, ['success' => false, 'reason' => 'backup_failed']);
             return false;
         }
 
-        // Limpiar carpeta temporal
-        fs_file_manager::del_tree($temp_dir);
+        if (!$this->moveExtractedPlugin($temp_dir, $plugin_folder_name, $plugin_name)) {
+            return false;
+        }
 
-        if ($was_update) {
-            $schemaResult = $this->applyPluginSchemaUpdates($plugin_name);
-            if (!$schemaResult['success']) {
-                if ($create_backup) {
-                    $this->restore_backup($plugin_name);
-                }
-
-                foreach ($schemaResult['errors'] as $error) {
-                    $this->core_log->new_error('Error de esquema en <b>' . $plugin_name . '</b>: ' . $error);
-                }
-
-                $this->core_log->new_error(
-                    'La actualización del plugin <b>' . $plugin_name . '</b> falló al sincronizar el esquema.'
-                );
-                $this->auditLog('install', $plugin_name, [
-                    'success' => false,
-                    'reason' => 'schema_sync_failed',
-                    'errors' => $schemaResult['errors'],
-                ]);
-                $this->clean_cache();
-
-                return false;
-            }
+        if ($was_update && !$this->applySchemaUpdatesOrRollback($plugin_name, $create_backup)) {
+            return false;
         }
 
         $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> añadido correctamente. Ya puede activarlo.');
@@ -622,7 +568,108 @@ class fs_plugin_manager
             'backup_created' => $create_backup && $was_update,
         ]);
         $this->clean_cache();
+
         return $plugin_name;
+    }
+
+    /**
+     * @return array{temp_dir: string, plugin_folder_name: string, plugin_name: string}|null
+     */
+    private function extractUploadedPluginArchive(string $path, ?string $name): ?array
+    {
+        $temp_dir = FS_FOLDER . self::TMP_PLUGIN_UPLOAD_PATH;
+        if (!$this->clearAndEnsureDirectory($temp_dir)) {
+            $this->auditLog('install', $name ?? 'unknown', ['success' => false, 'reason' => 'temp_dir_failed']);
+            return null;
+        }
+
+        if (!fs_file_manager::extract_zip_safe($path, $temp_dir)) {
+            $this->core_log->new_error('Error al extraer el archivo ZIP.');
+            $this->auditLog('install', $name ?? 'unknown', ['success' => false, 'reason' => 'zip_extraction_failed']);
+            return null;
+        }
+
+        $plugin_folder_name = $this->getFirstDirectoryFromPath($temp_dir);
+        if (empty($plugin_folder_name)) {
+            fs_file_manager::del_tree($temp_dir);
+            $this->core_log->new_error('El archivo ZIP no contiene ninguna carpeta de plugin válida.');
+            $this->auditLog('install', $name ?? 'unknown', ['success' => false, 'reason' => 'invalid_zip_structure']);
+            return null;
+        }
+
+        return [
+            'temp_dir' => $temp_dir,
+            'plugin_folder_name' => $plugin_folder_name,
+            'plugin_name' => $this->rename_plugin($plugin_folder_name, $temp_dir),
+        ];
+    }
+
+    private function moveExtractedPlugin(string $temp_dir, string $plugin_folder_name, string $plugin_name): bool
+    {
+        $source = $temp_dir . $plugin_folder_name;
+        $destination = FS_FOLDER . self::PLUGINS_PATH . $plugin_name;
+        $backup = null;
+
+        if (file_exists($destination)) {
+            $backup = $destination . '_move_' . bin2hex(random_bytes(4));
+            if (!rename($destination, $backup)) {
+                fs_file_manager::del_tree($temp_dir);
+                $this->core_log->new_error('Error al respaldar el plugin existente.');
+                $this->auditLog('install', $plugin_name, ['success' => false, 'reason' => 'backup_move_failed']);
+
+                return false;
+            }
+        }
+
+        if (rename($source, $destination)) {
+            if ($backup !== null && file_exists($backup)) {
+                fs_file_manager::del_tree($backup);
+            }
+            fs_file_manager::del_tree($temp_dir);
+
+            return true;
+        }
+
+        if ($backup !== null && file_exists($backup)) {
+            if (file_exists($destination)) {
+                fs_file_manager::del_tree($destination);
+            }
+            rename($backup, $destination);
+        }
+
+        fs_file_manager::del_tree($temp_dir);
+        $this->core_log->new_error('Error al mover el plugin a la carpeta de plugins.');
+        $this->auditLog('install', $plugin_name, ['success' => false, 'reason' => 'move_failed']);
+
+        return false;
+    }
+
+    private function applySchemaUpdatesOrRollback(string $plugin_name, bool $create_backup): bool
+    {
+        $schemaResult = $this->applyPluginSchemaUpdates($plugin_name);
+        if ($schemaResult['success']) {
+            return true;
+        }
+
+        if ($create_backup) {
+            $this->restore_backup($plugin_name);
+        }
+
+        foreach ($schemaResult['errors'] as $error) {
+            $this->core_log->new_error('Error de esquema en <b>' . $plugin_name . '</b>: ' . $error);
+        }
+
+        $this->core_log->new_error(
+            'La actualización del plugin <b>' . $plugin_name . '</b> falló al sincronizar el esquema.'
+        );
+        $this->auditLog('install', $plugin_name, [
+            'success' => false,
+            'reason' => 'schema_sync_failed',
+            'errors' => $schemaResult['errors'],
+        ]);
+        $this->clean_cache();
+
+        return false;
     }
 
     public function installed()
@@ -850,43 +897,49 @@ class fs_plugin_manager
         }
 
         foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/Controller'), 'php') as $f) {
-            $short_name = substr($f, 0, -4);
-            if (!fs_is_modern_controller_basename($short_name)) {
-                continue;
-            }
+            $this->registerModernControllerPage($plugin_name, $f, $page_list);
+        }
+    }
 
-            $full_class = "FSFramework\\Plugins\\$plugin_name\\Controller\\$short_name";
+    private function registerModernControllerPage(string $plugin_name, string $controllerFile, array &$page_list): void
+    {
+        $short_name = substr($controllerFile, 0, -4);
+        if (!fs_is_modern_controller_basename($short_name)) {
+            return;
+        }
 
-            // Skip route controllers (they use #[FSRoute] and are not CMS pages)
-            if (fs_is_route_controller($full_class)) {
-                // Clean up any stale page entries for route controllers
-                $stalePage = new fs_page();
-                $stale = $stalePage->get($short_name);
-                if ($stale) {
-                    $stale->delete();
-                }
-                continue;
-            }
+        $full_class = "FSFramework\\Plugins\\$plugin_name\\Controller\\$short_name";
 
-            if (!fs_is_modern_page_controller($full_class)) {
-                continue;
-            }
+        if (fs_is_route_controller($full_class)) {
+            $this->deleteStalePage($short_name);
 
-            $page_name = fs_detect_controller_page_name($full_class, $short_name);
-            if ($page_name === null) {
-                $stalePage = new fs_page();
-                $stale = $stalePage->get($short_name);
-                if ($stale) {
-                    $stale->delete();
-                }
-                continue;
-            }
+            return;
+        }
 
-            $page_list[] = $page_name;
-            $new_fsc = new $full_class();
-            $this->saveControllerPage($new_fsc, $page_name, 'Imposible guardar la página moderna ');
-            $this->grantAdminAccessToPage($new_fsc, $page_name);
-            unset($new_fsc);
+        if (!fs_is_modern_page_controller($full_class)) {
+            return;
+        }
+
+        $page_name = fs_detect_controller_page_name($full_class, $short_name);
+        if ($page_name === null) {
+            $this->deleteStalePage($short_name);
+
+            return;
+        }
+
+        $page_list[] = $page_name;
+        $new_fsc = new $full_class();
+        $this->saveControllerPage($new_fsc, $page_name, 'Imposible guardar la página moderna ');
+        $this->grantAdminAccessToPage($new_fsc, $page_name);
+        unset($new_fsc);
+    }
+
+    private function deleteStalePage(string $pageName): void
+    {
+        $stalePage = new fs_page();
+        $stale = $stalePage->get($pageName);
+        if ($stale) {
+            $stale->delete();
         }
     }
 

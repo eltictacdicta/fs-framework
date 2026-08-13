@@ -29,6 +29,8 @@ use FSFramework\Security\SessionManager;
  */
 class fs_login
 {
+    private const LOGIN_THROTTLE_CLASS = \FSFramework\Security\LoginThrottle::class;
+    private const SESSION_POLICY_CLASS = \FSFramework\Security\SessionPolicy::class;
 
     /**
      *
@@ -369,8 +371,7 @@ class fs_login
      */
     private function log_in_user(&$controller_user, $nick, $password, $ip)
     {
-        // Protección anti fuerza bruta: bloquear si hay demasiados intentos
-        if (class_exists('\\FSFramework\\Security\\LoginThrottle') && \FSFramework\Security\LoginThrottle::isThrottled($nick)) {
+        if (class_exists(self::LOGIN_THROTTLE_CLASS) && \FSFramework\Security\LoginThrottle::isThrottled($nick)) {
             $this->core_log->new_error(\FSFramework\Security\LoginThrottle::GENERIC_ERROR);
             $this->core_log->save('Login bloqueado por exceso de intentos para ' . $nick, 'login', TRUE);
             return FALSE;
@@ -378,66 +379,84 @@ class fs_login
 
         $user = $this->user_model->get($nick);
         if (!$user) {
-            // Protección contra enumeración de usuarios: ejecutar password_verify
-            // contra un hash fijo para que el tiempo de respuesta sea similar
-            if (class_exists('\\FSFramework\\Security\\LoginThrottle')) {
-                \FSFramework\Security\LoginThrottle::recordFailure($nick);
-            }
-            $dummyHash = class_exists('\\FSFramework\\Security\\LoginThrottle')
-                ? \FSFramework\Security\LoginThrottle::getDummyHash()
-                : password_hash('dummy-timing-protection', PASSWORD_BCRYPT);
-            password_verify($password, $dummyHash);
-            $this->core_log->new_error(class_exists('\\FSFramework\\Security\\LoginThrottle')
-                ? \FSFramework\Security\LoginThrottle::GENERIC_ERROR
-                : 'Usuario o contraseña incorrectos.');
-            $this->user_model->clean_cache(TRUE);
-            $this->cache->clean();
-            return FALSE;
+            return $this->handleUnknownLoginUser($nick, $password);
         }
 
         if (!$user->enabled) {
-            $this->core_log->new_error('El usuario ' . $user->nick . ' está desactivado, habla con tu administrador!');
-            $this->core_log->save('El usuario ' . $user->nick . ' está desactivado, habla con tu administrador!', 'login', TRUE);
-            $this->user_model->clean_cache(TRUE);
-            $this->cache->clean();
+            return $this->handleDisabledLoginUser($user);
+        }
+
+        if (!$this->verifyLoginPassword($user, $password, $nick)) {
             return FALSE;
         }
 
+        return $this->completeSuccessfulLogin($controller_user, $user, $password, $ip);
+    }
+
+    private function handleUnknownLoginUser($nick, $password)
+    {
+        if (class_exists(self::LOGIN_THROTTLE_CLASS)) {
+            \FSFramework\Security\LoginThrottle::recordFailure($nick);
+        }
+        $dummyHash = class_exists(self::LOGIN_THROTTLE_CLASS)
+            ? \FSFramework\Security\LoginThrottle::getDummyHash()
+            : password_hash('dummy-timing-protection', PASSWORD_BCRYPT);
+        password_verify($password, $dummyHash);
+        $this->core_log->new_error(class_exists(self::LOGIN_THROTTLE_CLASS)
+            ? \FSFramework\Security\LoginThrottle::GENERIC_ERROR
+            : 'Usuario o contraseña incorrectos.');
+        $this->user_model->clean_cache(TRUE);
+        $this->cache->clean();
+        return FALSE;
+    }
+
+    private function handleDisabledLoginUser($user)
+    {
+        $this->core_log->new_error('El usuario ' . $user->nick . ' está desactivado, habla con tu administrador!');
+        $this->core_log->save('El usuario ' . $user->nick . ' está desactivado, habla con tu administrador!', 'login', TRUE);
+        $this->user_model->clean_cache(TRUE);
+        $this->cache->clean();
+        return FALSE;
+    }
+
+    private function verifyLoginPassword($user, $password, $nick)
+    {
         $password_verified = $this->verify_modern_password($user, $password);
 
-        // Delegar la compatibilidad SHA1 legacy en legacy_support.
         if (!$password_verified && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
             $password_verified = \FSFramework\Plugins\legacy_support\LegacyCompatibility::verifyAndUpgradeLegacyPassword(
                 $user,
                 $password
             );
         } elseif (!$password_verified && method_exists($user, 'is_legacy_sha1_password') && $user->is_legacy_sha1_password()) {
-            $password_verified = false;
             $this->core_log->new_error('No se puede migrar la contraseña legacy de este usuario sin activar el plugin legacy_support.');
             $this->core_log->save(
                 'Login bloqueado para ' . $nick . ': se requiere legacy_support para migrar contraseñas SHA1 legacy.',
                 'login',
                 TRUE
             );
-        }
-
-        if (!$password_verified) {
-            if (class_exists('\\FSFramework\\Security\\LoginThrottle')) {
-                \FSFramework\Security\LoginThrottle::recordFailure($nick);
-            }
-            $this->core_log->new_error(class_exists('\\FSFramework\\Security\\LoginThrottle')
-                ? \FSFramework\Security\LoginThrottle::GENERIC_ERROR
-                : 'Usuario o contraseña incorrectos.');
-            $this->core_log->save('¡Contraseña incorrecta! (' . $nick . ')', 'login', TRUE);
             return FALSE;
         }
 
-        // Login exitoso: limpiar el contador de intentos fallidos
-        if (class_exists('\\FSFramework\\Security\\LoginThrottle')) {
-            \FSFramework\Security\LoginThrottle::clear($nick);
+        if ($password_verified) {
+            if (class_exists(self::LOGIN_THROTTLE_CLASS)) {
+                \FSFramework\Security\LoginThrottle::clear($nick);
+            }
+            return TRUE;
         }
 
-        // Detectar contraseñas inseguras (menores a 8 caracteres) y marcar para cambio obligatorio
+        if (class_exists(self::LOGIN_THROTTLE_CLASS)) {
+            \FSFramework\Security\LoginThrottle::recordFailure($nick);
+        }
+        $this->core_log->new_error(class_exists(self::LOGIN_THROTTLE_CLASS)
+            ? \FSFramework\Security\LoginThrottle::GENERIC_ERROR
+            : 'Usuario o contraseña incorrectos.');
+        $this->core_log->save('¡Contraseña incorrecta! (' . $nick . ')', 'login', TRUE);
+        return FALSE;
+    }
+
+    private function completeSuccessfulLogin(&$controller_user, $user, $password, $ip)
+    {
         $requiresPasswordChange = mb_strlen($password) < 8;
 
         $user->new_logkey();
@@ -445,37 +464,33 @@ class fs_login
         if (!$user->admin && !$this->ip_filter->in_white_list($ip)) {
             $this->core_log->new_error('No puedes acceder desde esta IP.');
             $this->core_log->save('No puedes acceder desde esta IP.', 'login', TRUE);
-        } else if ($user->save()) {
-            // Guardamos en sesión Y en cookies (legacy).
-            // regenerateSession: true porque es login por formulario → prevenir session fixation.
-            $this->save_session_data($user, regenerateSession: true);
-
-            // Check initial setup pending and complete it after setting force flags
-            if (class_exists('fs_user') && \fs_user::isInitialSetupPending()) {
-                $this->session->set('force_password_change', true);
-                $this->session->set('force_password_change_reason', 'initial_setup');
-                $this->completeInitialSetupIfPending();
-            }
-
-            // Marcar en sesión si requiere cambio de contraseña
-            if ($requiresPasswordChange) {
-                $this->session->set('force_password_change', true);
-                $this->session->set('force_password_change_reason', 'insecure_password');
-            }
-
-            /// añadimos el mensaje al log
-            $this->core_log->save('Login correcto.', 'login');
-
-            /// limpiamos la lista de IPs
-            $this->ip_filter->clear();
-
-            $controller_user = $user;
-            return $controller_user->logged_on;
+            return FALSE;
         }
 
-        $this->core_log->new_error('Imposible guardar los datos de usuario.');
-        $this->cache->clean();
-        return FALSE;
+        if (!$user->save()) {
+            $this->core_log->new_error('Imposible guardar los datos de usuario.');
+            $this->cache->clean();
+            return FALSE;
+        }
+
+        $this->save_session_data($user, regenerateSession: true);
+
+        if (class_exists('fs_user') && \fs_user::isInitialSetupPending()) {
+            $this->session->set('force_password_change', true);
+            $this->session->set('force_password_change_reason', 'initial_setup');
+            $this->completeInitialSetupIfPending();
+        }
+
+        if ($requiresPasswordChange) {
+            $this->session->set('force_password_change', true);
+            $this->session->set('force_password_change_reason', 'insecure_password');
+        }
+
+        $this->core_log->save('Login correcto.', 'login');
+        $this->ip_filter->clear();
+
+        $controller_user = $user;
+        return $controller_user->logged_on;
     }
 
     private function completeInitialSetupIfPending(): void
@@ -568,12 +583,12 @@ class fs_login
         $rememberMe = (bool) $this->session->get('remember_me', false);
         $expire = time() + FS_COOKIES_EXPIRE;
 
-        if (class_exists('FSFramework\\Security\\SessionPolicy')
-            && method_exists('FSFramework\\Security\\SessionPolicy', 'cookieExpireFor')) {
+        if (class_exists(self::SESSION_POLICY_CLASS)
+            && method_exists(self::SESSION_POLICY_CLASS, 'cookieExpireFor')) {
             try {
-                $method = new \ReflectionMethod('FSFramework\\Security\\SessionPolicy', 'cookieExpireFor');
+                $method = new \ReflectionMethod(self::SESSION_POLICY_CLASS, 'cookieExpireFor');
                 if ($method->isStatic() && $method->getNumberOfParameters() >= 1) {
-                    $expire = (int) \FSFramework\Security\SessionPolicy::cookieExpireFor($rememberMe);
+                    $expire = (int) self::SESSION_POLICY_CLASS::cookieExpireFor($rememberMe);
                 }
             } catch (\ReflectionException | \TypeError | \ArgumentCountError $exception) {
                 $expire = time() + FS_COOKIES_EXPIRE;

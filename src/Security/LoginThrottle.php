@@ -44,6 +44,8 @@ class LoginThrottle
 {
     private static ?string $dummyHash = null;
 
+    private const LOG_PREFIX = '[LoginThrottle] ';
+
     const CACHE_PREFIX = 'login_throttle_';
     const MAX_ATTEMPTS = 6;
     const THROTTLE_WINDOW = 600; // 10 minutos
@@ -75,7 +77,7 @@ class LoginThrottle
             $cache = CacheManager::getInstance();
             $cache->set($key, $attempts, self::THROTTLE_WINDOW);
         } catch (\Throwable $e) {
-            error_log('[LoginThrottle] ' . $e->getMessage());
+            error_log(self::LOG_PREFIX . $e->getMessage());
             // Si la caché no está disponible, no bloqueamos
         }
     }
@@ -92,7 +94,7 @@ class LoginThrottle
             $cache = CacheManager::getInstance();
             $cache->delete($key);
         } catch (\Throwable $e) {
-            error_log('[LoginThrottle] ' . $e->getMessage());
+            error_log(self::LOG_PREFIX . $e->getMessage());
         }
     }
 
@@ -131,7 +133,7 @@ class LoginThrottle
 
             return is_numeric($value) ? (int) $value : 0;
         } catch (\Throwable $e) {
-            error_log('[LoginThrottle] ' . $e->getMessage());
+            error_log(self::LOG_PREFIX . $e->getMessage());
             return 0;
         }
     }
@@ -154,7 +156,7 @@ class LoginThrottle
                     return $ip;
                 }
             } catch (\Throwable $e) {
-                error_log('[LoginThrottle] ' . $e->getMessage());
+                error_log(self::LOG_PREFIX . $e->getMessage());
                 // Fallar silenciosamente al fallback legacy
             }
         }

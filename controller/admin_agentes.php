@@ -24,6 +24,7 @@
  */
 class admin_agentes extends fs_controller
 {
+    private const AGENT_MSG_PREFIX = 'Agente ';
 
     public $agente;
     public $modificar;
@@ -104,7 +105,7 @@ class admin_agentes extends fs_controller
         $this->applyAgentData($agente_obj, $data);
 
         if ($agente_obj->save()) {
-            $this->new_message('Agente ' . $this->no_html($agente_obj->codagente) . ' creado correctamente.');
+            $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($agente_obj->codagente) . ' creado correctamente.');
             \FSFramework\Security\SafeRedirect::redirect($agente_obj->url(), 'index.php?page=admin_agentes');
             return;
         } else {
@@ -123,7 +124,7 @@ class admin_agentes extends fs_controller
         $this->applyAgentData($agente_obj, $data);
 
         if ($agente_obj->save()) {
-            $this->new_message('Agente ' . $this->no_html($agente_obj->codagente) . ' modificado correctamente.');
+            $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($agente_obj->codagente) . ' modificado correctamente.');
             \FSFramework\Security\SafeRedirect::redirect($agente_obj->url(), 'index.php?page=admin_agentes');
             return;
         } else {
@@ -141,7 +142,7 @@ class admin_agentes extends fs_controller
                 $this->new_error_msg('En el modo <b>demo</b> no se pueden eliminar agentes.
                 Esto es así para evitar malas prácticas entre usuarios que prueban la demo.');
             } else if ($agente_obj->delete()) {
-                $this->new_message("Agente " . $agente_obj->codagente . " eliminado correctamente.");
+                $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($agente_obj->codagente) . ' eliminado correctamente.');
             } else {
                 $this->new_error_msg("¡Imposible eliminar al agente!");
             }

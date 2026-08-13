@@ -58,6 +58,8 @@ namespace FSFramework\Core;
  */
 final class ProgressStream
 {
+    private const SAFE_ID_PATTERN = '/[^A-Za-z0-9_.-]/';
+
     /**
      * Default TTL for {@see ProgressStream::cleanupExpired()}: 24h.
      */
@@ -74,7 +76,7 @@ final class ProgressStream
      *    `zlib.output_compression=Off`).
      *  - Drops any pre-existing output buffer.
      *
-     * The `$sessionId` is sanitized via `preg_replace('/[^A-Za-z0-9_.-]/', '', ...)`
+     * The `$sessionId` is sanitized via `preg_replace(self::SAFE_ID_PATTERN, '', ...)`
      * to prevent path traversal: callers MUST pass a trustworthy
      * identifier (e.g. `session_id()` or a CSRF token), NOT raw user
      * input. The function never reads `$_SESSION` itself — it only
@@ -118,8 +120,8 @@ final class ProgressStream
             header('X-Content-Type-Options: nosniff');
         }
 
-        $sanitizedPrefix = (string) preg_replace('/[^A-Za-z0-9_.-]/', '', $progressPrefix);
-        $sanitizedSession = (string) preg_replace('/[^A-Za-z0-9_.-]/', '', $sessionId);
+        $sanitizedPrefix = (string) preg_replace(self::SAFE_ID_PATTERN, '', $progressPrefix);
+        $sanitizedSession = (string) preg_replace(self::SAFE_ID_PATTERN, '', $sessionId);
 
         $progressFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR
@@ -308,7 +310,7 @@ final class ProgressStream
      */
     public static function cleanupExpired(string $progressPrefix, int $ttlSeconds = self::DEFAULT_TTL_SECONDS): int
     {
-        $sanitizedPrefix = (string) preg_replace('/[^A-Za-z0-9_.-]/', '', $progressPrefix);
+        $sanitizedPrefix = (string) preg_replace(self::SAFE_ID_PATTERN, '', $progressPrefix);
         $pattern = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR
             . $sanitizedPrefix

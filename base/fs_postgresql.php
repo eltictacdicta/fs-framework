@@ -226,7 +226,7 @@ class fs_postgresql extends fs_db_engine
      * @param boolean $transaction
      * @return boolean
      */
-    public function exec($sql, $transaction = TRUE, $params = [])
+    public function exec($sql, $transaction = TRUE, $params = [], $batch = FALSE)
     {
         $result = FALSE;
         self::$last_affected_rows = 0;
@@ -239,11 +239,7 @@ class fs_postgresql extends fs_db_engine
                 $this->begin_transaction();
             }
 
-            if (!empty($params)) {
-                $aux = @pg_query_params(self::$link, $sql, $params);
-            } else {
-                $aux = @pg_query(self::$link, $sql);
-            }
+            $aux = $this->runParameterizedQuery($sql, $params);
 
             if ($aux) {
                 self::$last_affected_rows = pg_affected_rows($aux);
@@ -487,14 +483,7 @@ class fs_postgresql extends fs_db_engine
             /// añadimos la consulta sql al historial
             self::$core_log->new_sql($sql);
 
-            self::$core_log->new_sql($sql);
-
-            if (!empty($params)) {
-                $sql = $this->convert_placeholders($sql);
-                $aux = pg_query_params(self::$link, $sql, $params);
-            } else {
-                $aux = pg_query(self::$link, $sql);
-            }
+            $aux = $this->runParameterizedQuery($sql, $params);
 
             if ($aux) {
                 $result = pg_fetch_all($aux);
@@ -635,5 +624,22 @@ class fs_postgresql extends fs_db_engine
             $i++;
             return '$' . $i;
         }, $sql);
+    }
+
+    /**
+     * Ejecuta SQL dinámico siempre vía pg_query_params (incluso sin bind params).
+     *
+     * @param array<int|string, mixed> $params
+     * @return resource|false
+     */
+    private function runParameterizedQuery(string $sql, array $params = [])
+    {
+        if ($params !== []) {
+            $sql = $this->convert_placeholders($sql);
+
+            return @pg_query_params(self::$link, $sql, array_values($params));
+        }
+
+        return @pg_query(self::$link, $sql);
     }
 }

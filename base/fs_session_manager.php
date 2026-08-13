@@ -32,6 +32,8 @@ use FSFramework\Security\CsrfManager;
  */
 class fs_session_manager
 {
+    private const SESSION_POLICY_CLASS = \FSFramework\Security\SessionPolicy::class;
+
     /**
      * @var bool
      */
@@ -94,11 +96,12 @@ class fs_session_manager
 
     private static function initializeLegacySession(): void
     {
-        $idleTimeout = class_exists('FSFramework\\Security\\SessionPolicy')
-            ? \FSFramework\Security\SessionPolicy::getIdleTimeout()
+        $sessionPolicyClass = self::SESSION_POLICY_CLASS;
+        $idleTimeout = class_exists($sessionPolicyClass)
+            ? $sessionPolicyClass::getIdleTimeout()
             : (defined('FS_SESSION_LIFETIME') ? (int) FS_SESSION_LIFETIME : 7200);
-        $gcLifetime = class_exists('FSFramework\\Security\\SessionPolicy')
-            ? \FSFramework\Security\SessionPolicy::getAbsoluteTimeout()
+        $gcLifetime = class_exists($sessionPolicyClass)
+            ? $sessionPolicyClass::getAbsoluteTimeout()
             : $idleTimeout;
         $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
 
@@ -304,8 +307,9 @@ class fs_session_manager
         $loginTime = isset($_SESSION['login_time']) ? (int) $_SESSION['login_time'] : 0;
         $lastActivity = isset($_SESSION['last_activity']) ? (int) $_SESSION['last_activity'] : $loginTime;
 
-        if (class_exists('FSFramework\\Security\\SessionPolicy')) {
-            return !\FSFramework\Security\SessionPolicy::isExpired($loginTime, $lastActivity);
+        $sessionPolicyClass = self::SESSION_POLICY_CLASS;
+        if (class_exists($sessionPolicyClass)) {
+            return !$sessionPolicyClass::isExpired($loginTime, $lastActivity);
         }
 
         $maxLifetime = defined('FS_SESSION_LIFETIME') ? (int) FS_SESSION_LIFETIME : 7200;

@@ -2,6 +2,8 @@
 
 const FS_PLUGIN_LEGACY_CONTROLLER_PATH = '/controller/';
 const FS_PLUGIN_MODERN_CONTROLLER_PATH = '/Controller/';
+const FS_CORE_CONTROLLER_PATH = '/controller/';
+const FS_PLUGIN_LEGACY_MODEL_PATH = '/model';
 const FS_HTTP_SEPARATOR = "\r\n\r\n";
 const FS_GITHUB_ACCEPT_HEADER = 'Accept: application/vnd.github.v3.raw';
 const FS_GITHUB_AUTH_HEADER_PREFIX = 'Authorization: token ';
@@ -145,7 +147,7 @@ function find_controller($name)
         }
     }
 
-    if (file_exists(FS_FOLDER . '/controller/' . $name . '.php')) {
+    if (file_exists(FS_FOLDER . FS_CORE_CONTROLLER_PATH . $name . '.php')) {
         return 'controller/' . $name . '.php';
     }
 
@@ -161,7 +163,7 @@ function find_controller($name)
  */
 function fs_page_has_controller(string $pageName, ?array $plugins = null): bool
 {
-    if (file_exists(FS_FOLDER . '/controller/' . $pageName . '.php')) {
+    if (file_exists(FS_FOLDER . FS_CORE_CONTROLLER_PATH . $pageName . '.php')) {
         return true;
     }
 
@@ -377,6 +379,101 @@ function fs_curl_ca_info()
     return $cached;
 }
 
+function fs_curl_ca_bundle_local_path()
+{
+    return (defined('FS_FOLDER') ? FS_FOLDER : '.') . '/base/cacert.pem';
+}
+
+function fs_curl_ca_bundle_is_fresh($localCert, $maxAgeDays)
+{
+    if (!file_exists($localCert)) {
+        return false;
+    }
+
+    $fileAge = time() - filemtime($localCert);
+
+    return $fileAge < ($maxAgeDays * 86400);
+}
+
+function fs_curl_download_ca_bundle_to_temp($sourceUrl, $tmpFile)
+{
+    if (function_exists('curl_init') && fs_curl_download_ca_bundle_via_curl($sourceUrl, $tmpFile)) {
+        return true;
+    }
+
+    return fs_curl_download_ca_bundle_via_stream($sourceUrl, $tmpFile);
+}
+
+function fs_curl_download_ca_bundle_via_curl($sourceUrl, $tmpFile)
+{
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $sourceUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-CA-Updater');
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+    $currentCa = fs_curl_ca_info();
+    if ($currentCa) {
+        curl_setopt($ch, CURLOPT_CAINFO, $currentCa);
+    }
+
+    $data = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code != 200 || !$data || strlen($data) <= 1000) {
+        return false;
+    }
+
+    return file_put_contents($tmpFile, $data) !== false;
+}
+
+function fs_curl_download_ca_bundle_via_stream($sourceUrl, $tmpFile)
+{
+    $ctx = stream_context_create([
+        'http' => ['timeout' => 30, 'user_agent' => 'FSFramework-CA-Updater'],
+        'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+    ]);
+    $currentCa = fs_curl_ca_info();
+    if ($currentCa) {
+        stream_context_set_option($ctx, 'ssl', 'cafile', $currentCa);
+    }
+    $data = @file_get_contents($sourceUrl, false, $ctx);
+    if (!$data || strlen($data) <= 1000) {
+        return false;
+    }
+
+    return file_put_contents($tmpFile, $data) !== false;
+}
+
+function fs_curl_is_valid_pem_bundle($tmpFile)
+{
+    $content = file_get_contents($tmpFile);
+
+    return $content !== false && strpos($content, '-----BEGIN CERTIFICATE-----') !== false;
+}
+
+function fs_curl_install_ca_bundle_from_temp($tmpFile, $localCert)
+{
+    if (!rename($tmpFile, $localCert)) {
+        if (copy($tmpFile, $localCert)) {
+            if (file_exists($tmpFile)) {
+                unlink($tmpFile);
+            }
+        } else {
+            if (file_exists($tmpFile)) {
+                unlink($tmpFile);
+            }
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /**
  * Comprueba si el archivo cacert.pem local necesita actualizarse y, si es así,
  * descarga una copia nueva desde curl.se/ca/cacert.pem.
@@ -395,98 +492,34 @@ function fs_curl_update_ca_bundle($maxAgeDays = 90)
     }
     $_SESSION['cacert_checked'] = true;
 
-    $localCert = (defined('FS_FOLDER') ? FS_FOLDER : '.') . '/base/cacert.pem';
+    $localCert = fs_curl_ca_bundle_local_path();
     $sourceUrl = 'https://curl.se/ca/cacert.pem';
 
-    // Si el archivo existe y no es lo suficientemente viejo, no hacer nada
-    if (file_exists($localCert)) {
-        $fileAge = time() - filemtime($localCert);
-        if ($fileAge < ($maxAgeDays * 86400)) {
-            return false; // Aún vigente, no necesita actualización
-        }
+    if (fs_curl_ca_bundle_is_fresh($localCert, $maxAgeDays)) {
+        return false;
     }
 
-    // Verificar permisos de escritura
     $baseDir = dirname($localCert);
     if (!is_writable($baseDir)) {
         return false;
     }
 
     $tmpFile = $localCert . '.tmp';
-    $downloaded = false;
-
-    // Intento 1: cURL (usa el cacert.pem existente para validar SSL)
-    if (function_exists('curl_init')) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $sourceUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'FSFramework-CA-Updater');
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-
-        // Usar el cacert.pem actual (aunque viejo, sigue siendo válido para esta descarga)
-        $currentCa = fs_curl_ca_info();
-        if ($currentCa) {
-            curl_setopt($ch, CURLOPT_CAINFO, $currentCa);
-        }
-
-        $data = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($http_code == 200 && $data && strlen($data) > 1000) {
-            $downloaded = file_put_contents($tmpFile, $data) !== false;
-        }
-    }
-
-    // Intento 2: file_get_contents como fallback
-    if (!$downloaded) {
-        $ctx = stream_context_create([
-            'http' => ['timeout' => 30, 'user_agent' => 'FSFramework-CA-Updater'],
-            'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
-        ]);
-        $currentCa = fs_curl_ca_info();
-        if ($currentCa) {
-            stream_context_set_option($ctx, 'ssl', 'cafile', $currentCa);
-        }
-        $data = @file_get_contents($sourceUrl, false, $ctx);
-        if ($data && strlen($data) > 1000) {
-            $downloaded = file_put_contents($tmpFile, $data) !== false;
-        }
-    }
-
-    if (!$downloaded) {
+    if (!fs_curl_download_ca_bundle_to_temp($sourceUrl, $tmpFile)) {
         if (file_exists($tmpFile)) {
             unlink($tmpFile);
         }
         return false;
     }
 
-    // Validación básica: debe contener certificados PEM
-    $content = file_get_contents($tmpFile, false, null, 0, 512);
-    if (!$content || strpos($content, '-----BEGIN CERTIFICATE-----') === false) {
+    if (!fs_curl_is_valid_pem_bundle($tmpFile)) {
         if (file_exists($tmpFile)) {
             unlink($tmpFile);
         }
         return false;
     }
 
-    if (!rename($tmpFile, $localCert)) {
-        if (copy($tmpFile, $localCert)) {
-            if (file_exists($tmpFile)) {
-                unlink($tmpFile);
-            }
-        } else {
-            if (file_exists($tmpFile)) {
-                unlink($tmpFile);
-            }
-            return false;
-        }
-    }
-
-    return true;
+    return fs_curl_install_ca_bundle_from_temp($tmpFile, $localCert);
 }
 
 /**
@@ -742,6 +775,25 @@ function get_class_name($object = NULL)
 }
 
 /**
+ * Carga modelos PHP desde un directorio si existen ficheros .php no registrados.
+ */
+function require_php_models_from_directory(string $directory): void
+{
+    if (!is_dir($directory)) {
+        return;
+    }
+
+    foreach (scandir($directory) as $file_name) {
+        if ($file_name == '.' || $file_name == '..' || substr($file_name, -4) != '.php' || in_array($file_name, $GLOBALS['models'])) {
+            continue;
+        }
+
+        require_once $directory . '/' . $file_name;
+        $GLOBALS['models'][] = $file_name;
+    }
+}
+
+/**
  * Carga todos los modelos disponibles en los pugins activados y el núcleo.
  */
 function require_all_models()
@@ -751,28 +803,10 @@ function require_all_models()
     }
 
     foreach ($GLOBALS['plugins'] as $plugin) {
-        if (!file_exists(FS_PLUGINS_PREFIX . $plugin . '/model')) {
-            continue;
-        }
-
-        foreach (scandir(FS_PLUGINS_PREFIX . $plugin . '/model') as $file_name) {
-            if ($file_name != '.' && $file_name != '..' && substr($file_name, -4) == '.php' && !in_array($file_name, $GLOBALS['models'])) {
-                require_once FS_PLUGINS_PREFIX . $plugin . '/model/' . $file_name;
-                $GLOBALS['models'][] = $file_name;
-            }
-        }
+        require_php_models_from_directory(FS_PLUGINS_PREFIX . $plugin . FS_PLUGIN_LEGACY_MODEL_PATH);
     }
 
-    /// ahora cargamos los del núcleo
-    $coreModelDir = FS_FOLDER . '/model';
-    if (is_dir($coreModelDir)) {
-        foreach (scandir($coreModelDir) as $file_name) {
-            if ($file_name != '.' && $file_name != '..' && substr($file_name, -4) == '.php' && !in_array($file_name, $GLOBALS['models'])) {
-                require_once $coreModelDir . '/' . $file_name;
-                $GLOBALS['models'][] = $file_name;
-            }
-        }
-    }
+    require_php_models_from_directory(FS_FOLDER . '/model');
 }
 
 /**

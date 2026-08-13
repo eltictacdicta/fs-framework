@@ -47,6 +47,8 @@ use FSFramework\Translation\FS2025JsonLoader;
  */
 class FSTranslator
 {
+    private const TRANSLATIONS_DIR = '/translations';
+
     /** @var Translator|null Instancia singleton del traductor Symfony */
     private static ?Translator $instance = null;
 
@@ -205,7 +207,7 @@ class FSTranslator
         $pluginPath = $pluginPath ?? $basePath . '/plugins/' . $pluginName;
 
         // Intentar cargar formato nuevo (YAML)
-        $yamlPath = $pluginPath . '/translations';
+        $yamlPath = $pluginPath . self::TRANSLATIONS_DIR;
         if (is_dir($yamlPath)) {
             self::loadTranslationsFromDirectory($yamlPath, 'yaml', $pluginName);
         }
@@ -233,30 +235,25 @@ class FSTranslator
             return;
         }
 
-        // Intentar usar la lista de plugins habilitados si existe
-        if (defined('PLUGINS') && is_array(constant('PLUGINS'))) {
-            foreach (constant('PLUGINS') as $pluginName) {
-                self::loadPluginTranslations($pluginName);
-            }
-        } elseif (isset($GLOBALS['plugins']) && is_array($GLOBALS['plugins'])) {
-            foreach ($GLOBALS['plugins'] as $pluginName) {
-                self::loadPluginTranslations($pluginName);
-            }
-        } else {
-            foreach (scandir($pluginsPath) as $item) {
-                if ($item === '.' || $item === '..') {
-                    continue;
-                }
-                if (!is_dir($pluginsPath . '/' . $item)) {
-                    continue;
-                }
-                // Backups y carpetas auxiliares no son plugins activables
-                if (str_ends_with($item, '_back') || str_ends_with($item, '.zip')) {
-                    continue;
-                }
-                self::loadPluginTranslations($item);
-            }
+        foreach (self::resolvePluginNamesForTranslation($pluginsPath) as $pluginName) {
+            self::loadPluginTranslations($pluginName);
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function resolvePluginNamesForTranslation(string $pluginsPath): array
+    {
+        if (defined('PLUGINS') && is_array(constant('PLUGINS'))) {
+            return array_values(constant('PLUGINS'));
+        }
+
+        if (isset($GLOBALS['plugins']) && is_array($GLOBALS['plugins'])) {
+            return array_values($GLOBALS['plugins']);
+        }
+
+        return [];
     }
 
     /**
@@ -270,7 +267,7 @@ class FSTranslator
         $basePath = self::$basePath ?? self::detectBasePath();
         
         // Buscar en traducciones del core
-        $translationsPath = $basePath . '/translations';
+        $translationsPath = $basePath . self::TRANSLATIONS_DIR;
         if (is_dir($translationsPath)) {
             foreach (scandir($translationsPath) as $file) {
                 if (preg_match('/^messages\.([a-z]{2}(?:_[A-Z]{2})?)\.ya?ml$/i', $file, $matches)) {
@@ -360,7 +357,7 @@ class FSTranslator
     private static function loadCoreTranslations(): void
     {
         $basePath = self::$basePath ?? self::detectBasePath();
-        $translationsPath = $basePath . '/translations';
+        $translationsPath = $basePath . self::TRANSLATIONS_DIR;
 
         if (!is_dir($translationsPath)) {
             return;

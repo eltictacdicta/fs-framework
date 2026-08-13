@@ -286,6 +286,14 @@ class Html
 
     private static function registerUtilityFunctions(Environment $twig): void
     {
+        self::registerThemeUtilityFunctions($twig);
+        self::registerFormattingUtilityFunctions($twig);
+        self::registerTemplateUtilityFunctions($twig);
+        self::registerViewHookUtilityFunctions($twig);
+    }
+
+    private static function registerThemeUtilityFunctions(Environment $twig): void
+    {
         $twig->addFunction(new \Twig\TwigFunction(
             'theme_manager',
             fn() => ThemeManager::getInstance()
@@ -312,7 +320,10 @@ class Html
                 return $settings->get('system_name', 'FSFramework');
             }
         ));
+    }
 
+    private static function registerFormattingUtilityFunctions(Environment $twig): void
+    {
         $twig->addFunction(new \Twig\TwigFunction(
             'bytes',
             function ($bytes, $precision = 2) {
@@ -335,6 +346,14 @@ class Html
         ));
 
         $twig->addFunction(new \Twig\TwigFunction(
+            'executionTime',
+            [self::class, 'executionTime']
+        ));
+    }
+
+    private static function registerTemplateUtilityFunctions(Environment $twig): void
+    {
+        $twig->addFunction(new \Twig\TwigFunction(
             'settings',
             function ($group = null, $key = null, $default = null) {
                 if ($group === 'default' && $key === 'homepage') {
@@ -355,19 +374,16 @@ class Html
         ));
 
         $twig->addFunction(new \Twig\TwigFunction(
-            'executionTime',
-            [self::class, 'executionTime']
-        ));
-
-        $twig->addFunction(new \Twig\TwigFunction(
             'getIncludeViews',
             function ($template = null, $position = null) {
                 return self::getPluginIncludeViews($template, $position);
             },
             ['is_safe' => ['html']]
         ));
+    }
 
-        // render_hook: core view hook function for injecting plugin content
+    private static function registerViewHookUtilityFunctions(Environment $twig): void
+    {
         try {
             $twig->addFunction(new \Twig\TwigFunction(
                 'render_hook',
@@ -380,7 +396,6 @@ class Html
             // Duplicate registration — idempotent, ignore
         }
 
-        // clientes_render_hook: deprecated alias for render_hook
         try {
             $twig->addFunction(new \Twig\TwigFunction(
                 'clientes_render_hook',

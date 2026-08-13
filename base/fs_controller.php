@@ -50,6 +50,9 @@ if (defined('FS_LAZY_MODELS') && FS_LAZY_MODELS) {
 #[AllowDynamicProperties]
 class fs_controller extends fs_app
 {
+    private const STEALTH_MODE_CLASS = \FSFramework\Core\StealthMode::class;
+    private const STEALTH_MODE_FILE = '/src/Core/StealthMode.php';
+
     /**
      * Objeto Request de Symfony HttpFoundation para acceso a parámetros
      * de la petición de forma moderna y segura.
@@ -724,19 +727,19 @@ class fs_controller extends fs_app
      */
     public function shouldShowPasswordResetLink(): bool
     {
-        if (!class_exists('\FSFramework\Core\StealthMode')) {
-            $stealthPath = FS_FOLDER . '/src/Core/StealthMode.php';
+        if (!class_exists(self::STEALTH_MODE_CLASS)) {
+            $stealthPath = FS_FOLDER . self::STEALTH_MODE_FILE;
             if (file_exists($stealthPath)) {
                 require_once $stealthPath;
             }
         }
 
-        if (!class_exists('\FSFramework\Core\StealthMode')) {
+        if (!class_exists(self::STEALTH_MODE_CLASS)) {
             return true;
         }
 
         try {
-            return !(new \FSFramework\Core\StealthMode())->isEnabled();
+            return !(new (self::STEALTH_MODE_CLASS)())->isEnabled();
         } catch (\Throwable) {
             return true;
         }
@@ -746,19 +749,19 @@ class fs_controller extends fs_app
     {
         $fallback = $this->url() . '&logout=TRUE';
 
-        if (!class_exists('\FSFramework\Core\StealthMode')) {
-            $stealthPath = FS_FOLDER . '/src/Core/StealthMode.php';
+        if (!class_exists(self::STEALTH_MODE_CLASS)) {
+            $stealthPath = FS_FOLDER . self::STEALTH_MODE_FILE;
             if (file_exists($stealthPath)) {
                 require_once $stealthPath;
             }
         }
 
-        if (!class_exists('\FSFramework\Core\StealthMode')) {
+        if (!class_exists(self::STEALTH_MODE_CLASS)) {
             return $fallback;
         }
 
         try {
-            $stealth = new \FSFramework\Core\StealthMode();
+            $stealth = new (self::STEALTH_MODE_CLASS)();
             if (!$stealth->isEnabled()) {
                 return $fallback;
             }

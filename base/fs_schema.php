@@ -628,7 +628,7 @@ class fs_schema
         }
 
         $sql = $db->compare_columns($tableName, $xmlColumns, $dbColumns);
-        if (!empty($sql) && $db->exec($sql)) {
+        if (!empty($sql) && $db->exec($sql, null, [], true)) {
             $changes[] = "Columnas actualizadas en {$tableName}";
         }
     }
@@ -649,7 +649,7 @@ class fs_schema
         }
 
         $sql = $db->compare_constraints($tableName, $xmlConstraints, $dbConstraints);
-        if (!empty($sql) && $db->exec($sql)) {
+        if (!empty($sql) && $db->exec($sql, null, [], true)) {
             $changes[] = "Restricciones actualizadas en {$tableName}";
         }
     }

@@ -248,7 +248,7 @@ class fs_db2
      * @param boolean $transaction
      * @return boolean
      */
-    public function exec($sql, $transaction = NULL, $params = [])
+    public function exec($sql, $transaction = NULL, $params = [], $batch = FALSE)
     {
         if (!$this->connected()) {
             $this->connect();
@@ -263,7 +263,7 @@ class fs_db2
         self::$table_list = FALSE;
 
         $start = microtime(true);
-        $result = self::$engine->exec($sql, $transaction, $params);
+        $result = self::$engine->exec($sql, $transaction, $params, $batch);
         $duration = microtime(true) - $start;
 
         if (class_exists('\\FSFramework\\Core\\DebugBar')) {

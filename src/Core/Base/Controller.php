@@ -118,105 +118,103 @@ class Controller
         $this->fs_path = defined('FS_PATH') ? FS_PATH : '';
 
         if ($this->db->connect()) {
-            // Use fs_user directly for full compatibility with header.html
-            $this->user = new \fs_user();
-
-            $pageData = $this->getPageData();
-            
-            // Check if page already exists in database
-            $tempPage = new \fs_page();
-            $existingPage = $tempPage->get($pageData['name']);
-            
-            if ($existingPage) {
-                // Update existing page with new data from controller
-                $existingPage->title = $pageData['title'];
-                $existingPage->folder = $pageData['menu'];
-                $existingPage->show_on_menu = $pageData['showonmenu'] ?? true;
-                $existingPage->orden = $pageData['ordernum'] ?? 100;
-                $existingPage->save();
-                $this->page = $existingPage;
-            } else {
-                // Create new page for FS2025 controller
-                $this->page = new \fs_page([
-                    'name' => $pageData['name'],
-                    'title' => $pageData['title'],
-                    'folder' => $pageData['menu'],
-                    'show_on_menu' => $pageData['showonmenu'] ?? true,
-                    'important' => false,
-                    'orden' => $pageData['ordernum'] ?? 100
-                ]);
-                $this->page->save();
-                
-                // Clear page cache so the new page appears in menus immediately
-                $this->cache->delete('m_fs_page_all');
-            }
-
-            // Initialize response and permissions
-            $this->response = new \FSFramework\Core\Response();
-            $this->permissions = new \FSFramework\Core\Base\ControllerPermissions();
-
-            // 1. Authenticate immediately
-            $this->login_tools->log_in($this->user);
-
-            if (isset($_COOKIE['fsNick']) && !$this->user->logged_on) {
-                // Retry loading? login_tools->log_in should have handled it if cookie is valid session.
-            }
-
-            if ($this->request->query->has('logout')) {
-                $this->login_tools->log_out();
-                header('Location: index.php');
-                exit;
-            }
-
-            // 2. Enforce Access Control
-            if (!$this->user->logged_on) {
-                // For now, simple forceful redirect/render to protect content.
-                // We exit here to prevent 'handle()' or 'run()' from executing sensitive logic.
-                echo \FSFramework\Core\Html::render('login/default', [
-                    'fsc' => $this,
-                    'user' => $this->user,
-                    'empresa' => $this->empresa
-                ]);
-                exit;
-            }
-
-            // Check Page Permissions
-            // In FS2025, admins have automatic access to all pages
-            $hasAccess = $this->user->admin || $this->user->have_access_to($this->page->name);
-            
-            if (!$hasAccess) {
-                // Access Denied
-                echo \FSFramework\Core\Html::render('access_denied', ['fsc' => $this]);
-                exit;
-            }
-            
-            // Auto-grant access for admins to new FS2025 pages (so they appear in menu)
-            if ($this->user->admin && !$this->user->have_access_to($this->page->name)) {
-                // Create access record for this admin user
-                $access = new \fs_access();
-                $access->fs_user = $this->user->nick;
-                $access->fs_page = $this->page->name;
-                $access->allow_delete = true;
-                $access->save();
-                
-                // Refresh the menu cache
-                $this->user->clean_cache(true);
-            }
-
-            // Load menu for header template (only if logged in)
-            $this->menu = $this->user->get_menu();
-
-            // Load empresa for header template
-            if (class_exists('empresa')) {
-                $emp = new \empresa();
-                $empresa_data = $emp->get();
-                if ($empresa_data) {
-                    $this->empresa = $empresa_data;
-                } else {
-                    $this->empresa = $emp;
-                }
-            }
+            $this->initializeConnectedSession();
         }
+    }
+
+    private function initializeConnectedSession(): void
+    {
+        $this->user = new \fs_user();
+
+        $pageData = $this->getPageData();
+        $this->page = $this->resolveOrCreatePage($pageData);
+
+        $this->response = new \FSFramework\Core\Response();
+        $this->permissions = new \FSFramework\Core\Base\ControllerPermissions();
+
+        $this->login_tools->log_in($this->user);
+
+        if ($this->request->query->has('logout')) {
+            $this->login_tools->log_out();
+            header('Location: index.php');
+            exit;
+        }
+
+        if (!$this->user->logged_on) {
+            echo \FSFramework\Core\Html::render('login/default', [
+                'fsc' => $this,
+                'user' => $this->user,
+                'empresa' => $this->empresa
+            ]);
+            exit;
+        }
+
+        $this->enforcePageAccessOrExit();
+        $this->loadSessionMenuAndEmpresa();
+    }
+
+    /**
+     * @param array<string, mixed> $pageData
+     */
+    private function resolveOrCreatePage(array $pageData): \fs_page
+    {
+        $tempPage = new \fs_page();
+        $existingPage = $tempPage->get($pageData['name']);
+
+        if ($existingPage) {
+            $existingPage->title = $pageData['title'];
+            $existingPage->folder = $pageData['menu'];
+            $existingPage->show_on_menu = $pageData['showonmenu'] ?? true;
+            $existingPage->orden = $pageData['ordernum'] ?? 100;
+            $existingPage->save();
+
+            return $existingPage;
+        }
+
+        $page = new \fs_page([
+            'name' => $pageData['name'],
+            'title' => $pageData['title'],
+            'folder' => $pageData['menu'],
+            'show_on_menu' => $pageData['showonmenu'] ?? true,
+            'important' => false,
+            'orden' => $pageData['ordernum'] ?? 100
+        ]);
+        $page->save();
+        $this->cache->delete('m_fs_page_all');
+
+        return $page;
+    }
+
+    private function enforcePageAccessOrExit(): void
+    {
+        $hasAccess = $this->user->admin || $this->user->have_access_to($this->page->name);
+
+        if (!$hasAccess) {
+            echo \FSFramework\Core\Html::render('access_denied', ['fsc' => $this]);
+            exit;
+        }
+
+        if ($this->user->admin && !$this->user->have_access_to($this->page->name)) {
+            $access = new \fs_access();
+            $access->fs_user = $this->user->nick;
+            $access->fs_page = $this->page->name;
+            $access->allow_delete = true;
+            $access->save();
+            $this->user->clean_cache(true);
+        }
+    }
+
+    private function loadSessionMenuAndEmpresa(): void
+    {
+        $this->menu = $this->user->get_menu();
+
+        if (!class_exists('empresa')) {
+            return;
+        }
+
+        $emp = new \empresa();
+        $empresa_data = $emp->get();
+        $this->empresa = $empresa_data ?: $emp;
     }
 
     /**

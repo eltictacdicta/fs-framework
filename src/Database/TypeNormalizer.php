@@ -23,6 +23,8 @@ namespace FSFramework\Database;
 
 final class TypeNormalizer
 {
+    private const ZERO_DATETIME = '0000-00-00 00:00:00';
+    private const ZERO_DATETIME_QUOTED = "'0000-00-00 00:00:00'";
     private static array $pgToMysqlTypes = [
         'serial' => 'SERIAL',
         'integer' => 'INT(11)',
@@ -51,22 +53,33 @@ final class TypeNormalizer
     public static function convertPostgresType(string $type): string
     {
         $matches = [];
-        if (preg_match('/^([a-z\s]+)(?:\((\d+(?:,\d+)?)\))?$/i', trim($type), $matches)) {
-            $baseType = strtolower(trim($matches[1]));
-            $baseType = preg_replace('/\s+without\s+time\s+zone$/i', '', $baseType);
-            $length = isset($matches[2]) ? $matches[2] : null;
-
-            foreach (self::$pgToMysqlTypes as $pgType => $mysqlType) {
-                if ($baseType === $pgType || strpos($baseType, $pgType) === 0) {
-                    if ($length && strpos($mysqlType, '(') === false) {
-                        return "{$mysqlType}({$length})";
-                    }
-                    return $mysqlType;
-                }
-            }
+        if (!preg_match('/^([a-z\s]+)(?:\((\d+(?:,\d+)?)\))?$/i', trim($type), $matches)) {
+            return $type;
         }
 
-        return $type;
+        $baseType = strtolower(trim($matches[1]));
+        $baseType = preg_replace('/\s+without\s+time\s+zone$/i', '', $baseType);
+        $length = isset($matches[2]) ? $matches[2] : null;
+        $mapped = self::mapKnownPostgresType($baseType, $length);
+
+        return $mapped ?? $type;
+    }
+
+    private static function mapKnownPostgresType(string $baseType, ?string $length): ?string
+    {
+        foreach (self::$pgToMysqlTypes as $pgType => $mysqlType) {
+            if ($baseType !== $pgType) {
+                continue;
+            }
+
+            if ($length && strpos($mysqlType, '(') === false) {
+                return "{$mysqlType}({$length})";
+            }
+
+            return $mysqlType;
+        }
+
+        return null;
     }
 
     public static function normalizeDefault(?string $default, string $columnType): string
@@ -221,14 +234,14 @@ final class TypeNormalizer
     {
         $upperType = strtoupper($type);
         if (!in_array($upperDefault, ['CURRENT_TIMESTAMP', 'NOW()', 'CURRENT_TIMESTAMP()'], true)
-            && $upperDefault !== '0000-00-00 00:00:00'
-            && $upperDefault !== "'0000-00-00 00:00:00'"
+            && $upperDefault !== self::ZERO_DATETIME
+            && $upperDefault !== self::ZERO_DATETIME_QUOTED
         ) {
             return null;
         }
 
-        if ($upperDefault === '0000-00-00 00:00:00' || $upperDefault === "'0000-00-00 00:00:00'") {
-            return "'0000-00-00 00:00:00'";
+        if ($upperDefault === self::ZERO_DATETIME || $upperDefault === self::ZERO_DATETIME_QUOTED) {
+            return self::ZERO_DATETIME_QUOTED;
         }
 
         if ($upperType === 'DATE') {

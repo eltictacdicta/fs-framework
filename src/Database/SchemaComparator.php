@@ -25,6 +25,9 @@ final class SchemaComparator
 {
     private const IDENTIFIER_REGEX = '/^[a-z0-9_]+$/i';
     private const SQL_MODIFY_COL = ' MODIFY `';
+    private const SQL_ALTER_TABLE = 'ALTER TABLE ';
+    private const CONSTRAINT_PRIMARY_KEY = 'PRIMARY KEY';
+    private const CONSTRAINT_FOREIGN_KEY = 'FOREIGN KEY';
 
     private object $db;
     private ?SchemaInspector $inspector;
@@ -43,28 +46,35 @@ final class SchemaComparator
         $fkColumns = $this->inspector()->getFkColumnNames($rawTableName);
 
         foreach ($xmlCols as $xmlCol) {
-            $xmlType = strtolower($xmlCol['tipo']) === 'serial'
-                ? FS_DB_INTEGER
-                : TypeNormalizer::convertPostgresType($xmlCol['tipo']);
-
-            if (strtolower($xmlType) == 'integer') {
-                $xmlType = FS_DB_INTEGER;
-            }
-
-            $xmlDefault = TypeNormalizer::normalizeDefault($xmlCol['defecto'] ?? null, $xmlType);
-
-            $dbCol = $this->searchInArray($dbCols, 'name', $xmlCol['nombre']);
-            if (empty($dbCol)) {
-                $sql .= $this->buildAddColumnSql($quotedTable, $xmlCol, $xmlType, $xmlDefault);
-                continue;
-            }
-
-            $sql .= $this->buildTypeChangeSql($quotedTable, $xmlCol, $xmlType, $dbCol, $fkColumns);
-            $sql .= $this->buildNullableChangeSql($quotedTable, $xmlCol, $xmlType, $dbCol, $fkColumns);
-            $sql .= $this->buildDefaultChangeSql($quotedTable, $xmlCol, $xmlType, $xmlDefault, $dbCol);
+            $sql .= $this->compareSingleXmlColumn($quotedTable, $xmlCol, $dbCols, $fkColumns);
         }
 
         return $this->fixPostgresql($sql);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $dbCols
+     * @param array<int, string> $fkColumns
+     */
+    private function compareSingleXmlColumn(string $quotedTable, array $xmlCol, array $dbCols, array $fkColumns): string
+    {
+        $xmlType = strtolower($xmlCol['tipo']) === 'serial'
+            ? FS_DB_INTEGER
+            : TypeNormalizer::convertPostgresType($xmlCol['tipo']);
+
+        if (strtolower($xmlType) == 'integer') {
+            $xmlType = FS_DB_INTEGER;
+        }
+
+        $xmlDefault = TypeNormalizer::normalizeDefault($xmlCol['defecto'] ?? null, $xmlType);
+        $dbCol = $this->searchInArray($dbCols, 'name', $xmlCol['nombre']);
+        if (empty($dbCol)) {
+            return $this->buildAddColumnSql($quotedTable, $xmlCol, $xmlType, $xmlDefault);
+        }
+
+        return $this->buildTypeChangeSql($quotedTable, $xmlCol, $xmlType, $dbCol, $fkColumns)
+            . $this->buildNullableChangeSql($quotedTable, $xmlCol, $xmlType, $dbCol, $fkColumns)
+            . $this->buildDefaultChangeSql($quotedTable, $xmlCol, $xmlType, $xmlDefault, $dbCol);
     }
 
     public function compareConstraints(string $tableName, array $xmlCons, array $dbCons, bool $deleteOnly = false): string
@@ -82,7 +92,7 @@ final class SchemaComparator
                     continue;
                 }
 
-                $sql .= 'ALTER TABLE ' . $quotedTable . ' ADD ' . $c['consulta'] . ';';
+                $sql .= self::SQL_ALTER_TABLE . $quotedTable . ' ADD ' . $c['consulta'] . ';';
             }
         }
 
@@ -91,12 +101,12 @@ final class SchemaComparator
                 continue;
             }
 
-            if ($c['type'] === 'PRIMARY KEY') {
-                $sql .= 'ALTER TABLE ' . $quotedTable . ' DROP PRIMARY KEY;';
+            if ($c['type'] === self::CONSTRAINT_PRIMARY_KEY) {
+                $sql .= self::SQL_ALTER_TABLE . $quotedTable . ' DROP PRIMARY KEY;';
             } elseif ($c['type'] === 'UNIQUE') {
-                $sql .= 'ALTER TABLE ' . $quotedTable . ' DROP INDEX `' . $c['name'] . '`;';
-            } elseif ($c['type'] === 'FOREIGN KEY') {
-                $sql .= 'ALTER TABLE ' . $quotedTable . ' DROP FOREIGN KEY `' . $c['name'] . '`;';
+                $sql .= self::SQL_ALTER_TABLE . $quotedTable . ' DROP INDEX `' . $c['name'] . '`;';
+            } elseif ($c['type'] === self::CONSTRAINT_FOREIGN_KEY) {
+                $sql .= self::SQL_ALTER_TABLE . $quotedTable . ' DROP FOREIGN KEY `' . $c['name'] . '`;';
             }
         }
 
@@ -150,7 +160,7 @@ final class SchemaComparator
 
     private function buildAddColumnSql(string $quotedTable, array $xmlCol, string $xmlType, string $xmlDefault): string
     {
-        $sql = 'ALTER TABLE ' . $quotedTable . ' ADD `' . $xmlCol['nombre'] . '` ';
+        $sql = self::SQL_ALTER_TABLE . $quotedTable . ' ADD `' . $xmlCol['nombre'] . '` ';
 
         if ($xmlCol['tipo'] == 'serial') {
             return $sql . FS_DB_INTEGER . ' NOT NULL AUTO_INCREMENT;';
@@ -176,7 +186,7 @@ final class SchemaComparator
             return '';
         }
 
-        return 'ALTER TABLE ' . $quotedTable . self::SQL_MODIFY_COL . $xmlCol['nombre'] . '` ' . $xmlType . ';';
+        return self::SQL_ALTER_TABLE . $quotedTable . self::SQL_MODIFY_COL . $xmlCol['nombre'] . '` ' . $xmlType . ';';
     }
 
     private function buildNullableChangeSql(string $quotedTable, array $xmlCol, string $xmlType, array $dbCol, array $fkColumns): string
@@ -190,7 +200,7 @@ final class SchemaComparator
         }
 
         $nullable = ($xmlCol['nulo'] == 'YES') ? ' NULL;' : ' NOT NULL;';
-        return 'ALTER TABLE ' . $quotedTable . self::SQL_MODIFY_COL . $xmlCol['nombre'] . '` ' . $xmlType . $nullable;
+        return self::SQL_ALTER_TABLE . $quotedTable . self::SQL_MODIFY_COL . $xmlCol['nombre'] . '` ' . $xmlType . $nullable;
     }
 
     private function buildDefaultChangeSql(string $quotedTable, array $xmlCol, string $xmlType, string $xmlDefault, array $dbCol): string
@@ -200,7 +210,7 @@ final class SchemaComparator
                 return '';
             }
             $nullable = ($xmlCol['nulo'] == 'YES') ? ' NULL AUTO_INCREMENT;' : ' NOT NULL AUTO_INCREMENT;';
-            return 'ALTER TABLE ' . $quotedTable . self::SQL_MODIFY_COL . $xmlCol['nombre'] . '` ' . $xmlType . $nullable;
+            return self::SQL_ALTER_TABLE . $quotedTable . self::SQL_MODIFY_COL . $xmlCol['nombre'] . '` ' . $xmlType . $nullable;
         }
 
         if ($this->compareDefaults($dbCol['default'] ?? '', $xmlDefault)) {
@@ -208,10 +218,10 @@ final class SchemaComparator
         }
 
         if ($xmlDefault === 'NULL') {
-            return 'ALTER TABLE ' . $quotedTable . ' ALTER `' . $xmlCol['nombre'] . '` DROP DEFAULT;';
+            return self::SQL_ALTER_TABLE . $quotedTable . ' ALTER `' . $xmlCol['nombre'] . '` DROP DEFAULT;';
         }
 
-        return 'ALTER TABLE ' . $quotedTable . ' ALTER `' . $xmlCol['nombre'] . '` SET DEFAULT ' . $xmlDefault . ";";
+        return self::SQL_ALTER_TABLE . $quotedTable . ' ALTER `' . $xmlCol['nombre'] . '` SET DEFAULT ' . $xmlDefault . ";";
     }
 
     private function columnTypeReallyDiffers(string $dbType, string $xmlType): bool
@@ -369,11 +379,11 @@ final class SchemaComparator
             }
         }
 
-        if ($type === 'PRIMARY KEY' || $type === 'UNIQUE') {
+        if ($type === self::CONSTRAINT_PRIMARY_KEY || $type === 'UNIQUE') {
             return $type . '|' . implode(',', $columns);
         }
 
-        if ($type !== 'FOREIGN KEY') {
+        if ($type !== self::CONSTRAINT_FOREIGN_KEY) {
             return null;
         }
 
@@ -401,34 +411,71 @@ final class SchemaComparator
             return $xmlCons;
         }
 
-        $tables = $this->db->list_tables();
-        $tableNames = [];
-        if (is_array($tables)) {
-            foreach ($tables as $t) {
-                $tableNames[] = strtolower($t['name']);
-            }
-        }
-
+        $tableNames = $this->collectKnownTableNamesLowercase();
         $validated = [];
         foreach ($xmlCons as $con) {
-            if (stripos($con['consulta'], 'FOREIGN KEY') === false) {
-                $validated[] = $con;
-                continue;
-            }
-
-            if (preg_match('/REFERENCES\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_]+))/i', $con['consulta'], $m)) {
-                $refTable = $m[1] ?: ($m[2] ?: ($m[3] ?: ''));
-                $refTable = trim($refTable, '"`');
-
-                if ($refTable !== '' && in_array(strtolower($refTable), $tableNames)) {
-                    $validated[] = $con;
-                }
-            } else {
+            if ($this->shouldKeepFkConstraint($con, $tableNames)) {
                 $validated[] = $con;
             }
         }
 
         return $validated;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function collectKnownTableNamesLowercase(): array
+    {
+        $tables = $this->db->list_tables();
+        if (!is_array($tables)) {
+            return [];
+        }
+
+        $tableNames = [];
+        foreach ($tables as $t) {
+            $tableNames[] = strtolower($t['name']);
+        }
+
+        return $tableNames;
+    }
+
+    /**
+     * @param array<string, mixed> $con
+     * @param list<string> $tableNames
+     */
+    private function shouldKeepFkConstraint(array $con, array $tableNames): bool
+    {
+        if (stripos((string) ($con['consulta'] ?? ''), 'FOREIGN KEY') === false) {
+            return true;
+        }
+
+        $refTable = $this->extractReferencedTableName((string) ($con['consulta'] ?? ''));
+        if ($refTable === null) {
+            return true;
+        }
+
+        return in_array(strtolower($refTable), $tableNames, true);
+    }
+
+    private function extractReferencedTableName(string $consulta): ?string
+    {
+        if (!preg_match(
+            '/REFERENCES\s+((?:`[^`]+`|"[^"]+"|[A-Za-z0-9_]+)(?:\.(?:`[^`]+`|"[^"]+"|[A-Za-z0-9_]+))*)\s*\(/i',
+            $consulta,
+            $m
+        )) {
+            return null;
+        }
+
+        if (!preg_match_all('/(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_]+))/', $m[1], $parts, PREG_SET_ORDER)) {
+            return null;
+        }
+
+        $lastPart = end($parts);
+        $refTable = $lastPart[1] ?: ($lastPart[2] ?: ($lastPart[3] ?? ''));
+
+        return $refTable !== '' ? $refTable : null;
     }
 
     private function generateTableConstraints(array $xmlCons): string
@@ -441,11 +488,11 @@ final class SchemaComparator
             }
 
             $constraintType = $this->detectConstraintType($consulta);
-            if ($constraintType === 'FOREIGN KEY' && defined('FS_FOREIGN_KEYS') && !FS_FOREIGN_KEYS) {
+            if ($constraintType === self::CONSTRAINT_FOREIGN_KEY && defined('FS_FOREIGN_KEYS') && !FS_FOREIGN_KEYS) {
                 continue;
             }
 
-            if ($constraintType === 'PRIMARY KEY' || $this->hasExplicitConstraintName($consulta) || empty($c['nombre'])) {
+            if ($constraintType === self::CONSTRAINT_PRIMARY_KEY || $this->hasExplicitConstraintName($consulta) || empty($c['nombre'])) {
                 $sql .= ', ' . $consulta;
                 continue;
             }

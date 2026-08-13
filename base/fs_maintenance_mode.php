@@ -328,35 +328,61 @@ final class fs_maintenance_mode
     private static function readStealthSettings(): array
     {
         if (defined('FS_MAINTENANCE_STEALTH_ENABLED')) {
-            return [
-                'enabled' => self::toBool(FS_MAINTENANCE_STEALTH_ENABLED),
-                'param_name' => defined('FS_MAINTENANCE_STEALTH_PARAM_NAME')
-                    ? trim((string) FS_MAINTENANCE_STEALTH_PARAM_NAME)
-                    : self::STEALTH_DEFAULT_PARAM_NAME,
-                'param_value' => defined('FS_MAINTENANCE_STEALTH_PARAM_VALUE')
-                    ? trim((string) FS_MAINTENANCE_STEALTH_PARAM_VALUE)
-                    : '',
-            ];
+            return self::stealthSettingsFromConstants();
         }
 
         if (self::$stealthSettings !== null) {
             return self::$stealthSettings;
         }
 
-        self::$stealthSettings = [
+        self::$stealthSettings = self::defaultStealthSettings();
+
+        if (!self::hasStealthDatabaseConfig()) {
+            return self::$stealthSettings;
+        }
+
+        self::hydrateStealthSettingsFromDatabase();
+
+        return self::$stealthSettings;
+    }
+
+    private static function stealthSettingsFromConstants(): array
+    {
+        return [
+            'enabled' => self::toBool(FS_MAINTENANCE_STEALTH_ENABLED),
+            'param_name' => defined('FS_MAINTENANCE_STEALTH_PARAM_NAME')
+                ? trim((string) FS_MAINTENANCE_STEALTH_PARAM_NAME)
+                : self::STEALTH_DEFAULT_PARAM_NAME,
+            'param_value' => defined('FS_MAINTENANCE_STEALTH_PARAM_VALUE')
+                ? trim((string) FS_MAINTENANCE_STEALTH_PARAM_VALUE)
+                : '',
+        ];
+    }
+
+    private static function defaultStealthSettings(): array
+    {
+        return [
             'enabled' => false,
             'param_name' => self::STEALTH_DEFAULT_PARAM_NAME,
             'param_value' => '',
         ];
+    }
 
-        if (!defined('FS_DB_TYPE') || !defined('FS_DB_HOST') || !defined('FS_DB_NAME') || !defined('FS_DB_USER') || !defined('FS_DB_PASS')) {
-            return self::$stealthSettings;
-        }
+    private static function hasStealthDatabaseConfig(): bool
+    {
+        return defined('FS_DB_TYPE')
+            && defined('FS_DB_HOST')
+            && defined('FS_DB_NAME')
+            && defined('FS_DB_USER')
+            && defined('FS_DB_PASS');
+    }
 
+    private static function hydrateStealthSettingsFromDatabase(): void
+    {
         try {
             $pdo = self::createStealthPdo();
             if ($pdo === null) {
-                return self::$stealthSettings;
+                return;
             }
 
             $quotedVarchar = self::quoteStealthColumnName();
@@ -369,25 +395,36 @@ final class fs_maintenance_mode
             ]);
 
             foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
-                $name = $row['name'] ?? '';
-                $value = (string) ($row['varchar'] ?? '');
-                if ($name === self::STEALTH_VAR_ENABLED) {
-                    self::$stealthSettings['enabled'] = self::toBool($value);
-                } elseif ($name === self::STEALTH_VAR_PARAM_NAME && $value !== '') {
-                    self::$stealthSettings['param_name'] = $value;
-                } elseif ($name === self::STEALTH_VAR_PARAM_VALUE) {
-                    self::$stealthSettings['param_value'] = $value;
-                }
+                self::applyStealthSettingRow($row);
             }
         } catch (\Throwable $exception) {
-            self::$stealthSettings = [
-                'enabled' => false,
-                'param_name' => self::STEALTH_DEFAULT_PARAM_NAME,
-                'param_value' => '',
-            ];
+            self::$stealthSettings = self::defaultStealthSettings();
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function applyStealthSettingRow(array $row): void
+    {
+        $name = $row['name'] ?? '';
+        $value = (string) ($row['varchar'] ?? '');
+
+        if ($name === self::STEALTH_VAR_ENABLED) {
+            self::$stealthSettings['enabled'] = self::toBool($value);
+
+            return;
         }
 
-        return self::$stealthSettings;
+        if ($name === self::STEALTH_VAR_PARAM_NAME && $value !== '') {
+            self::$stealthSettings['param_name'] = $value;
+
+            return;
+        }
+
+        if ($name === self::STEALTH_VAR_PARAM_VALUE) {
+            self::$stealthSettings['param_value'] = $value;
+        }
     }
 
     private static function quoteStealthColumnName(): string
@@ -441,12 +478,27 @@ final class fs_maintenance_mode
             return false;
         }
 
+        $path = self::normalizeStealthRequestPath($server);
+
+        return in_array($path, self::stealthRootAllowedPaths(), true);
+    }
+
+    private static function normalizeStealthRequestPath(array $server): string
+    {
         $path = parse_url((string) ($server['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?? '/';
         $path = $path === '/' ? '/' : rtrim($path, '/');
         if ($path === '') {
             $path = '/';
         }
 
+        return $path;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function stealthRootAllowedPaths(): array
+    {
         $base = defined('FS_PATH') ? rtrim((string) FS_PATH, '/') : '';
         $allowedPaths = ['/'];
         if ($base !== '') {
@@ -456,7 +508,7 @@ final class fs_maintenance_mode
             $allowedPaths[] = '/index.php';
         }
 
-        return in_array($path, $allowedPaths, true);
+        return $allowedPaths;
     }
 
     private static function isBackendPageRequest(array $query): bool
@@ -492,36 +544,42 @@ final class fs_maintenance_mode
         }
 
         foreach (self::resolveSessionNames() as $sessionName) {
-            $sessionId = isset($_COOKIE[$sessionName]) ? trim((string) $_COOKIE[$sessionName]) : '';
-            if ($sessionId === '') {
-                continue;
-            }
-
-            if (defined('FS_SESSION_SAVE_PATH') && trim((string) FS_SESSION_SAVE_PATH) !== '') {
-                session_save_path(trim((string) FS_SESSION_SAVE_PATH));
-            }
-
-            session_name($sessionName);
-            session_id($sessionId);
-
-            if (PHP_VERSION_ID >= 70100) {
-                @session_start(['read_and_close' => true]);
-            } else {
-                @session_start();
-            }
-
-            $session = is_array($_SESSION ?? null) ? $_SESSION : [];
-
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                session_write_close();
-            }
-
+            $session = self::readSessionSnapshotForName($sessionName);
             if ($session !== []) {
                 return $session;
             }
         }
 
         return [];
+    }
+
+    private static function readSessionSnapshotForName(string $sessionName): array
+    {
+        $sessionId = isset($_COOKIE[$sessionName]) ? trim((string) $_COOKIE[$sessionName]) : '';
+        if ($sessionId === '') {
+            return [];
+        }
+
+        if (defined('FS_SESSION_SAVE_PATH') && trim((string) FS_SESSION_SAVE_PATH) !== '') {
+            session_save_path(trim((string) FS_SESSION_SAVE_PATH));
+        }
+
+        session_name($sessionName);
+        session_id($sessionId);
+
+        if (PHP_VERSION_ID >= 70100) {
+            @session_start(['read_and_close' => true]);
+        } else {
+            @session_start();
+        }
+
+        $session = is_array($_SESSION ?? null) ? $_SESSION : [];
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        return $session;
     }
 
     private static function resolveSessionName(): string

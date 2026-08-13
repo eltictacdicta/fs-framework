@@ -17,6 +17,10 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+if (!defined('FS_PLUGINS_DIR')) {
+    define('FS_PLUGINS_DIR', FS_FOLDER . '/plugins/');
+}
+
 foreach (['FS_TMP_NAME', 'FS_MYDOCS'] as $name) {
     if (!defined($name)) {
         define($name, '');
@@ -135,7 +139,7 @@ if (file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list')) {
 if (empty($GLOBALS['plugins'])) {
     $default_theme = defined('FS_DEFAULT_THEME') ? FS_DEFAULT_THEME : 'AdminLTE';
 
-    if (file_exists(FS_FOLDER . '/plugins/' . $default_theme)) {
+    if (file_exists(FS_PLUGINS_DIR . $default_theme)) {
         $GLOBALS['plugins'][] = $default_theme;
 
         /// Guardamos el tema por defecto en la lista de plugins activos
@@ -150,7 +154,7 @@ if (empty($GLOBALS['plugins'])) {
 
 /// cargamos las funciones de los plugins
 foreach ($GLOBALS['plugins'] as $plug) {
-    if (file_exists(FS_FOLDER . '/plugins/' . $plug . '/functions.php')) {
-        require_once FS_FOLDER . '/plugins/' . $plug . '/functions.php';
+    if (file_exists(FS_PLUGINS_DIR . $plug . '/functions.php')) {
+        require_once FS_PLUGINS_DIR . $plug . '/functions.php';
     }
 }

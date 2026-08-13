@@ -22,6 +22,7 @@ class FsQueryBuilderTest extends TestCase
         $mockDb = new class() extends \fs_db2 {
             public function __construct()
             {
+                // Constructor vacío intencional: el mock no inicializa conexión a base de datos.
             }
 
             public function escape_string($str): string

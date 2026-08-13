@@ -66,17 +66,8 @@ class fs_plugin_downloader
         int $timeout = self::DEFAULT_TIMEOUT
     ): bool {
         $client = self::getHttpClient();
-
-        $headers = [
-            'User-Agent' => 'FSFramework-PluginDownloader/1.0',
-        ];
-
-        if ($authToken !== null && $authToken !== '') {
-            $headers['Authorization'] = 'token ' . $authToken;
-        }
-
+        $headers = self::buildDownloadHeaders($authToken);
         $tempFile = null;
-        $handle = null;
         $downloadCompleted = false;
 
         try {
@@ -87,61 +78,20 @@ class fs_plugin_downloader
                 'timeout' => $timeout,
             ]);
 
-            $statusCode = $response->getStatusCode();
-            if ($statusCode !== 200) {
-                error_log("fs_plugin_downloader: HTTP $statusCode for $url");
+            if ($response->getStatusCode() !== 200) {
+                error_log('fs_plugin_downloader: HTTP ' . $response->getStatusCode() . " for $url");
                 return false;
             }
 
             $tempFile = $destination . '.tmp.' . bin2hex(random_bytes(8));
-            $handle = fopen($tempFile, 'wb');
-            if ($handle === false) {
-                error_log("fs_plugin_downloader: Cannot create temp file: $tempFile");
+            $streamResult = self::streamResponseToTempFile($client, $response, $tempFile, $expectedHash);
+            if ($streamResult === null) {
                 return false;
             }
 
-            $hashContext = $expectedHash !== null ? hash_init(self::HASH_ALGORITHM) : null;
-            $bytesWritten = 0;
-
-            try {
-                foreach ($client->stream($response) as $chunk) {
-                    $content = $chunk->getContent();
-                    $written = fwrite($handle, $content);
-                    if ($written === false) {
-                        error_log("fs_plugin_downloader: Write error to $tempFile");
-                        return false;
-                    }
-                    $bytesWritten += $written;
-
-                    if ($hashContext !== null) {
-                        hash_update($hashContext, $content);
-                    }
-                }
-            } finally {
-                if (is_resource($handle)) {
-                    fclose($handle);
-                }
-
-                if (!$downloadCompleted && is_string($tempFile) && is_file($tempFile)) {
-                    unlink($tempFile);
-                }
-            }
-
-            if ($bytesWritten === 0) {
-                error_log("fs_plugin_downloader: Empty download from $url");
+            [$bytesWritten, $hashContext] = $streamResult;
+            if (!self::validateDownloadedPayload($url, $bytesWritten, $expectedHash, $hashContext)) {
                 return false;
-            }
-
-            if ($expectedHash !== null) {
-                $actualHash = hash_final($hashContext);
-                if (!hash_equals(strtolower($expectedHash), strtolower($actualHash))) {
-                    error_log("SECURITY: Hash mismatch for $url. Expected: $expectedHash, Got: $actualHash");
-                    self::auditLog('hash_mismatch', $url, [
-                        'expected' => $expectedHash,
-                        'actual' => $actualHash,
-                    ]);
-                    return false;
-                }
             }
 
             if (!rename($tempFile, $destination)) {
@@ -150,21 +100,109 @@ class fs_plugin_downloader
             }
 
             $downloadCompleted = true;
-
             self::auditLog('download_success', $url, [
                 'size' => $bytesWritten,
                 'hash_verified' => $expectedHash !== null,
             ]);
 
             return true;
-
         } catch (TransportExceptionInterface $e) {
             error_log("fs_plugin_downloader: Transport error for $url: " . $e->getMessage());
             return false;
         } catch (\Throwable $e) {
             error_log("fs_plugin_downloader: Unexpected error for $url: " . $e->getMessage());
             return false;
+        } finally {
+            if (!$downloadCompleted && is_string($tempFile) && is_file($tempFile)) {
+                unlink($tempFile);
+            }
         }
+    }
+
+    /**
+     * @return array{0: int, 1: \HashContext|null}|null
+     */
+    private static function streamResponseToTempFile(
+        object $client,
+        object $response,
+        string $tempFile,
+        ?string $expectedHash
+    ): ?array {
+        $handle = fopen($tempFile, 'wb');
+        if ($handle === false) {
+            error_log("fs_plugin_downloader: Cannot create temp file: $tempFile");
+            return null;
+        }
+
+        $hashContext = $expectedHash !== null ? hash_init(self::HASH_ALGORITHM) : null;
+        $bytesWritten = 0;
+
+        try {
+            foreach ($client->stream($response) as $chunk) {
+                $content = $chunk->getContent();
+                $written = fwrite($handle, $content);
+                if ($written === false || $written !== strlen($content)) {
+                    error_log("fs_plugin_downloader: Write error to $tempFile");
+                    return null;
+                }
+
+                $bytesWritten += $written;
+                if ($hashContext !== null) {
+                    hash_update($hashContext, $content);
+                }
+            }
+        } finally {
+            if (is_resource($handle)) {
+                fclose($handle);
+            }
+        }
+
+        return [$bytesWritten, $hashContext];
+    }
+
+    private static function validateDownloadedPayload(
+        string $url,
+        int $bytesWritten,
+        ?string $expectedHash,
+        $hashContext
+    ): bool {
+        if ($bytesWritten === 0) {
+            error_log("fs_plugin_downloader: Empty download from $url");
+            return false;
+        }
+
+        if ($expectedHash === null || $hashContext === null) {
+            return true;
+        }
+
+        $actualHash = hash_final($hashContext);
+        if (hash_equals(strtolower($expectedHash), strtolower($actualHash))) {
+            return true;
+        }
+
+        error_log("SECURITY: Hash mismatch for $url. Expected: $expectedHash, Got: $actualHash");
+        self::auditLog('hash_mismatch', $url, [
+            'expected' => $expectedHash,
+            'actual' => $actualHash,
+        ]);
+
+        return false;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function buildDownloadHeaders(?string $authToken): array
+    {
+        $headers = [
+            'User-Agent' => 'FSFramework-PluginDownloader/1.0',
+        ];
+
+        if ($authToken !== null && $authToken !== '') {
+            $headers['Authorization'] = 'token ' . $authToken;
+        }
+
+        return $headers;
     }
 
     private static function assertAllowedDownloadUrl(string $url): void

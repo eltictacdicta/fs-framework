@@ -1,6 +1,6 @@
 <?php
 /**
- * Regression tests for fs_mysql multi_query affected_rows accounting.
+ * Regression tests for fs_mysql exec() routing (execute_query vs multi_query).
  */
 
 namespace Tests\Base;
@@ -27,7 +27,38 @@ class FsMysqlExecMultiQueryTest extends TestCase
         $this->linkProperty->setValue(null, null);
     }
 
-    public function testExecAccumulatesAffectedRowsAcrossAllStatements(): void
+    public function testExecDoesNotSplitSemicolonsInsideStringLiterals(): void
+    {
+        $mysql = new \fs_mysql();
+        $link = new FakeMysqliLink([
+            ['affected_rows' => 1],
+        ]);
+        $this->linkProperty->setValue(null, $link);
+
+        $sql = "INSERT INTO fs_logs (detalle) VALUES ('Mozilla/5.0 (X11; Linux x86_64)');";
+        $this->assertTrue($mysql->exec($sql, FALSE));
+        $this->assertSame(1, $link->executeQueryCalls);
+        $this->assertSame(0, $link->multiQueryCalls);
+        $this->assertSame($sql, $link->lastSql);
+    }
+
+    public function testExecUsesMultiQueryForSchemaAlterBatches(): void
+    {
+        $mysql = new \fs_mysql();
+        $link = new FakeMysqliLink([
+            ['affected_rows' => 1],
+            ['affected_rows' => 1],
+        ]);
+        $this->linkProperty->setValue(null, $link);
+
+        $sql = 'ALTER TABLE `fs_vars` ALTER `name` DROP DEFAULT;ALTER TABLE `fs_vars` ALTER `varchar` DROP DEFAULT;';
+        $this->assertTrue($mysql->exec($sql, FALSE, [], true));
+        $this->assertSame(0, $link->executeQueryCalls);
+        $this->assertSame(1, $link->multiQueryCalls);
+        $this->assertSame($sql, $link->lastBatchSql);
+    }
+
+    public function testExecAccumulatesAffectedRowsAcrossBatchStatements(): void
     {
         $mysql = new \fs_mysql();
         $this->linkProperty->setValue(null, new FakeMysqliLink([
@@ -35,11 +66,11 @@ class FsMysqlExecMultiQueryTest extends TestCase
             ['affected_rows' => 3],
         ]));
 
-        $this->assertTrue($mysql->exec('UPDATE foo SET bar = 1; UPDATE foo SET baz = 2;', FALSE));
+        $this->assertTrue($mysql->exec('UPDATE foo SET bar = 1; UPDATE foo SET baz = 2;', FALSE, [], true));
         $this->assertSame(5, $mysql->affected_rows());
     }
 
-    public function testExecReturnsFalseAndKeepsAffectedRowsAtMinusOneWhenNextStatementFails(): void
+    public function testExecReturnsFalseWhenBatchStatementFails(): void
     {
         $mysql = new \fs_mysql();
         $this->linkProperty->setValue(null, new FakeMysqliLink(
@@ -51,7 +82,7 @@ class FsMysqlExecMultiQueryTest extends TestCase
             'Syntax error near the second statement'
         ));
 
-        $this->assertFalse($mysql->exec('UPDATE foo SET bar = 1; BROKEN SQL;', FALSE));
+        $this->assertFalse($mysql->exec('UPDATE foo SET bar = 1; UPDATE foo SET baz = 2;', FALSE, [], true));
         $this->assertSame(-1, $mysql->affected_rows());
     }
 }
@@ -61,6 +92,10 @@ final class FakeMysqliLink
     public int $affected_rows = 0;
     public int $errno = 0;
     public string $error = '';
+    public int $executeQueryCalls = 0;
+    public int $multiQueryCalls = 0;
+    public string $lastSql = '';
+    public string $lastBatchSql = '';
 
     private int $position = 0;
 
@@ -71,8 +106,31 @@ final class FakeMysqliLink
     ) {
     }
 
+    public function execute_query($sql, $params): bool
+    {
+        $this->executeQueryCalls++;
+        $this->lastSql = (string) $sql;
+
+        if ($this->position >= count($this->statements)) {
+            $this->errno = 1064;
+            $this->error = $this->failureMessage;
+            $this->affected_rows = -1;
+            return false;
+        }
+
+        $this->errno = 0;
+        $this->error = '';
+        $this->affected_rows = (int) $this->statements[$this->position]['affected_rows'];
+        $this->position++;
+
+        return true;
+    }
+
     public function multi_query($sql): bool
     {
+        $this->multiQueryCalls++;
+        $this->lastBatchSql = (string) $sql;
+
         if (empty($this->statements)) {
             $this->errno = 1064;
             $this->error = $this->failureMessage;
@@ -84,17 +142,13 @@ final class FakeMysqliLink
         $this->errno = 0;
         $this->error = '';
         $this->affected_rows = (int) $this->statements[0]['affected_rows'];
+
         return true;
     }
 
     public function store_result()
     {
-        $result = $this->statements[$this->position]['result'] ?? false;
-        if ($result === false) {
-            return false;
-        }
-
-        return new FakeMysqliResult((int) $result);
+        return false;
     }
 
     public function more_results(): bool
@@ -117,17 +171,7 @@ final class FakeMysqliLink
 
         $this->position++;
         $this->affected_rows = (int) $this->statements[$this->position]['affected_rows'];
+
         return true;
-    }
-}
-
-final class FakeMysqliResult
-{
-    public function __construct(public int $num_rows)
-    {
-    }
-
-    public function free(): void
-    {
     }
 }

@@ -6,6 +6,12 @@
  * durante y después de la instalación.
  */
 
+const DEMO_CONFIG2_PATH = 'base/config2.php';
+const DEMO_RAINTPL_PATH = 'raintpl/rain.tpl.class.php';
+const DEMO_BOX_TOP = "┌─────────────────────────────────────────────────────────────────┐\n";
+const DEMO_BOX_MIDDLE = "├─────────────────────────────────────────────────────────────────┤\n";
+const DEMO_BOX_BOTTOM = "└─────────────────────────────────────────────────────────────────┘\n";
+
 echo "╔══════════════════════════════════════════════════════════════════╗\n";
 echo "║         FLUJO DE INSTALACIÓN CON SISTEMA DE TEMAS               ║\n";
 echo "╚══════════════════════════════════════════════════════════════════╝\n\n";
@@ -56,21 +62,21 @@ $steps = [
     ],
     [
         'title' => '7. AUTO-ACTIVACIÓN DEL TEMA',
-        'file' => 'base/config2.php',
+        'file' => DEMO_CONFIG2_PATH,
         'action' => 'Activa AdminLTE automáticamente',
         'code' => 'if (empty($GLOBALS[\'plugins\'])) { $GLOBALS[\'plugins\'][] = \'AdminLTE\'; }',
         'result' => 'AdminLTE activado ✓'
     ],
     [
         'title' => '8. CARGA DE FUNCIONES',
-        'file' => 'base/config2.php',
+        'file' => DEMO_CONFIG2_PATH,
         'action' => 'Carga functions.php del tema',
         'code' => 'require_once \'plugins/AdminLTE/functions.php\';',
         'result' => 'Funciones cargadas ✓'
     ],
     [
         'title' => '9. SISTEMA DE PLANTILLAS',
-        'file' => 'raintpl/rain.tpl.class.php',
+        'file' => DEMO_RAINTPL_PATH,
         'action' => 'Busca vistas en plugins',
         'code' => 'foreach ($GLOBALS[\'plugins\'] as $plugin_dir) { ... }',
         'result' => 'Vistas de AdminLTE ✓'
@@ -86,12 +92,12 @@ $steps = [
 
 foreach ($steps as $i => $step) {
     echo "\n";
-    echo "┌─────────────────────────────────────────────────────────────────┐\n";
+    echo DEMO_BOX_TOP;
     echo "│ " . str_pad($step['title'], 63) . " │\n";
-    echo "├─────────────────────────────────────────────────────────────────┤\n";
+    echo DEMO_BOX_MIDDLE;
     echo "│ 📁 Archivo: " . str_pad($step['file'], 50) . " │\n";
     echo "│ ⚙️  Acción: " . str_pad($step['action'], 50) . " │\n";
-    echo "├─────────────────────────────────────────────────────────────────┤\n";
+    echo DEMO_BOX_MIDDLE;
     
     // Wrap code if too long
     $code = $step['code'];
@@ -100,9 +106,9 @@ foreach ($steps as $i => $step) {
     }
     echo "│ 💻 Código: " . str_pad($code, 51) . " │\n";
     
-    echo "├─────────────────────────────────────────────────────────────────┤\n";
+    echo DEMO_BOX_MIDDLE;
     echo "│ ✅ " . str_pad($step['result'], 60) . " │\n";
-    echo "└─────────────────────────────────────────────────────────────────┘\n";
+    echo DEMO_BOX_BOTTOM;
     
     usleep(100000); // Pausa visual de 0.1s
 }
@@ -138,12 +144,12 @@ $checks['install.php adaptado'] = (
     strpos(file_get_contents('install.php'), '$theme_available') !== false
 );
 $checks['config2.php con auto-activación'] = (
-    file_exists('base/config2.php') && 
-    strpos(file_get_contents('base/config2.php'), 'SISTEMA DE TEMAS') !== false
+    file_exists(DEMO_CONFIG2_PATH) &&
+    strpos(file_get_contents(DEMO_CONFIG2_PATH), 'SISTEMA DE TEMAS') !== false
 );
 $checks['RainTPL busca en plugins'] = (
-    file_exists('raintpl/rain.tpl.class.php') && 
-    strpos(file_get_contents('raintpl/rain.tpl.class.php'), '$GLOBALS[\'plugins\']') !== false
+    file_exists(DEMO_RAINTPL_PATH) &&
+    strpos(file_get_contents(DEMO_RAINTPL_PATH), '$GLOBALS[\'plugins\']') !== false
 );
 
 // Mostrar resultados

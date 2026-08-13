@@ -229,6 +229,7 @@ final class FsLoginPasswordVerificationTest extends TestCase
         $this->setPrivateProperty($login, 'user_model', new class($user) {
             public function __construct(private ?object $user)
             {
+                // Almacena el usuario inyectado por el test mediante promoción de propiedad.
             }
 
             public function get(string $nick)
@@ -238,6 +239,7 @@ final class FsLoginPasswordVerificationTest extends TestCase
 
             public function clean_cache(bool $force): void
             {
+                // No-op intencional: el test no usa caché de usuarios.
             }
         });
         $logger = new class {
@@ -250,12 +252,14 @@ final class FsLoginPasswordVerificationTest extends TestCase
 
             public function save(string $message, string $channel = '', bool $important = false): void
             {
+                // No-op intencional: el test captura errores vía new_error().
             }
         };
         $this->setPrivateProperty($login, 'core_log', $logger);
         $this->setPrivateProperty($login, 'cache', new class {
             public function clean(): void
             {
+                // No-op intencional: stub de fs_cache.
             }
         });
         $this->setPrivateProperty($login, 'ip_filter', new class {
@@ -266,6 +270,7 @@ final class FsLoginPasswordVerificationTest extends TestCase
 
             public function clear(): void
             {
+                // No-op intencional: stub de fs_ip_filter.
             }
         });
 

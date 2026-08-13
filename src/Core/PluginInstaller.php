@@ -26,6 +26,8 @@ use fs_plugin_manager;
 
 class PluginInstaller
 {
+    private const ADMIN_UPDATER_CONTROLLER = '/controller/admin_updater.php';
+
     private fs_plugin_manager $pluginManager;
 
     public function __construct(fs_plugin_manager $pluginManager)
@@ -49,15 +51,9 @@ class PluginInstaller
         $downloadPath = $rootPath . '/download_updater.zip';
         $githubUrl = 'https://github.com/eltictacdicta/system_updater/archive/refs/heads/master.zip';
 
-        if (file_exists($pluginsDir . $pluginName . '/controller/admin_updater.php')) {
-            @unlink($downloadPath);
-            if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
-                $result['errors'][] = 'No se pudo activar el plugin <b>' . $pluginName . '</b>.';
-                return $result;
-            }
-
-            $result['redirect'] = 'index.php?page=admin_updater';
-            return $result;
+        $existing = $this->handleExistingSystemUpdater($pluginsDir, $pluginName, $downloadPath);
+        if ($existing !== null) {
+            return $existing;
         }
 
         if (!is_writable($pluginsDir)) {
@@ -71,35 +67,70 @@ class PluginInstaller
         }
 
         try {
-            if (!$this->extractSystemUpdater($downloadPath, $pluginsDir)) {
-                $result['errors'][] = 'No se pudo extraer el ZIP del plugin <b>' . $pluginName . '</b>.';
-                return $result;
-            }
-
-            $extractedName = $this->findExtractedFolder($pluginsDir, $pluginName);
-            if ($extractedName && !$this->movePluginDirectory($pluginsDir, $extractedName, $pluginName)) {
-                $result['errors'][] = 'No se pudo mover el directorio del plugin <b>' . $pluginName . '</b> a su ubicación final.';
-                return $result;
-            }
-
-            $this->verifyInstallation($pluginName, $pluginsDir);
-
-            if (!file_exists($pluginsDir . $pluginName . '/controller/admin_updater.php')) {
-                $result['errors'][] = 'La instalación del plugin <b>' . $pluginName . '</b> no se completó correctamente.';
-                return $result;
-            }
-
-            if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
-                $result['errors'][] = 'El plugin <b>' . $pluginName . '</b> se instaló, pero no se pudo activar.';
-                return $result;
-            }
-
-            $result['messages'][] = 'Plugin <b>' . $pluginName . '</b> instalado correctamente.';
-            $result['redirect'] = 'index.php?page=admin_updater';
-            return $result;
+            return $this->finalizeSystemUpdaterInstall($pluginsDir, $pluginName, $downloadPath, $result);
         } finally {
             @unlink($downloadPath);
         }
+    }
+
+    /**
+     * @return array{errors: string[], messages: string[], redirect?: string}|null
+     */
+    private function handleExistingSystemUpdater(string $pluginsDir, string $pluginName, string $downloadPath): ?array
+    {
+        if (!file_exists($pluginsDir . $pluginName . self::ADMIN_UPDATER_CONTROLLER)) {
+            return null;
+        }
+
+        $result = ['errors' => [], 'messages' => []];
+        @unlink($downloadPath);
+        if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
+            $result['errors'][] = 'No se pudo activar el plugin <b>' . $pluginName . '</b>.';
+            return $result;
+        }
+
+        $result['redirect'] = 'index.php?page=admin_updater';
+
+        return $result;
+    }
+
+    /**
+     * @param array{errors: string[], messages: string[], redirect?: string} $result
+     * @return array{errors: string[], messages: string[], redirect?: string}
+     */
+    private function finalizeSystemUpdaterInstall(
+        string $pluginsDir,
+        string $pluginName,
+        string $downloadPath,
+        array $result
+    ): array {
+        if (!$this->extractSystemUpdater($downloadPath, $pluginsDir)) {
+            $result['errors'][] = 'No se pudo extraer el ZIP del plugin <b>' . $pluginName . '</b>.';
+            return $result;
+        }
+
+        $extractedName = $this->findExtractedFolder($pluginsDir, $pluginName);
+        if ($extractedName && !$this->movePluginDirectory($pluginsDir, $extractedName, $pluginName)) {
+            $result['errors'][] = 'No se pudo mover el directorio del plugin <b>' . $pluginName . '</b> a su ubicación final.';
+            return $result;
+        }
+
+        $this->verifyInstallation($pluginName, $pluginsDir);
+
+        if (!file_exists($pluginsDir . $pluginName . self::ADMIN_UPDATER_CONTROLLER)) {
+            $result['errors'][] = 'La instalación del plugin <b>' . $pluginName . '</b> no se completó correctamente.';
+            return $result;
+        }
+
+        if (!in_array($pluginName, $this->pluginManager->enabled()) && !$this->pluginManager->enable($pluginName)) {
+            $result['errors'][] = 'El plugin <b>' . $pluginName . '</b> se instaló, pero no se pudo activar.';
+            return $result;
+        }
+
+        $result['messages'][] = 'Plugin <b>' . $pluginName . '</b> instalado correctamente.';
+        $result['redirect'] = 'index.php?page=admin_updater';
+
+        return $result;
     }
 
     protected function downloadSystemUpdater(string $githubUrl, string $downloadPath): bool
@@ -177,7 +208,7 @@ class PluginInstaller
 
     private function verifyInstallation(string $pluginName, string $pluginsDir): void
     {
-        if (!file_exists($pluginsDir . $pluginName . '/controller/admin_updater.php')) {
+        if (!file_exists($pluginsDir . $pluginName . self::ADMIN_UPDATER_CONTROLLER)) {
             return;
         }
 
@@ -204,23 +235,22 @@ class PluginInstaller
                 continue;
             }
 
-            $srcPath = $source . '/' . $entry;
-            $dstPath = $dest . '/' . $entry;
-
-            if (is_dir($srcPath)) {
-                if (!$this->recursiveCopy($srcPath, $dstPath)) {
-                    $dir->close();
-                    return false;
-                }
-            } elseif (is_file($srcPath)) {
-                if (!copy($srcPath, $dstPath)) {
-                    $dir->close();
-                    return false;
-                }
+            if (!$this->copyRecursiveEntry($source . '/' . $entry, $dest . '/' . $entry)) {
+                $dir->close();
+                return false;
             }
         }
 
         $dir->close();
         return true;
+    }
+
+    private function copyRecursiveEntry(string $srcPath, string $dstPath): bool
+    {
+        if (is_dir($srcPath)) {
+            return $this->recursiveCopy($srcPath, $dstPath);
+        }
+
+        return is_file($srcPath) && copy($srcPath, $dstPath);
     }
 }

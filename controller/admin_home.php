@@ -102,31 +102,10 @@ class admin_home extends fs_controller
             return FALSE;
         }
 
-        /// comprobamos actualizaciones en los plugins
-        $updates = FALSE;
-        foreach ($this->plugin_manager->installed() as $plugin) {
-            if ($plugin['version_url'] != '' && $plugin['update_url'] != '') {
-                /// plugin con descarga gratuita
-                $internet_ini = @parse_ini_string(@fs_file_get_contents($plugin['version_url']));
-                if ($internet_ini && $plugin['version'] < intval($internet_ini['version'])) {
-                    $updates = TRUE;
-                    break;
-                }
-            } else if ($plugin['idplugin'] && $plugin['download2_url'] != '') {
-                /// plugin de pago/oculto
-                /// download2_url implica que hay actualización
-                $updates = TRUE;
-                break;
-            }
-        }
+        $updates = $this->installedPluginsHaveUpdates();
 
         if (!$updates) {
-            /// comprobamos actualizaciones del núcleo contra el último GitHub Release
-            $version = trim((string) file_get_contents('VERSION'));
-            $internet_version = fs_github_latest_release_version();
-            if ($internet_version !== null && version_compare($version, $internet_version, '<')) {
-                $updates = TRUE;
-            }
+            $updates = $this->coreHasPendingUpdate();
         }
 
         if ($updates) {
@@ -137,6 +116,54 @@ class admin_home extends fs_controller
         $this->fs_var->name = 'updates';
         $this->fs_var->delete();
         return FALSE;
+    }
+
+    /**
+     * @param array<string, mixed> $plugin
+     */
+    protected function pluginEntryHasRemoteUpdate(array $plugin): bool
+    {
+        if ($plugin['version_url'] != '' && $plugin['update_url'] != '') {
+            $internet_ini = @parse_ini_string(@fs_file_get_contents($plugin['version_url']));
+
+            return is_array($internet_ini)
+                && isset($internet_ini['version'])
+                && $plugin['version'] < intval($internet_ini['version']);
+        }
+
+        if ($plugin['idplugin'] && $plugin['download2_url'] != '') {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function installedPluginsHaveUpdates(): bool
+    {
+        foreach ($this->plugin_manager->installed() as $plugin) {
+            if ($this->pluginEntryHasRemoteUpdate($plugin)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function coreHasPendingUpdate(): bool
+    {
+        $versionFile = (defined('FS_FOLDER') ? FS_FOLDER : __DIR__ . '/..') . '/VERSION';
+        if (!is_file($versionFile)) {
+            return false;
+        }
+
+        $version = trim((string) file_get_contents($versionFile));
+        if ($version === '') {
+            return false;
+        }
+
+        $internet_version = fs_github_latest_release_version();
+
+        return $internet_version !== null && version_compare($version, $internet_version, '<');
     }
 
     public function plugin_advanced_list()

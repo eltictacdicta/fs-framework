@@ -21,80 +21,9 @@ class Tools
      * Get the logger instance for logging messages.
      * @return object
      */
-    public static function log()
+    public static function log(): ToolsLogger
     {
-        return new class {
-            public function error($msg, $params = [])
-            {
-                $message = self::interpolate($msg, $params);
-                error_log('FS Error: ' . $message);
-                if (class_exists('fs_core_log')) {
-                    $log = new \fs_core_log('Tools');
-                    $log->new_error($message);
-                }
-            }
-
-            public function warning($msg, $params = [])
-            {
-                $message = self::interpolate($msg, $params);
-                error_log('FS Warning: ' . $message);
-                if (class_exists('fs_core_log')) {
-                    $log = new \fs_core_log('Tools');
-                    $log->new_advice($message);
-                }
-            }
-
-            public function notice($msg, $params = [])
-            {
-                $message = self::interpolate($msg, $params);
-                error_log('FS Notice: ' . $message);
-                if (class_exists('fs_core_log')) {
-                    $log = new \fs_core_log('Tools');
-                    $log->new_message($message);
-                }
-            }
-
-            private static function interpolate($msg, $params = []): string
-            {
-                $message = is_scalar($msg) || (is_object($msg) && method_exists($msg, '__toString'))
-                    ? (string) $msg
-                    : '';
-
-                return strtr($message, self::normalizeLogParams($params));
-            }
-
-            /**
-             * @param mixed $params
-             * @return array<string, string>
-             */
-            private static function normalizeLogParams($params): array
-            {
-                if (is_array($params)) {
-                    $source = $params;
-                } elseif ($params instanceof \Traversable) {
-                    $source = iterator_to_array($params, true);
-                } else {
-                    return [];
-                }
-
-                $replacements = [];
-                foreach ($source as $key => $val) {
-                    $validKey = (string) $key;
-                    if ($validKey === '') {
-                        if (defined('FS_DEBUG') && FS_DEBUG) {
-                            error_log('FS Tools: omitiendo clave de interpolación vacía en log params');
-                        }
-                        continue;
-                    }
-
-                    $replacements[$validKey] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
-                        ? (string) $val
-                        : '';
-                }
-
-                return $replacements;
-            }
-        };
+        return new ToolsLogger();
     }
 
     /**
@@ -261,24 +190,23 @@ class Tools
                 continue;
             }
 
-            $srcPath = $source . '/' . $file;
-            $destPath = $dest . '/' . $file;
-
-            if (is_dir($srcPath)) {
-                if (!self::folderCopy($srcPath, $destPath)) {
-                    closedir($dir);
-                    return false;
-                }
-            } else {
-                if (!copy($srcPath, $destPath)) {
-                    closedir($dir);
-                    return false;
-                }
+            if (!self::copyFolderEntry($source . '/' . $file, $dest . '/' . $file)) {
+                closedir($dir);
+                return false;
             }
         }
 
         closedir($dir);
         return true;
+    }
+
+    private static function copyFolderEntry(string $srcPath, string $destPath): bool
+    {
+        if (is_dir($srcPath)) {
+            return self::folderCopy($srcPath, $destPath);
+        }
+
+        return copy($srcPath, $destPath);
     }
 
     /**
@@ -329,5 +257,74 @@ class Tools
         $nf2 = defined('FS_NF2') ? FS_NF2 : '.';
 
         return number_format($number, $decimals ?? $nf0, $nf1, $nf2);
+    }
+}
+
+final class ToolsLogger
+{
+    public function error($msg, $params = []): void
+    {
+        $this->writeLog('FS Error: ', 'new_error', $msg, $params);
+    }
+
+    public function warning($msg, $params = []): void
+    {
+        $this->writeLog('FS Warning: ', 'new_advice', $msg, $params);
+    }
+
+    public function notice($msg, $params = []): void
+    {
+        $this->writeLog('FS Notice: ', 'new_message', $msg, $params);
+    }
+
+    private function writeLog(string $prefix, string $coreLogMethod, mixed $msg, mixed $params): void
+    {
+        $message = self::interpolate($msg, $params);
+        error_log($prefix . $message);
+        if (class_exists('fs_core_log')) {
+            $log = new \fs_core_log('Tools');
+            $log->{$coreLogMethod}($message);
+        }
+    }
+
+    private static function interpolate(mixed $msg, mixed $params = []): string
+    {
+        $message = is_scalar($msg) || (is_object($msg) && method_exists($msg, '__toString'))
+            ? (string) $msg
+            : '';
+
+        return strtr($message, self::normalizeLogParams($params));
+    }
+
+    /**
+     * @param mixed $params
+     * @return array<string, string>
+     */
+    private static function normalizeLogParams(mixed $params): array
+    {
+        if (is_array($params)) {
+            $source = $params;
+        } elseif ($params instanceof \Traversable) {
+            $source = iterator_to_array($params, true);
+        } else {
+            return [];
+        }
+
+        $replacements = [];
+        foreach ($source as $key => $val) {
+            $validKey = (string) $key;
+            if ($validKey === '') {
+                if (defined('FS_DEBUG') && FS_DEBUG) {
+                    error_log('FS Tools: omitiendo clave de interpolación vacía en log params');
+                }
+                continue;
+            }
+
+            $replacements[$validKey] = is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))
+                ? (string) $val
+                : '';
+        }
+
+        return $replacements;
     }
 }

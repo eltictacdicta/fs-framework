@@ -17,6 +17,8 @@ use Symfony\Component\Routing\Attribute\Route as RouteAttribute;
 
 class Router
 {
+    private const PHP_GLOB_PATTERN = '/*.php';
+
     private RouteCollection $routes;
     private string $rootFolder;
     private ?RequestContext $context = null;
@@ -43,32 +45,49 @@ class Router
         if (is_file($routesFile)) {
             $parts[] = $routesFile . ':' . (int) filemtime($routesFile);
         }
-        $coreDir = $this->rootFolder . '/src/Controller';
-        if (is_dir($coreDir)) {
-            $files = glob($coreDir . '/*.php') ?: [];
-            sort($files, SORT_STRING);
-            foreach ($files as $f) {
-                $parts[] = $f . ':' . (int) filemtime($f);
-            }
-        }
-        if (isset($GLOBALS['plugins']) && is_array($GLOBALS['plugins'])) {
-            foreach ($GLOBALS['plugins'] as $plugin) {
-                $dir = $this->rootFolder . '/plugins/' . $plugin . '/Controller';
-                if (!is_dir($dir)) {
-                    continue;
-                }
-                $files = glob($dir . '/*.php') ?: [];
-                sort($files, SORT_STRING);
-                foreach ($files as $f) {
-                    if (!$this->isModernControllerFile($f)) {
-                        continue;
-                    }
 
-                    $parts[] = $f . ':' . (int) filemtime($f);
-                }
-            }
-        }
+        $this->appendControllerDirectoryFingerprint($this->rootFolder . '/src/Controller', $parts);
+        $this->appendPluginControllerFingerprints($parts);
+
         return hash('sha256', implode("\0", $parts));
+    }
+
+    /**
+     * @param list<string> $parts
+     */
+    private function appendControllerDirectoryFingerprint(string $dir, array &$parts, bool $modernOnly = false): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $files = glob($dir . self::PHP_GLOB_PATTERN) ?: [];
+        sort($files, SORT_STRING);
+        foreach ($files as $f) {
+            if ($modernOnly && !$this->isModernControllerFile($f)) {
+                continue;
+            }
+
+            $parts[] = $f . ':' . (int) filemtime($f);
+        }
+    }
+
+    /**
+     * @param list<string> $parts
+     */
+    private function appendPluginControllerFingerprints(array &$parts): void
+    {
+        if (!isset($GLOBALS['plugins']) || !is_array($GLOBALS['plugins'])) {
+            return;
+        }
+
+        foreach ($GLOBALS['plugins'] as $plugin) {
+            $this->appendControllerDirectoryFingerprint(
+                $this->rootFolder . '/plugins/' . $plugin . '/Controller',
+                $parts,
+                true
+            );
+        }
     }
 
     private function loadRoutes(): RouteCollection
@@ -186,7 +205,7 @@ class Router
      */
     private function loadAttributeRoutesFromDirectory(RouteCollection $collection, string $directory, string $namespace): void
     {
-        $files = glob($directory . '/*.php');
+        $files = glob($directory . self::PHP_GLOB_PATTERN);
 
         foreach ($files as $file) {
             if (!$this->isModernControllerFile($file)) {
@@ -327,7 +346,7 @@ class Router
     private function loadLegacyControllerRoutes(string $directory): RouteCollection
     {
         $collection = new RouteCollection();
-        $files = glob($directory . '/*.php');
+        $files = glob($directory . self::PHP_GLOB_PATTERN);
 
         foreach ($files as $file) {
             $className = basename($file, '.php');

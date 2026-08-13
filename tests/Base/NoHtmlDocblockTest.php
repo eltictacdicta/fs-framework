@@ -50,7 +50,9 @@ final class NoHtmlDocblockTest extends TestCase
     {
         // El código SÍ convierte " → &quot; (debe mantenerse)
         $model = new class extends \fs_model {
-            public function __construct() {}
+            public function __construct() {
+                // Constructor vacío intencional: stub de fs_model sin acceso a BD.
+            }
             public function delete() { return false; }
             public function exists() { return false; }
             public function save() { return false; }

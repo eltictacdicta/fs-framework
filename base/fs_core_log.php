@@ -596,8 +596,18 @@ class fs_core_log
             return $children;
         }
 
+        $attributes = $this->buildSanitizedElementAttributes($node, $tagName, $allowedTags[$tagName]);
+
+        return $this->renderSanitizedElement($tagName, $attributes, $children);
+    }
+
+    /**
+     * @param list<string> $allowedAttributes
+     */
+    private function buildSanitizedElementAttributes(\DOMElement $node, string $tagName, array $allowedAttributes): string
+    {
         $attributes = '';
-        foreach ($allowedTags[$tagName] as $attribute) {
+        foreach ($allowedAttributes as $attribute) {
             if (!$node->hasAttribute($attribute)) {
                 continue;
             }
@@ -607,27 +617,40 @@ class fs_core_log
                 continue;
             }
 
-            if ($attribute === 'href') {
-                $sanitizedHref = $this->sanitizeHref($value);
-                if ($sanitizedHref === null) {
-                    continue;
-                }
-                $value = $sanitizedHref;
-            } elseif ($attribute === 'target') {
-                if (!in_array($value, ['_blank', '_self'], true)) {
-                    continue;
-                }
-            } elseif ($attribute === 'rel') {
-                $value = 'noopener noreferrer';
+            $sanitizedValue = $this->sanitizeElementAttributeValue($attribute, $value);
+            if ($sanitizedValue === null) {
+                continue;
             }
 
-            $attributes .= ' ' . $attribute . '="' . htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            $attributes .= ' ' . $attribute . '="' . htmlspecialchars($sanitizedValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
         }
 
         if ($tagName === 'a' && str_contains($attributes, ' target="_blank"') && !str_contains($attributes, ' rel=')) {
             $attributes .= ' rel="noopener noreferrer"';
         }
 
+        return $attributes;
+    }
+
+    private function sanitizeElementAttributeValue(string $attribute, string $value): ?string
+    {
+        if ($attribute === 'href') {
+            return $this->sanitizeHref($value);
+        }
+
+        if ($attribute === 'target') {
+            return in_array($value, ['_blank', '_self'], true) ? $value : null;
+        }
+
+        if ($attribute === 'rel') {
+            return 'noopener noreferrer';
+        }
+
+        return $value;
+    }
+
+    private function renderSanitizedElement(string $tagName, string $attributes, string $children): string
+    {
         if ($tagName === 'a' && !str_contains($attributes, ' href=')) {
             return $children;
         }

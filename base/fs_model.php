@@ -284,8 +284,10 @@ abstract class fs_model
             return FALSE;
         }
 
+        $isBatch = false;
         if ($this->db->table_exists($table_name)) {
             $sql = $this->buildExistingTableSql($table_name, $xml_cols, $xml_cons);
+            $isBatch = true;
         } else {
             if (!$this->ensureInstallDependencies()) {
                 return FALSE;
@@ -297,7 +299,7 @@ abstract class fs_model
             return FALSE;
         }
 
-        if ($sql === '' || $this->db->exec($sql)) {
+        if ($sql === '' || $this->db->exec($sql, null, [], $isBatch)) {
             return TRUE;
         }
 
@@ -320,7 +322,7 @@ abstract class fs_model
         $db_cons = $this->db->get_constraints($table_name);
         $sql2 = $this->db->compare_constraints($table_name, $xml_cons, $db_cons, TRUE);
         if ($sql2 != '') {
-            if (!$this->db->exec($sql2)) {
+            if (!$this->db->exec($sql2, null, [], true)) {
                 $this->new_error_msg(self::ERR_CHECK_TABLE . $table_name);
                 return false;
             }
@@ -351,7 +353,7 @@ abstract class fs_model
 
         $db_cons = $this->db->get_constraints($table_name);
         $sql2 = $this->db->compare_constraints($table_name, $xml_cons, $db_cons, TRUE);
-        if ($sql2 != '' && !$this->db->exec($sql2)) {
+        if ($sql2 != '' && !$this->db->exec($sql2, null, [], true)) {
             $this->new_error_msg(self::ERR_CHECK_TABLE . $table_name . self::SQL_LABEL . $sql2 . self::ERROR_LABEL . $this->db->get_error_msg() . ']');
             return FALSE;
         }
@@ -361,7 +363,7 @@ abstract class fs_model
         $retry_sql = $this->db->compare_columns($table_name, $xml_cols, $db_cols);
         $retry_sql .= $this->db->compare_constraints($table_name, $xml_cons, $db_cons);
 
-        if ($retry_sql != '' && !$this->db->exec($retry_sql)) {
+        if ($retry_sql != '' && !$this->db->exec($retry_sql, null, [], true)) {
             $this->new_error_msg(self::ERR_CHECK_TABLE . $table_name . self::SQL_LABEL . $retry_sql . self::ERROR_LABEL . $this->db->get_error_msg() . ']');
             return FALSE;
         }

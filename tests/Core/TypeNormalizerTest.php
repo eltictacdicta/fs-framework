@@ -45,4 +45,18 @@ class TypeNormalizerTest extends TestCase
             TypeNormalizer::normalizeDefault("'+1month'::character varying", 'VARCHAR(30)')
         );
     }
+
+    public function testConvertPostgresTypeMapsVarcharWithLength(): void
+    {
+        $this->assertSame('VARCHAR(255)', TypeNormalizer::convertPostgresType('character varying(255)'));
+        $this->assertSame('INT(11)', TypeNormalizer::convertPostgresType('integer'));
+    }
+
+    public function testConvertPostgresTypeMapsTimestampVariants(): void
+    {
+        $this->assertSame('TIMESTAMP', TypeNormalizer::convertPostgresType('timestamp'));
+        $this->assertSame('TIMESTAMP(6)', TypeNormalizer::convertPostgresType('timestamp(6)'));
+        $this->assertSame('TIMESTAMP', TypeNormalizer::convertPostgresType('timestamp without time zone'));
+        $this->assertSame('TIME', TypeNormalizer::convertPostgresType('time'));
+    }
 }

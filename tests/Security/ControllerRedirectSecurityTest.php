@@ -73,6 +73,7 @@ class ControllerRedirectSecurityTest extends TestCase
         return new class extends Controller {
             public function __construct()
             {
+                // Constructor vacío intencional: evita boot del kernel en el stub.
             }
 
             public function resolveRedirectTarget(string $url): string

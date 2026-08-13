@@ -80,6 +80,23 @@ class SchemaComparatorTest extends TestCase
         $this->assertStringContainsString('CONSTRAINT `child_parent_fk` foreign key (`parent_id`) references `parent_table` (`id`) ON DELETE cascade', $sql);
     }
 
+    public function testExtractReferencedTableNameHandlesSchemaQualifiedReferences(): void
+    {
+        $comparator = new SchemaComparator(new class() {
+        });
+        $method = new \ReflectionMethod(SchemaComparator::class, 'extractReferencedTableName');
+        $method->setAccessible(true);
+
+        $this->assertSame(
+            'parent',
+            $method->invoke($comparator, 'FOREIGN KEY (`child_id`) REFERENCES public.parent (`id`)')
+        );
+        $this->assertSame(
+            'parent',
+            $method->invoke($comparator, 'FOREIGN KEY (`child_id`) REFERENCES "public"."parent" (`id`)')
+        );
+    }
+
     private function createSchemaDb(array $tables = []): object
     {
         return new class($tables) {

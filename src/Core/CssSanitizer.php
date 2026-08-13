@@ -70,51 +70,73 @@ class CssSanitizer
     private function sanitizeCssList(CSSList $list): bool
     {
         foreach ($list->getContents() as $item) {
-            if ($item instanceof DeclarationBlock) {
-                if (!$this->sanitizeCssDeclarationBlock($item)) {
-                    return false;
-                }
-
-                if ($item->getDeclarations() === [] || $item->getSelectors() === []) {
-                    $list->remove($item);
-                }
-
-                continue;
+            if (!$this->sanitizeCssListItem($list, $item)) {
+                return false;
             }
+        }
 
-            if ($item instanceof AtRuleBlockList) {
-                if (!in_array(strtolower($item->atRuleName()), self::ALLOWED_CSS_BLOCK_AT_RULES, true)) {
-                    return false;
-                }
+        return true;
+    }
 
-                if (!$this->sanitizeCssList($item)) {
-                    return false;
-                }
+    private function sanitizeCssListItem(CSSList $list, mixed $item): bool
+    {
+        if ($item instanceof DeclarationBlock) {
+            return $this->sanitizeCssDeclarationBlockItem($list, $item);
+        }
 
-                if ($item->getContents() === []) {
-                    $list->remove($item);
-                }
+        if ($item instanceof AtRuleBlockList) {
+            return $this->sanitizeCssAtRuleBlockItem($list, $item);
+        }
 
-                continue;
-            }
+        if ($item instanceof KeyFrame) {
+            return $this->sanitizeCssKeyFrameItem($list, $item);
+        }
 
-            if ($item instanceof KeyFrame) {
-                if (!in_array(strtolower($item->atRuleName()), self::ALLOWED_CSS_KEYFRAME_AT_RULES, true)) {
-                    return false;
-                }
+        return false;
+    }
 
-                if (!$this->sanitizeCssList($item)) {
-                    return false;
-                }
-
-                if ($item->getContents() === []) {
-                    $list->remove($item);
-                }
-
-                continue;
-            }
-
+    private function sanitizeCssDeclarationBlockItem(CSSList $list, DeclarationBlock $item): bool
+    {
+        if (!$this->sanitizeCssDeclarationBlock($item)) {
             return false;
+        }
+
+        if ($item->getDeclarations() === [] || $item->getSelectors() === []) {
+            $list->remove($item);
+        }
+
+        return true;
+    }
+
+    private function sanitizeCssAtRuleBlockItem(CSSList $list, AtRuleBlockList $item): bool
+    {
+        if (!in_array(strtolower($item->atRuleName()), self::ALLOWED_CSS_BLOCK_AT_RULES, true)) {
+            return false;
+        }
+
+        if (!$this->sanitizeCssList($item)) {
+            return false;
+        }
+
+        if ($item->getContents() === []) {
+            $list->remove($item);
+        }
+
+        return true;
+    }
+
+    private function sanitizeCssKeyFrameItem(CSSList $list, KeyFrame $item): bool
+    {
+        if (!in_array(strtolower($item->atRuleName()), self::ALLOWED_CSS_KEYFRAME_AT_RULES, true)) {
+            return false;
+        }
+
+        if (!$this->sanitizeCssList($item)) {
+            return false;
+        }
+
+        if ($item->getContents() === []) {
+            $list->remove($item);
         }
 
         return true;

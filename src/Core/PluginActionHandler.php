@@ -42,137 +42,212 @@ final class PluginActionHandler
         $result = ['errors' => [], 'messages' => [], 'advices' => []];
 
         if (filter_input(INPUT_GET, 'restore_backup')) {
-            $pluginName = $this->normalizePluginName((string) filter_input(INPUT_GET, 'restore_backup'));
-            if ($pluginName === '') {
-                $result['errors'][] = 'Nombre de plugin no válido para restaurar el backup.';
-                return $result;
-            }
-
-            if (in_array($pluginName, $this->pluginManager->enabled())) {
-                $this->pluginManager->disable($pluginName);
-            }
-            if ($this->pluginManager->restore_backup($pluginName)) {
-                $result['messages'][] = 'Plugin <b>' . $pluginName . '</b> restaurado correctamente desde el backup.';
-            }
-        } elseif (filter_input(INPUT_POST, 'cancel_pending_install')) {
-            if (isset($_SESSION['pending_plugin'])) {
-                $this->cleanupPendingTempFile($_SESSION['pending_plugin'], $result);
-                unset($_SESSION['pending_plugin']);
-            }
-        } elseif (filter_input(INPUT_GET, 'download_plugin')) {
-            $pluginName = $this->normalizePluginName((string) filter_input(INPUT_GET, 'download_plugin'));
-            if ($pluginName === '') {
-                $result['errors'][] = 'Nombre de plugin no válido para descargar.';
-                return $result;
-            }
-
-            $pluginPath = FS_FOLDER . '/plugins/' . $pluginName;
-
-            if (!file_exists($pluginPath) || !is_dir($pluginPath)) {
-                $result['errors'][] = 'El plugin <b>' . $pluginName . '</b> no existe.';
-                return $result;
-            }
-
-            $zipFilename = $pluginName . '.zip';
-            $tmpDir = $this->ensureTmpDirectory($result);
-            if ($tmpDir === null) {
-                return $result;
-            }
-
-            $zipPath = $tmpDir . '/' . $zipFilename;
-
-            $zip = new ZipArchive();
-            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-                $result['errors'][] = 'Error al crear el archivo ZIP para el plugin <b>' . $pluginName . '</b>.';
-                return $result;
-            }
-
-            $this->addFilesToZip($zip, $pluginPath, $pluginName);
-            $zip->close();
-
-            if (!file_exists($zipPath)) {
-                $result['errors'][] = 'Error al crear el archivo ZIP.';
-                return $result;
-            }
-
-            $result['enable'] = $pluginName;
-            $result['download_zip'] = ['path' => $zipPath, 'filename' => $zipFilename];
-        } elseif (filter_input(INPUT_POST, 'confirm_overwrite') && isset($_SESSION['pending_plugin'])) {
-            $pending = $_SESSION['pending_plugin'];
-            $pendingName = $this->normalizePluginName((string) ($pending['name'] ?? ''));
-
-            if ($pendingName === '') {
-                $result['errors'][] = 'El plugin pendiente no tiene un nombre válido.';
-                unset($_SESSION['pending_plugin']);
-                return $result;
-            }
-
-            if (empty($pending['temp_file']) || !file_exists($pending['temp_file'])) {
-                $result['errors'][] = 'El archivo temporal del plugin no se encuentra. Vuelve a subir el ZIP.';
-                unset($_SESSION['pending_plugin']);
-                return $result;
-            }
-
-            $installResult = $this->pluginManager->install($pending['temp_file'], $pendingName . '.zip', true);
-
-            $this->cleanupPendingTempFile($pending, $result);
-
-            unset($_SESSION['pending_plugin']);
-
-            if ($installResult) {
-                $installedPlugin = is_string($installResult) && trim($installResult) !== '' ? $installResult : $pendingName;
-                $result['messages'][] = 'Plugin <b>' . $installedPlugin . '</b> instalado correctamente. El plugin anterior se guardó como backup.';
-            } else {
-                $result['errors'][] = 'No se pudo instalar el plugin <b>' . $pendingName . '</b> tras confirmar la sobrescritura.';
-            }
-        } elseif (!empty($_FILES['fplugin']['tmp_name']) && is_uploaded_file($_FILES['fplugin']['tmp_name'])) {
-            $pluginInfo = $this->pluginManager->detect_plugin_from_zip($_FILES['fplugin']['tmp_name']);
-
-            if (!$pluginInfo) {
-                $result['errors'][] = 'Error al leer el archivo ZIP del plugin.';
-                return $result;
-            }
-
-            $pluginName = $this->normalizePluginName((string) ($pluginInfo['name'] ?? ''));
-            $newVersion = $pluginInfo['version'];
-
-            if ($pluginName === '') {
-                $result['errors'][] = 'No se pudo determinar un nombre de plugin válido desde el ZIP.';
-                return $result;
-            }
-
-            $existingPlugin = $this->pluginManager->check_plugin_exists($pluginName);
-
-            if ($existingPlugin) {
-                $tmpDir = $this->ensureTmpDirectory($result);
-                if ($tmpDir === null) {
-                    return $result;
-                }
-
-                $tempFile = $tmpDir . '/plugin_pending_install_' . session_id() . '_' . bin2hex(random_bytes(8)) . '.zip';
-                if (!move_uploaded_file($_FILES['fplugin']['tmp_name'], $tempFile)) {
-                    $result['errors'][] = 'No se pudo guardar temporalmente el archivo del plugin para confirmar la sobreescritura.';
-                    return $result;
-                }
-
-                $_SESSION['pending_plugin'] = [
-                    'name' => $pluginName,
-                    'new_version' => $newVersion,
-                    'current_version' => $existingPlugin['version'],
-                    'temp_file' => $tempFile,
-                ];
-
-                $result['advices'][] = 'El plugin <b>' . $pluginName . '</b> ya existe. Se requiere confirmación para sobrescribir.';
-            } else {
-                $installResult = $this->pluginManager->install($_FILES['fplugin']['tmp_name'], $_FILES['fplugin']['name'], false);
-                if ($installResult) {
-                    $installedPlugin = is_string($installResult) && trim($installResult) !== '' ? $installResult : $pluginName;
-                    $result['messages'][] = 'Plugin <b>' . $installedPlugin . '</b> instalado correctamente.';
-                } else {
-                    $result['errors'][] = 'No se pudo instalar el plugin <b>' . $pluginName . '</b> desde el ZIP subido.';
-                }
-            }
+            return $this->handleRestoreBackup($result);
         }
+
+        if (filter_input(INPUT_POST, 'cancel_pending_install')) {
+            return $this->handleCancelPendingInstall($result);
+        }
+
+        if (filter_input(INPUT_GET, 'download_plugin')) {
+            return $this->handleDownloadPlugin($result);
+        }
+
+        if (filter_input(INPUT_POST, 'confirm_overwrite') && isset($_SESSION['pending_plugin'])) {
+            return $this->handleConfirmOverwrite($result);
+        }
+
+        if (!empty($_FILES['fplugin']['tmp_name']) && is_uploaded_file($_FILES['fplugin']['tmp_name'])) {
+            return $this->handlePluginUpload($result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array{errors: string[], messages: string[], advices: string[]} $result
+     * @return array{errors: string[], messages: string[], advices: string[]}
+     */
+    private function handleRestoreBackup(array $result): array
+    {
+        $pluginName = $this->normalizePluginName((string) filter_input(INPUT_GET, 'restore_backup'));
+        if ($pluginName === '') {
+            $result['errors'][] = 'Nombre de plugin no válido para restaurar el backup.';
+            return $result;
+        }
+
+        if (in_array($pluginName, $this->pluginManager->enabled())) {
+            $this->pluginManager->disable($pluginName);
+        }
+        if ($this->pluginManager->restore_backup($pluginName)) {
+            $result['messages'][] = 'Plugin <b>' . $pluginName . '</b> restaurado correctamente desde el backup.';
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array{errors: string[], messages: string[], advices: string[]} $result
+     * @return array{errors: string[], messages: string[], advices: string[]}
+     */
+    private function handleCancelPendingInstall(array $result): array
+    {
+        if (isset($_SESSION['pending_plugin'])) {
+            $this->cleanupPendingTempFile($_SESSION['pending_plugin'], $result);
+            unset($_SESSION['pending_plugin']);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array{errors: string[], messages: string[], advices: string[]} $result
+     * @return array{enable?: string, download_zip?: array{path: string, filename: string}, errors: string[], messages: string[], advices: string[]}
+     */
+    private function handleDownloadPlugin(array $result): array
+    {
+        $pluginName = $this->normalizePluginName((string) filter_input(INPUT_GET, 'download_plugin'));
+        if ($pluginName === '') {
+            $result['errors'][] = 'Nombre de plugin no válido para descargar.';
+            return $result;
+        }
+
+        $pluginPath = FS_FOLDER . '/plugins/' . $pluginName;
+
+        if (!file_exists($pluginPath) || !is_dir($pluginPath)) {
+            $result['errors'][] = 'El plugin <b>' . $pluginName . '</b> no existe.';
+            return $result;
+        }
+
+        $zipFilename = $pluginName . '.zip';
+        $tmpDir = $this->ensureTmpDirectory($result);
+        if ($tmpDir === null) {
+            return $result;
+        }
+
+        $zipPath = $tmpDir . '/' . $zipFilename;
+
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            $result['errors'][] = 'Error al crear el archivo ZIP para el plugin <b>' . $pluginName . '</b>.';
+            return $result;
+        }
+
+        $this->addFilesToZip($zip, $pluginPath, $pluginName);
+        $zip->close();
+
+        if (!file_exists($zipPath)) {
+            $result['errors'][] = 'Error al crear el archivo ZIP.';
+            return $result;
+        }
+
+        $result['enable'] = $pluginName;
+        $result['download_zip'] = ['path' => $zipPath, 'filename' => $zipFilename];
+
+        return $result;
+    }
+
+    /**
+     * @param array{errors: string[], messages: string[], advices: string[]} $result
+     * @return array{errors: string[], messages: string[], advices: string[]}
+     */
+    private function handleConfirmOverwrite(array $result): array
+    {
+        $pending = $_SESSION['pending_plugin'];
+        $pendingName = $this->normalizePluginName((string) ($pending['name'] ?? ''));
+
+        if ($pendingName === '') {
+            $result['errors'][] = 'El plugin pendiente no tiene un nombre válido.';
+            unset($_SESSION['pending_plugin']);
+            return $result;
+        }
+
+        if (empty($pending['temp_file']) || !file_exists($pending['temp_file'])) {
+            $result['errors'][] = 'El archivo temporal del plugin no se encuentra. Vuelve a subir el ZIP.';
+            unset($_SESSION['pending_plugin']);
+            return $result;
+        }
+
+        $installResult = $this->pluginManager->install($pending['temp_file'], $pendingName . '.zip', true);
+
+        $this->cleanupPendingTempFile($pending, $result);
+
+        unset($_SESSION['pending_plugin']);
+
+        if ($installResult) {
+            $installedPlugin = is_string($installResult) && trim($installResult) !== '' ? $installResult : $pendingName;
+            $result['messages'][] = 'Plugin <b>' . $installedPlugin . '</b> instalado correctamente. El plugin anterior se guardó como backup.';
+        } else {
+            $result['errors'][] = 'No se pudo instalar el plugin <b>' . $pendingName . '</b> tras confirmar la sobrescritura.';
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array{errors: string[], messages: string[], advices: string[]} $result
+     * @return array{errors: string[], messages: string[], advices: string[]}
+     */
+    private function handlePluginUpload(array $result): array
+    {
+        $pluginInfo = $this->pluginManager->detect_plugin_from_zip($_FILES['fplugin']['tmp_name']);
+
+        if (!$pluginInfo) {
+            $result['errors'][] = 'Error al leer el archivo ZIP del plugin.';
+            return $result;
+        }
+
+        $pluginName = $this->normalizePluginName((string) ($pluginInfo['name'] ?? ''));
+        $newVersion = $pluginInfo['version'];
+
+        if ($pluginName === '') {
+            $result['errors'][] = 'No se pudo determinar un nombre de plugin válido desde el ZIP.';
+            return $result;
+        }
+
+        $existingPlugin = $this->pluginManager->check_plugin_exists($pluginName);
+
+        if ($existingPlugin) {
+            return $this->queuePendingPluginOverwrite($result, $pluginName, $newVersion, $existingPlugin);
+        }
+
+        $installResult = $this->pluginManager->install($_FILES['fplugin']['tmp_name'], $_FILES['fplugin']['name'], false);
+        if ($installResult) {
+            $installedPlugin = is_string($installResult) && trim($installResult) !== '' ? $installResult : $pluginName;
+            $result['messages'][] = 'Plugin <b>' . $installedPlugin . '</b> instalado correctamente.';
+        } else {
+            $result['errors'][] = 'No se pudo instalar el plugin <b>' . $pluginName . '</b> desde el ZIP subido.';
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array{errors: string[], messages: string[], advices: string[]} $result
+     * @param array<string, mixed> $existingPlugin
+     * @return array{errors: string[], messages: string[], advices: string[]}
+     */
+    private function queuePendingPluginOverwrite(array $result, string $pluginName, mixed $newVersion, array $existingPlugin): array
+    {
+        $tmpDir = $this->ensureTmpDirectory($result);
+        if ($tmpDir === null) {
+            return $result;
+        }
+
+        $tempFile = $tmpDir . '/plugin_pending_install_' . session_id() . '_' . bin2hex(random_bytes(8)) . '.zip';
+        if (!move_uploaded_file($_FILES['fplugin']['tmp_name'], $tempFile)) {
+            $result['errors'][] = 'No se pudo guardar temporalmente el archivo del plugin para confirmar la sobreescritura.';
+            return $result;
+        }
+
+        $_SESSION['pending_plugin'] = [
+            'name' => $pluginName,
+            'new_version' => $newVersion,
+            'current_version' => $existingPlugin['version'],
+            'temp_file' => $tempFile,
+        ];
+
+        $result['advices'][] = 'El plugin <b>' . $pluginName . '</b> ya existe. Se requiere confirmación para sobrescribir.';
 
         return $result;
     }

@@ -146,21 +146,8 @@ class fs_file_manager
      */
     public static function recurse_copy($src, $dst, ?string $allowedBaseDir = null)
     {
-        if ($allowedBaseDir !== null) {
-            $realBase = realpath($allowedBaseDir);
-            if ($realBase === false) {
-                return false;
-            }
-
-            $realBase = static::normalize_absolute_path($realBase);
-            $resolvedDst = static::resolve_path_for_base_check($dst);
-            $dstParent = $resolvedDst !== null ? static::normalize_absolute_path(dirname($resolvedDst)) : null;
-            $safeDstForLog = $resolvedDst ?? static::normalize_path($dst);
-
-            if ($realBase === null || $dstParent === null || !static::is_base_path_allowed($dstParent, $realBase)) {
-                error_log("SECURITY: Attempted copy outside allowed base: $safeDstForLog");
-                return false;
-            }
+        if ($allowedBaseDir !== null && !static::isCopyDestinationWithinBase($dst, $allowedBaseDir)) {
+            return false;
         }
 
         $folder = opendir($src);
@@ -173,27 +160,57 @@ class fs_file_manager
             return false;
         }
 
+        $success = true;
         while (false !== ($file = readdir($folder))) {
             if ($file === '.' || $file === '..') {
                 continue;
             }
 
-            $srcPath = $src . DIRECTORY_SEPARATOR . $file;
-            $dstPath = $dst . DIRECTORY_SEPARATOR . $file;
-
-            if (!static::is_symlink_safe($srcPath, $src)) {
-                continue;
-            }
-
-            if (is_dir($srcPath)) {
-                static::recurse_copy($srcPath, $dstPath, $allowedBaseDir);
-            } else {
-                copy($srcPath, $dstPath);
+            if (!static::copyRecursedEntry(
+                $src . DIRECTORY_SEPARATOR . $file,
+                $dst . DIRECTORY_SEPARATOR . $file,
+                $allowedBaseDir
+            )) {
+                $success = false;
             }
         }
 
         closedir($folder);
+        return $success;
+    }
+
+    private static function isCopyDestinationWithinBase(string $dst, string $allowedBaseDir): bool
+    {
+        $realBase = realpath($allowedBaseDir);
+        if ($realBase === false) {
+            return false;
+        }
+
+        $realBase = static::normalize_absolute_path($realBase);
+        $resolvedDst = static::resolve_path_for_base_check($dst);
+        $dstParent = $resolvedDst !== null ? static::normalize_absolute_path(dirname($resolvedDst)) : null;
+        $safeDstForLog = $resolvedDst ?? static::normalize_path($dst);
+
+        if ($realBase === null || $dstParent === null || !static::is_base_path_allowed($dstParent, $realBase)) {
+            error_log("SECURITY: Attempted copy outside allowed base: $safeDstForLog");
+
+            return false;
+        }
+
         return true;
+    }
+
+    private static function copyRecursedEntry(string $srcPath, string $dstPath, ?string $allowedBaseDir): bool
+    {
+        if (!static::is_symlink_safe($srcPath, dirname($srcPath))) {
+            return false;
+        }
+
+        if (is_dir($srcPath)) {
+            return static::recurse_copy($srcPath, $dstPath, $allowedBaseDir);
+        }
+
+        return copy($srcPath, $dstPath);
     }
 
     /**

@@ -28,6 +28,8 @@ require_once 'base/FsMysqlSchemaUtility.php';
 class fs_mysql extends fs_db_engine
 {
     private const SQL_MODIFY_COL = ' MODIFY `';
+    private const PG_CHAR_VARYING_CAST = '::character varying';
+    private const SQL_ALTER_TABLE = 'ALTER TABLE ';
     private const IDENTIFIER_REGEX = '/^[a-z0-9_]+$/i';
     private const CURRENT_TIMESTAMP_FUNC = 'CURRENT_TIMESTAMP()';
     private const NOW_FUNC = 'NOW()';
@@ -76,7 +78,7 @@ class fs_mysql extends fs_db_engine
 
         /// ¿La tabla no usa InnoDB?
         $data = $this->select('SHOW TABLE STATUS FROM ' . $databaseIdentifier . ' LIKE ' . $this->quoteStringLiteral($tableName) . ';');
-        if ($data && $data[0]['Engine'] != 'InnoDB' && !$this->exec('ALTER TABLE ' . $tableIdentifier . ' ENGINE=InnoDB;')) {
+        if ($data && $data[0]['Engine'] != 'InnoDB' && !$this->exec(self::SQL_ALTER_TABLE . $tableIdentifier . ' ENGINE=InnoDB;')) {
             self::$core_log->new_error('Imposible convertir la tabla ' . $tableName . ' a InnoDB.'
                 . ' Imprescindible para FacturaScripts.');
             return FALSE;
@@ -129,7 +131,7 @@ class fs_mysql extends fs_db_engine
 
     private function buildAddColumnSql($table_name, $xml_col, $xmlType, $xmlDefault)
     {
-        $sql = 'ALTER TABLE ' . $table_name . ' ADD `' . $xml_col['nombre'] . '` ';
+        $sql = self::SQL_ALTER_TABLE . $table_name . ' ADD `' . $xml_col['nombre'] . '` ';
 
         if ($xml_col['tipo'] == 'serial') {
             return $sql . FS_DB_INTEGER . ' NOT NULL AUTO_INCREMENT;';
@@ -155,7 +157,7 @@ class fs_mysql extends fs_db_engine
             return '';
         }
 
-        return 'ALTER TABLE ' . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . ';';
+        return self::SQL_ALTER_TABLE . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . ';';
     }
 
     private function buildNullableChangeSql($table_name, $xml_col, $xmlType, $db_col, $fk_columns)
@@ -169,7 +171,7 @@ class fs_mysql extends fs_db_engine
         }
 
         $nullable = ($xml_col['nulo'] == 'YES') ? ' NULL;' : ' NOT NULL;';
-        return 'ALTER TABLE ' . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . $nullable;
+        return self::SQL_ALTER_TABLE . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . $nullable;
     }
 
     private function buildDefaultChangeSql($table_name, $xml_col, $xmlType, $xmlDefault, $db_col)
@@ -179,7 +181,7 @@ class fs_mysql extends fs_db_engine
         }
 
         if (is_null($xmlDefault)) {
-            return 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` DROP DEFAULT;';
+            return self::SQL_ALTER_TABLE . $table_name . ' ALTER `' . $xml_col['nombre'] . '` DROP DEFAULT;';
         }
 
         if (strtolower(substr($xmlDefault, 0, 9)) == "nextval('") {
@@ -187,10 +189,10 @@ class fs_mysql extends fs_db_engine
                 return '';
             }
             $nullable = ($xml_col['nulo'] == 'YES') ? ' NULL AUTO_INCREMENT;' : ' NOT NULL AUTO_INCREMENT;';
-            return 'ALTER TABLE ' . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . $nullable;
+            return self::SQL_ALTER_TABLE . $table_name . self::SQL_MODIFY_COL . $xml_col['nombre'] . '` ' . $xmlType . $nullable;
         }
 
-        return 'ALTER TABLE ' . $table_name . ' ALTER `' . $xml_col['nombre'] . '` SET DEFAULT ' . $xmlDefault . ";";
+        return self::SQL_ALTER_TABLE . $table_name . ' ALTER `' . $xml_col['nombre'] . '` SET DEFAULT ' . $xmlDefault . ";";
     }
 
     /**
@@ -239,10 +241,10 @@ class fs_mysql extends fs_db_engine
                 $sql_unique = '';
                 foreach ($db_cons as $db_con) {
                     if ($db_con['type'] == 'FOREIGN KEY') {
-                        $sql .= 'ALTER TABLE ' . $table_name . ' DROP FOREIGN KEY ' . $db_con['name'] . ';';
+                        $sql .= self::SQL_ALTER_TABLE . $table_name . ' DROP FOREIGN KEY ' . $db_con['name'] . ';';
                     }
                     if ($db_con['type'] == 'UNIQUE') {
-                        $sql_unique .= 'ALTER TABLE ' . $table_name . ' DROP INDEX ' . $db_con['name'] . ';';
+                        $sql_unique .= self::SQL_ALTER_TABLE . $table_name . ' DROP INDEX ' . $db_con['name'] . ';';
                     }
                 }
 
@@ -261,9 +263,9 @@ class fs_mysql extends fs_db_engine
                 if ($this->xmlConstraintHasEquivalentDbDefinition($xml_con, $dbSignatures, $xmlSignatures)) {
                     continue;
                 } elseif (substr($xml_con['consulta'], 0, 11) == 'FOREIGN KEY') {
-                    $sql .= 'ALTER TABLE ' . $table_name . ' ADD CONSTRAINT ' . $xml_con['nombre'] . ' ' . $xml_con['consulta'] . ';';
+                    $sql .= self::SQL_ALTER_TABLE . $table_name . ' ADD CONSTRAINT ' . $xml_con['nombre'] . ' ' . $xml_con['consulta'] . ';';
                 } else if (substr($xml_con['consulta'], 0, 6) == 'UNIQUE') {
-                    $sql .= 'ALTER TABLE ' . $table_name . ' ADD CONSTRAINT ' . $xml_con['nombre'] . ' ' . $xml_con['consulta'] . ';';
+                    $sql .= self::SQL_ALTER_TABLE . $table_name . ' ADD CONSTRAINT ' . $xml_con['nombre'] . ' ' . $xml_con['consulta'] . ';';
                 }
             }
         }
@@ -520,7 +522,7 @@ class fs_mysql extends fs_db_engine
      * @param boolean $transaction
      * @return boolean
      */
-    public function exec($sql, $transaction = TRUE, $params = [])
+    public function exec($sql, $transaction = TRUE, $params = [], $batch = FALSE)
     {
         if (!self::$link) {
             $this->connect();
@@ -538,7 +540,7 @@ class fs_mysql extends fs_db_engine
 
         $queryIndex = 0;
         $affectedRows = 0;
-        $result = $this->execute_statement($sql, $params, $queryIndex, $affectedRows);
+        $result = $this->execute_statement($sql, $params, $queryIndex, $affectedRows, $batch);
         self::$last_affected_rows = $affectedRows;
 
         if (self::$link->errno && !$result) {
@@ -555,29 +557,52 @@ class fs_mysql extends fs_db_engine
         return $result;
     }
 
-    private function execute_statement($sql, $params, &$queryIndex, &$affectedRows)
+    private function execute_statement($sql, $params, &$queryIndex, &$affectedRows, $batch = false)
     {
         try {
-            $queryIndex = 1;
+            $boundParams = is_array($params) ? $params : [];
 
-            if (!empty($params) && method_exists(self::$link, 'execute_query')) {
-                $result = self::$link->execute_query($sql, $params);
-                $affectedRows = $result !== FALSE ? (int) self::$link->affected_rows : -1;
-                return $result !== FALSE;
+            if ($boundParams !== []) {
+                return $this->executeSingleStatement($sql, $boundParams, $queryIndex, $affectedRows);
             }
 
-            if (!self::$link->multi_query($sql)) {
-                $affectedRows = -1;
-                return FALSE;
+            if ($batch) {
+                return $this->executeStatementBatch($sql, $queryIndex, $affectedRows);
             }
 
-            return $this->consume_multi_query_results($queryIndex, $affectedRows);
+            return $this->executeSingleStatement($sql, [], $queryIndex, $affectedRows);
         } catch (mysqli_sql_exception $e) {
             self::$last_error = $e->getMessage();
             $affectedRows = -1;
             $this->log_exec_error($queryIndex, self::$last_error);
             return FALSE;
         }
+    }
+
+    private function executeSingleStatement(string $sql, array $boundParams, &$queryIndex, &$affectedRows): bool
+    {
+        if (!method_exists(self::$link, 'execute_query')) {
+            throw new mysqli_sql_exception('mysqli::execute_query is required (PHP 8.2+)');
+        }
+
+        $queryIndex = 1;
+        $result = self::$link->execute_query($sql, $boundParams);
+        $affectedRows = $result !== FALSE ? (int) self::$link->affected_rows : -1;
+
+        return $result !== FALSE;
+    }
+
+    /**
+     * Ejecuta múltiples sentencias SQL en un único round-trip cuando el caller lo solicita.
+     */
+    private function executeStatementBatch(string $sql, &$queryIndex, &$affectedRows): bool
+    {
+        if (!self::$link->multi_query($sql)) {
+            $affectedRows = -1;
+            return FALSE;
+        }
+
+        return $this->consume_multi_query_results($queryIndex, $affectedRows);
     }
 
     private function consume_multi_query_results(&$queryIndex, &$affectedRows)
@@ -678,36 +703,64 @@ class fs_mysql extends fs_db_engine
             return $xml_cons;
         }
 
-        $tables = $this->list_tables();
-        $tableNames = [];
-        if (is_array($tables)) {
-            foreach ($tables as $t) {
-                $tableNames[] = strtolower($t['name']);
-            }
-        }
-
+        $tableNames = $this->collect_known_table_names_lowercase();
         $validated = [];
         foreach ($xml_cons as $con) {
-            if (stripos($con['consulta'], 'FOREIGN KEY') === false) {
-                $validated[] = $con;
-                continue;
-            }
-
-            if (preg_match('/REFERENCES\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_]+))/i', $con['consulta'], $m)) {
-                $refTable = $m[1] ?: ($m[2] ?: ($m[3] ?: ''));
-                $refTable = trim($refTable, '"`');
-
-                if ($refTable !== '' && in_array(strtolower($refTable), $tableNames)) {
-                    $validated[] = $con;
-                } else {
-                    error_log("generate_table: FK '{$con['nombre']}' omitida - tabla '{$refTable}' no existe aún.");
-                }
-            } else {
+            if ($this->should_keep_fk_constraint($con, $tableNames)) {
                 $validated[] = $con;
             }
         }
 
         return $validated;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function collect_known_table_names_lowercase(): array
+    {
+        $tables = $this->list_tables();
+        if (!is_array($tables)) {
+            return [];
+        }
+
+        $tableNames = [];
+        foreach ($tables as $t) {
+            $tableNames[] = strtolower($t['name']);
+        }
+
+        return $tableNames;
+    }
+
+    private function should_keep_fk_constraint(array $con, array $tableNames): bool
+    {
+        if (stripos($con['consulta'], 'FOREIGN KEY') === false) {
+            return true;
+        }
+
+        $refTable = $this->extract_referenced_table_name($con['consulta']);
+        if ($refTable === null) {
+            return true;
+        }
+
+        if ($refTable !== '' && in_array(strtolower($refTable), $tableNames, true)) {
+            return true;
+        }
+
+        error_log("generate_table: FK '{$con['nombre']}' omitida - tabla '{$refTable}' no existe aún.");
+
+        return false;
+    }
+
+    private function extract_referenced_table_name(string $consulta): ?string
+    {
+        if (!preg_match('/REFERENCES\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z0-9_]+))/i', $consulta, $m)) {
+            return null;
+        }
+
+        $refTable = $m[1] ?: ($m[2] ?: ($m[3] ?: ''));
+
+        return trim($refTable, '"`') ?: null;
     }
 
     /**
@@ -1000,10 +1053,13 @@ class fs_mysql extends fs_db_engine
     private function executeSelectQuery($sql, $params)
     {
         try {
-            if (!empty($params) && method_exists(self::$link, 'execute_query')) {
-                return self::$link->execute_query($sql, $params);
+            if (!method_exists(self::$link, 'execute_query')) {
+                throw new mysqli_sql_exception('mysqli::execute_query is required (PHP 8.2+)');
             }
-            return self::$link->query($sql);
+
+            $boundParams = is_array($params) ? $params : [];
+
+            return self::$link->execute_query($sql, $boundParams);
         } catch (mysqli_sql_exception $e) {
             self::$last_error = $e->getMessage();
             self::logDebug("Query EXCEPTION: $sql Error: " . self::$last_error);
@@ -1262,8 +1318,8 @@ class fs_mysql extends fs_db_engine
             return TRUE;
         }
 
-        $db_default = str_replace(['::character varying', "'"], ['', ''], $db_default ?? '');
-        $xml_default = str_replace(['::character varying', "'"], ['', ''], $xml_default ?? '');
+        $db_default = str_replace([self::PG_CHAR_VARYING_CAST, "'"], ['', ''], $db_default ?? '');
+        $xml_default = str_replace([self::PG_CHAR_VARYING_CAST, "'"], ['', ''], $xml_default ?? '');
         return ($db_default == $xml_default);
     }
 
@@ -1390,7 +1446,7 @@ class fs_mysql extends fs_db_engine
     private function fix_postgresql($sql)
     {
         $sql = str_replace(
-            array('::regclass', '::character varying', '::integer'),
+            array('::regclass', self::PG_CHAR_VARYING_CAST, '::integer'),
             array('', '', ''),
             $sql
         );

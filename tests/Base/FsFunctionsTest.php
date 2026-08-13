@@ -213,4 +213,69 @@ class FsFunctionsTest extends TestCase
         $max = fs_get_max_file_upload();
         $this->assertGreaterThan(0, $max);
     }
+
+    public function testRequirePhpModelsFromDirectoryLoadsEachPhpFileOnce(): void
+    {
+        $directory = sys_get_temp_dir() . '/fs-models-test-' . uniqid('', true);
+        mkdir($directory);
+        file_put_contents($directory . '/demo_model.php', '<?php /* test stub */');
+
+        $previousModels = $GLOBALS['models'] ?? [];
+        $GLOBALS['models'] = [];
+
+        try {
+            require_php_models_from_directory($directory);
+            require_php_models_from_directory($directory);
+
+            $this->assertSame(['demo_model.php'], $GLOBALS['models']);
+        } finally {
+            unlink($directory . '/demo_model.php');
+            rmdir($directory);
+            $GLOBALS['models'] = $previousModels;
+        }
+    }
+
+    public function testFsCurlCaBundleLocalPathUsesFsFolder(): void
+    {
+        $path = fs_curl_ca_bundle_local_path();
+
+        $this->assertStringEndsWith('/base/cacert.pem', $path);
+        $this->assertStringStartsWith(FS_FOLDER, $path);
+    }
+
+    public function testFsCurlCaBundleIsFreshWhenFileIsRecent(): void
+    {
+        $tmpFile = sys_get_temp_dir() . '/cacert-test-' . uniqid('', true) . '.pem';
+        file_put_contents($tmpFile, '-----BEGIN CERTIFICATE-----\ntest');
+
+        try {
+            $this->assertTrue(fs_curl_ca_bundle_is_fresh($tmpFile, 90));
+        } finally {
+            unlink($tmpFile);
+        }
+    }
+
+    public function testFsCurlIsValidPemBundleDetectsCertificateHeader(): void
+    {
+        $tmpFile = sys_get_temp_dir() . '/cacert-test-' . uniqid('', true) . '.pem';
+        file_put_contents($tmpFile, "-----BEGIN CERTIFICATE-----\nMIIB");
+
+        try {
+            $this->assertTrue(fs_curl_is_valid_pem_bundle($tmpFile));
+        } finally {
+            unlink($tmpFile);
+        }
+    }
+
+    public function testFsCurlIsValidPemBundleRejectsInvalidContent(): void
+    {
+        $tmpFile = sys_get_temp_dir() . '/cacert-test-' . uniqid('', true) . '.pem';
+        file_put_contents($tmpFile, 'not a pem bundle');
+
+        try {
+            $this->assertFalse(fs_curl_is_valid_pem_bundle($tmpFile));
+        } finally {
+            unlink($tmpFile);
+        }
+    }
 }

@@ -36,6 +36,7 @@ final class SelectDefaultPageRedirectTest extends TestCase
         $controller = new class() extends \fs_controller {
             public function __construct()
             {
+                // Constructor vacío intencional: evita boot del controlador legacy.
             }
 
             public function triggerSelectDefaultPage(string $userPage): void
@@ -53,7 +54,9 @@ final class SelectDefaultPageRedirectTest extends TestCase
                 };
 
                 $this->db = new class() extends \fs_db2 {
-                    public function __construct() {}
+                    public function __construct() {
+                        // Constructor vacío intencional: stub de fs_db2 sin conexión real.
+                    }
                     public function connected(): bool { return true; }
                     public function connect(): bool { return true; }
                 };
@@ -77,6 +80,7 @@ final class SelectDefaultPageRedirectTest extends TestCase
         $controller = new class() extends \fs_controller {
             public function __construct()
             {
+                // Constructor vacío intencional: evita boot del controlador legacy.
             }
 
             public function getRedirectUrl(): string
@@ -94,7 +98,9 @@ final class SelectDefaultPageRedirectTest extends TestCase
                 };
 
                 $this->db = new class() extends \fs_db2 {
-                    public function __construct() {}
+                    public function __construct() {
+                        // Constructor vacío intencional: stub de fs_db2 sin conexión real.
+                    }
                     public function connected(): bool { return true; }
                     public function connect(): bool { return true; }
                 };
@@ -126,6 +132,7 @@ final class SelectDefaultPageRedirectTest extends TestCase
         $controller = new class() extends \fs_controller {
             public function __construct()
             {
+                // Constructor vacío intencional: evita boot del controlador legacy.
             }
 
             public function probeShouldSkip(): bool
@@ -142,7 +149,9 @@ final class SelectDefaultPageRedirectTest extends TestCase
                 };
 
                 $this->db = new class() extends \fs_db2 {
-                    public function __construct() {}
+                    public function __construct() {
+                        // Constructor vacío intencional: stub de fs_db2 sin conexión real.
+                    }
                     public function connected(): bool { return true; }
                     public function connect(): bool { return true; }
                 };
@@ -164,6 +173,7 @@ final class SelectDefaultPageRedirectTest extends TestCase
         $controller = new class() extends \fs_controller {
             public function __construct()
             {
+                // Constructor vacío intencional: evita boot del controlador legacy.
             }
 
             public function probeShouldSkip(): bool
@@ -180,7 +190,9 @@ final class SelectDefaultPageRedirectTest extends TestCase
                 };
 
                 $this->db = new class() extends \fs_db2 {
-                    public function __construct() {}
+                    public function __construct() {
+                        // Constructor vacío intencional: stub de fs_db2 sin conexión real.
+                    }
                     public function connected(): bool { return false; }
                     public function connect(): bool { return true; }
                 };

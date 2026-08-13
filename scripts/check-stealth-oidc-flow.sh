@@ -56,6 +56,7 @@ while IFS=$'\t' read -r name value; do
         stealth_enabled) stealth_enabled="$value" ;;
         stealth_param_name) param_name="$value" ;;
         stealth_param_value) param_value="$value" ;;
+        *) ;;
     esac
 done <<< "$query_output"
 

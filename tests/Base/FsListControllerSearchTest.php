@@ -54,6 +54,7 @@ class FsListControllerSearchTest extends TestCase
 
             protected function create_tabs(): void
             {
+                // Sin pestañas: el test solo ejercita load_data_from_where().
             }
 
             // Expose protected method for testing

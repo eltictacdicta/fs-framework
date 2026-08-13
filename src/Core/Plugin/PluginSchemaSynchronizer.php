@@ -133,35 +133,50 @@ final class PluginSchemaSynchronizer
 
         $pluginPath = rtrim($pluginsRoot, '/\\') . '/' . $pluginName;
         foreach (['model', 'model/core'] as $subdir) {
-            $dir = $pluginPath . '/' . $subdir;
-            if (!is_dir($dir)) {
-                continue;
-            }
+            $this->refreshModelsInDirectory($pluginPath . '/' . $subdir, $pluginName, $result);
+        }
+    }
 
-            $files = glob($dir . '/*.php');
-            if ($files === false) {
-                continue;
-            }
+    /**
+     * @param array{success: bool, changes: list<string>, errors: list<string>} $result
+     */
+    private function refreshModelsInDirectory(string $dir, string $pluginName, array &$result): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
 
-            foreach ($files as $file) {
-                $className = basename($file, '.php');
-                if (!class_exists($className, false)) {
-                    require_once $file;
-                }
+        $files = glob($dir . '/*.php');
+        if ($files === false) {
+            return;
+        }
 
-                if (!class_exists($className, false) || !is_subclass_of($className, 'fs_model')) {
-                    continue;
-                }
+        foreach ($files as $file) {
+            $this->refreshModelClassFromFile($file, $pluginName, $result);
+        }
+    }
 
-                try {
-                    new $className();
-                } catch (\Throwable $e) {
-                    $message = $className . ': ' . $e->getMessage();
-                    $result['errors'][] = $message;
-                    $result['success'] = false;
-                    error_log('PluginSchemaSynchronizer: model refresh failed for ' . $pluginName . ': ' . $message);
-                }
-            }
+    /**
+     * @param array{success: bool, changes: list<string>, errors: list<string>} $result
+     */
+    private function refreshModelClassFromFile(string $file, string $pluginName, array &$result): void
+    {
+        $className = basename($file, '.php');
+        if (!class_exists($className, false)) {
+            require_once $file;
+        }
+
+        if (!class_exists($className, false) || !is_subclass_of($className, 'fs_model')) {
+            return;
+        }
+
+        try {
+            new $className();
+        } catch (\Throwable $e) {
+            $message = $className . ': ' . $e->getMessage();
+            $result['errors'][] = $message;
+            $result['success'] = false;
+            error_log('PluginSchemaSynchronizer: model refresh failed for ' . $pluginName . ': ' . $message);
         }
     }
 
