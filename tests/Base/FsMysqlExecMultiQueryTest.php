@@ -1,6 +1,6 @@
 <?php
 /**
- * Regression tests for fs_mysql exec() routing (execute_query vs multi_query).
+ * Regression tests for fs_mysql exec() routing (prepared statements vs schema batches).
  */
 
 namespace Tests\Base;
@@ -42,7 +42,7 @@ class FsMysqlExecMultiQueryTest extends TestCase
         $this->assertSame($sql, $link->lastSql);
     }
 
-    public function testExecUsesMultiQueryForSchemaAlterBatches(): void
+    public function testExecUsesPreparedStatementsForSchemaAlterBatches(): void
     {
         $mysql = new \fs_mysql();
         $link = new FakeMysqliLink([
@@ -53,9 +53,12 @@ class FsMysqlExecMultiQueryTest extends TestCase
 
         $sql = 'ALTER TABLE `fs_vars` ALTER `name` DROP DEFAULT;ALTER TABLE `fs_vars` ALTER `varchar` DROP DEFAULT;';
         $this->assertTrue($mysql->exec($sql, FALSE, [], true));
-        $this->assertSame(0, $link->executeQueryCalls);
-        $this->assertSame(1, $link->multiQueryCalls);
-        $this->assertSame($sql, $link->lastBatchSql);
+        $this->assertSame(2, $link->executeQueryCalls);
+        $this->assertSame(0, $link->multiQueryCalls);
+        $this->assertSame(
+            'ALTER TABLE `fs_vars` ALTER `varchar` DROP DEFAULT',
+            $link->lastSql
+        );
     }
 
     public function testExecAccumulatesAffectedRowsAcrossBatchStatements(): void
@@ -78,7 +81,7 @@ class FsMysqlExecMultiQueryTest extends TestCase
                 ['affected_rows' => 2],
                 ['affected_rows' => 0],
             ],
-            0,
+            1,
             'Syntax error near the second statement'
         ));
 
@@ -101,9 +104,14 @@ final class FakeMysqliLink
 
     public function __construct(
         private array $statements,
-        private ?int $failingTransitionIndex = null,
-        private string $failureMessage = 'multi_query failed'
+        private ?int $failingPosition = null,
+        private string $failureMessage = 'prepared statement failed'
     ) {
+    }
+
+    public function prepare($sql): object|false
+    {
+        return new FakeMysqliStmt($this, (string) $sql);
     }
 
     public function execute_query($sql, $params): bool
@@ -111,10 +119,19 @@ final class FakeMysqliLink
         $this->executeQueryCalls++;
         $this->lastSql = (string) $sql;
 
+        if ($this->failingPosition !== null && $this->position === $this->failingPosition) {
+            $this->errno = 1064;
+            $this->error = $this->failureMessage;
+            $this->affected_rows = -1;
+
+            return false;
+        }
+
         if ($this->position >= count($this->statements)) {
             $this->errno = 1064;
             $this->error = $this->failureMessage;
             $this->affected_rows = -1;
+
             return false;
         }
 
@@ -131,47 +148,29 @@ final class FakeMysqliLink
         $this->multiQueryCalls++;
         $this->lastBatchSql = (string) $sql;
 
-        if (empty($this->statements)) {
-            $this->errno = 1064;
-            $this->error = $this->failureMessage;
-            $this->affected_rows = -1;
-            return false;
-        }
+        return false;
+    }
+}
 
-        $this->position = 0;
-        $this->errno = 0;
-        $this->error = '';
-        $this->affected_rows = (int) $this->statements[0]['affected_rows'];
-
-        return true;
+final class FakeMysqliStmt
+{
+    public function __construct(
+        private FakeMysqliLink $link,
+        private string $sql
+    ) {
     }
 
-    public function store_result()
+    public function execute(?array $params = null): bool
+    {
+        return $this->link->execute_query($this->sql, $params ?? []);
+    }
+
+    public function get_result(): bool
     {
         return false;
     }
 
-    public function more_results(): bool
+    public function close(): void
     {
-        return $this->position < count($this->statements) - 1;
-    }
-
-    public function next_result(): bool
-    {
-        if (!$this->more_results()) {
-            return false;
-        }
-
-        if ($this->failingTransitionIndex !== null && $this->position === $this->failingTransitionIndex) {
-            $this->errno = 1064;
-            $this->error = $this->failureMessage;
-            $this->affected_rows = -1;
-            return false;
-        }
-
-        $this->position++;
-        $this->affected_rows = (int) $this->statements[$this->position]['affected_rows'];
-
-        return true;
     }
 }

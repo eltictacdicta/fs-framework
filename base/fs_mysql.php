@@ -20,6 +20,9 @@
 require_once 'base/fs_db_engine.php';
 require_once 'base/FsMysqlSchemaUtility.php';
 
+use FSFramework\Database\LegacySqlExecutor;
+use FSFramework\Database\SqlSanitizer;
+
 /**
  * Clase para conectar a MySQL.
  * 
@@ -571,6 +574,12 @@ class fs_mysql extends fs_db_engine
             }
 
             return $this->executeSingleStatement($sql, [], $queryIndex, $affectedRows);
+        } catch (\InvalidArgumentException $e) {
+            self::$last_error = $e->getMessage();
+            $affectedRows = -1;
+            $this->log_exec_error($queryIndex, self::$last_error);
+
+            return FALSE;
         } catch (mysqli_sql_exception $e) {
             self::$last_error = $e->getMessage();
             $affectedRows = -1;
@@ -581,69 +590,45 @@ class fs_mysql extends fs_db_engine
 
     private function executeSingleStatement(string $sql, array $boundParams, &$queryIndex, &$affectedRows): bool
     {
-        if (!method_exists(self::$link, 'execute_query')) {
-            throw new mysqli_sql_exception('mysqli::execute_query is required (PHP 8.2+)');
+        $queryIndex = 1;
+
+        if (!LegacySqlExecutor::executeMysqlWrite(self::$link, $sql, $boundParams)) {
+            $affectedRows = -1;
+
+            return false;
         }
 
-        $queryIndex = 1;
-        $result = self::$link->execute_query($sql, $boundParams);
-        $affectedRows = $result !== FALSE ? (int) self::$link->affected_rows : -1;
+        $affectedRows = (int) self::$link->affected_rows;
 
-        return $result !== FALSE;
+        return true;
     }
 
     /**
-     * Ejecuta múltiples sentencias SQL en un único round-trip cuando el caller lo solicita.
+     * Ejecuta múltiples sentencias SQL en secuencia cuando el caller lo solicita (DDL de esquema).
      */
     private function executeStatementBatch(string $sql, &$queryIndex, &$affectedRows): bool
     {
-        if (!self::$link->multi_query($sql)) {
-            $affectedRows = -1;
-            return FALSE;
-        }
-
-        return $this->consume_multi_query_results($queryIndex, $affectedRows);
-    }
-
-    private function consume_multi_query_results(&$queryIndex, &$affectedRows)
-    {
+        $statements = SqlSanitizer::splitTrustedBatch($sql);
         $totalAffectedRows = 0;
+        $queryIndex = 0;
 
-        while (TRUE) {
+        foreach ($statements as $statementSql) {
+            $queryIndex++;
+            if (!LegacySqlExecutor::executeMysqlWrite(self::$link, $statementSql)) {
+                $affectedRows = -1;
+
+                return false;
+            }
+
             $currentAffectedRows = (int) self::$link->affected_rows;
-            $storedResult = self::$link->store_result();
-            if ($storedResult !== FALSE) {
-                if ($currentAffectedRows === -1 && property_exists($storedResult, 'num_rows')) {
-                    $currentAffectedRows = (int) $storedResult->num_rows;
-                }
-
-                $storedResult->free();
-            } elseif (self::$link->errno) {
-                $affectedRows = -1;
-                return FALSE;
+            if ($currentAffectedRows > 0) {
+                $totalAffectedRows += $currentAffectedRows;
             }
-
-            if ($currentAffectedRows === -1) {
-                $affectedRows = -1;
-                return FALSE;
-            }
-
-            $totalAffectedRows += $currentAffectedRows;
-
-            if (!self::$link->more_results()) {
-                $affectedRows = $totalAffectedRows;
-                return TRUE;
-            }
-
-            $nextQueryIndex = $queryIndex + 1;
-            if (!self::$link->next_result()) {
-                $queryIndex = $nextQueryIndex;
-                $affectedRows = -1;
-                return FALSE;
-            }
-
-            $queryIndex = $nextQueryIndex;
         }
+
+        $affectedRows = $totalAffectedRows;
+
+        return true;
     }
 
     private function log_exec_error($queryIndex, $message)
@@ -1053,13 +1038,12 @@ class fs_mysql extends fs_db_engine
     private function executeSelectQuery($sql, $params)
     {
         try {
-            if (!method_exists(self::$link, 'execute_query')) {
-                throw new mysqli_sql_exception('mysqli::execute_query is required (PHP 8.2+)');
-            }
+            return LegacySqlExecutor::executeMysqlSelect(self::$link, $sql, is_array($params) ? $params : []);
+        } catch (\InvalidArgumentException $e) {
+            self::$last_error = $e->getMessage();
+            self::logDebug("Query EXCEPTION: $sql Error: " . self::$last_error);
 
-            $boundParams = is_array($params) ? $params : [];
-
-            return self::$link->execute_query($sql, $boundParams);
+            return FALSE;
         } catch (mysqli_sql_exception $e) {
             self::$last_error = $e->getMessage();
             self::logDebug("Query EXCEPTION: $sql Error: " . self::$last_error);

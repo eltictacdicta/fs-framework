@@ -19,6 +19,8 @@
  */
 require_once 'base/fs_db_engine.php';
 
+use FSFramework\Database\LegacySqlExecutor;
+
 /**
  * Clase para conectar a PostgreSQL.
  * 
@@ -636,10 +638,8 @@ class fs_postgresql extends fs_db_engine
     {
         if ($params !== []) {
             $sql = $this->convert_placeholders($sql);
-
-            return @pg_query_params(self::$link, $sql, array_values($params));
         }
 
-        return @pg_query(self::$link, $sql);
+        return LegacySqlExecutor::executePostgresQuery(self::$link, $sql, array_values($params));
     }
 }
