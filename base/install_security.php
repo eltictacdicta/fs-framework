@@ -120,3 +120,32 @@ function fs_install_normalize_cookie_path_value(string $path): string
 
     return str_ends_with($normalized, '/') ? $normalized : $normalized . '/';
 }
+
+function fs_install_normalize_admin_nick(?string $nick): string
+{
+    $nick = trim((string) $nick);
+
+    return $nick === '' ? 'admin' : $nick;
+}
+
+function fs_install_normalize_admin_password(?string $password): string
+{
+    $password = trim((string) $password);
+
+    return $password === '' ? 'admin' : $password;
+}
+
+function fs_install_is_valid_admin_nick(string $nick): bool
+{
+    return preg_match('/^[A-Za-z0-9_+\.-]{3,12}$/', $nick) === 1;
+}
+
+function fs_install_admin_requires_password_change(string $nick, string $password): bool
+{
+    if ($nick === 'admin' && $password === 'admin') {
+        return true;
+    }
+
+    return mb_strlen($password) < 8;
+}
+

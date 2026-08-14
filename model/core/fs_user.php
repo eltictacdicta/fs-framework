@@ -213,16 +213,32 @@ class fs_user extends \fs_model
     {
         $this->clean_cache(TRUE);
 
-        self::markInitialSetupPending();
+        $nick = defined('FS_INSTALL_ADMIN_NICK') ? (string) FS_INSTALL_ADMIN_NICK : 'admin';
+        if (defined('FS_INSTALL_ADMIN_PASSWORD_HASH')) {
+            $adminHash = (string) FS_INSTALL_ADMIN_PASSWORD_HASH;
+        } else {
+            $adminHash = password_hash('admin', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+        }
 
-        $adminHash = password_hash('admin', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+        if (defined('FS_INSTALL_ADMIN_REQUIRES_PASSWORD_CHANGE')) {
+            if (FS_INSTALL_ADMIN_REQUIRES_PASSWORD_CHANGE) {
+                self::markInitialSetupPending();
+            } else {
+                self::completeInitialSetup();
+            }
+        } elseif ($nick === 'admin') {
+            self::markInitialSetupPending();
+        } else {
+            self::completeInitialSetup();
+        }
+
         if ($this->db->select("SELECT * FROM agentes WHERE codagente = '1';")) {
             return "INSERT INTO " . $this->table_name . " (nick,password,log_key,codagente,admin,enabled)
-            VALUES ('admin'," . $this->var2str($adminHash) . ",NULL,'1',TRUE,TRUE);";
+            VALUES (" . $this->var2str($nick) . "," . $this->var2str($adminHash) . ",NULL,'1',TRUE,TRUE);";
         }
 
         return "INSERT INTO " . $this->table_name . " (nick,password,log_key,codagente,admin,enabled)
-            VALUES ('admin'," . $this->var2str($adminHash) . ",NULL,NULL,TRUE,TRUE);";
+            VALUES (" . $this->var2str($nick) . "," . $this->var2str($adminHash) . ",NULL,NULL,TRUE,TRUE);";
     }
 
     /**
@@ -296,15 +312,25 @@ class fs_user extends \fs_model
      */
     private static function cleanupLegacyCredentialsFile(): void
     {
-        $legacyPath = FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'initial_credentials.json';
-
-        if (!file_exists($legacyPath)) {
+        if (!defined('FS_FOLDER') || !defined('FS_TMP_NAME')) {
             return;
         }
 
-        if (@unlink($legacyPath)) {
-            error_log('[FSFramework] Archivo de credenciales legacy eliminado: ' . $legacyPath);
-        } else {
+        $legacyPaths = [
+            FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'initial_credentials.json',
+            FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'install_admin.json',
+        ];
+
+        foreach ($legacyPaths as $legacyPath) {
+            if (!file_exists($legacyPath)) {
+                continue;
+            }
+
+            if (@unlink($legacyPath)) {
+                error_log('[FSFramework] Archivo de credenciales legacy eliminado: ' . $legacyPath);
+                continue;
+            }
+
             @file_put_contents($legacyPath, '{"error":"legacy_removed"}', LOCK_EX);
             error_log('[FSFramework] ADVERTENCIA: No se pudo eliminar archivo legacy, contenido sobrescrito: ' . $legacyPath);
         }

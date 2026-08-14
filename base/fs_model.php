@@ -284,26 +284,51 @@ abstract class fs_model
             return FALSE;
         }
 
-        $isBatch = false;
         if ($this->db->table_exists($table_name)) {
             $sql = $this->buildExistingTableSql($table_name, $xml_cols, $xml_cons);
-            $isBatch = true;
-        } else {
-            if (!$this->ensureInstallDependencies()) {
+            if ($sql === false) {
                 return FALSE;
             }
-            $sql = $this->db->generate_table($table_name, $xml_cols, $xml_cons) . $this->install();
+
+            if ($sql !== '' && !$this->db->exec($sql, null, [], true)) {
+                return $this->retryTableCheck($table_name, $xml_cols, $xml_cons, $sql);
+            }
+
+            return $this->finalizeTableSeed($table_name);
         }
 
-        if ($sql === false) {
+        if (!$this->ensureInstallDependencies()) {
             return FALSE;
         }
 
-        if ($sql === '' || $this->db->exec($sql, null, [], $isBatch)) {
-            return TRUE;
+        $createSql = $this->db->generate_table($table_name, $xml_cols, $xml_cons);
+        if ($createSql === false || $createSql === '') {
+            $this->new_error_msg('Error al generar la tabla ' . $table_name . '.');
+
+            return FALSE;
         }
 
-        return $this->retryTableCheck($table_name, $xml_cols, $xml_cons, $sql);
+        if (!$this->db->exec($createSql, null, [], false)) {
+            return $this->retryTableCheck($table_name, $xml_cols, $xml_cons, $createSql);
+        }
+
+        return $this->finalizeTableSeed($table_name);
+    }
+
+    /**
+     * Inserta datos por defecto cuando la tabla quedó vacía tras crear o sincronizar el esquema.
+     */
+    private function finalizeTableSeed(string $table_name): bool
+    {
+        try {
+            $this->seed_if_empty();
+        } catch (\RuntimeException $e) {
+            $this->new_error_msg('Error al insertar datos por defecto en ' . $table_name . ': ' . $e->getMessage());
+
+            return FALSE;
+        }
+
+        return TRUE;
     }
 
     /**
@@ -609,6 +634,42 @@ abstract class fs_model
             $this->new_error_msg('No se pudo instanciar el modelo relacionado: ' . $modelClass);
             return null;
         }
+    }
+
+    /**
+     * Devuelve TRUE si la tabla del modelo tiene al menos una fila.
+     */
+    public function table_has_rows(): bool
+    {
+        if ($this->table_name === '' || !$this->db->table_exists($this->table_name)) {
+            return false;
+        }
+
+        $rows = $this->db->select('SELECT 1 FROM ' . $this->table_name . ' LIMIT 1;');
+
+        return !empty($rows);
+    }
+
+    /**
+     * Inserta datos por defecto cuando la tabla existe pero está vacía.
+     * Cubre el caso en que el esquema XML creó la tabla sin ejecutar install().
+     */
+    public function seed_if_empty(): bool
+    {
+        if ($this->table_has_rows()) {
+            return false;
+        }
+
+        $sql = $this->install();
+        if ($sql === '') {
+            return false;
+        }
+
+        if (!$this->db->exec($sql, null, [], true)) {
+            throw new \RuntimeException('Fallo al ejecutar install() en ' . $this->table_name);
+        }
+
+        return true;
     }
 
     /**

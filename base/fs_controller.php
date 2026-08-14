@@ -23,11 +23,10 @@ require_once 'base/fs_default_items.php';
 require_once 'base/fs_extended_model.php';
 require_once 'base/fs_login.php';
 
-// fs_divisa_tools has been moved to plugins/business_data/extras/
-// Load it only if business_data plugin is ACTIVE (not just exists)
-if (in_array('business_data', $GLOBALS['plugins'] ?? []) 
-    && file_exists(FS_FOLDER . '/plugins/business_data/extras/fs_divisa_tools.php')) {
-    require_once FS_FOLDER . '/plugins/business_data/extras/fs_divisa_tools.php';
+// fs_divisa_tools lives in catalogo_core; load when that plugin is active.
+if (in_array('catalogo_core', $GLOBALS['plugins'] ?? [], true)
+    && file_exists(FS_FOLDER . '/plugins/catalogo_core/extras/fs_divisa_tools.php')) {
+    require_once FS_FOLDER . '/plugins/catalogo_core/extras/fs_divisa_tools.php';
 }
 
 // OPTIMIZACIÓN: Usar autoloader de modelos en lugar de cargar todos
@@ -52,6 +51,22 @@ class fs_controller extends fs_app
 {
     private const STEALTH_MODE_CLASS = \FSFramework\Core\StealthMode::class;
     private const STEALTH_MODE_FILE = '/src/Core/StealthMode.php';
+
+    /**
+     * Modo registro de páginas al activar un plugin: evita ejecutar
+     * private_core() (p. ej. stubs con header Location) durante new Controller().
+     */
+    private static bool $registeringPluginPages = false;
+
+    public static function setRegisteringPluginPages(bool $registering): void
+    {
+        self::$registeringPluginPages = $registering;
+    }
+
+    public static function isRegisteringPluginPages(): bool
+    {
+        return self::$registeringPluginPages;
+    }
 
     /**
      * Objeto Request de Symfony HttpFoundation para acceso a parámetros
@@ -93,7 +108,7 @@ class fs_controller extends fs_app
     protected $db;
 
     /**
-     * Currency tools instance (provided by business_data plugin)
+     * Currency tools instance (provided by catalogo_core plugin)
      * @var fs_divisa_tools|null
      */
     protected $divisa_tools = null;
@@ -194,6 +209,10 @@ class fs_controller extends fs_app
             $this->user = new fs_user();
             $this->check_fs_page($name, $title, $folder, $shmenu, $important);
 
+            if (self::$registeringPluginPages) {
+                return;
+            }
+
             $this->default_items = new fs_default_items();
             $this->login_tools = new fs_login();
 
@@ -208,7 +227,7 @@ class fs_controller extends fs_app
             }
 
             /// Inicializamos las herramientas de divisa con la divisa de la empresa
-            /// (solo si business_data plugin está disponible)
+            /// (solo si catalogo_core está activo y fs_divisa_tools está cargado)
             if (class_exists('fs_divisa_tools')) {
                 $coddivisa = ($this->empresa && isset($this->empresa->coddivisa) && $this->empresa->coddivisa)
                     ? $this->empresa->coddivisa
@@ -1006,7 +1025,7 @@ class fs_controller extends fs_app
 
     /**
      * Convierte un precio de la divisa_desde a la divisa especificada.
-     * Requires business_data plugin for full functionality.
+     * Requires catalogo_core plugin for full functionality.
      * 
      * @param float $precio
      * @param string $coddivisa_desde
@@ -1018,7 +1037,7 @@ class fs_controller extends fs_app
         if ($this->divisa_tools !== null) {
             return $this->divisa_tools->divisa_convert($precio, $coddivisa_desde, $coddivisa);
         }
-        // Fallback: return price unchanged if business_data plugin not available
+        // Fallback: return price unchanged if catalogo_core plugin not available
         return $precio;
     }
 
@@ -1026,7 +1045,7 @@ class fs_controller extends fs_app
      * Convierte el precio en euros a la divisa preterminada de la empresa.
      * Por defecto usa las tasas de conversión actuales, pero si se especifica
      * coddivisa y tasaconv las usará.
-     * Requires business_data plugin for full functionality.
+     * Requires catalogo_core plugin for full functionality.
      * 
      * @param float $precio
      * @param string $coddivisa
@@ -1038,13 +1057,13 @@ class fs_controller extends fs_app
         if ($this->divisa_tools !== null) {
             return $this->divisa_tools->euro_convert($precio, $coddivisa, $tasaconv);
         }
-        // Fallback: return price unchanged if business_data plugin not available
+        // Fallback: return price unchanged if catalogo_core plugin not available
         return $precio;
     }
 
     /**
      * Devuelve un string con el número en el formato de número predeterminado.
-     * Requires business_data plugin for full functionality.
+     * Requires catalogo_core plugin for full functionality.
      * 
      * @param float $num
      * @param integer $decimales
@@ -1068,7 +1087,7 @@ class fs_controller extends fs_app
     /**
      * Devuelve un string con el precio en el formato predefinido y con la
      * divisa seleccionada (o la predeterminada).
-     * Requires business_data plugin for full functionality.
+     * Requires catalogo_core plugin for full functionality.
      * 
      * @param float $precio
      * @param string $coddivisa
@@ -1091,7 +1110,7 @@ class fs_controller extends fs_app
     /**
      * Devuelve el símbolo de divisa predeterminado
      * o bien el símbolo de la divisa seleccionada.
-     * Requires business_data plugin for full functionality.
+     * Requires catalogo_core plugin for full functionality.
      * 
      * @param string $coddivisa
      * @return string
@@ -1101,7 +1120,7 @@ class fs_controller extends fs_app
         if ($this->divisa_tools !== null) {
             return $this->divisa_tools->simbolo_divisa($coddivisa);
         }
-        // Fallback: return EUR symbol if business_data plugin not available
+        // Fallback: return EUR symbol if catalogo_core plugin not available
         return '€';
     }
 }

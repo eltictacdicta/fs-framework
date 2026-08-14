@@ -46,7 +46,7 @@ final class PluginEnableOrchestrator
             return false;
         }
 
-        return $this->enablePlannedPlugins($plan);
+        return $this->enablePlannedPlugins($plan, $pluginName);
     }
 
     /**
@@ -81,14 +81,15 @@ final class PluginEnableOrchestrator
     /**
      * @param list<string> $plan
      */
-    private function enablePlannedPlugins(array $plan): bool
+    private function enablePlannedPlugins(array $plan, string $targetPlugin): bool
     {
         foreach ($plan as $plannedPlugin) {
             if ($this->pluginManager->is_plugin_enabled($plannedPlugin)) {
                 continue;
             }
 
-            if (!$this->pluginManager->enableWithoutDependencyResolution($plannedPlugin)) {
+            $runWizard = $plannedPlugin === $targetPlugin;
+            if (!$this->pluginManager->enableWithoutDependencyResolution($plannedPlugin, $runWizard)) {
                 return false;
             }
         }

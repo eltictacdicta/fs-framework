@@ -37,7 +37,13 @@ final class PluginEnableOrchestratorTest extends TestCase
         $orchestrator = new PluginEnableOrchestrator($manager);
 
         $this->assertTrue($orchestrator->enable('business_data'));
-        $this->assertSame(['catalogo_core', 'business_data'], $manager->enabledCalls);
+        $this->assertSame(
+            [
+                ['plugin' => 'catalogo_core', 'runWizard' => false],
+                ['plugin' => 'business_data', 'runWizard' => true],
+            ],
+            $manager->enabledCalls
+        );
         $this->assertSame(['business_data'], $provider->installedCalls);
     }
 
@@ -71,7 +77,70 @@ final class PluginEnableOrchestratorTest extends TestCase
         $orchestrator = new PluginEnableOrchestrator($manager);
 
         $this->assertTrue($orchestrator->enable('business_data'));
-        $this->assertSame(['business_data'], $manager->enabledCalls);
+        $this->assertSame([['plugin' => 'business_data', 'runWizard' => true]], $manager->enabledCalls);
+    }
+
+    #[Test]
+    public function enablesFullFacturaPdf1DependencyChainWhenInstalledLocally(): void
+    {
+        $requirements = [
+            'factura_pdf1' => ['tpvmod'],
+            'tpvmod' => ['clientes_facturacion', 'catalogo_core'],
+            'clientes_facturacion' => ['clientes_core'],
+            'clientes_core' => ['business_data'],
+            'business_data' => [],
+            'catalogo_core' => [],
+        ];
+        $installed = array_keys($requirements);
+
+        PluginInstallProviderRegistry::register(new RecordingPluginInstallProvider($requirements, installed: $installed));
+
+        $manager = new TestPluginManager();
+        $orchestrator = new PluginEnableOrchestrator($manager);
+
+        $this->assertTrue($orchestrator->enable('factura_pdf1'));
+        $this->assertSame(
+            [
+                ['plugin' => 'business_data', 'runWizard' => false],
+                ['plugin' => 'clientes_core', 'runWizard' => false],
+                ['plugin' => 'clientes_facturacion', 'runWizard' => false],
+                ['plugin' => 'catalogo_core', 'runWizard' => false],
+                ['plugin' => 'tpvmod', 'runWizard' => false],
+                ['plugin' => 'factura_pdf1', 'runWizard' => true],
+            ],
+            $manager->enabledCalls
+        );
+        $this->assertSame([], $manager->errors);
+    }
+
+    #[Test]
+    public function enablesOnlyMissingPluginsWhenPartialChainAlreadyActive(): void
+    {
+        $requirements = [
+            'factura_pdf1' => ['tpvmod'],
+            'tpvmod' => ['clientes_facturacion', 'catalogo_core'],
+            'clientes_facturacion' => ['clientes_core'],
+            'clientes_core' => ['business_data'],
+            'business_data' => [],
+            'catalogo_core' => [],
+        ];
+        $installed = array_keys($requirements);
+        $alreadyEnabled = ['business_data', 'catalogo_core', 'clientes_core'];
+
+        PluginInstallProviderRegistry::register(new RecordingPluginInstallProvider($requirements, installed: $installed));
+
+        $manager = new TestPluginManager($alreadyEnabled);
+        $orchestrator = new PluginEnableOrchestrator($manager);
+
+        $this->assertTrue($orchestrator->enable('factura_pdf1'));
+        $this->assertSame(
+            [
+                ['plugin' => 'clientes_facturacion', 'runWizard' => false],
+                ['plugin' => 'tpvmod', 'runWizard' => false],
+                ['plugin' => 'factura_pdf1', 'runWizard' => true],
+            ],
+            $manager->enabledCalls
+        );
     }
 }
 
@@ -138,7 +207,7 @@ final class RecordingPluginInstallProvider implements PluginInstallProvider
  */
 final class TestPluginManager extends \fs_plugin_manager
 {
-    /** @var list<string> */
+    /** @var list<array{plugin: string, runWizard: bool}> */
     public array $enabledCalls = [];
 
     /** @var list<string> */
@@ -161,10 +230,10 @@ final class TestPluginManager extends \fs_plugin_manager
         return in_array($pluginName, $this->enabled, true);
     }
 
-    public function enableWithoutDependencyResolution($plugin_name): bool
+    public function enableWithoutDependencyResolution($plugin_name, $runWizard = true): bool
     {
         $this->enabled[] = (string) $plugin_name;
-        $this->enabledCalls[] = (string) $plugin_name;
+        $this->enabledCalls[] = ['plugin' => (string) $plugin_name, 'runWizard' => (bool) $runWizard];
 
         return true;
     }

@@ -25,13 +25,16 @@ final class PluginSchemaSynchronizer
             'errors' => [],
         ];
 
-        $this->runInitMigrations($pluginName, $result);
-
         $tableDir = rtrim($pluginsRoot, '/\\') . '/' . $pluginName . '/model/table';
         $tableNames = $this->syncXmlTables($tableDir, $result);
 
         if ($tableNames !== []) {
             $this->refreshPluginModels($pluginName, $pluginsRoot, $tableNames, $result);
+        }
+
+        // Tras crear/sincronizar tablas y sembrar install() de modelos vacíos.
+        if ($result['success']) {
+            $this->runInitMigrations($pluginName, $result);
         }
 
         return $result;
@@ -171,7 +174,10 @@ final class PluginSchemaSynchronizer
         }
 
         try {
-            new $className();
+            $model = new $className();
+            if ($model instanceof \fs_model && $model->seed_if_empty()) {
+                $result['changes'][] = $className . ': datos por defecto insertados';
+            }
         } catch (\Throwable $e) {
             $message = $className . ': ' . $e->getMessage();
             $result['errors'][] = $message;

@@ -51,6 +51,38 @@ final class LocalPluginRequirementsReaderTest extends TestCase
         $this->assertFalse($reader->isInstalled('tpvmod'));
     }
 
+    #[Test]
+    public function readsFacturaPdf1DependencyChainFromLocalIni(): void
+    {
+        $pluginsRoot = sys_get_temp_dir() . '/fs_req_chain_' . uniqid('', true);
+
+        $chain = [
+            'business_data' => "version = 1\nrequire = \n",
+            'catalogo_core' => "version = 1\nrequire = \n",
+            'clientes_core' => "version = 1\nrequire = business_data\n",
+            'clientes_facturacion' => "version = 1\nrequire = clientes_core\n",
+            'tpvmod' => "version = 1\nrequire = clientes_facturacion,catalogo_core\n",
+            'factura_pdf1' => "version = 1\nrequire = tpvmod\n",
+        ];
+
+        try {
+            foreach ($chain as $plugin => $ini) {
+                mkdir($pluginsRoot . '/' . $plugin, 0777, true);
+                file_put_contents($pluginsRoot . '/' . $plugin . '/fsframework.ini', $ini);
+            }
+
+            $reader = new LocalPluginRequirementsReader($pluginsRoot);
+
+            $this->assertSame([], $reader->read('business_data'));
+            $this->assertSame(['business_data'], $reader->read('clientes_core'));
+            $this->assertSame(['clientes_core'], $reader->read('clientes_facturacion'));
+            $this->assertSame(['clientes_facturacion', 'catalogo_core'], $reader->read('tpvmod'));
+            $this->assertSame(['tpvmod'], $reader->read('factura_pdf1'));
+        } finally {
+            $this->removeTree($pluginsRoot);
+        }
+    }
+
     private function removeTree(string $dir): void
     {
         if (!is_dir($dir)) {

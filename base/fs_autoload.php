@@ -233,7 +233,7 @@ class fs_autoload
             'fs_db2' => '/base/fs_db2.php',
             'fs_db_engine' => '/base/fs_db_engine.php',
             'fs_default_items' => '/base/fs_default_items.php',
-            'fs_divisa_tools' => '/base/fs_divisa_tools.php',
+            'fs_divisa_tools' => '/plugins/catalogo_core/extras/fs_divisa_tools.php',
             'fs_edit_controller' => '/base/fs_edit_controller.php',
             'fs_edit_form' => '/base/fs_edit_form.php',
             'fs_excel' => '/base/fs_excel.php',

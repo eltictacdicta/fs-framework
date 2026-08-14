@@ -118,7 +118,8 @@ class login extends fs_controller
 
         $this->core_log->new_message(
             "Configuración inicial pendiente.<br>"
-            . "Inicia sesión con las credenciales por defecto: usuario <code>admin</code> / contraseña <code>admin</code>.<br>"
+            . "Inicia sesión con las credenciales definidas en el instalador "
+            . "(por defecto <code>admin</code> / <code>admin</code>).<br>"
             . "Tras iniciar sesión, deberás elegir una nueva contraseña segura."
         );
     }

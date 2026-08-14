@@ -30,10 +30,30 @@ $db_host = 'localhost';
 $db_port = '3306';
 $db_name = 'fsframework';
 $db_user = '';
+$admin_nick = 'admin';
+$admin_password = 'admin';
 
-// Verificar que el tema por defecto existe
-$default_theme = 'AdminLTE';
-$theme_available = file_exists(__DIR__ . '/themes/' . $default_theme);
+function fs_install_validate_admin_fields(array &$errors, array &$errors2): bool
+{
+    $nick = fs_install_normalize_admin_nick(filter_input(INPUT_POST, 'admin_nick'));
+    $password = fs_install_normalize_admin_password(filter_input(INPUT_POST, 'admin_password'));
+
+    if (!fs_install_is_valid_admin_nick($nick)) {
+        $errors[] = 'admin_user';
+        $errors2[] = 'El usuario administrador debe tener entre 3 y 12 caracteres (letras, números, guiones y guiones bajos).';
+
+        return false;
+    }
+
+    if (mb_strlen($password) > 32) {
+        $errors[] = 'admin_user';
+        $errors2[] = 'La contraseña del administrador no puede superar 32 caracteres.';
+
+        return false;
+    }
+
+    return true;
+}
 
 function guarda_config(&$errors, $nombre_archivo = 'config.php')
 {
@@ -61,7 +81,8 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
         }
 
         fwrite($archivo, "\n// Configuración general\n");
-        fwrite($archivo, "define('FS_TMP_NAME', '" . random_string(20) . "/');\n");
+        $tmpName = random_string(20) . '/';
+        fwrite($archivo, "define('FS_TMP_NAME', '" . $tmpName . "');\n");
         fwrite($archivo, "define('FS_COOKIES_EXPIRE', 604800);\n");
         fwrite($archivo, "define('FS_SESSION_IDLE_TIMEOUT', 7200);\n");
         fwrite($archivo, "define('FS_SESSION_ABSOLUTE_TIMEOUT', 28800);\n");
@@ -94,14 +115,41 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
             fwrite($archivo, "define('FS_PROXY_PORT', " . $proxyPort . ");\n");
         }
 
+        $adminNick = fs_install_normalize_admin_nick(filter_input(INPUT_POST, 'admin_nick'));
+        $adminPassword = fs_install_normalize_admin_password(filter_input(INPUT_POST, 'admin_password'));
+        $adminHash = password_hash(
+            $adminPassword,
+            PASSWORD_ARGON2ID,
+            ['memory_cost' => 65536, 'time_cost' => 4]
+        );
+        if ($adminHash === false) {
+            fclose($archivo);
+            @unlink(__DIR__ . '/' . $nombre_archivo);
+            $errors[] = 'admin_user';
+            global $errors2;
+            $errors2[] = 'No se pudo generar el hash de la contraseña del administrador.';
+
+            return;
+        }
+
+        $requiresPasswordChange = fs_install_admin_requires_password_change($adminNick, $adminPassword);
+        fwrite($archivo, "\n// Administrador inicial\n");
+        fwrite($archivo, "define('FS_INSTALL_ADMIN_NICK', " . var_export($adminNick, true) . ");\n");
+        fwrite($archivo, "define('FS_INSTALL_ADMIN_PASSWORD_HASH', " . var_export($adminHash, true) . ");\n");
+        fwrite($archivo, "define('FS_INSTALL_ADMIN_REQUIRES_PASSWORD_CHANGE', " . ($requiresPasswordChange ? 'TRUE' : 'FALSE') . ");\n");
+
         fclose($archivo);
 
-        header("Location: index.php");
+        header('Location: index.php?page=login');
         exit();
     }
 
     $errors[] = "permisos";
 }
+
+// Verificar que el tema por defecto existe
+$default_theme = 'AdminLTE';
+$theme_available = file_exists(__DIR__ . '/themes/' . $default_theme);
 
 function test_mysql(&$errors, &$errors2)
 {
@@ -284,9 +332,13 @@ if (version_compare(PHP_VERSION, '8.2', '<')) {
         $errors[] = 'csrf';
         $errors2[] = 'Token de seguridad inválido. Recarga la página y vuelve a intentarlo.';
     } else if (filter_input(INPUT_POST, 'db_type') == 'MYSQL') {
-        test_mysql($errors, $errors2);
+        if (fs_install_validate_admin_fields($errors, $errors2)) {
+            test_mysql($errors, $errors2);
+        }
     } else if (filter_input(INPUT_POST, 'db_type') == 'POSTGRESQL') {
-        test_postgresql($errors, $errors2);
+        if (fs_install_validate_admin_fields($errors, $errors2)) {
+            test_postgresql($errors, $errors2);
+        }
     }
 
     $db_type = filter_input(INPUT_POST, 'db_type');
@@ -294,6 +346,8 @@ if (version_compare(PHP_VERSION, '8.2', '<')) {
     $db_port = filter_input(INPUT_POST, 'db_port');
     $db_name = filter_input(INPUT_POST, 'db_name');
     $db_user = filter_input(INPUT_POST, 'db_user');
+    $admin_nick = fs_install_normalize_admin_nick(filter_input(INPUT_POST, 'admin_nick'));
+    $admin_password = fs_install_normalize_admin_password(filter_input(INPUT_POST, 'admin_password'));
 }
 
 $system_info = 'facturascripts: ' . file_get_contents('VERSION') . "\n";
@@ -812,6 +866,25 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                             </div>
                                                         </div>
                                         <?php
+                                    } else if ($err == 'admin_user') {
+
+                                        ?>
+                                                                <div class="panel panel-danger">
+                                                                    <div class="panel-heading">
+                                                                        Usuario administrador:
+                                                                    </div>
+                                                                    <div class="panel-body">
+                                                                        <ul>
+                                                        <?php
+                                                        foreach ($errors2 as $err2) {
+                                                            echo '<li>' . htmlspecialchars($err2, ENT_QUOTES, 'UTF-8') . '</li>';
+                                                        }
+
+                                                        ?>
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+                                        <?php
                                     } else if ($err == 'db_mysql') {
 
                                         ?>
@@ -985,6 +1058,45 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                             </div>
                             <div class="tab-content">
                                 <div role="tabpanel" class="tab-pane active" id="db">
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h3 class="panel-title">Administrador</h3>
+                                        </div>
+                                        <div class="panel-body">
+                                            <p class="help-block">
+                                                Define el usuario administrador inicial. Si dejas los campos vacíos,
+                                                se usarán <code>admin</code> / <code>admin</code>.
+                                                Con la contraseña por defecto deberás cambiarla en el primer acceso.
+                                            </p>
+                                            <div class="row">
+                                                <div class="col-sm-6">
+                                                    <div class="form-group">
+                                                        Usuario:
+                                                        <div class="input-group">
+                                                            <span class="input-group-addon">
+                                                                <i class="fa fa-user fa-fw"></i>
+                                                            </span>
+                                                            <input class="form-control" type="text" name="admin_nick"
+                                                                value="<?php echo htmlspecialchars($admin_nick, ENT_QUOTES, 'UTF-8'); ?>"
+                                                                autocomplete="username" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-6">
+                                                    <div class="form-group">
+                                                        Contraseña:
+                                                        <div class="input-group">
+                                                            <span class="input-group-addon">
+                                                                <i class="fa fa-lock fa-fw"></i>
+                                                            </span>
+                                                            <input class="form-control" type="password" name="admin_password"
+                                                                autocomplete="new-password" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="row">
                                         <div class="col-sm-4">
                                             <div class="form-group">

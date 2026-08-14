@@ -16,9 +16,11 @@ final class PluginDependencyResolverTest extends TestCase
     public function buildsTransitiveActivationOrder(): void
     {
         $provider = new ArrayPluginInstallProvider([
-            'tpvmod' => ['clientes_facturacion', 'catalogo_core', 'business_data', 'clientes_core'],
-            'business_data' => ['catalogo_core'],
+            'tpvmod' => ['clientes_facturacion', 'catalogo_core'],
             'clientes_facturacion' => ['clientes_core'],
+            'clientes_core' => ['business_data'],
+            'business_data' => [],
+            'catalogo_core' => [],
         ]);
 
         $resolver = new PluginDependencyResolver($provider);
@@ -26,14 +28,50 @@ final class PluginDependencyResolverTest extends TestCase
 
         $this->assertSame('tpvmod', $order[array_key_last($order)]);
         $this->assertLessThan(
-            array_search('business_data', $order, true),
-            array_search('catalogo_core', $order, true)
+            array_search('clientes_core', $order, true),
+            array_search('business_data', $order, true)
         );
         $this->assertLessThan(
             array_search('clientes_facturacion', $order, true),
             array_search('clientes_core', $order, true)
         );
+        $this->assertLessThan(
+            array_search('tpvmod', $order, true),
+            array_search('clientes_facturacion', $order, true)
+        );
+        $this->assertLessThan(
+            array_search('tpvmod', $order, true),
+            array_search('catalogo_core', $order, true)
+        );
         $this->assertCount(5, $order);
+    }
+
+    #[Test]
+    public function buildsFacturaPdf1TransitiveActivationOrder(): void
+    {
+        $provider = new ArrayPluginInstallProvider([
+            'factura_pdf1' => ['tpvmod'],
+            'tpvmod' => ['clientes_facturacion', 'catalogo_core'],
+            'clientes_facturacion' => ['clientes_core'],
+            'clientes_core' => ['business_data'],
+            'business_data' => [],
+            'catalogo_core' => [],
+        ]);
+
+        $resolver = new PluginDependencyResolver($provider);
+        $order = $resolver->buildActivationOrder('factura_pdf1');
+
+        $this->assertSame(
+            [
+                'business_data',
+                'clientes_core',
+                'clientes_facturacion',
+                'catalogo_core',
+                'tpvmod',
+                'factura_pdf1',
+            ],
+            $order
+        );
     }
 
     #[Test]

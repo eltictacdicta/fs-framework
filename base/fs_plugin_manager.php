@@ -438,7 +438,7 @@ class fs_plugin_manager
     /**
      * Activa un plugin sin resolver dependencias (uso interno del orquestador).
      */
-    public function enableWithoutDependencyResolution($plugin_name)
+    public function enableWithoutDependencyResolution($plugin_name, $runWizard = true)
     {
         if (in_array($plugin_name, $GLOBALS['plugins'])) {
             $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> ya activado.');
@@ -481,13 +481,15 @@ class fs_plugin_manager
 
         if ($wizard) {
             $this->core_log->new_advice('Ya puedes <a href="index.php?page=' . $wizard . '">configurar el plugin</a>.');
-            header('Location: index.php?page=' . $wizard);
-            $this->auditLog('enable', $name, ['success' => true, 'wizard' => $wizard]);
-            $this->clean_cache();
-            return true;
+            if ($runWizard) {
+                header('Location: index.php?page=' . $wizard);
+                $this->auditLog('enable', $name, ['success' => true, 'wizard' => $wizard]);
+                $this->clean_cache();
+
+                return true;
+            }
         }
 
-        $this->enable_plugin_controllers($name);
         $this->core_log->new_message('Plugin <b>' . $name . '</b> activado correctamente.');
         $this->core_log->save('Plugin ' . $name . ' activado correctamente.', 'msg');
         $this->auditLog('enable', $name, ['success' => true]);
@@ -873,20 +875,25 @@ class fs_plugin_manager
             return;
         }
 
-        foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/controller'), 'php') as $f) {
-            $page_name = substr($f, 0, -4);
-            require_once $this->pluginsPath($plugin_name . self::CONTROLLER_PATH . $f);
+        \fs_controller::setRegisteringPluginPages(true);
+        try {
+            foreach (fs_file_manager::scan_files($this->pluginsPath($plugin_name . '/controller'), 'php') as $f) {
+                $page_name = substr($f, 0, -4);
+                require_once $this->pluginsPath($plugin_name . self::CONTROLLER_PATH . $f);
 
-            if (!class_exists($page_name)) {
-                continue;
-            }
+                if (!class_exists($page_name)) {
+                    continue;
+                }
 
-            $page_list[] = $page_name;
-            $new_fsc = new $page_name();
-            if (!$new_fsc->page->save()) {
-                $this->core_log->new_error('Imposible guardar la página ' . $page_name);
+                $page_list[] = $page_name;
+                $new_fsc = new $page_name();
+                if (!$new_fsc->page->save()) {
+                    $this->core_log->new_error('Imposible guardar la página ' . $page_name);
+                }
+                unset($new_fsc);
             }
-            unset($new_fsc);
+        } finally {
+            \fs_controller::setRegisteringPluginPages(false);
         }
     }
 
@@ -928,10 +935,15 @@ class fs_plugin_manager
         }
 
         $page_list[] = $page_name;
-        $new_fsc = new $full_class();
-        $this->saveControllerPage($new_fsc, $page_name, 'Imposible guardar la página moderna ');
-        $this->grantAdminAccessToPage($new_fsc, $page_name);
-        unset($new_fsc);
+        \fs_controller::setRegisteringPluginPages(true);
+        try {
+            $new_fsc = new $full_class();
+            $this->saveControllerPage($new_fsc, $page_name, 'Imposible guardar la página moderna ');
+            $this->grantAdminAccessToPage($new_fsc, $page_name);
+            unset($new_fsc);
+        } finally {
+            \fs_controller::setRegisteringPluginPages(false);
+        }
     }
 
     private function deleteStalePage(string $pageName): void

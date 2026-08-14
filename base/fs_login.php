@@ -478,7 +478,6 @@ class fs_login
         if (class_exists('fs_user') && \fs_user::isInitialSetupPending()) {
             $this->session->set('force_password_change', true);
             $this->session->set('force_password_change_reason', 'initial_setup');
-            $this->completeInitialSetupIfPending();
         }
 
         if ($requiresPasswordChange) {
