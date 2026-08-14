@@ -57,7 +57,7 @@
                 </a>
                 {% endif %}
                 {% if value.enabled %}
-                <a class="btn btn-xs btn-warning" href="{{ fsc.url() }}&disable={{ value.name }}#plugins">
+                <a class="btn btn-xs btn-warning" href="#" onclick="return adminHomeDisablePlugin('{{ value.name|e('js') }}');">
                     <span class="glyphicon glyphicon-remove"></span> Desactivar
                 </a>
                 {% else %}
@@ -68,7 +68,7 @@
                     </a>
                     {% endif %}
                     {% if value.compatible %}
-                    <a class="btn btn-xs btn-primary" href="{{ fsc.url() }}&caca={{ fsc.random_string(4) }}&enable={{ value.name }}#plugins">
+                    <a class="btn btn-xs btn-primary" href="#" onclick="return adminHomeEnablePlugin('{{ value.name|e('js') }}');">
                         <span class="glyphicon glyphicon-ok"></span>&nbsp; Activar
                     </a>
                     {% else %}

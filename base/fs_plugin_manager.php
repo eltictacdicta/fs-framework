@@ -436,6 +436,39 @@ class fs_plugin_manager
     }
 
     /**
+     * @return array{
+     *     success: bool,
+     *     target: string,
+     *     plan: list<string>,
+     *     missing: list<string>,
+     *     pending_activation: list<string>,
+     *     errors: list<string>
+     * }
+     */
+    public function inspectPluginActivation(string $plugin_name): array
+    {
+        return $this->getEnableOrchestrator()->inspectActivation((string) $plugin_name);
+    }
+
+    public function downloadPluginFromCatalog(string $plugin_name): bool
+    {
+        return $this->getEnableOrchestrator()->downloadPlugin((string) $plugin_name);
+    }
+
+    public function enablePluginCascadeStep(string $target_plugin, string $plugin_to_enable): bool
+    {
+        return $this->getEnableOrchestrator()->enablePluginStep((string) $target_plugin, (string) $plugin_to_enable);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getPluginActivationErrors(): array
+    {
+        return $this->core_log->get_errors();
+    }
+
+    /**
      * Activa un plugin sin resolver dependencias (uso interno del orquestador).
      */
     public function enableWithoutDependencyResolution($plugin_name, $runWizard = true)

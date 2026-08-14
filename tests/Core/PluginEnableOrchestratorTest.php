@@ -142,6 +142,114 @@ final class PluginEnableOrchestratorTest extends TestCase
             $manager->enabledCalls
         );
     }
+
+    #[Test]
+    public function inspectActivationListsMissingPluginsInPlanOrder(): void
+    {
+        $requirements = [
+            'factura_pdf1' => ['tpvmod'],
+            'tpvmod' => ['catalogo_core'],
+            'catalogo_core' => [],
+        ];
+
+        PluginInstallProviderRegistry::register(new RecordingPluginInstallProvider(
+            $requirements,
+            installed: ['catalogo_core']
+        ));
+
+        $orchestrator = new PluginEnableOrchestrator(new TestPluginManager());
+
+        $inspection = $orchestrator->inspectActivation('factura_pdf1');
+
+        $this->assertTrue($inspection['success']);
+        $this->assertSame('factura_pdf1', $inspection['target']);
+        $this->assertSame(['catalogo_core', 'tpvmod', 'factura_pdf1'], $inspection['plan']);
+        $this->assertSame(['tpvmod', 'factura_pdf1'], $inspection['missing']);
+        $this->assertSame(['catalogo_core', 'tpvmod', 'factura_pdf1'], $inspection['pending_activation']);
+    }
+
+    #[Test]
+    public function downloadPluginInstallsOnlyRequestedPlugin(): void
+    {
+        $provider = new RecordingPluginInstallProvider([
+            'tpvmod' => ['catalogo_core'],
+            'catalogo_core' => [],
+        ]);
+
+        PluginInstallProviderRegistry::register($provider);
+
+        $orchestrator = new PluginEnableOrchestrator(new TestPluginManager());
+
+        $this->assertTrue($orchestrator->downloadPlugin('tpvmod'));
+        $this->assertSame(['tpvmod'], $provider->installedCalls);
+        $this->assertTrue($provider->isInstalled('tpvmod'));
+    }
+
+    #[Test]
+    public function enablePluginStepActivatesDependenciesInOrder(): void
+    {
+        $requirements = [
+            'factura_pdf1' => ['tpvmod'],
+            'tpvmod' => ['catalogo_core'],
+            'catalogo_core' => [],
+        ];
+
+        PluginInstallProviderRegistry::register(new RecordingPluginInstallProvider(
+            $requirements,
+            installed: array_keys($requirements)
+        ));
+
+        $manager = new TestPluginManager();
+        $orchestrator = new PluginEnableOrchestrator($manager);
+
+        $this->assertTrue($orchestrator->enablePluginStep('factura_pdf1', 'catalogo_core'));
+        $this->assertTrue($orchestrator->enablePluginStep('factura_pdf1', 'tpvmod'));
+        $this->assertTrue($orchestrator->enablePluginStep('factura_pdf1', 'factura_pdf1'));
+        $this->assertSame(
+            [
+                ['plugin' => 'catalogo_core', 'runWizard' => false],
+                ['plugin' => 'tpvmod', 'runWizard' => false],
+                ['plugin' => 'factura_pdf1', 'runWizard' => true],
+            ],
+            $manager->enabledCalls
+        );
+    }
+
+    #[Test]
+    public function enablePluginStepRejectsOutOfOrderActivation(): void
+    {
+        PluginInstallProviderRegistry::register(new RecordingPluginInstallProvider(
+            [
+                'factura_pdf1' => ['tpvmod'],
+                'tpvmod' => [],
+            ],
+            installed: ['factura_pdf1', 'tpvmod']
+        ));
+
+        $manager = new TestPluginManager();
+        $orchestrator = new PluginEnableOrchestrator($manager);
+
+        $this->assertFalse($orchestrator->enablePluginStep('factura_pdf1', 'factura_pdf1'));
+        $this->assertNotEmpty($manager->errors);
+    }
+
+    #[Test]
+    public function enablePluginStepRejectsAlreadyEnabledPluginOutsidePlan(): void
+    {
+        PluginInstallProviderRegistry::register(new RecordingPluginInstallProvider(
+            [
+                'factura_pdf1' => ['tpvmod'],
+                'tpvmod' => [],
+            ],
+            installed: ['factura_pdf1', 'tpvmod', 'catalogo_core']
+        ));
+
+        $manager = new TestPluginManager(['catalogo_core']);
+        $orchestrator = new PluginEnableOrchestrator($manager);
+
+        $this->assertFalse($orchestrator->enablePluginStep('factura_pdf1', 'catalogo_core'));
+        $this->assertNotEmpty($manager->errors);
+    }
 }
 
 /**

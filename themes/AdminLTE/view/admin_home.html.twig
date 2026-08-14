@@ -11,6 +11,77 @@
 
 {% set system_updater_enabled = 'system_updater' in fsc.plugin_manager.enabled() %}
 
+{% if fsc.plugin_cascade_js_available %}
+<script type="text/javascript" src="plugins/system_updater/view/js/plugin_cascade_ajax.js"></script>
+{% endif %}
+
+<script type="text/javascript">
+    var adminHomeBaseUrl = '{{ fsc.url()|raw }}';
+    var adminHomeCsrf = '{{ csrf_token() }}';
+    var pluginStoreBaseUrl = 'index.php?page=admin_plugin_store';
+    var adminHomeCascadeEnabled = {{ system_updater_enabled ? 'true' : 'false' }};
+
+    function adminHomePluginStatus(message) {
+        var box = $('#admin-home-plugin-progress');
+        if (!box.length) {
+            $('body').append(
+                '<div id="admin-home-plugin-progress" class="alert alert-info" style="position:fixed;top:60px;right:20px;z-index:9999;min-width:280px;">'
+                + '<i class="fa fa-spinner fa-spin"></i> <span id="admin-home-plugin-progress-text"></span></div>'
+            );
+            box = $('#admin-home-plugin-progress');
+        }
+        $('#admin-home-plugin-progress-text').text(message);
+        box.show();
+    }
+
+    function adminHomeHidePluginStatus() {
+        $('#admin-home-plugin-progress').fadeOut(200);
+    }
+
+    function adminHomeEnablePlugin(pluginName) {
+        if (adminHomeCascadeEnabled && window.fsPluginCascade) {
+            adminHomePluginStatus('Activando plugins…');
+            fsPluginCascade.activateCascade(pluginStoreBaseUrl, pluginName, adminHomeCsrf, function (phase, data) {
+                if (phase === 'activate') {
+                    adminHomePluginStatus('Activando ' + data.plugin + ' (' + (data.index + 1) + '/' + data.total + ')…');
+                }
+            }).done(function () {
+                window.location.href = adminHomeBaseUrl + '#plugins';
+                window.location.reload();
+            }).fail(function (response) {
+                var message = (response && response.responseJSON && response.responseJSON.message)
+                    ? response.responseJSON.message
+                    : 'No se pudo activar el plugin.';
+                bootbox.alert({ title: '<b>Error</b>', message: message });
+            }).always(adminHomeHidePluginStatus);
+            return false;
+        }
+
+        window.location.href = adminHomeBaseUrl + '&enable=' + encodeURIComponent(pluginName) + '#plugins';
+        return false;
+    }
+
+    function adminHomeDisablePlugin(pluginName) {
+        if (!window.fsPluginCascade) {
+            window.location.href = adminHomeBaseUrl + '&disable=' + encodeURIComponent(pluginName) + '#plugins';
+            return false;
+        }
+
+        adminHomePluginStatus('Desactivando…');
+        fsPluginCascade.togglePlugin(adminHomeBaseUrl, pluginName, 'disable', adminHomeCsrf, adminHomePluginStatus)
+            .done(function () {
+                window.location.reload();
+            })
+            .fail(function (xhr) {
+                var message = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'No se pudo desactivar.';
+                bootbox.alert({ title: '<b>Error</b>', message: message });
+            })
+            .always(adminHomeHidePluginStatus);
+
+        return false;
+    }
+</script>
+
 <script type="text/javascript">
     function fs_marcar_todo() {
         $('#f_enable_pages input:checkbox').prop('checked', true);
@@ -148,6 +219,33 @@
         $('#btn_add_plugin_tab').click(function(e) {
             e.preventDefault();
             mostrar_modal_plugin();
+        });
+
+        $('#form_add_plugin_zip').on('submit', function (e) {
+            if (!window.fsPluginCascade || !$('#fplugin_input')[0].files.length) {
+                return true;
+            }
+
+            e.preventDefault();
+            var file = $('#fplugin_input')[0].files[0];
+            adminHomePluginStatus('Subiendo plugin…');
+            fsPluginCascade.uploadPluginZip(adminHomeBaseUrl, file, adminHomeCsrf, adminHomePluginStatus)
+                .done(function (response) {
+                    if (response && response.pending_overwrite) {
+                        $('#plugin_name_install').text(response.pending_plugin.name || '');
+                        $('#current_version_install').text(response.pending_plugin.current_version || '');
+                        $('#new_version_install').text(response.pending_plugin.new_version || '');
+                        ocultar_modal_plugin();
+                        $('#modal_confirm_overwrite_install').modal('show');
+                        return;
+                    }
+                    window.location.reload();
+                })
+                .fail(function (xhr) {
+                    var message = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Error al subir el plugin.';
+                    bootbox.alert({ title: '<b>Error</b>', message: message });
+                })
+                .always(adminHomeHidePluginStatus);
         });
     });
 </script>
@@ -304,11 +402,11 @@
                 </p>
             </div>
             <div class="modal-body">
-                <form class="form" action="{{ fsc.url()|raw }}#plugins" enctype="multipart/form-data" method="post">
+                <form class="form" id="form_add_plugin_zip" action="{{ fsc.url()|raw }}#plugins" enctype="multipart/form-data" method="post">
                     {{ csrf_field() }}
                     <input type="hidden" name="install" value="TRUE"/>
                     <div class="form-group">
-                        <input type="file" name="fplugin" accept="application/zip"/>
+                        <input type="file" name="fplugin" id="fplugin_input" accept="application/zip"/>
                     </div>
                     <p class="help-block">
                         Este servidor admite un tamaño máximo de {{ fsc.get_max_file_upload()|raw }} MB.

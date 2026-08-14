@@ -25,28 +25,172 @@ final class PluginEnableOrchestrator
             return true;
         }
 
+        $inspection = $this->inspectActivation($pluginName);
+        if (!$inspection['success']) {
+            foreach ($inspection['errors'] as $error) {
+                $this->pluginManager->logPluginError($error);
+            }
+
+            return false;
+        }
+
+        $installProvider = $this->bootstrapInstallProvider();
+
+        if (!$this->installMissingDependencies($inspection['plan'], $pluginName, $installProvider)) {
+            return false;
+        }
+
+        return $this->enablePlannedPlugins($inspection['plan'], $pluginName);
+    }
+
+    /**
+     * @return array{
+     *     success: bool,
+     *     target: string,
+     *     plan: list<string>,
+     *     missing: list<string>,
+     *     pending_activation: list<string>,
+     *     errors: list<string>
+     * }
+     */
+    public function inspectActivation(string $pluginName): array
+    {
+        $pluginName = $this->pluginManager->resolvePluginName($pluginName);
+        $empty = [
+            'success' => false,
+            'target' => $pluginName,
+            'plan' => [],
+            'missing' => [],
+            'pending_activation' => [],
+            'errors' => [],
+        ];
+
+        if ($pluginName === '') {
+            $empty['errors'][] = 'Nombre de plugin no válido.';
+
+            return $empty;
+        }
+
         $installProvider = $this->bootstrapInstallProvider();
         $dependencyResolver = new PluginDependencyResolver($installProvider);
 
         try {
             $plan = $dependencyResolver->buildActivationOrder($pluginName);
         } catch (CircularPluginDependencyException $exception) {
-            $this->pluginManager->logPluginError($exception->getMessage());
+            $empty['errors'][] = $exception->getMessage();
 
-            return false;
+            return $empty;
         }
 
         if ($plan === []) {
+            $empty['errors'][] = 'Nombre de plugin no válido.';
+
+            return $empty;
+        }
+
+        $missing = [];
+        $pendingActivation = [];
+        foreach ($plan as $plannedPlugin) {
+            if (!$installProvider->isInstalled($plannedPlugin)) {
+                $missing[] = $plannedPlugin;
+            }
+
+            if (!$this->pluginManager->is_plugin_enabled($plannedPlugin)) {
+                $pendingActivation[] = $plannedPlugin;
+            }
+        }
+
+        return [
+            'success' => true,
+            'target' => $pluginName,
+            'plan' => $plan,
+            'missing' => $missing,
+            'pending_activation' => $pendingActivation,
+            'errors' => [],
+        ];
+    }
+
+    public function downloadPlugin(string $pluginName): bool
+    {
+        $pluginName = $this->pluginManager->resolvePluginName($pluginName);
+        if ($pluginName === '') {
             $this->pluginManager->logPluginError('Nombre de plugin no válido.');
 
             return false;
         }
 
-        if (!$this->installMissingDependencies($plan, $pluginName, $installProvider)) {
+        $installProvider = $this->bootstrapInstallProvider();
+        if ($installProvider->isInstalled($pluginName)) {
+            return true;
+        }
+
+        if ($this->installMissingPlugin($pluginName, $installProvider)) {
+            return true;
+        }
+
+        $message = $installProvider->getLastError();
+        if ($message === '') {
+            $message = 'No se pudo descargar el plugin <b>' . htmlspecialchars($pluginName, ENT_QUOTES, 'UTF-8') . '</b>.';
+        }
+
+        $this->pluginManager->logPluginError($message);
+
+        return false;
+    }
+
+    public function enablePluginStep(string $targetPlugin, string $pluginToEnable): bool
+    {
+        $targetPlugin = $this->pluginManager->resolvePluginName($targetPlugin);
+        $pluginToEnable = $this->pluginManager->resolvePluginName($pluginToEnable);
+
+        $inspection = $this->inspectActivation($targetPlugin);
+        if (!$inspection['success']) {
+            foreach ($inspection['errors'] as $error) {
+                $this->pluginManager->logPluginError($error);
+            }
+
             return false;
         }
 
-        return $this->enablePlannedPlugins($plan, $pluginName);
+        if (!in_array($pluginToEnable, $inspection['plan'], true)) {
+            $this->pluginManager->logPluginError(
+                'El plugin <b>' . htmlspecialchars($pluginToEnable, ENT_QUOTES, 'UTF-8') . '</b> no pertenece al plan de activación.'
+            );
+
+            return false;
+        }
+
+        if ($this->pluginManager->is_plugin_enabled($pluginToEnable)) {
+            return true;
+        }
+
+        foreach ($inspection['plan'] as $plannedPlugin) {
+            if ($plannedPlugin === $pluginToEnable) {
+                break;
+            }
+
+            if (!$this->pluginManager->is_plugin_enabled($plannedPlugin)) {
+                $this->pluginManager->logPluginError(
+                    'Debe activarse primero el plugin <b>' . htmlspecialchars($plannedPlugin, ENT_QUOTES, 'UTF-8') . '</b>.'
+                );
+
+                return false;
+            }
+        }
+
+        $installProvider = $this->bootstrapInstallProvider();
+
+        if (!$installProvider->isInstalled($pluginToEnable)) {
+            $this->pluginManager->logPluginError(
+                'El plugin <b>' . htmlspecialchars($pluginToEnable, ENT_QUOTES, 'UTF-8') . '</b> no está instalado en disco.'
+            );
+
+            return false;
+        }
+
+        $runWizard = $pluginToEnable === $inspection['target'];
+
+        return $this->pluginManager->enableWithoutDependencyResolution($pluginToEnable, $runWizard);
     }
 
     /**

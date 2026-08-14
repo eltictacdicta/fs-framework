@@ -69,6 +69,11 @@ class admin_home extends fs_controller
     public $pending_plugin;
 
     /**
+     * @var bool
+     */
+    public $plugin_cascade_js_available = false;
+
+    /**
      * Información del actualizador
      * @var array|null
      */
@@ -184,6 +189,9 @@ class admin_home extends fs_controller
     {
         $this->fs_var = new fs_var();
         $this->plugin_manager = new fs_plugin_manager();
+        $this->plugin_cascade_js_available = is_file(
+            FS_FOLDER . '/plugins/system_updater/view/js/plugin_cascade_ajax.js'
+        );
         $this->settings = new fs_settings();
         $this->step = (string) $this->fs_var->simple_get('install_step');
 
@@ -286,6 +294,11 @@ class admin_home extends fs_controller
 
         if (!$this->user->admin) {
             $this->new_error_msg('Sólo un administrador puede hacer cambios en esta página.');
+            return;
+        }
+
+        if ($this->isPluginAjaxRequest()) {
+            $this->handlePluginAjaxRequest();
             return;
         }
 
@@ -761,6 +774,85 @@ class admin_home extends fs_controller
             return '€'; // Valor por defecto si no está inicializado
         }
         return $this->divisa_tools->simbolo_divisa($coddivisa);
+    }
+
+    private function isPluginAjaxRequest(): bool
+    {
+        return filter_input(INPUT_GET, 'ajax') === '1'
+            || filter_input(INPUT_POST, 'ajax') === '1';
+    }
+
+    private function handlePluginAjaxRequest(): void
+    {
+        $this->template = false;
+
+        if (!$this->isCsrfValid()) {
+            $this->sendPluginAjaxJson([
+                'success' => false,
+                'message' => 'Token CSRF inválido. Recarga la página e inténtalo de nuevo.',
+            ], 403);
+        }
+
+        $action = (string) (filter_input(INPUT_POST, 'action') ?: filter_input(INPUT_GET, 'action'));
+
+        switch ($action) {
+            case 'plugin_disable':
+                $pluginName = basename((string) filter_input(INPUT_POST, 'plugin_name'));
+                if ($pluginName === '') {
+                    $this->sendPluginAjaxJson(['success' => false, 'message' => 'Nombre de plugin no indicado.'], 400);
+                }
+
+                $this->plugin_manager->disable($pluginName);
+                $this->sendPluginAjaxJson([
+                    'success' => true,
+                    'plugin' => $pluginName,
+                    'enabled' => false,
+                ]);
+                return;
+
+            case 'plugin_upload':
+                $handlerResult = (new \FSFramework\Core\PluginActionHandler($this->plugin_manager))->handle();
+                if ($handlerResult['errors'] !== []) {
+                    $this->sendPluginAjaxJson([
+                        'success' => false,
+                        'message' => implode(' ', $handlerResult['errors']),
+                        'errors' => $handlerResult['errors'],
+                    ], 400);
+                }
+
+                if (isset($_SESSION['pending_plugin'])) {
+                    $this->sendPluginAjaxJson([
+                        'success' => true,
+                        'pending_overwrite' => true,
+                        'pending_plugin' => $_SESSION['pending_plugin'],
+                        'messages' => $handlerResult['messages'],
+                    ]);
+                    return;
+                }
+
+                $this->sendPluginAjaxJson([
+                    'success' => true,
+                    'messages' => $handlerResult['messages'],
+                    'advices' => $handlerResult['advices'],
+                ]);
+                return;
+        }
+
+        $this->sendPluginAjaxJson([
+            'success' => false,
+            'message' => 'Acción AJAX no reconocida.',
+        ], 400);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function sendPluginAjaxJson(array $payload, int $statusCode = 200): void
+    {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        exit;
     }
 
 }
