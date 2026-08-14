@@ -13,18 +13,30 @@ final class LegacySqlExecutor
 {
     /**
      * @param \mysqli|object $link
+     * @param-out int|null $affectedRows When provided, receives rows affected by the statement.
      */
-    public static function executeMysqlWrite(object $link, string $sqlTemplate, array $params = []): bool
+    public static function executeMysqlWrite(object $link, string $sqlTemplate, array $params = [], ?int &$affectedRows = null): bool
     {
+        $trackAffectedRows = func_num_args() >= 4;
+
         [$sqlTemplate, $params] = SqlSanitizer::prepareForExecution($sqlTemplate, $params);
 
         $statement = $link->prepare($sqlTemplate);
         if ($statement === false) {
+            if ($trackAffectedRows) {
+                $affectedRows = -1;
+            }
+
             return false;
         }
 
         try {
-            return $params !== [] ? $statement->execute($params) : $statement->execute();
+            $executed = $params !== [] ? $statement->execute($params) : $statement->execute();
+            if ($trackAffectedRows) {
+                $affectedRows = $executed ? (int) $statement->affected_rows : -1;
+            }
+
+            return $executed;
         } finally {
             $statement->close();
         }
@@ -61,7 +73,8 @@ final class LegacySqlExecutor
     public static function executeMysqlBatch(object $link, string $sql): bool
     {
         foreach (SqlSanitizer::splitTrustedBatch($sql) as $statementSql) {
-            if (!self::executeMysqlWrite($link, $statementSql)) {
+            $affectedRows = 0;
+            if (!self::executeMysqlWrite($link, $statementSql, [], $affectedRows)) {
                 return false;
             }
         }

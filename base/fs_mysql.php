@@ -591,14 +591,15 @@ class fs_mysql extends fs_db_engine
     private function executeSingleStatement(string $sql, array $boundParams, &$queryIndex, &$affectedRows): bool
     {
         $queryIndex = 1;
+        $statementAffectedRows = 0;
 
-        if (!LegacySqlExecutor::executeMysqlWrite(self::$link, $sql, $boundParams)) {
+        if (!LegacySqlExecutor::executeMysqlWrite(self::$link, $sql, $boundParams, $statementAffectedRows)) {
             $affectedRows = -1;
 
             return false;
         }
 
-        $affectedRows = (int) self::$link->affected_rows;
+        $affectedRows = $statementAffectedRows;
 
         return true;
     }
@@ -614,15 +615,15 @@ class fs_mysql extends fs_db_engine
 
         foreach ($statements as $statementSql) {
             $queryIndex++;
-            if (!LegacySqlExecutor::executeMysqlWrite(self::$link, $statementSql)) {
+            $statementAffectedRows = 0;
+            if (!LegacySqlExecutor::executeMysqlWrite(self::$link, $statementSql, [], $statementAffectedRows)) {
                 $affectedRows = -1;
 
                 return false;
             }
 
-            $currentAffectedRows = (int) self::$link->affected_rows;
-            if ($currentAffectedRows > 0) {
-                $totalAffectedRows += $currentAffectedRows;
+            if ($statementAffectedRows > 0) {
+                $totalAffectedRows += $statementAffectedRows;
             }
         }
 

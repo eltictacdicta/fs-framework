@@ -154,6 +154,8 @@ final class FakeMysqliLink
 
 final class FakeMysqliStmt
 {
+    public int $affected_rows = 0;
+
     public function __construct(
         private FakeMysqliLink $link,
         private string $sql
@@ -162,7 +164,10 @@ final class FakeMysqliStmt
 
     public function execute(?array $params = null): bool
     {
-        return $this->link->execute_query($this->sql, $params ?? []);
+        $executed = $this->link->execute_query($this->sql, $params ?? []);
+        $this->affected_rows = $this->link->affected_rows;
+
+        return $executed;
     }
 
     public function get_result(): bool

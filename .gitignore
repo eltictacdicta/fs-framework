@@ -17,7 +17,8 @@
 
 # Dependencies (installed via composer/npm)
 /node_modules/
-# vendor/ se versiona a propósito para despliegues/actualizaciones sin composer install.
+# vendor/ se versiona a propósito: actualizaciones del núcleo y ZIPs de plugins
+# (p. ej. OidcProvider) deben incluir dependencias sin composer install en destino.
 
 # Temporary and cache files
 /tmp/*
