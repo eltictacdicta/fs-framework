@@ -40,8 +40,6 @@ class admin_user extends fs_controller
 
     public function private_core()
     {
-        $this->share_extensions();
-        
         // Check if agente class exists before instantiating
         if (class_exists('agente')) {
             $this->agente = new agente();
@@ -156,104 +154,6 @@ class admin_user extends fs_controller
         return $returnlist;
     }
 
-    private function share_extensions()
-    {
-        foreach ($this->extensions as $ext) {
-            if ($ext->type == 'css') {
-                if (!file_exists($ext->text)) {
-                    $ext->delete();
-                }
-            }
-        }
-
-        $extensions = array(
-            array(
-                'name' => 'cosmo',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-cosmo.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'darkly',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-darkly.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'flatly',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-flatly.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'sandstone',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-sandstone.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'united',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-united.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'yeti',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-yeti.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'lumen',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-lumen.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'paper',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-paper.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'simplex',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-simplex.min.css',
-                'params' => ''
-            ),
-            array(
-                'name' => 'spacelab',
-                'page_from' => __CLASS__,
-                'page_to' => __CLASS__,
-                'type' => 'css',
-                'text' => 'view/css/bootstrap-spacelab.min.css',
-                'params' => ''
-            ),
-        );
-        foreach ($extensions as $ext) {
-            $fsext = new fs_extension($ext);
-            $fsext->save();
-        }
-    }
-
     private function nuevo_empleado()
     {
         if (!class_exists('agente')) {
@@ -343,13 +243,12 @@ class admin_user extends fs_controller
                 }
             }
 
-            $this->suser->fs_page = NULL;
+            $this->suser->fs_page = null;
             if ($this->request->request->has('udpage')) {
-                $this->suser->fs_page = $this->request->request->get('udpage');
-            }
-
-            if ($this->request->request->has('css')) {
-                $this->suser->css = $this->request->request->get('css');
+                $udpage = trim((string) $this->request->request->get('udpage'));
+                if ($udpage !== '' && ($this->suser->admin || $this->suser->have_access_to($udpage))) {
+                    $this->suser->fs_page = $udpage;
+                }
             }
 
             if ($this->suser->save()) {

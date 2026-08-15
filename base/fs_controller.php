@@ -627,8 +627,9 @@ class fs_controller extends fs_app
             return;
         }
 
-        if (!is_null($this->user->fs_page)) {
-            header('Location: index.php?page=' . $this->user->fs_page);
+        $homePage = is_string($this->user->fs_page) ? trim($this->user->fs_page) : '';
+        if ($homePage !== '' && $this->user->have_access_to($homePage)) {
+            header('Location: index.php?page=' . rawurlencode($homePage));
             exit;
         }
 

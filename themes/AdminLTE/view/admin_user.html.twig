@@ -100,12 +100,18 @@
             <div class="form-group">
                Nick:
                <input class="form-control" type="text" name="snick" value="{{ fsc.suser.nick }}" disabled="disabled"/>
+               {% if fsc.user.admin and fsc.suser.nick != fsc.user.nick %}
                <div class="checkbox">
                   <label>
                      <input type="checkbox" name="sadmin" value="TRUE"{% if fsc.suser.admin %} checked=""{% endif %}/>
-                     Administrador
+                     {{ 'admin'|trans }}
                   </label>
                </div>
+               {% elseif fsc.suser.admin %}
+               <p class="help-block">
+                  <span class="label label-primary">{{ 'admin'|trans }}</span>
+               </p>
+               {% endif %}
             </div>
          </div>
          <div class="col-sm-2">
@@ -163,37 +169,18 @@
             </div>
          </div>
          {% endif %}
-         <div class="col-sm-2">
+         <div class="col-sm-3">
             <div class="form-group">
-               Página de inicio:
+               {{ 'home_page'|trans }}:
                <select name="udpage" class="form-control">
+                  <option value="">{{ 'default_homepage_option'|trans }}</option>
                {% for value in fsc.suser.get_menu() %}
-                  {% if value.show_on_menu %}
-                     {% if value.name == fsc.suser.fs_page %}
-                     <option value="{{ value.name }}" selected="">{{ value.folder }} - {{ value.title }}</option>
-                     {% else %}
-                     <option value="{{ value.name }}">{{ value.folder }} - {{ value.title }}</option>
-                     {% endif %}
+                  {% if value.name == fsc.suser.fs_page %}
+                  <option value="{{ value.name }}" selected="">{{ value.folder }} - {{ value.title }}</option>
+                  {% else %}
+                  <option value="{{ value.name }}">{{ value.folder }} - {{ value.title }}</option>
                   {% endif %}
                {% endfor %}
-               </select>
-            </div>
-         </div>
-         <div class="col-sm-2">
-            <div class="form-group">
-               Estilo visual:
-               <select name="css" class="form-control">
-                  {% set has_css = false %}
-                  {% for value in fsc.extensions %}
-                     {% if value.type == 'css' %}
-                     {% set has_css = true %}
-                     <option value="{{ value.text }}"{% if value.text == fsc.suser.css %} selected=""{% endif %}>{{ value.name }}</option>
-                     {% endif %}
-                  {% endfor %}
-                  
-                  {% if not has_css %}
-                  <option value="view/css/bootstrap-yeti.min.css">yeti</option>
-                  {% endif %}
                </select>
             </div>
          </div>

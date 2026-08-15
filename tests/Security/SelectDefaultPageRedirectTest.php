@@ -127,6 +127,52 @@ final class SelectDefaultPageRedirectTest extends TestCase
     }
 
     #[Test]
+    public function selectDefaultPageIgnoresEmptyFsPage(): void
+    {
+        $controller = new class() extends \fs_controller {
+            public function __construct()
+            {
+                // Constructor vacío intencional: evita boot del controlador legacy.
+            }
+
+            public function getRedirectUrl(): string
+            {
+                $this->user = new class() extends \fs_user {
+                    public function __construct()
+                    {
+                        $this->logged_on = true;
+                        $this->fs_page = '   ';
+                    }
+
+                    public function have_access_to($page_name)
+                    {
+                        return true;
+                    }
+
+                    public function save(): bool { return true; }
+                    public function exists(): bool { return false; }
+                    public function delete(): bool { return false; }
+                };
+
+                $this->db = new class() extends \fs_db2 {
+                    public function __construct() {}
+                    public function connected(): bool { return true; }
+                    public function connect(): bool { return true; }
+                };
+
+                $homePage = is_string($this->user->fs_page) ? trim($this->user->fs_page) : '';
+                if ($homePage !== '' && $this->user->have_access_to($homePage)) {
+                    return 'index.php?page=' . rawurlencode($homePage);
+                }
+
+                return 'index.php?page=admin_home';
+            }
+        };
+
+        $this->assertSame('index.php?page=admin_home', $controller->getRedirectUrl());
+    }
+
+    #[Test]
     public function selectDefaultPageSkipsWhenUserNotLoggedOn(): void
     {
         $controller = new class() extends \fs_controller {
