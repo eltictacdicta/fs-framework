@@ -82,8 +82,6 @@ class login extends fs_controller
         if ($this->handleAutoLogin($defaultRedirectUrl)) {
             return;
         }
-
-        $this->showInitialSetupMessageIfPending();
     }
 
     protected function resolveAnonymousPublicLoginRedirect(): ?string
@@ -103,25 +101,6 @@ class login extends fs_controller
         }
 
         return SafeRedirect::validate($redirectUrl, 'index.php?page=login');
-    }
-
-    /**
-     * Muestra un mensaje si la configuración inicial está pendiente.
-     * Indica al administrador las credenciales por defecto (admin/admin)
-     * y que deberá cambiar la contraseña tras iniciar sesión.
-     */
-    private function showInitialSetupMessageIfPending(): void
-    {
-        if (!\fs_user::isInitialSetupPending()) {
-            return;
-        }
-
-        $this->core_log->new_message(
-            "Configuración inicial pendiente.<br>"
-            . "Inicia sesión con las credenciales definidas en el instalador "
-            . "(por defecto <code>admin</code> / <code>admin</code>).<br>"
-            . "Tras iniciar sesión, deberás elegir una nueva contraseña segura."
-        );
     }
 
     private function restoreBufferedVariables()

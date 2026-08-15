@@ -457,8 +457,6 @@ class fs_login
 
     private function completeSuccessfulLogin(&$controller_user, $user, $password, $ip)
     {
-        $requiresPasswordChange = mb_strlen($password) < 8;
-
         $user->new_logkey();
 
         if (!$user->admin && !$this->ip_filter->in_white_list($ip)) {
@@ -475,14 +473,18 @@ class fs_login
 
         $this->save_session_data($user, regenerateSession: true);
 
-        if (class_exists('fs_user') && \fs_user::isInitialSetupPending()) {
-            $this->session->set('force_password_change', true);
-            $this->session->set('force_password_change_reason', 'initial_setup');
-        }
-
-        if ($requiresPasswordChange) {
-            $this->session->set('force_password_change', true);
-            $this->session->set('force_password_change_reason', 'insecure_password');
+        if (class_exists('fs_user')) {
+            if (!\fs_user::cleanupLegacyInstallArtifacts()) {
+                $this->core_log->new_error(
+                    'No se pudieron eliminar restos legacy de credenciales de instalación. '
+                    . 'Revise permisos en tmp/ e intervención manual.'
+                );
+                $this->core_log->save(
+                    'Limpieza legacy de credenciales fallida tras login.',
+                    'login',
+                    true
+                );
+            }
         }
 
         $this->core_log->save('Login correcto.', 'login');
@@ -491,14 +493,6 @@ class fs_login
         $controller_user = $user;
         return $controller_user->logged_on;
     }
-
-    private function completeInitialSetupIfPending(): void
-    {
-        if (class_exists('fs_user') && \fs_user::isInitialSetupPending()) {
-            \fs_user::completeInitialSetup();
-        }
-    }
-
     private function verify_modern_password($user, $password)
     {
         $storedHash = (string) ($user->password ?? '');

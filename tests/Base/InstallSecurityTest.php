@@ -90,14 +90,6 @@ class InstallSecurityTest extends TestCase
         $this->assertSame('admin', fs_install_normalize_admin_password(null));
     }
 
-    public function testAdminRequiresPasswordChangeOnlyForDefaultsOrShortPasswords(): void
-    {
-        $this->assertTrue(fs_install_admin_requires_password_change('admin', 'admin'));
-        $this->assertTrue(fs_install_admin_requires_password_change('admin', 'secret'));
-        $this->assertFalse(fs_install_admin_requires_password_change('admin', 'secret123'));
-        $this->assertFalse(fs_install_admin_requires_password_change('javier', 'secret123'));
-    }
-
     public function testAdminNickValidatorRequiresThreeToTwelveCharacters(): void
     {
         $this->assertTrue(fs_install_is_valid_admin_nick('admin'));

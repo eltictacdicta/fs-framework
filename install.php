@@ -132,11 +132,9 @@ function guarda_config(&$errors, $nombre_archivo = 'config.php')
             return;
         }
 
-        $requiresPasswordChange = fs_install_admin_requires_password_change($adminNick, $adminPassword);
         fwrite($archivo, "\n// Administrador inicial\n");
         fwrite($archivo, "define('FS_INSTALL_ADMIN_NICK', " . var_export($adminNick, true) . ");\n");
         fwrite($archivo, "define('FS_INSTALL_ADMIN_PASSWORD_HASH', " . var_export($adminHash, true) . ");\n");
-        fwrite($archivo, "define('FS_INSTALL_ADMIN_REQUIRES_PASSWORD_CHANGE', " . ($requiresPasswordChange ? 'TRUE' : 'FALSE') . ");\n");
 
         fclose($archivo);
 
@@ -1066,7 +1064,6 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                             <p class="help-block">
                                                 Define el usuario administrador inicial. Si dejas los campos vacíos,
                                                 se usarán <code>admin</code> / <code>admin</code>.
-                                                Con la contraseña por defecto deberás cambiarla en el primer acceso.
                                             </p>
                                             <div class="row">
                                                 <div class="col-sm-6">

@@ -78,7 +78,6 @@ class force_password_change extends fs_controller
         }
 
         $this->password_changed = true;
-        $this->completeInitialSetupIfPending();
 
         $session = $this->getSession();
         $session->remove('force_password_change');
@@ -104,24 +103,6 @@ class force_password_change extends fs_controller
         }
 
         return null;
-    }
-
-    private function completeInitialSetupIfPending(): void
-    {
-        try {
-            $userService = Container::get('fs_user');
-            if (is_object($userService)
-                && method_exists($userService, 'isInitialSetupPending')
-                && method_exists($userService, 'completeInitialSetup')
-                && $userService->isInitialSetupPending()) {
-                $userService->completeInitialSetup();
-            }
-        } catch (\Throwable $e) {
-            $this->resolveLogger()->error('force_password_change::completeInitialSetupIfPending failed.', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-        }
     }
 
     private function resolveLogger()

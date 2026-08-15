@@ -27,6 +27,7 @@ final class PluginSchemaSynchronizerTest extends TestCase
         TestInitWithUpdate::$updateCalled = false;
         TestInitWithUpgrade::$upgradeCalled = false;
         TestInitClassPlugin::$updateCalled = false;
+        TestInitUsingLegacySettings::$upgradeCalled = false;
     }
 
     #[Test]
@@ -69,6 +70,20 @@ final class PluginSchemaSynchronizerTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertTrue(TestInitClassPlugin::$updateCalled);
         $this->assertContains('Init::update() ejecutado', $result['changes']);
+    }
+
+    #[Test]
+    public function bootstrapsLegacyClassesBeforeInitUpgrade(): void
+    {
+        $pluginName = 'test_init_legacy_settings_plugin';
+        $this->registerInitClass($pluginName, TestInitUsingLegacySettings::class);
+
+        $synchronizer = new PluginSchemaSynchronizer();
+        $result = $synchronizer->synchronize($pluginName, $this->tempDir);
+
+        $this->assertTrue($result['success'], implode(', ', $result['errors']));
+        $this->assertTrue(TestInitUsingLegacySettings::$upgradeCalled);
+        $this->assertContains('Init::upgrade() ejecutado', $result['changes']);
     }
 
     #[Test]
@@ -169,6 +184,17 @@ final class TestInitWithUpgrade
 
     public static function upgrade(): void
     {
+        self::$upgradeCalled = true;
+    }
+}
+
+final class TestInitUsingLegacySettings
+{
+    public static bool $upgradeCalled = false;
+
+    public static function upgrade(): void
+    {
+        new \fs_settings();
         self::$upgradeCalled = true;
     }
 }

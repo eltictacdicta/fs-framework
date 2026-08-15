@@ -192,10 +192,6 @@ class fs_user extends \fs_model
         $this->reset_token_expires = NULL;
     }
 
-    private const INITIAL_SETUP_VAR = 'initial_admin_setup';
-    private const INITIAL_SETUP_PENDING = 'pending';
-    private const INITIAL_SETUP_COMPLETED = 'completed';
-
     /**
      * Garantiza tablas referenciadas por FK antes de crear fs_users.
      */
@@ -220,16 +216,8 @@ class fs_user extends \fs_model
             $adminHash = password_hash('admin', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
         }
 
-        if (defined('FS_INSTALL_ADMIN_REQUIRES_PASSWORD_CHANGE')) {
-            if (FS_INSTALL_ADMIN_REQUIRES_PASSWORD_CHANGE) {
-                self::markInitialSetupPending();
-            } else {
-                self::completeInitialSetup();
-            }
-        } elseif ($nick === 'admin') {
-            self::markInitialSetupPending();
-        } else {
-            self::completeInitialSetup();
+        if (!self::cleanupLegacyInstallArtifacts()) {
+            $this->new_error_msg('No se pudieron eliminar restos legacy de credenciales de instalación. Revise permisos en tmp/ e intervención manual.');
         }
 
         if ($this->db->select("SELECT * FROM agentes WHERE codagente = '1';")) {
@@ -242,78 +230,14 @@ class fs_user extends \fs_model
     }
 
     /**
-     * Marca que la configuración inicial del admin está pendiente.
-     * Solo se puede marcar como pendiente si no existe un estado previo.
+     * Elimina restos del mecanismo legacy de credenciales temporales (pre-2025).
+     *
+     * @return bool FALSE si algún archivo legacy no pudo eliminarse ni sobrescribirse
      */
-    private static function markInitialSetupPending(): void
-    {
-        $fsVar = new \fs_var();
-        $currentValue = $fsVar->simple_get(self::INITIAL_SETUP_VAR);
-
-        if ($currentValue === self::INITIAL_SETUP_COMPLETED) {
-            return;
-        }
-
-        if ($currentValue === false) {
-            $fsVar->simple_save(self::INITIAL_SETUP_VAR, self::INITIAL_SETUP_PENDING);
-        }
-    }
-
-    /**
-     * Verifica si la configuración inicial del admin está pendiente.
-     * Esto significa que el admin debe cambiar su contraseña por defecto.
-     */
-    public static function isInitialSetupPending(): bool
-    {
-        self::cleanupLegacyCredentialsFile();
-
-        $fsVar = new \fs_var();
-        return $fsVar->simple_get(self::INITIAL_SETUP_VAR) === self::INITIAL_SETUP_PENDING;
-    }
-
-    /**
-     * Marca la configuración inicial como completada.
-     * Una vez completada, NO se puede revertir a pendiente (seguridad).
-     */
-    public static function completeInitialSetup(): bool
-    {
-        self::cleanupLegacyCredentialsFile();
-
-        $fsVar = new \fs_var();
-        $currentValue = $fsVar->simple_get(self::INITIAL_SETUP_VAR);
-
-        if ($currentValue === self::INITIAL_SETUP_COMPLETED) {
-            return true;
-        }
-
-        if ($currentValue === false || $currentValue === null) {
-            $result = $fsVar->simple_save(self::INITIAL_SETUP_VAR, self::INITIAL_SETUP_COMPLETED);
-            if (!$result) {
-                error_log('[FSFramework] completeInitialSetup: failed to insert initial_admin_setup=completed');
-            }
-            return $result;
-        }
-
-        if ($currentValue === self::INITIAL_SETUP_PENDING) {
-            $result = $fsVar->simple_save(self::INITIAL_SETUP_VAR, self::INITIAL_SETUP_COMPLETED);
-            if (!$result) {
-                error_log('[FSFramework] completeInitialSetup: failed to update initial_admin_setup from pending to completed');
-            }
-            return $result;
-        }
-
-        error_log('[FSFramework] completeInitialSetup: unexpected value for initial_admin_setup: ' . $currentValue);
-        return false;
-    }
-
-    /**
-     * Elimina archivos de credenciales del mecanismo legacy (pre-2025).
-     * Se ejecuta durante el login para limpiar instalaciones actualizadas.
-     */
-    private static function cleanupLegacyCredentialsFile(): void
+    public static function cleanupLegacyInstallArtifacts(): bool
     {
         if (!defined('FS_FOLDER') || !defined('FS_TMP_NAME')) {
-            return;
+            return true;
         }
 
         $legacyPaths = [
@@ -321,19 +245,29 @@ class fs_user extends \fs_model
             FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'install_admin.json',
         ];
 
+        $allSucceeded = true;
+
         foreach ($legacyPaths as $legacyPath) {
             if (!file_exists($legacyPath)) {
                 continue;
             }
 
-            if (@unlink($legacyPath)) {
+            if (unlink($legacyPath)) {
                 error_log('[FSFramework] Archivo de credenciales legacy eliminado: ' . $legacyPath);
                 continue;
             }
 
-            @file_put_contents($legacyPath, '{"error":"legacy_removed"}', LOCK_EX);
-            error_log('[FSFramework] ADVERTENCIA: No se pudo eliminar archivo legacy, contenido sobrescrito: ' . $legacyPath);
+            $written = file_put_contents($legacyPath, '{"error":"legacy_removed"}', LOCK_EX);
+            if ($written !== false) {
+                error_log('[FSFramework] ADVERTENCIA: No se pudo eliminar archivo legacy, contenido sobrescrito: ' . $legacyPath);
+                continue;
+            }
+
+            error_log('[FSFramework] ERROR DE SEGURIDAD: No se pudo eliminar ni sobrescribir archivo legacy; requiere intervención manual: ' . $legacyPath);
+            $allSucceeded = false;
         }
+
+        return $allSucceeded;
     }
 
     public function url()

@@ -56,45 +56,4 @@ final class ForcePasswordChangeSessionTest extends TestCase
         $this->assertSame($manager->getSymfonySession(), $session);
         $this->assertSame('shared', $session->get('force_password_change_reason'));
     }
-
-    public function testCompleteInitialSetupIfPendingMarksFlagCompleted(): void
-    {
-        $logger = new class {
-            public array $errors = [];
-
-            public function error(string $message, array $context = []): void
-            {
-                $this->errors[] = ['message' => $message, 'context' => $context];
-            }
-        };
-        $fsUser = new class {
-            public bool $pendingChecked = false;
-            public bool $completed = false;
-
-            public function isInitialSetupPending(): bool
-            {
-                $this->pendingChecked = true;
-                return true;
-            }
-
-            public function completeInitialSetup(): bool
-            {
-                $this->completed = true;
-                return true;
-            }
-        };
-
-        Container::set('logger', $logger);
-        Container::set('fs_user', $fsUser);
-
-        $controller = (new \ReflectionClass(\force_password_change::class))->newInstanceWithoutConstructor();
-
-        $method = new \ReflectionMethod(\force_password_change::class, 'completeInitialSetupIfPending');
-        $method->setAccessible(true);
-        $method->invoke($controller);
-
-        $this->assertTrue($fsUser->pendingChecked);
-        $this->assertTrue($fsUser->completed);
-        $this->assertSame([], $logger->errors);
-    }
 }

@@ -15,6 +15,17 @@ use FSFramework\Core\Template\InitClass;
 final class PluginSchemaSynchronizer
 {
     /**
+     * Clases legacy que los hooks Init suelen usar durante activación/upgrade.
+     *
+     * @var list<string>
+     */
+    private const INIT_MIGRATION_LEGACY_CLASSES = [
+        'fs_settings',
+        'fs_cache',
+        'fs_db2',
+    ];
+
+    /**
      * @return array{success: bool, changes: list<string>, errors: list<string>}
      */
     public function synchronize(string $pluginName, string $pluginsRoot): array
@@ -49,6 +60,8 @@ final class PluginSchemaSynchronizer
         if (!class_exists($initClass)) {
             return;
         }
+
+        $this->ensureInitMigrationRuntime();
 
         try {
             if (is_subclass_of($initClass, InitClass::class)) {
@@ -211,5 +224,24 @@ final class PluginSchemaSynchronizer
         $folder = defined('FS_FOLDER') ? FS_FOLDER : '.';
 
         return rtrim($folder, '/\\') . '/' . ltrim($relativePath, '/');
+    }
+
+    /**
+     * Prepara el runtime legacy mínimo antes de ejecutar Init::update()/upgrade().
+     * Los plugins pueden usar clases base del framework sin require manual.
+     */
+    private function ensureInitMigrationRuntime(): void
+    {
+        if (!class_exists('\fs_autoload', false)) {
+            require_once $this->frameworkPath('base/fs_autoload.php');
+        } elseif (!\fs_autoload::isRegistered()) {
+            \fs_autoload::register(defined('FS_FOLDER') ? FS_FOLDER : null);
+        }
+
+        foreach (self::INIT_MIGRATION_LEGACY_CLASSES as $legacyClass) {
+            if (!class_exists($legacyClass, false)) {
+                class_exists($legacyClass);
+            }
+        }
     }
 }
