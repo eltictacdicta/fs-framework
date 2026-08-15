@@ -977,6 +977,17 @@ class fs_controller extends fs_app
         $this->default_items->set_codpago($cod);
     }
 
+    /**
+     * Establece una divisa como predeterminada para este usuario.
+     *
+     * @param string $cod el código de la divisa
+     */
+    protected function save_coddivisa($cod)
+    {
+        $this->setPreferenceCookie('default_divisa', $cod);
+        $this->default_items->set_coddivisa($cod);
+    }
+
     protected function setPreferenceCookie(string $name, string $value): void
     {
         $expire = time() + FS_COOKIES_EXPIRE;
@@ -1021,6 +1032,56 @@ class fs_controller extends fs_app
 
         if (is_null($this->default_items->showing_page())) {
             $this->default_items->set_showing_page($this->page->name);
+        }
+
+        $this->bootstrapDefaultItemsFromPreferences();
+    }
+
+    /**
+     * Hydrate session defaults from cookies and, when still unset, from empresa.
+     */
+    private function bootstrapDefaultItemsFromPreferences(): void
+    {
+        if (is_null($this->default_items->codalmacen())) {
+            $cookieAlmacen = filter_input(INPUT_COOKIE, 'default_almacen');
+            if (is_string($cookieAlmacen) && $cookieAlmacen !== '') {
+                $this->default_items->set_codalmacen($cookieAlmacen);
+            } elseif ($this->empresa && !empty($this->empresa->codalmacen)) {
+                $this->default_items->set_codalmacen((string) $this->empresa->codalmacen);
+            }
+        }
+
+        if (is_null($this->default_items->codserie())) {
+            if ($this->empresa && !empty($this->empresa->codserie)) {
+                $this->default_items->set_codserie((string) $this->empresa->codserie);
+            }
+        }
+
+        if (is_null($this->default_items->coddivisa())) {
+            $cookieDivisa = filter_input(INPUT_COOKIE, 'default_divisa');
+            if (is_string($cookieDivisa) && $cookieDivisa !== '') {
+                $this->default_items->set_coddivisa($cookieDivisa);
+            } elseif ($this->empresa && !empty($this->empresa->coddivisa)) {
+                $this->default_items->set_coddivisa((string) $this->empresa->coddivisa);
+            } else {
+                $this->default_items->set_coddivisa('EUR');
+            }
+        }
+
+        if (is_null($this->default_items->codpago())) {
+            $cookiePago = filter_input(INPUT_COOKIE, 'default_formapago');
+            if (is_string($cookiePago) && $cookiePago !== '') {
+                $this->default_items->set_codpago($cookiePago);
+            } elseif ($this->empresa && !empty($this->empresa->codpago)) {
+                $this->default_items->set_codpago((string) $this->empresa->codpago);
+            }
+        }
+
+        if (is_null($this->default_items->codimpuesto())) {
+            $cookieImpuesto = filter_input(INPUT_COOKIE, 'default_impuesto');
+            if (is_string($cookieImpuesto) && $cookieImpuesto !== '') {
+                $this->default_items->set_codimpuesto($cookieImpuesto);
+            }
         }
     }
 

@@ -49,6 +49,22 @@ class FsCoreLogTest extends TestCase
         $this->assertSame('<b>Seguro</b> alert(1) x <a href="index.php?page=ok">ok</a>', $messages[0]);
     }
 
+    public function testDisplayMessagesPreserveRelativeIndexPhpLinksAndButtonClasses(): void
+    {
+        $this->log->new_message(
+            '<a href="./index.php?page=tpvmod&edita=presupuesto&id=12" class="btn btn-sm btn-primary">Ver Presupuesto</a>'
+            . ' <a href="./index.php?page=ventas_imprimir&presupuesto=TRUE&id=12" class="btn btn-sm btn-default" target="_blank">Imprimir</a>'
+        );
+
+        $messages = $this->log->get_messages();
+
+        $this->assertStringContainsString('href="./index.php?page=tpvmod&amp;edita=presupuesto&amp;id=12"', $messages[0]);
+        $this->assertStringContainsString('class="btn btn-sm btn-primary"', $messages[0]);
+        $this->assertStringContainsString('target="_blank"', $messages[0]);
+        $this->assertStringContainsString('rel="noopener noreferrer"', $messages[0]);
+        $this->assertStringContainsString('>Imprimir</a>', $messages[0]);
+    }
+
     public function testMultipleMessages(): void
     {
         $this->log->new_message('Primero');

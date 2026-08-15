@@ -551,13 +551,14 @@ class fs_core_log
         }
 
         $allowedTags = [
-            'a' => ['href', 'title', 'target', 'rel'],
+            'a' => ['href', 'title', 'target', 'rel', 'class'],
             'b' => [],
             'strong' => [],
             'i' => [],
             'em' => [],
             'br' => [],
             'code' => [],
+            'span' => ['class'],
         ];
 
         $dom = new \DOMDocument('1.0', 'UTF-8');
@@ -646,7 +647,31 @@ class fs_core_log
             return 'noopener noreferrer';
         }
 
+        if ($attribute === 'class') {
+            return $this->sanitizeClassAttribute($value);
+        }
+
         return $value;
+    }
+
+    private function sanitizeClassAttribute(string $value): ?string
+    {
+        $classes = preg_split('/\s+/', trim($value)) ?: [];
+        $safe = [];
+
+        foreach ($classes as $class) {
+            if ($class === '' || !preg_match('/^[a-z0-9_-]+$/', $class)) {
+                return null;
+            }
+
+            $safe[] = $class;
+        }
+
+        if ($safe === []) {
+            return null;
+        }
+
+        return implode(' ', $safe);
     }
 
     private function renderSanitizedElement(string $tagName, string $attributes, string $children): string
@@ -671,7 +696,7 @@ class fs_core_log
             return null;
         }
 
-        if (preg_match('/^(https?:\/\/|\/|#|\?|index\.php)/i', $normalized) === 1) {
+        if (preg_match('/^(https?:\/\/|\/|\.\/|#|\?|index\.php)/i', $normalized) === 1) {
             return $normalized;
         }
 

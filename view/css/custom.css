@@ -106,3 +106,49 @@ tr.clickableRow[href] {
 .modal-body iframe {
     border: none;
 }
+
+/* Devbridge jQuery Autocomplete (jquery.autocomplete.min.js) */
+.autocomplete-suggestions {
+    position: absolute;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #d2d6de;
+    border-top: 0;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+    overflow-x: hidden;
+    overflow-y: auto;
+    cursor: default;
+}
+
+.autocomplete-suggestion {
+    padding: 8px 12px;
+    line-height: 1.42857143;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.autocomplete-suggestion:hover,
+.autocomplete-selected {
+    background-color: #3c8dbc;
+    color: #fff;
+}
+
+.autocomplete-suggestions strong {
+    font-weight: 600;
+    color: inherit;
+}
+
+.autocomplete-group {
+    padding: 6px 12px;
+    font-weight: 600;
+    background: #f4f4f4;
+    border-bottom: 1px solid #ddd;
+}
+
+.autocomplete-no-suggestion {
+    padding: 8px 12px;
+    color: #777;
+}
