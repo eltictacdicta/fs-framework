@@ -490,6 +490,7 @@ class fs_login
         $this->core_log->save('Login correcto.', 'login');
         $this->ip_filter->clear();
 
+        $user->logged_on = TRUE;
         $controller_user = $user;
         return $controller_user->logged_on;
     }

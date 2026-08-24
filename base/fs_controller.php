@@ -262,6 +262,11 @@ class fs_controller extends fs_app
                 }
             } else if ($name == '') {
                 $this->template = 'index';
+            } else if ($name === 'login') {
+                /// La página de login es pública: con sesión iniciada se
+                /// redirige al usuario a su página de inicio (no es una página
+                /// del menú/roles, por eso no pasa por have_access_to()).
+                $this->select_default_page();
             } else {
                 $this->template = 'access_denied';
                 $this->user->clean_cache(TRUE);

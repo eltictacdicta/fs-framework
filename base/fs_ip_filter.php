@@ -82,12 +82,14 @@ class fs_ip_filter
      */
     public function in_white_list($ip)
     {
-        if (FS_IP_WHITELIST === '*' || FS_IP_WHITELIST === '') {
+        $whitelist = defined('FS_IP_WHITELIST') ? (string) FS_IP_WHITELIST : '*';
+
+        if ($whitelist === '*' || $whitelist === '') {
             return TRUE;
         }
 
-        $aux = explode(',', FS_IP_WHITELIST);
-        return in_array($ip, $aux);
+        $aux = array_map('trim', explode(',', $whitelist));
+        return in_array($ip, $aux, true);
     }
 
     /**
