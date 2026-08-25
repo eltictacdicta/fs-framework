@@ -93,7 +93,15 @@ final class SchemaComparator
                     continue;
                 }
 
-                $sql .= self::SQL_ALTER_TABLE . $quotedTable . ' ADD ' . $c['consulta'] . ';';
+                $consulta = trim((string) ($c['consulta'] ?? ''));
+                if ($consulta !== '' && !$this->canAddForeignKeyConstraint($rawTableName, $consulta)) {
+                    // FK incompatible (collation/charset/tipo): se omite y se
+                    // registra warning; se reintentará en el próximo sync cuando
+                    // las columnas estén alineadas (SS-04 defensivo).
+                    continue;
+                }
+
+                $sql .= self::SQL_ALTER_TABLE . $quotedTable . ' ADD ' . $consulta . ';';
             }
         }
 
@@ -470,6 +478,68 @@ final class SchemaComparator
         }
 
         return $this->fkValidator()->isFkCompatible((string) ($con['consulta'] ?? ''), $localColInfo);
+    }
+
+    /**
+     * Decide si una FK puede añadirse por ALTER (compare_constraints). En el
+     * path de ADD la tabla local YA existe, así que la metadata de la columna
+     * local se lee de information_schema (a diferencia del CREATE, donde la
+     * tabla aún no existe y se usa XML + @@ defaults).
+     */
+    private function canAddForeignKeyConstraint(string $tableName, string $consulta): bool
+    {
+        if (stripos($consulta, 'FOREIGN KEY') === false) {
+            return true;
+        }
+
+        $parts = FkCompatibilityValidator::parseFkParts($consulta);
+        if ($parts === null) {
+            return true;
+        }
+
+        $localColInfo = $this->resolveLocalColumnFromDb($tableName, $parts['localColumn']);
+        if ($localColInfo === null) {
+            // Metadata local ausente: permisivo (SS-02).
+            return true;
+        }
+
+        return $this->fkValidator()->isFkCompatible($consulta, $localColInfo);
+    }
+
+    /**
+     * Lee charset/collation/tipo de una columna local existente desde
+     * information_schema.columns (solo válido cuando la tabla ya existe).
+     *
+     * @return array{name: string, type: string, charset: ?string, collation: ?string}|null
+     */
+    private function resolveLocalColumnFromDb(string $tableName, string $columnName): ?array
+    {
+        $sql = "SELECT character_set_name AS charset_name, collation_name AS collation_name, column_type AS column_type"
+            . " FROM information_schema.columns"
+            . " WHERE table_schema = DATABASE()"
+            . " AND table_name = '" . addslashes($tableName) . "'"
+            . " AND column_name = '" . addslashes($columnName) . "'"
+            . " LIMIT 1;";
+
+        $rows = $this->db->select($sql);
+        if (empty($rows)) {
+            return null;
+        }
+
+        $charset = isset($rows[0]['charset_name']) ? strtolower((string) $rows[0]['charset_name']) : '';
+        $collation = isset($rows[0]['collation_name']) ? strtolower((string) $rows[0]['collation_name']) : '';
+        $type = isset($rows[0]['column_type']) ? strtolower((string) $rows[0]['column_type']) : '';
+
+        if ($charset === '' && $collation === '' && $type === '') {
+            return null;
+        }
+
+        return [
+            'name' => $columnName,
+            'type' => $type,
+            'charset' => $charset !== '' ? $charset : null,
+            'collation' => $collation !== '' ? $collation : null,
+        ];
     }
 
     /**

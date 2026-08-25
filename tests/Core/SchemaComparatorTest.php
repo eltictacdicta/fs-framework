@@ -190,6 +190,58 @@ class SchemaComparatorTest extends TestCase
         $this->assertStringContainsString('FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)', $sql);
     }
 
+    public function testCompareConstraintsOmitsFkAddOnCollationMismatch(): void
+    {
+        // Completa la defensividad de SS-04: el ADD CONSTRAINT FOREIGN KEY también
+        // debe omitirse cuando la columna local y la referenciada no comparten
+        // collation (padre utf8mb3 vs local utf8mb4). Sin este guard, cada
+        // check_table/sync reintentaba el ALTER y fallaba con errno 150.
+        $comparator = new SchemaComparator($this->createSchemaDb(
+            ['child_table', 'parent_table'],
+            [
+                'child_table' => [
+                    'parent_id' => ['charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci', 'type' => 'varchar(32)'],
+                ],
+                'parent_table' => [
+                    'id' => ['charset' => 'utf8mb3', 'collation' => 'utf8mb3_general_ci', 'type' => 'varchar(32)'],
+                ],
+            ]
+        ));
+        $sql = $comparator->compareConstraints(
+            'child_table',
+            [
+                ['nombre' => 'child_parent_fk', 'consulta' => 'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)'],
+            ],
+            []
+        );
+
+        $this->assertSame('', $sql);
+    }
+
+    public function testCompareConstraintsKeepsFkAddOnMatch(): void
+    {
+        $comparator = new SchemaComparator($this->createSchemaDb(
+            ['child_table', 'parent_table'],
+            [
+                'child_table' => [
+                    'parent_id' => ['charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci', 'type' => 'varchar(32)'],
+                ],
+                'parent_table' => [
+                    'id' => ['charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci', 'type' => 'varchar(32)'],
+                ],
+            ]
+        ));
+        $sql = $comparator->compareConstraints(
+            'child_table',
+            [
+                ['nombre' => 'child_parent_fk', 'consulta' => 'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)'],
+            ],
+            []
+        );
+
+        $this->assertStringContainsString('ALTER TABLE `child_table` ADD FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)', $sql);
+    }
+
     private function createSchemaDb(array $tables = [], array $columns = []): object
     {
         return new class($tables, $columns) {
