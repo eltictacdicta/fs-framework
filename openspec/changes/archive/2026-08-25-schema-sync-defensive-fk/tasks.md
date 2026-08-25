@@ -45,13 +45,13 @@ Chain strategy: stacked-to-main
 
 > **Estado: pendiente release core 0.18.0** — esta fase NO se ejecuta en este apply run (scope guard). Se implementa en el repo del plugin `plugins/system_updater/` tras el release del core 0.18.0 (fsframework-core-release: VERSION bump + tag). No se han tocado archivos de plugins/system_updater.
 
-- [ ] 3.1 BLOCKER: do NOT start this phase until core 0.18.0 is released (fsframework-core-release skill: VERSION bump + tag). Runs in separate git repo `plugins/system_updater/`. `[ ] (pendiente release core 0.18.0)`
-- [ ] 3.2 Modify `plugins/system_updater/controller/admin_updater.php` — add `use FSFramework\Core\Plugin\{PluginUpdateOrderer, PluginSchemaResyncer};`; remove `require_once __DIR__.'/../lib/PluginUpdateOrderer.php'` (:757, :838) and `require_once __DIR__.'/../lib/PluginSchemaResyncer.php'` (:912, :947). `[ ] (pendiente release core 0.18.0)`
-- [ ] 3.3 Inject catalog-backed `requirementsFn` at BOTH `order()` sites (:765 `order($pendingNames)`, :843 `order($toUpdate)`) AND BOTH `withDependencyVisibility()` sites (:961, :996): `fn(string $n): array => \FSFramework\Core\Plugin\PluginInstallProviderRegistry::get()->getDirectRequirements($n)` (memoized). `resyncInstalled` (:920) keeps the default (trap d — missing catalog-backed injection at withDependencyVisibility regresses dependency visibility during download/sync). `[ ] (pendiente release core 0.18.0)`
-- [ ] 3.4 Delete `plugins/system_updater/lib/PluginUpdateOrderer.php` + `lib/PluginSchemaResyncer.php` (trap c — core is canonical, no duplicates per SS-05). `[ ] (pendiente release core 0.18.0)`
-- [ ] 3.5 Delete `plugins/system_updater/tests/PluginUpdateOrdererTest.php` + `PluginSchemaResyncerTest.php` (moved to core; no duplicates SS-05). CatalogPluginInstallProviderTest stays. `[ ] (pendiente release core 0.18.0)`
-- [ ] 3.6 Modify `plugins/system_updater/fsframework.ini` — `min_version = "0.13"` → `"0.18"` (SS-06, D5). `[ ] (pendiente release core 0.18.0)`
-- [ ] 3.7 Run `ddev exec php vendor/bin/phpunit -c plugins/system_updater/phpunit.xml` → green. Commit `refactor(system_updater): delegate schema sync to core classes + bump min_version to 0.18`. `[ ] (pendiente release core 0.18.0)`
+- [x] 3.1 BLOCKER: core 0.18.0 RELEASED (commit c4469540 + tag v0.18.0 pushed). Phase 3 unblocked.
+- [x] 3.2 Modify `plugins/system_updater/controller/admin_updater.php` — `use FSFramework\Core\Plugin\{PluginUpdateOrderer, PluginSchemaResyncer};` added; `require_once` lib lines removed. *(Completado en commit a95b1f9 del repo del plugin.)*
+- [x] 3.3 Inject catalog-backed `requirementsFn` at BOTH `order()` sites AND BOTH `withDependencyVisibility()` sites via `\FSFramework\Core\Plugin\PluginInstallProviderRegistry::get()->getDirectRequirements($n)` (memoized). `resyncInstalled` keeps the default. *(Completado en a95b1f9.)*
+- [x] 3.4 Delete `plugins/system_updater/lib/PluginUpdateOrderer.php` + `lib/PluginSchemaResyncer.php` (core is canonical, SS-05). *(Completado en a95b1f9.)*
+- [x] 3.5 Delete `plugins/system_updater/tests/PluginUpdateOrdererTest.php` + `PluginSchemaResyncerTest.php` (moved to core). CatalogPluginInstallProviderTest stays. *(Completado en a95b1f9.)*
+- [x] 3.6 Modify `plugins/system_updater/fsframework.ini` — `min_version = "0.13"` → `"0.18"` (SS-06, D5). *(Completado en a95b1f9.)*
+- [x] 3.7 Plugin suite green (`ddev exec php vendor/bin/phpunit -c plugins/system_updater/phpunit.xml` → 124 tests / 222 assertions). Commit `refactor(system_updater): delegate schema sync to core classes + bump min_version to 0.18` = a95b1f9. *(Después: bump 2.8.0 = 17df343, ambos pusheados.)*
 
 ## Phase 4: Docs (PR 4)
 
@@ -60,7 +60,7 @@ Chain strategy: stacked-to-main
 ## Phase 5: Final verification
 
 - [x] 5.1 `ddev exec php vendor/bin/phpunit` (full root suite) green. *(Verificado por suites: Base 180 OK, Core 111 OK, Security 189 OK, Traits 15 OK, Cache 18 OK. El root suite completo no arranca por fallos PREEXISTENTES fuera de scope: plugins/factura_pdf1/vendor/rospdf/pdf-php/tests/CpdfTest.php rompe la discovery del suite Plugins en tiempo de carga; tests/Components/PublicAccessGateTest.php y tests/Integration/StealthSessionBootstrapTest.php tienen firma exec() de fs_db2 anónimo incompatible. Confirmado preexistente vía git stash.)*
-- [ ] 5.2 `ddev exec php vendor/bin/phpunit -c plugins/system_updater/phpunit.xml` green. *(Fase 3 pendiente release core 0.18.0 — no ejecutado en este run.)*
+- [x] 5.2 `ddev exec php vendor/bin/phpunit -c plugins/system_updater/phpunit.xml` green. *(Ejecutado tras el release core 0.18.0 y Phase 3: 124 tests / 222 assertions, 1 skipped.)*
 - [x] 5.3 phpstan level 5 clean on new core files (`src/Database/FkCompatibilityValidator.php`, `src/Core/Plugin/PluginUpdateOrderer.php`, `src/Core/Plugin/PluginSchemaResyncer.php`). *(Command: `ddev exec php vendor/dev-tools/bin/phpstan analyse <3 files> --level=5 --memory-limit=1G` → No errors.)*
 
 ## Implementation traps (must hold)
