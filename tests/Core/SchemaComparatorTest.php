@@ -172,6 +172,24 @@ class SchemaComparatorTest extends TestCase
         $this->assertStringNotContainsString('FOREIGN KEY', $sql);
     }
 
+    public function testCompareConstraintsReaddsOmittedFk(): void
+    {
+        // Evidencia de SS-04: una FK omitida en el CREATE (tabla padre ausente o
+        // collation incompatible) se reintenta vía compare_constraints cuando la
+        // tabla referenciada existe y los metadatos son compatibles.
+        $comparator = new SchemaComparator($this->createSchemaDb(['parent_table']));
+        $sql = $comparator->compareConstraints(
+            'child_table',
+            [
+                ['nombre' => 'child_parent_fk', 'consulta' => 'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)'],
+            ],
+            []
+        );
+
+        $this->assertStringContainsString('ALTER TABLE `child_table` ADD', $sql);
+        $this->assertStringContainsString('FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)', $sql);
+    }
+
     private function createSchemaDb(array $tables = [], array $columns = []): object
     {
         return new class($tables, $columns) {

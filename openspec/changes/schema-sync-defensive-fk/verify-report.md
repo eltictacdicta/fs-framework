@@ -4,8 +4,8 @@ evidence_revision: sha256:a778e03456956956e3cb537fbaf0193f9a105f4959169d36ae98c7
 verdict: pass_with_warnings
 blockers: 0
 critical_findings: 0
-requirements: 6/6
-scenarios: 9/9
+requirements: 5/6
+scenarios: 8/9
 test_command: ddev exec php vendor/bin/phpunit tests/Core/FkCompatibilityValidatorTest.php tests/Core/FsSchemaTest.php tests/Core/SchemaComparatorTest.php tests/Core/PluginUpdateOrdererTest.php tests/Core/PluginSchemaResyncerTest.php
 test_exit_code: 0
 test_output_hash: sha256:a778e03456956956e3cb537fbaf0193f9a105f4959169d36ae98c72baeb9267c
@@ -23,7 +23,7 @@ build_output_hash: sha256:f3b07603c4adceb3abd944074ea61a5378a82333038eacfd48c5d1
 
 ## Executive Summary
 
-Independent verification of the `schema-sync-defensive-fk` change against spec (SS-01..SS-06), design (D1-D6, traps a-h), proposal, and tasks. The implementation is functionally complete and runtime-proven: the shared `FkCompatibilityValidator` gates FK emission in BOTH schema builders (SchemaComparator and fs_schema), the sync/ordering services are centralized in `src/Core/Plugin/` with a core-owned default, all 5 change test files pass (35 tests / 71 assertions), all buildable root suites pass (Base 180, Core 111, Security 189, Traits 15, Cache 18), and phpstan level 5 is clean on the 3 new src files. All four ZIP-install/update schema-sync entry points converge on the fixed builders (verified file:line). The only findings are process/delivery-level: the apply phase left no `apply-progress.md` TDD-evidence artifact (TDD cycles are documented inline in tasks.md and were independently re-verified at runtime), and SS-06's plugin-side delivery is pending core 0.18.0 release by explicit scope. **Verdict: PASS WITH WARNINGS.**
+Independent verification of the `schema-sync-defensive-fk` change against spec (SS-01..SS-06), design (D1-D6, traps a-h), proposal, and tasks. The implementation is functionally complete and runtime-proven: the shared `FkCompatibilityValidator` gates FK emission in BOTH schema builders (SchemaComparator and fs_schema), the sync/ordering services are centralized in `src/Core/Plugin/` with a core-owned default, all 5 change test files pass (37 tests / 75 assertions), all buildable root suites pass (Base 180, Core 115, Security 189, Traits 15, Cache 18), and phpstan level 5 is clean on the new src files. All four ZIP-install/update schema-sync entry points converge on the fixed builders (verified file:line). SS-06 (plugin delegation + min_version) is DESIGNED and documented but NOT yet implemented: Phase 3 is delivery-sequenced after the core 0.18.0 release, so SS-06 is EXCLUDED from compliance totals (5/6 requirements, 8/9 scenarios). The only other findings are process-level (no separate `apply-progress.md` artifact; TDD cycles documented inline in tasks.md and re-verified at runtime). **Verdict: PASS WITH WARNINGS (core scope; SS-06 pending delivery).**
 
 ## Completeness
 
@@ -72,9 +72,9 @@ OK (35 tests, 71 assertions)   [exit 0]
 | SS-03 | Both builders delegate to the same validator | Static: `SchemaComparator::shouldKeepFkConstraint` → `fkValidator()->isFkCompatible` (SchemaComparator.php:505-507); `fs_schema::addForeignKeyConstraint` → `new FkCompatibilityValidator($db, $isMySQL)->isFkCompatible` (fs_schema.php:483-484). Both resolve MySQL-ness identically (`FS_DB_TYPE === 'mysql'`, fs_schema.php:99-102 vs FkCompatibilityValidator::isMySqlEngine). Behavioral parity: FsSchemaTest + SchemaComparatorTest both omit on utf8mb3 mismatch / keep on match | ✅ COMPLIANT |
 | SS-04 | Omitted FK is recovered after columns align | Static (recovery path UNCHANGED): `fs_mysql::compare_constraints` (fs_mysql.php:267) still emits `ALTER TABLE ... ADD CONSTRAINT <name> <consulta>` for missing FKs; `SchemaComparator::compareConstraints` (SchemaComparator.php:96) still emits `ALTER TABLE ... ADD <consulta>`. Neither consults the validator — the FK gate lives ONLY in the CREATE paths. Zero diff on fs_db2.php/fs_mysql.php in this change | ✅ COMPLIANT (static; dedicated regression test suggested) |
 | SS-05 | Plugin delegates to core orderer and resyncer | `PluginUpdateOrdererTest` (9 tests) + `PluginSchemaResyncerTest` (4+ tests) pass; classes core-owned at `src/Core/Plugin/PluginUpdateOrderer.php` + `PluginSchemaResyncer.php`; default `requirementsFn` = `LocalPluginRequirementsReader` (NOT CatalogPluginInstallProvider); no duplicates introduced in core | ✅ COMPLIANT |
-| SS-06 | min_version gates loading against an older core | DESIGNED and documented: spec SS-06 + design D5 (`min_version "0.13" → "0.18"`) + tasks 3.1/3.6 (pending release core 0.18.0). Implementation intentionally NOT done in this run (explicit scope). Call sites remain API-compatible by design | ✅ COMPLIANT (design-documented; delivery pending release — expected, no fail) |
+| SS-06 | min_version gates loading against an older core | DESIGNED and documented: spec SS-06 + design D5 (`min_version "0.13" → "0.18"`) + tasks 3.1/3.6. Phase 3 (plugin repo delegation) is delivery-sequenced after the core 0.18.0 release and has NOT been implemented in this run — EXCLUDED from compliance totals | ⏳ PENDING (delivery after core 0.18.0) |
 
-**Compliance summary**: 9/9 scenarios compliant (8 runtime-proven; SS-06 compliant-by-design per orchestrator scope).
+**Compliance summary**: 8/8 runtime-proven scenarios compliant; SS-06 excluded (pending plugin delivery after core 0.18.0 release — Phase 3 not started).
 
 ## Correctness (Static Evidence)
 
@@ -85,7 +85,7 @@ OK (35 tests, 71 assertions)   [exit 0]
 | SS-03 Shared validator | ✅ Implemented | ONE class consulted by both builders. SchemaComparator passes `$this->db` (auto-detects FS_DB_TYPE); fs_schema passes explicit `$isMySQL` — same resolution logic, same decision code |
 | SS-04 Self-healing | ✅ Implemented (unchanged) | `compare_constraints` ADD branches intact in both engines; validator NOT consulted in compare paths; recovery requires a later sync after columns align (no manual intervention) |
 | SS-05 Centralized services | ✅ Implemented | `final class PluginUpdateOrderer` (Kahn algorithm, cycle tolerance with single error_log, auto-dep ignored, non-installed deps skipped; default `LocalPluginRequirementsReader(FS_FOLDER.'/plugins')`, default `isInstalledFn = is_dir(FS_FOLDER.'/plugins/'.$name)` with FS_FOLDER-undefined → true, trap c). `final class PluginSchemaResyncer` (same static API: `resyncInstalled(\fs_plugin_manager, ?string $only, ?callable, ?callable)` returning success/updated/failed/messages/results; `withDependencyVisibility` snapshot/restore in `finally`). No `require_once` (PSR-4) |
-| SS-06 min_version coupling | ✅ Designed (delivery pending) | Spec + design D5 + tasks 3.1/3.6 pin `min_version "0.13" → "0.18"`; call sites stay API-compatible. Absence of the actual plugin change is EXPECTED (Phase 3 pending release core 0.18.0) |
+| SS-06 min_version coupling | ⏳ Pending delivery | Spec + design D5 + tasks 3.1/3.6 pin `min_version "0.13" → "0.18"`; call sites stay API-compatible. Actual plugin change NOT implemented (Phase 3 pending core 0.18.0 release) — excluded from compliance totals |
 
 ## Design Coherence
 

@@ -285,18 +285,26 @@ final class FkCompatibilityValidator
 
     /**
      * Normalización exacta tras normalizar: convertPostgresType, minúsculas,
-     * quitar el ancho de display de enteros (int(n)->int), conservar varchar(n).
+     * quitar el ancho de display de enteros (int(n)->int), conservar varchar(n)
+     * y eliminar modificadores MySQL que information_schema.columns.column_type
+     * incluye pero los tipos XML no (unsigned, zerofill, character set, collate).
      */
     private function normalizeType(string $type): string
     {
         $type = strtolower(trim($type));
         $type = strtolower(trim(TypeNormalizer::convertPostgresType($type)));
 
+        // Modificadores MySQL presentes en column_type pero ausentes en los XML.
+        $type = preg_replace('/\s+unsigned\b/', '', $type) ?? $type;
+        $type = preg_replace('/\s+zerofill\b/', '', $type) ?? $type;
+        $type = preg_replace('/\s+(?:character set|charset)\s+[a-z0-9_]+/i', '', $type) ?? $type;
+        $type = preg_replace('/\s+collate\s+[a-z0-9_]+/i', '', $type) ?? $type;
+
         if (preg_match('/^(int|tinyint|smallint|mediumint|bigint)\(\d+\)$/', $type)) {
             $type = preg_replace('/\(\d+\)$/', '', $type) ?? $type;
         }
 
-        return $type;
+        return trim($type);
     }
 
     private function warn(string $kind, string $localName, string $localValue, string $refValue, string $query): void

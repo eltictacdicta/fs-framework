@@ -1,6 +1,20 @@
 <?php
 /**
  * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 declare(strict_types=1);
@@ -47,6 +61,7 @@ final class FkCompatibilityValidatorTest extends TestCase
     public function testCollationMismatchReturnsFalseAndWarns(): void
     {
         $logFile = tempnam(sys_get_temp_dir(), 'fs_fk_');
+        $this->assertNotFalse($logFile);
         $previous = ini_get('error_log');
         ini_set('error_log', $logFile);
 
@@ -63,18 +78,20 @@ final class FkCompatibilityValidatorTest extends TestCase
                 'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)',
                 ['name' => 'parent_id', 'type' => 'varchar(32)', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci']
             );
+
+            $this->assertFalse($result);
+
+            $this->assertFileExists($logFile);
+            $log = file_get_contents($logFile);
+            $this->assertIsString($log);
+            $this->assertStringContainsString('parent_id', $log);
+            $this->assertStringContainsString('collation', $log);
         } finally {
             ini_set('error_log', $previous);
+            if (is_file($logFile)) {
+                @unlink($logFile);
+            }
         }
-
-        $this->assertFalse($result);
-
-        $log = @file_get_contents($logFile);
-        $this->assertIsString($log);
-        $this->assertStringContainsString('parent_id', $log);
-        $this->assertStringContainsString('collation', $log);
-
-        @unlink($logFile);
     }
 
     public function testCharsetMismatchReturnsFalse(): void
@@ -154,6 +171,24 @@ final class FkCompatibilityValidatorTest extends TestCase
         $this->assertTrue($validator->isFkCompatible(
             'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)',
             ['name' => 'parent_id', 'type' => 'varchar(32)', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci']
+        ));
+    }
+
+    public function testEnumWithColumnTypeModifiersStillMatches(): void
+    {
+        // information_schema.columns.column_type puede incluir 'character set'
+        // y 'collate' inline (tipos enum/set). normalizeType() debe limpiarlos
+        // para no omitir FKs válidas (regresión bug_001 del PR review).
+        $validator = new FkCompatibilityValidator($this->fakeDb([
+            'utf8mb4' => 'utf8mb4_general_ci',
+            'parent_table' => [
+                'id' => ['charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci', 'type' => "enum('a','b') character set utf8mb4 collate utf8mb4_general_ci"],
+            ],
+        ]), true);
+
+        $this->assertTrue($validator->isFkCompatible(
+            'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)',
+            ['name' => 'parent_id', 'type' => "enum('a','b')", 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci']
         ));
     }
 

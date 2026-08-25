@@ -85,6 +85,7 @@ final class PluginUpdateOrdererTest extends TestCase
 
             $this->assertSame(['A', 'B'], $result);
 
+            $this->assertFileExists($logFile);
             $log = file_get_contents($logFile);
             $this->assertIsString($log);
             $this->assertStringContainsString('A, B', $log);
