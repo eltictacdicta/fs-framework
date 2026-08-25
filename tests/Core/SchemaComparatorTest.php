@@ -97,13 +97,68 @@ class SchemaComparatorTest extends TestCase
         );
     }
 
-    private function createSchemaDb(array $tables = []): object
+    public function testGenerateTableOmitsFkOnCollationMismatch(): void
     {
-        return new class($tables) {
+        $comparator = new SchemaComparator($this->createSchemaDb(
+            ['parent_table'],
+            [
+                'parent_table' => [
+                    // collation distinta a la de la tabla local (utf8mb4_general_ci)
+                    'id' => ['charset' => 'utf8mb3', 'collation' => 'utf8mb3_general_ci', 'type' => 'varchar(32)'],
+                ],
+            ]
+        ));
+        $sql = $comparator->generateTable(
+            'child_table',
+            [
+                ['nombre' => 'id', 'tipo' => 'serial', 'nulo' => 'NO', 'defecto' => null],
+                ['nombre' => 'parent_id', 'tipo' => 'character varying(32)', 'nulo' => 'NO', 'defecto' => null],
+            ],
+            [
+                ['nombre' => 'child_pk', 'consulta' => 'PRIMARY KEY (id)'],
+                ['nombre' => 'child_parent_fk', 'consulta' => 'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)'],
+            ]
+        );
+
+        $this->assertStringContainsString('PRIMARY KEY (id)', $sql);
+        $this->assertStringNotContainsString('FOREIGN KEY', $sql);
+    }
+
+    public function testGenerateTableKeepsFkOnCollationMatch(): void
+    {
+        $comparator = new SchemaComparator($this->createSchemaDb(
+            ['parent_table'],
+            [
+                'parent_table' => [
+                    // collation que coincide con la de la tabla local
+                    'id' => ['charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci', 'type' => 'varchar(32)'],
+                ],
+            ]
+        ));
+        $sql = $comparator->generateTable(
+            'child_table',
+            [
+                ['nombre' => 'id', 'tipo' => 'serial', 'nulo' => 'NO', 'defecto' => null],
+                ['nombre' => 'parent_id', 'tipo' => 'character varying(32)', 'nulo' => 'NO', 'defecto' => null],
+            ],
+            [
+                ['nombre' => 'child_pk', 'consulta' => 'PRIMARY KEY (id)'],
+                ['nombre' => 'child_parent_fk', 'consulta' => 'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)'],
+            ]
+        );
+
+        $this->assertStringContainsString('FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)', $sql);
+    }
+
+    private function createSchemaDb(array $tables = [], array $columns = []): object
+    {
+        return new class($tables, $columns) {
             public array $queries = [];
 
-            public function __construct(private array $tables)
-            {
+            public function __construct(
+                private array $tables,
+                private array $columns,
+            ) {
             }
 
             public function __call(string $name, array $arguments): array
@@ -122,7 +177,23 @@ class SchemaComparatorTest extends TestCase
                 if (strpos($sql, '@@character_set_database') !== false) {
                     return [[
                         'db_charset' => 'utf8mb4',
-                        'db_collation' => 'utf8mb4_unicode_ci',
+                        'db_collation' => 'utf8mb4_general_ci',
+                    ]];
+                }
+
+                if (preg_match('/table_name\s*=\s*\'(.*?)\'\s+AND\s+column_name\s*=\s*\'(.*?)\'/i', $sql, $m)) {
+                    $table = $m[1];
+                    $column = $m[2];
+                    $rows = $this->columns[$table] ?? [];
+
+                    if (!isset($rows[$column])) {
+                        return [];
+                    }
+
+                    return [[
+                        'charset_name' => $rows[$column]['charset'],
+                        'collation_name' => $rows[$column]['collation'],
+                        'data_type' => $rows[$column]['type'],
                     ]];
                 }
 

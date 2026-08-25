@@ -31,6 +31,7 @@ final class SchemaComparator
 
     private object $db;
     private ?SchemaInspector $inspector;
+    private ?FkCompatibilityValidator $fkValidator = null;
 
     public function __construct(object $db, ?SchemaInspector $inspector = null)
     {
@@ -151,7 +152,7 @@ final class SchemaComparator
             }
         }
 
-        $validatedCons = $this->validateFkConstraints($xmlCons);
+        $validatedCons = $this->validateFkConstraints($xmlCons, $xmlCols);
         $sql .= ' ' . $this->generateTableConstraints($validatedCons) . ' )';
         $sql .= ' ' . $this->tableCharsetCollationSql() . ';';
 
@@ -405,7 +406,7 @@ final class SchemaComparator
         );
     }
 
-    private function validateFkConstraints(array $xmlCons): array
+    private function validateFkConstraints(array $xmlCons, array $xmlCols): array
     {
         if (empty($xmlCons)) {
             return $xmlCons;
@@ -414,7 +415,7 @@ final class SchemaComparator
         $tableNames = $this->collectKnownTableNamesLowercase();
         $validated = [];
         foreach ($xmlCons as $con) {
-            if ($this->shouldKeepFkConstraint($con, $tableNames)) {
+            if ($this->shouldKeepFkConstraint($con, $tableNames, $xmlCols)) {
                 $validated[] = $con;
             }
         }
@@ -443,8 +444,9 @@ final class SchemaComparator
     /**
      * @param array<string, mixed> $con
      * @param list<string> $tableNames
+     * @param array<int, array<string, mixed>> $xmlCols
      */
-    private function shouldKeepFkConstraint(array $con, array $tableNames): bool
+    private function shouldKeepFkConstraint(array $con, array $tableNames, array $xmlCols): bool
     {
         if (stripos((string) ($con['consulta'] ?? ''), 'FOREIGN KEY') === false) {
             return true;
@@ -455,7 +457,57 @@ final class SchemaComparator
             return true;
         }
 
-        return in_array(strtolower($refTable), $tableNames, true);
+        if (!in_array(strtolower($refTable), $tableNames, true)) {
+            return true;
+        }
+
+        $localColInfo = $this->resolveLocalFkColumnInfo($con['consulta'], $xmlCols);
+        if ($localColInfo === null) {
+            return true;
+        }
+
+        return $this->fkValidator()->isFkCompatible((string) ($con['consulta'] ?? ''), $localColInfo);
+    }
+
+    /**
+     * Resuelve la información de la columna local que lleva la FK desde el XML
+     * (nunca desde information_schema: la tabla local aún no existe en el
+     * CREATE). El charset/collation local se dejan sin rellenar para que el
+     * validador los complete desde la configuración @@ de la BD.
+     *
+     * @param array<int, array<string, mixed>> $xmlCols
+     *
+     * @return array{name: string, type: string, charset: null, collation: null}|null
+     */
+    private function resolveLocalFkColumnInfo(string $consulta, array $xmlCols): ?array
+    {
+        $parts = FkCompatibilityValidator::parseFkParts($consulta);
+        if ($parts === null) {
+            return null;
+        }
+
+        $localColumn = $parts['localColumn'];
+        $localCol = $this->searchInArray($xmlCols, 'nombre', $localColumn);
+        if ($localCol === null) {
+            return null;
+        }
+
+        $type = strtolower((string) ($localCol['tipo'] ?? ''));
+        if ($type === '') {
+            return null;
+        }
+
+        return [
+            'name' => $localColumn,
+            'type' => TypeNormalizer::convertPostgresType($type),
+            'charset' => null,
+            'collation' => null,
+        ];
+    }
+
+    private function fkValidator(): FkCompatibilityValidator
+    {
+        return $this->fkValidator ??= new FkCompatibilityValidator($this->db);
     }
 
     private function extractReferencedTableName(string $consulta): ?string

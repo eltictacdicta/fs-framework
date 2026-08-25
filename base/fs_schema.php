@@ -200,11 +200,51 @@ class fs_schema
             }
 
             if (stripos($query, 'FOREIGN KEY') !== false) {
-                self::addForeignKeyConstraint($query, $name, $db, $constraints, $isMySQL, $validateFks);
+                $localColInfo = self::resolveLocalFkColumnInfo($xml, $isMySQL, $query);
+                self::addForeignKeyConstraint($query, $name, $db, $constraints, $isMySQL, $validateFks, $localColInfo);
             }
         }
 
         return $constraints;
+    }
+
+    /**
+     * Resuelve la información de la columna local que lleva la FK desde el XML
+     * (nunca desde information_schema: la tabla local aún no existe en el
+     * CREATE). El charset/collation local se dejan sin rellenar para que el
+     * validador los complete desde la configuración @@ de la BD.
+     *
+     * @param SimpleXMLElement $xml Definición XML
+     * @param bool $isMySQL Si es MySQL
+     * @param string $query Consulta de la constraint
+     * @return array{name?: string, type?: string, charset?: null, collation?: null}
+     */
+    private static function resolveLocalFkColumnInfo($xml, $isMySQL, $query)
+    {
+        $parts = \FSFramework\Database\FkCompatibilityValidator::parseFkParts($query);
+        if ($parts === null || !isset($xml->columna)) {
+            return [];
+        }
+
+        foreach ($xml->columna as $col) {
+            if ((string) $col->nombre !== $parts['localColumn']) {
+                continue;
+            }
+
+            $type = (string) $col->tipo;
+            if ($type === '') {
+                return [];
+            }
+
+            return [
+                'name' => $parts['localColumn'],
+                'type' => self::convertType($type, $isMySQL),
+                'charset' => null,
+                'collation' => null,
+            ];
+        }
+
+        return [];
     }
 
     private static function buildCreateTableSql($tableName, array $columns, array $constraints, $isMySQL)
@@ -407,9 +447,12 @@ class fs_schema
      * @param string $name
      * @param fs_db2 $db
      * @param array &$constraints
+     * @param bool $isMySQL
+     * @param bool $validateFks
+     * @param array{name?: string, type?: string, charset?: ?string, collation?: ?string} $localColInfo
      * @return void
      */
-    private static function addForeignKeyConstraint($query, $name, $db, array & $constraints, bool $isMySQL, bool $validateFks)
+    private static function addForeignKeyConstraint($query, $name, $db, array & $constraints, bool $isMySQL, bool $validateFks, array $localColInfo = [])
     {
         $quote = $isMySQL ? '`' : '"';
         $constraintSql = "CONSTRAINT {$quote}{$name}{$quote} " . $query;
@@ -434,6 +477,13 @@ class fs_schema
         if (!$db || !$db->table_exists($refTable)) {
             error_log("Advertencia: Foreign key '{$name}' omitida - tabla referenciada '{$refTable}' no existe. Query: {$query}");
             return;
+        }
+
+        if ($localColInfo !== [] && $db) {
+            $validator = new \FSFramework\Database\FkCompatibilityValidator($db, $isMySQL);
+            if (!$validator->isFkCompatible($query, $localColInfo)) {
+                return;
+            }
         }
 
         $constraints[] = $constraintSql;
