@@ -458,7 +458,10 @@ final class SchemaComparator
         }
 
         if (!in_array(strtolower($refTable), $tableNames, true)) {
-            return true;
+            // La tabla referenciada no existe: omitir la FK (el CREATE no debe
+            // fallar con errno 150 por una tabla ausente). Se reintentará vía
+            // compare_constraints cuando la tabla exista.
+            return false;
         }
 
         $localColInfo = $this->resolveLocalFkColumnInfo($con['consulta'], $xmlCols);

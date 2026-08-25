@@ -150,6 +150,28 @@ class SchemaComparatorTest extends TestCase
         $this->assertStringContainsString('FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)', $sql);
     }
 
+    public function testGenerateTableOmitsFkWhenReferencedTableMissing(): void
+    {
+        // La tabla referenciada no está en la lista de tablas existentes: la FK
+        // debe omitirse para no fallar el CREATE con errno 150 (regresión: antes
+        // de la corrección se devolvía true y se emitía la FK a tabla inexistente).
+        $comparator = new SchemaComparator($this->createSchemaDb(['other_table']));
+        $sql = $comparator->generateTable(
+            'child_table',
+            [
+                ['nombre' => 'id', 'tipo' => 'serial', 'nulo' => 'NO', 'defecto' => null],
+                ['nombre' => 'parent_id', 'tipo' => 'character varying(32)', 'nulo' => 'NO', 'defecto' => null],
+            ],
+            [
+                ['nombre' => 'child_pk', 'consulta' => 'PRIMARY KEY (id)'],
+                ['nombre' => 'child_parent_fk', 'consulta' => 'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)'],
+            ]
+        );
+
+        $this->assertStringContainsString('PRIMARY KEY (id)', $sql);
+        $this->assertStringNotContainsString('FOREIGN KEY', $sql);
+    }
+
     private function createSchemaDb(array $tables = [], array $columns = []): object
     {
         return new class($tables, $columns) {
@@ -193,7 +215,7 @@ class SchemaComparatorTest extends TestCase
                     return [[
                         'charset_name' => $rows[$column]['charset'],
                         'collation_name' => $rows[$column]['collation'],
-                        'data_type' => $rows[$column]['type'],
+                        'column_type' => $rows[$column]['type'],
                     ]];
                 }
 

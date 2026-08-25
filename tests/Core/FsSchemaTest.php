@@ -160,7 +160,7 @@ XML);
                     return [[
                         'charset_name' => $rows[$column]['charset'],
                         'collation_name' => $rows[$column]['collation'],
-                        'data_type' => $rows[$column]['type'],
+                        'column_type' => $rows[$column]['type'],
                     ]];
                 }
 

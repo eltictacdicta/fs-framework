@@ -224,7 +224,7 @@ final class FkCompatibilityValidator
      */
     private function fetchReferencedColumnMetadata(string $refTable, string $refColumn): ?array
     {
-        $sql = "SELECT character_set_name AS charset_name, collation_name AS collation_name, data_type AS data_type"
+        $sql = "SELECT character_set_name AS charset_name, collation_name AS collation_name, column_type AS column_type"
             . " FROM information_schema.columns"
             . " WHERE table_schema = DATABASE()"
             . " AND table_name = '" . $this->escape($refTable) . "'"
@@ -238,7 +238,7 @@ final class FkCompatibilityValidator
 
         $charset = isset($rows[0]['charset_name']) ? strtolower((string) $rows[0]['charset_name']) : '';
         $collation = isset($rows[0]['collation_name']) ? strtolower((string) $rows[0]['collation_name']) : '';
-        $type = isset($rows[0]['data_type']) ? strtolower((string) $rows[0]['data_type']) : '';
+        $type = isset($rows[0]['column_type']) ? strtolower((string) $rows[0]['column_type']) : '';
 
         if (!preg_match(self::IDENTIFIER_REGEX, $charset) || !preg_match(self::IDENTIFIER_REGEX, $collation) || $type === '') {
             return null;

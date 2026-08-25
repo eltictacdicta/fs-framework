@@ -123,6 +123,25 @@ final class FkCompatibilityValidatorTest extends TestCase
         ));
     }
 
+    public function testLengthMismatchReturnsFalse(): void
+    {
+        // column_type incluye el largo (varchar(12) vs local varchar(32)):
+        // un desajuste de largo tambien debe omitir la FK (regresion del fix
+        // data_type -> column_type; con data_type el largo se perdia y esto
+        // devolvia true, dejando pasar un errno 150 por largo).
+        $validator = new FkCompatibilityValidator($this->fakeDb([
+            'utf8mb4' => 'utf8mb4_general_ci',
+            'parent_table' => [
+                'id' => ['charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci', 'type' => 'varchar(12)'],
+            ],
+        ]), true);
+
+        $this->assertFalse($validator->isFkCompatible(
+            'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)',
+            ['name' => 'parent_id', 'type' => 'varchar(32)', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci']
+        ));
+    }
+
     public function testNonMySqlReturnsTrue(): void
     {
         $validator = new FkCompatibilityValidator($this->fakeDb([
@@ -201,7 +220,7 @@ final class FkCompatibilityValidatorTest extends TestCase
                     return [[
                         'charset_name' => $rows[$column]['charset'],
                         'collation_name' => $rows[$column]['collation'],
-                        'data_type' => $rows[$column]['type'],
+                        'column_type' => $rows[$column]['type'],
                     ]];
                 }
 

@@ -82,17 +82,18 @@ final class PluginUpdateOrdererTest extends TestCase
                 $this->requirements(['A' => ['B'], 'B' => ['A']]),
                 $this->installed(['A', 'B'])
             );
+
+            $this->assertSame(['A', 'B'], $result);
+
+            $log = file_get_contents($logFile);
+            $this->assertIsString($log);
+            $this->assertStringContainsString('A, B', $log);
         } finally {
             ini_set('error_log', $previous);
+            if (is_file($logFile)) {
+                @unlink($logFile);
+            }
         }
-
-        $this->assertSame(['A', 'B'], $result);
-
-        $log = @file_get_contents($logFile);
-        $this->assertIsString($log);
-        $this->assertStringContainsString('A, B', $log);
-
-        @unlink($logFile);
     }
 
     public function testOrderIgnoresSelfRequirement(): void
