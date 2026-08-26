@@ -103,8 +103,6 @@ final class PluginDependencyResolverTest extends TestCase
 
 /**
  * @internal
- *
- * @var array<string, list<string>> $requirements
  */
 final class ArrayPluginInstallProvider implements PluginInstallProvider
 {

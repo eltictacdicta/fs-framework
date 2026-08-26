@@ -106,6 +106,7 @@ final class TestableAdminHome extends \admin_home
 
     public function exposesInstalledPluginsHaveUpdates(): bool
     {
+        // @phpstan-ignore assign.propertyType (anonymous stub enough for installedPluginsHaveUpdates())
         $this->plugin_manager = new class($this->pluginEntries) {
             /** @param list<array<string, mixed>> $entries */
             public function __construct(private array $entries)

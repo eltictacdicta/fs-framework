@@ -632,7 +632,7 @@ class fs_postgresql extends fs_db_engine
      * Ejecuta SQL dinámico siempre vía pg_query_params (incluso sin bind params).
      *
      * @param array<int|string, mixed> $params
-     * @return resource|false
+     * @return PgSql\Result|false
      */
     private function runParameterizedQuery(string $sql, array $params = [])
     {

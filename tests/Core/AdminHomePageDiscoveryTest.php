@@ -46,6 +46,10 @@ final class AdminHomePageDiscoveryTest extends TestCase
 
     public function testAllPagesSkipsLowercaseWrapperWhenScanningModernControllers(): void
     {
+        if (!is_dir(FS_FOLDER . '/plugins/catalogo_core')) {
+            self::markTestSkipped('catalogo_core plugin not installed');
+        }
+
         self::assertFalse(class_exists('FSFramework\\Plugins\\catalogo_core\\Controller\\admin_almacenes', false));
 
         $controller = (new \ReflectionClass(\admin_home::class))->newInstanceWithoutConstructor();

@@ -117,7 +117,7 @@ final class PluginSchemaSynchronizer
         }
 
         foreach ($syncResult['changes'] as $change) {
-            if (is_string($change) && $change !== '') {
+            if ($change !== '') {
                 $result['changes'][] = $change;
             }
         }
@@ -188,7 +188,7 @@ final class PluginSchemaSynchronizer
 
         try {
             $model = new $className();
-            if ($model instanceof \fs_model && $model->seed_if_empty()) {
+            if ($model->seed_if_empty()) {
                 $result['changes'][] = $className . ': datos por defecto insertados';
             }
         } catch (\Throwable $e) {
@@ -213,6 +213,7 @@ final class PluginSchemaSynchronizer
         }
 
         require_once $autoloaderPath;
+        // @phpstan-ignore if.alwaysFalse (legitimate defensive code for runtimes where the autoloader is not preloaded)
         if (class_exists('\fs_model_autoloader', false)) {
             \fs_model_autoloader::register(false);
             \fs_model_autoloader::refreshModelDirs();

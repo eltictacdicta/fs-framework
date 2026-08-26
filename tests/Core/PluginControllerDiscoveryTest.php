@@ -33,6 +33,10 @@ final class PluginControllerDiscoveryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!is_dir(FS_FOLDER . '/plugins/catalogo_core')) {
+            self::markTestSkipped('catalogo_core plugin not installed');
+        }
+
         $this->previousPlugins = $GLOBALS['plugins'] ?? [];
         $GLOBALS['plugins'] = ['catalogo_core'];
     }

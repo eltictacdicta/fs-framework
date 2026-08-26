@@ -160,7 +160,7 @@ final class SelectDefaultPageRedirectTest extends TestCase
                     public function connect(): bool { return true; }
                 };
 
-                $homePage = is_string($this->user->fs_page) ? trim($this->user->fs_page) : '';
+                $homePage = trim($this->user->fs_page);
                 if ($homePage !== '' && $this->user->have_access_to($homePage)) {
                     return 'index.php?page=' . rawurlencode($homePage);
                 }

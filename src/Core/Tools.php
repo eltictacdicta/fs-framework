@@ -19,7 +19,7 @@ class Tools
 {
     /**
      * Get the logger instance for logging messages.
-     * @return object
+     * @return ToolsLogger
      */
     public static function log(): ToolsLogger
     {

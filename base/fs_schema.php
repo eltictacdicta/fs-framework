@@ -29,6 +29,9 @@
  */
 class fs_schema
 {
+    /** @var array<string, true> */
+    private static array $protectedTableNames = [];
+
     private const SQL_LINE_SEPARATOR = ",\n  ";
     private const SQL_DEFAULT = ' DEFAULT ';
     private const CORE_TABLE_FILES = [
@@ -529,6 +532,15 @@ class fs_schema
      */
     public static function dropTable($tableName)
     {
+        if (self::isProtectedTable($tableName)) {
+            error_log(
+                '[fs_schema] BLOCKED dropTable on protected data table: ' . $tableName
+                . '. Remove it from the protected registry only for controlled maintenance.'
+            );
+
+            return false;
+        }
+
         try {
             $db = self::getDb();
             $quote = self::isMySQL() ? '`' : '"';
@@ -536,6 +548,39 @@ class fs_schema
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    /**
+     * Registers a table whose DROP must be blocked during normal operation.
+     */
+    public static function registerProtectedTable(string $tableName): void
+    {
+        $normalized = strtolower(trim($tableName));
+        if ($normalized === '') {
+            return;
+        }
+
+        self::$protectedTableNames[$normalized] = true;
+    }
+
+    /**
+     * @param list<string> $tableNames
+     */
+    public static function registerProtectedTables(array $tableNames): void
+    {
+        foreach ($tableNames as $tableName) {
+            self::registerProtectedTable($tableName);
+        }
+    }
+
+    public static function isProtectedTable(string $tableName): bool
+    {
+        return isset(self::$protectedTableNames[strtolower(trim($tableName))]);
+    }
+
+    public static function unregisterProtectedTable(string $tableName): void
+    {
+        unset(self::$protectedTableNames[strtolower(trim($tableName))]);
     }
 
     /**

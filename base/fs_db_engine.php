@@ -34,7 +34,7 @@ abstract class fs_db_engine
 
     /**
      * El enlace con la base de datos.
-     * @var resource
+     * @var PgSql\Connection|string
      */
     protected static $link;
 

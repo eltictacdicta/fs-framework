@@ -153,7 +153,7 @@ class MailService
     }
 
     /**
-     * @return array{mail: PHPMailer|null, error: array<string, string>|null}
+     * @return array{mail: PHPMailer|null, error: array{success: bool, message: string}|null}
      */
     private function prepareMailerForConnectionTest(?PHPMailer $mail): array
     {
@@ -195,7 +195,7 @@ class MailService
     }
 
     /**
-     * @return array{mail: PHPMailer|null, error: array<string, string>|null}
+     * @return array{mail: PHPMailer|null, error: array{success: bool, message: string}|null}
      */
     private function prepareDefaultMailerForConnectionTest(): array
     {

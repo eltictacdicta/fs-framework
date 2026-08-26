@@ -33,7 +33,7 @@ final class LocalPluginRequirementsReader
         }
 
         $require = $ini['require'] ?? '';
-        if (!is_string($require) || trim($require) === '') {
+        if (trim($require) === '') {
             return [];
         }
 

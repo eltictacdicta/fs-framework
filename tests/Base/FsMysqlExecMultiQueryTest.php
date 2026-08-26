@@ -109,7 +109,7 @@ final class FakeMysqliLink
     ) {
     }
 
-    public function prepare($sql): object|false
+    public function prepare($sql): FakeMysqliStmt
     {
         return new FakeMysqliStmt($this, (string) $sql);
     }

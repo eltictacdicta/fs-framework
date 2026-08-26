@@ -20,6 +20,7 @@ final class FsSchemaTest extends TestCase
 
     protected function tearDown(): void
     {
+        \fs_schema::unregisterProtectedTable('fs_test_protected_table');
         $this->injectDb(null);
     }
 
@@ -184,5 +185,13 @@ XML);
                 return addslashes($str);
             }
         };
+    }
+
+    public function testDropTableIsBlockedForProtectedTables(): void
+    {
+        \fs_schema::registerProtectedTable('fs_test_protected_table');
+
+        $this->assertFalse(\fs_schema::dropTable('fs_test_protected_table'));
+        $this->assertTrue(\fs_schema::isProtectedTable('fs_test_protected_table'));
     }
 }

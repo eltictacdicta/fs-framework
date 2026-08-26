@@ -83,8 +83,8 @@ final class LegacySqlExecutor
     }
 
     /**
-     * @param resource $link
-     * @return resource|false
+     * @param \PgSql\Connection|string $link
+     * @return \PgSql\Result|false
      */
     public static function executePostgresQuery($link, string $sqlTemplate, array $params = [])
     {

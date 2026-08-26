@@ -280,7 +280,7 @@ class StealthSessionBootstrapTest extends TestCase
                 return [];
             }
 
-            public function exec($sql, $transaction = null, $params = [])
+            public function exec($sql, $transaction = null, $params = [], $batch = false)
             {
                 $this->lastExecSql = $sql;
 

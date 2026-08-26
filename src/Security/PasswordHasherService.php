@@ -226,8 +226,9 @@ class PasswordHasherService
     }
 
     /**
-     * Verifica hashes legacy a través de legacy_support cuando el plugin está presente.
-     * Mantiene un fallback local mínimo para instalaciones donde el plugin no esté cargado.
+     * Verifica hashes legacy delegando en legacy_support cuando el plugin está presente.
+     * Sin el plugin no se aceptan hashes legacy: el flujo devuelve false y el usuario
+     * queda forzado a un reset de contraseña (política segura, nunca un bypass).
      */
     private function verifyLegacyHash(
         string $storedHash,

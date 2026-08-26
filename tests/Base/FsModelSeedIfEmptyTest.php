@@ -68,6 +68,7 @@ final class FsModelSeedIfEmptyTest extends TestCase
             public function __construct()
             {
                 $this->table_name = 'series';
+                // @phpstan-ignore assign.propertyType (anonymous stub lacks fs_db2 type; enough for seed_if_empty())
                 $this->db = new class {
                     public function table_exists(string $name): bool
                     {
@@ -79,9 +80,9 @@ final class FsModelSeedIfEmptyTest extends TestCase
                         return [['1' => 1]];
                     }
 
-                    public function exec(string $sql, $transaction = null, array $params = [], bool $isBatch = false): bool
+                    public function exec(string $sql, $transaction = null, array $params = [], bool $isBatch = false)
                     {
-                        $this->fail('exec must not run when table already has rows');
+                        throw new \RuntimeException('exec must not run when table already has rows');
                     }
                 };
             }
@@ -106,6 +107,7 @@ final class FsModelSeedIfEmptyTest extends TestCase
             public function __construct()
             {
                 $this->table_name = 'series';
+                // @phpstan-ignore assign.propertyType (anonymous stub lacks fs_db2 type; enough for seed_if_empty())
                 $this->db = new class {
                     public function table_exists(string $name): bool
                     {

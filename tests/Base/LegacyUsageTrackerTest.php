@@ -12,7 +12,11 @@ class LegacyUsageTrackerTest extends TestCase
 {
     public static function setUpBeforeClass(): void
     {
-        require_once FS_FOLDER . '/plugins/legacy_support/LegacyUsageTracker.php';
+        $trackerPath = FS_FOLDER . '/plugins/legacy_support/LegacyUsageTracker.php';
+        if (!is_file($trackerPath)) {
+            self::markTestSkipped('legacy_support plugin not installed');
+        }
+        require_once $trackerPath;
     }
 
     protected function setUp(): void

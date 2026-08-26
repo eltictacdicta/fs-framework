@@ -194,6 +194,7 @@ final class TestInitUsingLegacySettings
 
     public static function upgrade(): void
     {
+        // @phpstan-ignore new.resultUnused (side effect: forces fs_settings class load in the legacy migration runtime)
         new \fs_settings();
         self::$upgradeCalled = true;
     }

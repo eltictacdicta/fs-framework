@@ -53,7 +53,7 @@ final class SqlSanitizer
             PREG_SPLIT_NO_EMPTY
         );
 
-        if ($statements === false || $statements === []) {
+        if ($statements === false) {
             return [rtrim($sql, " \t\n\r\0\x0B;")];
         }
 
