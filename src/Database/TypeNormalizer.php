@@ -103,6 +103,10 @@ final class TypeNormalizer
         $upperDefault = strtoupper($default);
         $upperType = strtoupper($columnType);
 
+        if ($upperDefault === 'NULL') {
+            return 'NULL';
+        }
+
         if (self::supportsTemporalFunctionDefault($upperType)
             && in_array($upperDefault, ['CURRENT_TIMESTAMP', 'NOW()', 'CURRENT_TIMESTAMP()'], true)
         ) {

@@ -46,6 +46,15 @@ class TypeNormalizerTest extends TestCase
         );
     }
 
+    public function testNormalizeDefaultKeepsLiteralNullUnquotedForTemporalColumns(): void
+    {
+        // Regression: XML <defecto>NULL</defecto> must not become the string 'NULL'
+        // (Invalid default value for datetime/timestamp columns in strict mode).
+        $this->assertSame('NULL', TypeNormalizer::normalizeDefault('NULL', 'TIMESTAMP'));
+        $this->assertSame('NULL', TypeNormalizer::normalizeDefault('NULL', 'DATETIME'));
+        $this->assertSame('NULL', TypeNormalizer::normalizeDefault('NULL', 'VARCHAR(50)'));
+    }
+
     public function testConvertPostgresTypeMapsVarcharWithLength(): void
     {
         $this->assertSame('VARCHAR(255)', TypeNormalizer::convertPostgresType('character varying(255)'));
