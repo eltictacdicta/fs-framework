@@ -10,6 +10,20 @@
 // Autoloader de Composer
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// Symfony PHPUnit bridge: activa el reporting de deprecaciones honrando
+// SYMFONY_DEPRECATIONS_HELPER (ver phpunit.xml).
+require_once __DIR__ . '/../vendor/symfony/phpunit-bridge/bootstrap.php';
+
+// Con PHPUnit >= 10 el bootstrap del puente retorna antes de registrar su
+// DeprecationErrorHandler (y la SymfonyExtension tampoco lo registra), por lo
+// que SYMFONY_DEPRECATIONS_HELPER se ignoraria. Registro explicito e
+// idempotente para que weak / max[...] sigan siendo honrados por el puente.
+if (class_exists(\Symfony\Bridge\PhpUnit\DeprecationErrorHandler::class)
+    && 'disabled' !== getenv('SYMFONY_DEPRECATIONS_HELPER')
+) {
+    \Symfony\Bridge\PhpUnit\DeprecationErrorHandler::register(getenv('SYMFONY_DEPRECATIONS_HELPER') ?: 'weak');
+}
+
 // Vendors aislados de plugins (p. ej. OidcProvider firebase/php-jwt)
 foreach (glob(dirname(__DIR__) . '/plugins/*/composer_autoload.php') ?: [] as $pluginComposerBootstrap) {
     require_once $pluginComposerBootstrap;

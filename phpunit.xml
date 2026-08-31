@@ -8,6 +8,10 @@
          cacheDirectory=".phpunit.cache"
          displayDetailsOnTestsThatTriggerDeprecations="true"
 >
+    <extensions>
+        <bootstrap class="Symfony\Bridge\PhpUnit\SymfonyExtension"/>
+    </extensions>
+
     <testsuites>
         <testsuite name="Base">
             <directory>tests/Base</directory>

@@ -3,7 +3,7 @@
         'name' => 'facturascripts/fs-framework-modern',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '177ff019d80a538969a75fd5a3ba3c696a025b72',
+        'reference' => '9771f57ff5ec92fe38b1f94dbd84dcdf5b060f04',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -22,7 +22,7 @@
         'facturascripts/fs-framework-modern' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '177ff019d80a538969a75fd5a3ba3c696a025b72',
+            'reference' => '9771f57ff5ec92fe38b1f94dbd84dcdf5b060f04',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -555,6 +555,15 @@
             'install_path' => __DIR__ . '/../symfony/password-hasher',
             'aliases' => array(),
             'dev_requirement' => false,
+        ),
+        'symfony/phpunit-bridge' => array(
+            'pretty_version' => 'v7.4.18',
+            'version' => '7.4.18.0',
+            'reference' => 'ff3a78aceb731b24b256a2845a8ad6e6851f942b',
+            'type' => 'symfony-bridge',
+            'install_path' => __DIR__ . '/../symfony/phpunit-bridge',
+            'aliases' => array(),
+            'dev_requirement' => true,
         ),
         'symfony/polyfill-ctype' => array(
             'pretty_version' => 'v1.37.0',

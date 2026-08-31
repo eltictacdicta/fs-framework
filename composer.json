@@ -66,6 +66,7 @@
         "phpstan:dead-code-context": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-dead-code-context.neon --memory-limit=1G"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11"
+        "phpunit/phpunit": "^11",
+        "symfony/phpunit-bridge": "^7.4"
     }
 }

@@ -71,4 +71,22 @@ class SecretManagerValidationTest extends TestCase
 
         $this->assertNotEmpty($hmac);
     }
+
+    public function testSymfonyPhpunitBridgeIsRegistered(): void
+    {
+        // Con PHPUnit >= 10 el puente se integra vía SymfonyExtension
+        // (registrada como extensión en phpunit.xml), no vía el listener legacy.
+        $this->assertTrue(
+            interface_exists(\PHPUnit\Runner\Extension\Extension::class),
+            'PHPUnit 11 extension API expected'
+        );
+        $this->assertTrue(
+            class_exists(\Symfony\Bridge\PhpUnit\SymfonyExtension::class),
+            'symfony/phpunit-bridge must be installed and autoloadable'
+        );
+        $this->assertInstanceOf(
+            \PHPUnit\Runner\Extension\Extension::class,
+            new \Symfony\Bridge\PhpUnit\SymfonyExtension()
+        );
+    }
 }
