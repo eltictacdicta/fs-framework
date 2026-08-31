@@ -17,6 +17,21 @@ class PasswordHasherServiceTest extends TestCase
         $this->hasher = new PasswordHasherService();
     }
 
+    /**
+     * Los tests de compatibilidad legacy delegan en el plugin legacy_support
+     * (igual que base/fs_login.php, que comprueba class_exists de
+     * LegacyCompatibility): si el plugin no está presente, la verificación
+     * legacy no puede pasar y estos tests deben omitirse, no fallar.
+     */
+    private function requireLegacySupportPlugin(): void
+    {
+        if (!class_exists(\FSFramework\Plugins\legacy_support\LegacyCompatibility::class)) {
+            $this->markTestSkipped(
+                'legacy_support plugin is required: FSFramework\Plugins\legacy_support\LegacyCompatibility is not autoloadable'
+            );
+        }
+    }
+
     // =====================================================================
     // Hash & Verify
     // =====================================================================
@@ -76,6 +91,7 @@ class PasswordHasherServiceTest extends TestCase
 
     public function testVerifyWithLegacySha1(): void
     {
+        $this->requireLegacySupportPlugin();
         $salt = 'test_salt';
         $password = 'legacy_password';
         $legacyHash = sha1($salt . $password);
@@ -86,6 +102,7 @@ class PasswordHasherServiceTest extends TestCase
 
     public function testVerifyWithLegacySha1WrongPassword(): void
     {
+        $this->requireLegacySupportPlugin();
         $salt = 'test_salt';
         $legacyHash = sha1($salt . 'correct');
 
@@ -95,6 +112,7 @@ class PasswordHasherServiceTest extends TestCase
 
     public function testVerifyAndMigrateUpdatesHash(): void
     {
+        $this->requireLegacySupportPlugin();
         $salt = 'my_salt';
         $password = 'my_password';
         $legacyHash = sha1($salt . $password);
@@ -130,6 +148,7 @@ class PasswordHasherServiceTest extends TestCase
 
     public function testVerifyWithLegacySupportRejectsLowercaseSha1Variant(): void
     {
+        $this->requireLegacySupportPlugin();
         $legacyHash = sha1(mb_strtolower('SecretPass', 'UTF8'));
 
         $result = $this->hasher->verifyWithLegacySupport($legacyHash, 'SecretPass');
@@ -149,6 +168,7 @@ class PasswordHasherServiceTest extends TestCase
 
     public function testVerifyWithLegacySupportRejectsUppercaseLowercaseSha1Variant(): void
     {
+        $this->requireLegacySupportPlugin();
         $legacyHash = strtoupper(sha1(mb_strtolower('SecretPass', 'UTF8')));
 
         $result = $this->hasher->verifyWithLegacySupport($legacyHash, 'SecretPass');
@@ -168,6 +188,7 @@ class PasswordHasherServiceTest extends TestCase
 
     public function testVerifyWithLegacySupportAcceptsLegacyMd5(): void
     {
+        $this->requireLegacySupportPlugin();
         $legacyHash = md5('legacy_password');
 
         $result = $this->hasher->verifyWithLegacySupport($legacyHash, 'legacy_password');
