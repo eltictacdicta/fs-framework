@@ -23,6 +23,18 @@ final class FsModelAutoloaderAliasTest extends TestCase
             $this->markTestSkipped('catalogo_core not installed');
         }
 
+        // Cuando toda la suite corre en un mismo proceso, los tests de plugin
+        // pueden declarar el FQCN real como stub inline (InitUpgradeTest.php
+        // declara FSFramework\model\impuesto) antes de que este test cargue el
+        // fichero real del plugin: ese require fallaria con "Cannot declare
+        // class". El test se omite en ese escenario y se ejecuta en corridas
+        // aisladas (suite Base/Core o el phpunit.xml del propio plugin).
+        if (class_exists('FSFramework\\model\\impuesto', false)) {
+            $this->markTestSkipped(
+                'FSFramework\model\impuesto is already declared in this process by a plugin test stub; the real plugin model file cannot be loaded here'
+            );
+        }
+
         if (!class_exists('fs_model_autoloader', false)) {
             require_once FS_FOLDER . '/base/fs_model_autoloader.php';
         }
