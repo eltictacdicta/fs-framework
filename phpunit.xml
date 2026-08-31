@@ -40,7 +40,9 @@
             <directory>tests/View</directory>
         </testsuite>
         <testsuite name="Plugins">
-            <directory suffix="Test.php">plugins</directory>
+            <directory suffix="Test.php">plugins/*/tests</directory>
+            <exclude>plugins/*/vendor</exclude>
+            <exclude>plugins/*_back</exclude>
         </testsuite>
     </testsuites>
 
