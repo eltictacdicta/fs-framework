@@ -31,7 +31,7 @@ Security suite alone: `Tests: 177, Assertions: 332, Failures: 1, Skipped: 1.`
 Tests\Security\SecretManagerTest::testGetSecretReturnsConfiguredFrameworkSecret
 Failed asserting that two strings are identical.
 - 'phpunit-test-secret-key'
-+ 'a79fa967d030b4cb71026d6c33dd54e26011b1fbbd8cf11ecdddfb33520616c7'
++ '<redacted-local-container-secret>'
 ```
 
 Explanation: bootstrap defines `FS_SECRET_KEY = 'phpunit-test-secret-key'` (23 chars);
