@@ -24,7 +24,7 @@ FORCE=false
 SELECTED_PLUGINS=()
 
 usage() {
-    sed -n '2,17p' "$0" | sed 's/^# \?//'
+    awk '/^$/{exit} NR>=2 && /^#/{sub(/^# ?/,""); print}' "$0"
     exit "${1:-0}"
 }
 
@@ -39,7 +39,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --plugin)
-            SELECTED_PLUGINS+=("${2:-}")
+            [[ $# -ge 2 ]] || { echo "ERROR: --plugin requiere un nombre" >&2; exit 1; }
+            SELECTED_PLUGINS+=("$2")
             shift 2
             ;;
         -h|--help)
@@ -76,7 +77,7 @@ is_selected() {
 }
 
 # Emite lineas "nombre|url|branch" del catalogo.
-# Solo plugins de tipo "gratis" con link a repositorio git.
+# Excluye plugins de pago del catálogo público
 load_catalog_entries() {
     if [[ ! -f "${CUSTOM_PLUGINS_JSON}" ]]; then
         fail_plugin "catalogo" "no existe ${CUSTOM_PLUGINS_JSON}; instala/activa system_updater."
@@ -100,13 +101,20 @@ for item in data:
     name = item.get("nombre")
     link = item.get("link", "")
     branch = item.get("branch") or "main"
-    if name and link:
+    tipo = item.get("tipo", "")
+    if name and link and tipo != "pago":
         print(f"{name}|{link}|{branch}")
 PY
 }
 
 clone_plugin() {
     local name="$1" url="$2" branch="$3"
+
+    if [[ -z "${name}" ]] || [[ ! "${name}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        warn "nombre de plugin inválido: '${name}'; se omite."
+        return 1
+    fi
+
     local target_dir="${ROOT}/plugins/${name}"
 
     log ""
@@ -114,7 +122,7 @@ clone_plugin() {
     log "    repo: ${url}"
     log "    rama: ${branch}"
 
-    if [[ -d "${target_dir}/.git" ]]; then
+    if [[ -e "${target_dir}/.git" ]]; then
         log "    ya existe como repositorio git; se omite (usa git-update-all.sh para actualizar)."
         return 2
     fi
@@ -143,7 +151,7 @@ clone_plugin() {
         return 1
     fi
 
-    # Sin config local sobrante: el repo queda limpio para commit/push directo.
+    # Plain clone: HEAD sha summary
     local head
     head="$(git -C "${target_dir}" rev-parse --short HEAD 2>/dev/null || echo "?")"
     log "    OK -> ${head} (${branch})"
@@ -165,31 +173,37 @@ main() {
 
     local ok=0 skipped=0 failed=0
     local entry name url branch rc=0
+    local catalog_tmp="/tmp/.cr_entries.$$"
+    trap 'rm -f "${catalog_tmp}"' RETURN
 
-    while IFS= read -r entry; do
-        [[ -n "${entry}" ]] || continue
-        name="${entry%%|*}"
-        entry="${entry#*|}"
-        url="${entry%%|*}"
-        branch="${entry#*|}"
+    if ! load_catalog_entries | sort > "${catalog_tmp}"; then
+        failed=$((failed + 1))
+    else
+        while IFS= read -r entry; do
+            [[ -n "${entry}" ]] || continue
+            name="${entry%%|*}"
+            entry="${entry#*|}"
+            url="${entry%%|*}"
+            branch="${entry#*|}"
 
-        if [[ ${#SELECTED_PLUGINS[@]} -gt 0 ]] && ! is_selected "${name}"; then
-            continue
-        fi
+            if [[ ${#SELECTED_PLUGINS[@]} -gt 0 ]] && ! is_selected "${name}"; then
+                continue
+            fi
 
-        rc=0
-        clone_plugin "${name}" "${url}" "${branch}" || rc=$?
-        case "${rc}" in
-            0) ok=$((ok + 1)) ;;
-            2) skipped=$((skipped + 1)) ;;
-            *) failed=$((failed + 1)) ;;
-        esac
-    done < <(load_catalog_entries | sort)
+            rc=0
+            clone_plugin "${name}" "${url}" "${branch}" || rc=$?
+            case "${rc}" in
+                0) ok=$((ok + 1)) ;;
+                2) skipped=$((skipped + 1)) ;;
+                *) failed=$((failed + 1)) ;;
+            esac
+        done < "${catalog_tmp}"
+    fi
 
     if [[ ${#SELECTED_PLUGINS[@]} -gt 0 ]]; then
         local selected
         for selected in "${SELECTED_PLUGINS[@]}"; do
-            if ! load_catalog_entries | grep -q "^${selected}|"; then
+            if ! load_catalog_entries | awk -F'|' -v n="${selected}" '$1==n{found=1} END{exit !found}'; then
                 warn "${selected}: no figura en el catalogo publico."
                 failed=$((failed + 1))
             fi
