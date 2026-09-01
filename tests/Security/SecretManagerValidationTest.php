@@ -41,6 +41,9 @@ class SecretManagerValidationTest extends TestCase
 
     public function testSecretKeyConstantIsDefined(): void
     {
+        // Runtime env-contract guard: statically true because the bootstrap
+        // defines the constant, but it protects PHPUnit runs against regressions.
+        // @phpstan-ignore-next-line method.alreadyNarrowedType
         $this->assertTrue(
             defined('FS_SECRET_KEY'),
             'tests/bootstrap.php must define FS_SECRET_KEY'
@@ -60,7 +63,7 @@ class SecretManagerValidationTest extends TestCase
     {
         $secret = SecretManager::getSecret();
 
-        $this->assertNotNull($secret, 'getSecret() must not return null in the test environment');
+        // getSecret() is typed string, so a null assertion is redundant.
         $this->assertGreaterThanOrEqual(32, strlen($secret));
         $this->assertSame(constant('FS_SECRET_KEY'), $secret);
     }

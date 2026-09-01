@@ -21,14 +21,6 @@ parameters:
         - controller/admin_home.php
         - controller/force_password_change.php
     ignoreErrors:
-        # False positives: PHPStan infers constant values from test bootstrap,
-        # but these checks are needed at runtime when constants may vary
-        -
-            identifier: booleanNot.alwaysTrue
-            path: src/Core/Base/Controller.php
-        -
-            identifier: if.alwaysTrue
-            path: src/Core/Base/Controller.php
         # Symbols from optional plugins (separate gitignored repos) are unknown to
         # PHPStan when the plugin is not installed; runtime guards handle absence.
         -
@@ -43,9 +35,3 @@ parameters:
         -
             identifier: function.notFound
             path: tests/Base/UpdaterPathValidationTest.php
-        -
-            identifier: class.notFound
-            path: tests/Base/LegacyUsageTrackerTest.php
-        -
-            identifier: requireOnce.fileNotFound
-            path: tests/Base/LegacyUsageTrackerTest.php
