@@ -9,7 +9,7 @@
 
 Decision needed before apply: Yes
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: stacked-to-main (resolved by orchestrator for apply; PR 1 core enablement merged to main as #10)
 400-line budget risk: High
 
 ### Suggested Work Units
@@ -38,17 +38,17 @@ Strict TDD: RED→GREEN per unit. Runner: `ddev exec php vendor/bin/phpunit`.
 
 ## Phase 4: Pilot Templates + JS (D4a-D4c/D5, TCP-01..07)
 
-- [ ] 4.1 RED: create `plugins/tarifario/tests/Controller/TarifCatalogoHtmxContractTest.php` (DB-free; pattern per `TarifTabPreciosTest.php` (read-only)): view renders macro import+boot, `id="catalogo-main-region"`; headers carry `hx-get`, `hx-trigger="click[!this.classList.contains('expanded')]"`, `hx-target="#tbody-{codfamilia}"`, `hx-swap="innerHTML"`; load-more rows `hx-swap="beforeend"` in both fragment templates; TCP-05 parity (`htmx_articulos`/`htmx_articulos_agrupados`). Est: +90.
-- [ ] 4.2 GREEN: edit `plugins/tarifario/View/tarif_catalogo_view.html.twig` (import+boot, region id, header hx attrs), `plugins/tarifario/View/partials/catalogo/toolbar.html.twig` (filters: `hx-boost="true"` + `hx-push-url="true"` + name attrs, TCP-04), `plugins/tarifario/View/tarif_catalogo_articulos.html.twig` and `tarif_catalogo_articulos_agrupados.html.twig` (load-more → hx attrs, drop onclick). Est: +42/-14.
-- [ ] 4.3 RED: extend contract test — `plugins/tarifario/View/js/catalogo/catalogo-main.js` has no `loadArticulos`/`loadMoreArticulos` fetches; has `htmx.ajax` view-mode/sort fan-out + v4 `htmx:after:swap`/`htmx:after:request` listeners (`evt.detail.ctx`); jQuery POST/inline-edit/sortable/export handlers intact (TCP-06). Est: +70.
-- [ ] 4.4 GREEN: edit `plugins/tarifario/View/js/catalogo/catalogo-main.js` — delete `loadArticulos` (:175-218), `loadMoreArticulos` (:401-417), filter navigations (:54-98); add D4b/D5 bridge+shim: `htmx.ajax` fan-out, re-init `initInlineEdit`/`initSortable` on `evt.detail.ctx.target`, load-more cleanup, view-mode sync, double-bind guards (`.off().on()`, `data-ui-sortable`). Est: +50/-95.
+- [x] 4.1 RED: create `plugins/tarifario/tests/Controller/TarifCatalogoHtmxContractTest.php` (DB-free; pattern per `TarifTabPreciosTest.php` (read-only)): view renders macro import+boot, `id="catalogo-main-region"`; headers carry `hx-get`, `hx-trigger="click[!this.classList.contains('expanded')]"`, `hx-target="#tbody-{codfamilia}"`, `hx-swap="innerHTML"`; load-more rows `hx-swap="beforeend"` in both fragment templates; TCP-05 parity (`htmx_articulos`/`htmx_articulos_agrupados`). Est: +90. (RED: 3 F + 2 E / 6 tests)
+- [x] 4.2 GREEN: edit `plugins/tarifario/View/tarif_catalogo_view.html.twig` (import+boot, region id, header hx attrs), `plugins/tarifario/View/partials/catalogo/toolbar.html.twig` (filters: `hx-boost="true"` + `hx-push-url="true"` + name attrs, TCP-04), `plugins/tarifario/View/tarif_catalogo_articulos.html.twig` and `tarif_catalogo_articulos_agrupados.html.twig` (load-more → hx attrs, drop onclick). Est: +42/-14. (GREEN: OK 6 tests, 28 assertions. Note: agrupados fragment has no pagination — no load-more existed to migrate; see apply-progress deviations)
+- [x] 4.3 RED: extend contract test — `plugins/tarifario/View/js/catalogo/catalogo-main.js` has no `loadArticulos`/`loadMoreArticulos` fetches; has `htmx.ajax` view-mode/sort fan-out + v4 `htmx:after:swap`/`htmx:after:request` listeners (`evt.detail.ctx`); jQuery POST/inline-edit/sortable/export handlers intact (TCP-06). Est: +70. (RED: 3 F / 10 tests)
+- [x] 4.4 GREEN: edit `plugins/tarifario/View/js/catalogo/catalogo-main.js` — delete `loadArticulos` (:175-218), `loadMoreArticulos` (:401-417), filter navigations (:54-98); add D4b/D5 bridge+shim: `htmx.ajax` fan-out, re-init `initInlineEdit`/`initSortable` on `evt.detail.ctx.target`, load-more cleanup, view-mode sync, double-bind guards (`.off().on()`, `data-ui-sortable`). Est: +50/-95. (GREEN: OK 10 tests, 54 assertions)
 
 ## Phase 5: Controller Cleanup (TCP-08)
 
-- [ ] 5.1 RED: extend contract test — `plugins/tarifario/controller/tarif_catalogo_view.php`: no `is_htmx_request` definition/call; HX detection delegates to `fs_controller::isHtmxRequest()`. Est: +15.
-- [ ] 5.2 GREEN: remove dead `is_htmx_request()` (`plugins/tarifario/controller/tarif_catalogo_view.php:589-592`). Est: -5.
+- [x] 5.1 RED: extend contract test — `plugins/tarifario/controller/tarif_catalogo_view.php`: no `is_htmx_request` definition/call; HX detection delegates to `fs_controller::isHtmxRequest()`. Est: +15. (RED: 1 F + 1 passing guard / 12 tests)
+- [x] 5.2 GREEN: remove dead `is_htmx_request()` (`plugins/tarifario/controller/tarif_catalogo_view.php:589-592`). Est: -5. (GREEN: OK 12 tests, 58 assertions)
 
 ## Phase 6: Verification (HCS-01/03, TCP-09/10)
 
 - [x] 6.1 `./build.sh`: `view/js/htmx.min.js` present with `4.0.0` marker, prior steps succeed; stage vendored asset (repo versions `view/js/`).
-- [ ] 6.2 Full suite `ddev exec php vendor/bin/phpunit` green — TCP-09; error rows untouched per D6 (read-only `tarif_catalogo_view.php:744-747,849-853`).
+- [x] 6.2 Full suite `ddev exec php vendor/bin/phpunit` green — TCP-09; error rows untouched per D6 (read-only `tarif_catalogo_view.php:744-747,849-853`). (1284 tests: 18 errors verified PRE-EXISTING on plugin master — Tests\Tarifario permission-listener family, missing catalogo_core ArticlePermissionFilterEvent; 0 regressions from this unit. See apply-progress)
