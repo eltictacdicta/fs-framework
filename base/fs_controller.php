@@ -476,6 +476,18 @@ class fs_controller extends fs_app
     }
 
     /**
+     * Indica si la petición actual es htmx.
+     * Detecta via header HX-Request (presencia: el valor es irrelevante,
+     * htmx siempre lo envía en peticiones que originó).
+     *
+     * @return bool
+     */
+    public function isHtmxRequest(): bool
+    {
+        return $this->request->headers->get('HX-Request') !== null;
+    }
+
+    /**
      * Devuelve la lista de menús
      * @return array lista de menús
      */

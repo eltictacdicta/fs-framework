@@ -1,0 +1,35 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * Opt-in htmx 4 boot macro (HCS-04): the ONLY loading point for htmx.
+ * There is no global include — legacy screens never load htmx (HCS-09).
+ *
+ * Import once per opting-in view:
+ *
+ *     {% import 'Macro/Htmx.html.twig' as htmx %}
+ *     {{ htmx.boot() }}
+ *
+ * Emits, in order:
+ *  1. An inline bootstrap that sets inherited hx-headers (X-CSRF-TOKEN)
+ *     on document.documentElement BEFORE htmx initializes (D2). The
+ *     deferred asset below therefore sees the inherited headers on
+ *     every request it issues, including after body swaps.
+ *  2. One nonce'd, deferred <script> tag for the vendored htmx asset.
+ *
+ * The token comes from csrf_token() — the same session token that
+ * csrf_meta() renders (D7, HCS-07). htmx POSTs validate through the
+ * existing validateCsrf() flow via the X-CSRF-TOKEN header; GET
+ * fragment requests need no token (HCS-08).
+ */
+#}
+{% macro boot() %}
+    <script {{ csp_nonce_attr() }}>
+        document.documentElement.setAttribute(
+            'hx-headers:inherited',
+            JSON.stringify({ 'X-CSRF-TOKEN': '{{ csrf_token() }}' })
+        );
+    </script>
+    <script src="view/js/htmx.min.js" {{ csp_nonce_attr() }} defer></script>
+{% endmacro %}
