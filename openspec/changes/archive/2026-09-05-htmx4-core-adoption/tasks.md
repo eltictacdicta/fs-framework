@@ -51,4 +51,4 @@ Strict TDD: RED→GREEN per unit. Runner: `ddev exec php vendor/bin/phpunit`.
 ## Phase 6: Verification (HCS-01/03, TCP-09/10)
 
 - [x] 6.1 `./build.sh`: `view/js/htmx.min.js` present with `4.0.0` marker, prior steps succeed; stage vendored asset (repo versions `view/js/`).
-- [x] 6.2 Full suite `ddev exec php vendor/bin/phpunit` green — TCP-09; error rows untouched per D6 (read-only `tarif_catalogo_view.php:744-747,849-853`). (1284 tests: 18 errors verified PRE-EXISTING on plugin master — Tests\Tarifario permission-listener family, missing catalogo_core ArticlePermissionFilterEvent; 0 regressions from this unit. See apply-progress)
+- [x] 6.2 Full suite `ddev exec php vendor/bin/phpunit` exit 2 (NOT green) — TCP-09; 18 errors verified PRE-EXISTING on plugin master baseline — Tests\Tarifario permission-listener family, missing catalogo_core ArticlePermissionFilterEvent; 0 regressions from this unit. Baseline-excluded focused suite is the approved execution for this change. Error rows untouched per D6 (read-only `tarif_catalogo_view.php:744-747,849-853`). See apply-progress
