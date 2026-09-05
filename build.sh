@@ -18,5 +18,6 @@ cp node_modules/bootswatch/united/bootstrap.min.css view/css/bootstrap-united.mi
 cp node_modules/bootswatch/yeti/bootstrap.min.css view/css/bootstrap-yeti.min.css
 cp node_modules/font-awesome/css/* view/css/
 cp node_modules/font-awesome/fonts/* view/fonts/
+cp node_modules/htmx.org/dist/htmx.min.js view/js/
 cp node_modules/jquery/dist/jquery.min.js view/js/
 rm -rf node_modules package-lock.json
