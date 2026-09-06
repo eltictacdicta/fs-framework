@@ -28,7 +28,10 @@
    {% if file_exists(theme_path ~ '/css/skins/_all-skins.min.css') %}
    <link rel="stylesheet" href="{{ constant('FS_PATH') }}{{ theme_path }}/css/skins/_all-skins.min.css" />
    {% endif %}
-   <link rel="stylesheet" href="{{ constant('FS_PATH') }}view/css/datepicker.css" />
+   {# Legacy plugin assets (head_extra_css), populated via TwigInitEvent by plugins such as legacy_support #}
+   {% for css_url in head_extra_css|default([]) %}
+   <link rel="stylesheet" href="{{ constant('FS_PATH') }}{{ css_url }}" />
+   {% endfor %}
    <link rel="stylesheet" href="{{ constant('FS_PATH') }}view/css/custom.css" />
    {% if file_exists(theme_path ~ '/css/estilo.css') %}
    <link rel="stylesheet" href="{{ constant('FS_PATH') }}{{ theme_path }}/css/estilo.css" />
@@ -38,10 +41,12 @@
    {% endif %}
    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.min.js"></script>
    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap.min.js"></script>
-   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
-   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/bootbox.min.js"></script>
-   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery-ui.min.js"></script>
-   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/jquery.autocomplete.min.js"></script>
+   {# Legacy plugin scripts (head_extra_js), populated via TwigInitEvent by plugins such as legacy_support.
+      Plain synchronous tags on purpose: legacy plugins assume this load order (before fs-dialogs.js and base.js). #}
+   {% for js_url in head_extra_js|default([]) %}
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}{{ js_url }}?v={{ fsc.today() }}"></script>
+   {% endfor %}
+   <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}view/js/fs-dialogs.js"></script>
    {% if file_exists(theme_path ~ '/js/jquery.slimscroll.min.js') %}
    <script {{ csp_nonce_attr() }} type="text/javascript" src="{{ constant('FS_PATH') }}{{ theme_path }}/js/jquery.slimscroll.min.js"></script>
    {% endif %}

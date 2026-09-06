@@ -24,12 +24,14 @@
   },
   "homepage": "https://github.com/eltictacdicta/fs-framework",
   "dependencies": {
+    "@alpinejs/csp": "3.17.1",
     "bootbox": "^5.5.3",
     "bootstrap": "^3.4.1",
     "bootswatch": "3.*",
     "font-awesome": "4.*",
     "htmx.org": "^4.0.0",
-    "jquery": "^3.7.1"
+    "jquery": "^3.7.1",
+    "sortablejs": "1.15.6"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",

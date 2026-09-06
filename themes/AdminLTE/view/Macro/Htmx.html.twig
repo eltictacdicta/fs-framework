@@ -11,7 +11,25 @@
  *     {% import 'Macro/Htmx.html.twig' as htmx %}
  *     {{ htmx.boot() }}
  *
- * Emits, in order:
+ * The zero-argument form is the baseline contract (HCS-05): its output
+ * must stay byte-identical.
+ *
+ * Views that swap in server fragments which may carry scripts can opt
+ * into FSAjaxLoader's sanitization posture:
+ *
+ *     {{ htmx.boot({'allowScriptTags': false}) }}
+ *
+ * The config form additionally emits, BEFORE the htmx asset:
+ *  1. A htmx-config <meta> with {"allowScriptTags": false}. Note: htmx
+ *     4.0.0 merges unknown config keys but does not implement
+ *     allowScriptTags, so the meta alone is inert.
+ *  2. A nonce'd inline scrubber that listens for htmx:before:swap and
+ *     strips script/object/embed/applet/iframe elements, on* handler
+ *     attributes and javascript: URLs from every incoming fragment
+ *     before insertion — mirroring FSAjaxLoader.sanitizeHtml (which is
+ *     what actually enforces the posture under htmx 4).
+ *
+ * Baseline emissions, in order:
  *  1. An inline bootstrap that sets inherited hx-headers (X-CSRF-TOKEN)
  *     on document.documentElement BEFORE htmx initializes (D2). The
  *     deferred asset below therefore sees the inherited headers on
@@ -24,7 +42,41 @@
  * fragment requests need no token (HCS-08).
  */
 #}
-{% macro boot() %}
+{% macro boot(config = {}) %}
+{%- if config.allowScriptTags is same as(false) %}
+    <meta name="htmx-config" content='{{ {"allowScriptTags": false}|json_encode|e('html_attr') }}'>
+    <script {{ csp_nonce_attr() }}>
+        // htmx 4.0.0 dropped allowScriptTags: scripts inside swapped content
+        // are always re-created and executed. Replicate FSAjaxLoader's
+        // sanitizeHtml posture by scrubbing fragments before insertion.
+        document.addEventListener('htmx:before:swap', function (evt) {
+            var tasks = evt.detail && evt.detail.tasks;
+            if (!tasks) {
+                return;
+            }
+            tasks.forEach(function (task) {
+                var frag = task.fragment;
+                if (!frag || !frag.querySelectorAll) {
+                    return;
+                }
+                frag.querySelectorAll('script,object,embed,applet,iframe').forEach(function (el) {
+                    el.remove();
+                });
+                frag.querySelectorAll('*').forEach(function (el) {
+                    Array.prototype.slice.call(el.attributes).forEach(function (attr) {
+                        var name = attr.name.toLowerCase();
+                        var value = String(attr.value).trim().toLowerCase();
+                        var dangerous = name.indexOf('on') === 0
+                            || ((name === 'href' || name === 'src') && value.indexOf('javascript:') === 0);
+                        if (dangerous) {
+                            el.removeAttribute(attr.name);
+                        }
+                    });
+                });
+            });
+        });
+    </script>
+{%- endif %}
     <script {{ csp_nonce_attr() }}>
         document.documentElement.setAttribute(
             'hx-headers:inherited',

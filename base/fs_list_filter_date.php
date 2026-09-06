@@ -87,9 +87,35 @@ class fs_list_filter_date extends fs_list_filter
             . '<span class="input-group-addon">'
             . '<span class="glyphicon glyphicon-calendar"></span>'
             . '</span>'
-            . '<input type="text" name="' . $this->name() . '" value="' . $this->value . '" class="form-control datepicker" placeholder="'
+            . '<input type="date" name="' . $this->name() . '" value="' . self::date_to_iso($this->value) . '" class="form-control" placeholder="'
             . $this->label . '" autocomplete="off" onchange="this.form.submit()">'
             . '</div>'
             . '</div>';
+    }
+
+    /**
+     * Converts a model date string (d-m-Y) to the ISO format (Y-m-d) required
+     * by native <input type="date"> fields. Strict: only the exact d-m-Y shape
+     * passes checkdate() and is converted; anything else is returned
+     * unchanged. Same semantics as the Twig date_iso filter (see also
+     * fs_edit_form::date_to_iso).
+     *
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    private static function date_to_iso($value)
+    {
+        if (!is_string($value) || $value === '') {
+            return $value;
+        }
+
+        if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})$/', $value, $matches)
+            && checkdate((int) $matches[2], (int) $matches[1], (int) $matches[3])
+        ) {
+            return sprintf('%04d-%02d-%02d', $matches[3], $matches[2], $matches[1]);
+        }
+
+        return $value;
     }
 }

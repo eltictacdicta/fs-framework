@@ -1,9 +1,11 @@
 {{ include('header.html.twig') }}
 
-<script type="text/javascript">
-   $(document).ready(function () {
-      $(".sortable").sortable();
-      $(".sortable").disableSelection();
+<script src="view/js/Sortable.min.js" {{ csp_nonce_attr() }}></script>
+<script {{ csp_nonce_attr() }} type="text/javascript">
+   document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.sortable').forEach(function(el) {
+         Sortable.create(el, { animation: 150 });
+      });
    });
 </script>
 

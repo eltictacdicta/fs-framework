@@ -236,6 +236,34 @@ class Html
     private static function registerFilters(Environment $twig): void
     {
         $twig->addFilter(new \Twig\TwigFilter('base64_encode', 'base64_encode'));
+        $twig->addFilter(new \Twig\TwigFilter('date_iso', [self::class, 'dateIsoValue']));
+    }
+
+    /**
+     * Convert a model date string (d-m-Y, e.g. "31-01-2026") to the ISO format
+     * (Y-m-d) required by native <input type="date"> fields.
+     *
+     * Strict on purpose: Twig's |date filter and bare strtotime() parse
+     * "5-1-2026" ambiguously (month/day swap), so only the exact d-m-Y shape
+     * is converted, after checkdate() validates it. Any other input (empty,
+     * already ISO, invalid date, wrong separator) is returned unchanged.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    public static function dateIsoValue(mixed $value): mixed
+    {
+        if (!is_string($value) || $value === '') {
+            return $value;
+        }
+
+        if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})$/', $value, $matches)
+            && checkdate((int) $matches[2], (int) $matches[1], (int) $matches[3])
+        ) {
+            return sprintf('%04d-%02d-%02d', $matches[3], $matches[2], $matches[1]);
+        }
+
+        return $value;
     }
 
     /**

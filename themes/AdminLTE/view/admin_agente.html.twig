@@ -140,13 +140,13 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label>Fecha de nacimiento</label>
-                                    <input class="form-control datepicker" type="text" name="f_nacimiento" value="{{ fsc.agente.f_nacimiento }}"/>
+                                    <input class="form-control" type="date" name="f_nacimiento" value="{{ fsc.agente.f_nacimiento|date_iso }}"/>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label>Fecha de alta</label>
-                                    <input class="form-control datepicker" type="text" name="f_alta" value="{{ fsc.agente.f_alta }}"/>
+                                    <input class="form-control" type="date" name="f_alta" value="{{ fsc.agente.f_alta|date_iso }}"/>
                                 </div>
                             </div>
                         </div>
@@ -155,7 +155,7 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label>Fecha de baja</label>
-                                    <input class="form-control datepicker" type="text" name="f_baja" value="{{ fsc.agente.f_baja }}"/>
+                                    <input class="form-control" type="date" name="f_baja" value="{{ fsc.agente.f_baja|date_iso }}"/>
                                 </div>
                             </div>
                             <div class="col-md-6">

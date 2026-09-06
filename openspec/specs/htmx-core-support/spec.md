@@ -109,3 +109,93 @@ A view that does not import the macro MUST render exactly as before this change:
 - **WHEN** the page renders
 - **THEN** output contains no htmx script, no hx-headers bootstrap, and no hx-driven behavior
 - **AND** rendering is identical to pre-change output
+
+---
+
+## Parallel infrastructure: Alpine.js CSP boot macro
+
+Opt-in Alpine.js 3 (CSP build) boot support, mirroring the htmx macro pattern above (Phase 5, jQuery migration plan). Infrastructure only: no view ships Alpine directives yet.
+
+| ID | Requirement | Strength |
+|----|-------------|----------|
+| ABS-01 | The Alpine.js CSP build (`@alpinejs/csp`, exact version pinned in `package.json`) MUST be available at `view/js/alpine-csp.min.js`, vendored through `build.sh` from the npm dependency. | MUST |
+| ABS-02 | Alpine MUST load only through the theme macro `themes/AdminLTE/view/Macro/Alpine.html.twig`, imported once per opting-in view; there MUST be no global default, and `header.html.twig`/`footer.html.twig` MUST NOT reference Alpine. | MUST |
+| ABS-03 | The macro MUST emit exactly one `<script>` tag for `view/js/alpine-csp.min.js` carrying `{{ csp_nonce_attr() }}` and `defer`; the asset MUST be the CSP build (no `eval`/`new Function`). | MUST |
+
+### Requirement: ABS-01 — Vendored Alpine CSP asset via build pipeline
+
+The Alpine CSP build MUST be available at `view/js/alpine-csp.min.js`, vendored through `build.sh` from the npm dependency `@alpinejs/csp` pinned to an exact version in `package.json`.
+
+#### Scenario: build.sh vendors the Alpine CSP build from npm
+
+- **GIVEN** `package.json` pins `@alpinejs/csp` to an exact 3.x version
+- **WHEN** `./build.sh` runs the npm install and asset copy steps
+- **THEN** `view/js/alpine-csp.min.js` exists matching the pinned release
+- **AND** the asset is the CSP build: it contains no `eval` or `new Function` calls
+
+### Requirement: ABS-02 — Opt-in macro as the only load path
+
+Alpine MUST load only through the theme macro `themes/AdminLTE/view/Macro/Alpine.html.twig`, imported once per opting-in view; there MUST be no global default.
+
+#### Scenario: global header/footer stay Alpine-free
+
+- **GIVEN** the macro exists
+- **WHEN** `header.html.twig` and `footer.html.twig` are inspected
+- **THEN** no Alpine reference exists
+- **AND** views that do not import the macro render without any Alpine script
+
+### Requirement: ABS-03 — Macro emits one nonce'd, deferred script tag
+
+The macro MUST emit exactly one `<script>` tag for `view/js/alpine-csp.min.js` carrying `{{ csp_nonce_attr() }}` and `defer`.
+
+#### Scenario: macro import emits the nonce'd deferred script
+
+- **GIVEN** a view imports `Macro/Alpine.html.twig` and calls `alpine.boot()`
+- **WHEN** the page renders
+- **THEN** exactly one Alpine script tag appears, with a nonce attribute and `defer`
+- **AND** the macro emits no inline bootstrap and no inline event handlers
+
+---
+
+## Pilot: admin_user extension tabs on htmx (jQuery migration plan)
+
+First real htmx adoption: the `admin_user` extension tabs migrate from FSAjaxLoader (`data-ajax-url` + `shown.bs.tab`) to declarative htmx, fully client-side, zero server changes. The server keeps answering full pages; the fragment is selected client-side.
+
+| ID | Requirement | Strength |
+|----|-------------|----------|
+| HCS-10 | Extension tab links in `admin_user.html.twig` MUST load their pane via htmx GET reusing the exact legacy URL (including `&ajax=1`), with `hx-trigger="click once"` (replicates the load-once guard), `hx-target` pointing at the pane, explicit `hx-swap="innerHTML"`, `data-toggle="tab"` preserved (Bootstrap still switches the panel), and MUST NOT keep `data-ajax-url` (FSAjaxLoader's `shown.bs.tab` handler would double-load). | MUST |
+| HCS-11 | `hx-select` MUST be a single selector replicating FSAjaxLoader's *effective* extraction on this theme: `.content-wrapper > *`. Comma lists in `hx-select` are applied as `querySelectorAll` (all matches, document order → wrapper plus nested matches duplicated); the shell has no `.content` element, so the FSAjaxLoader primary selector `.content-wrapper .content` matches nothing and would clear the pane. | MUST |
+| HCS-12 | Views whose swapped fragments may carry scripts MUST boot htmx with `boot({'allowScriptTags': false})`; the macro MUST then emit the `htmx-config` meta (inert under htmx 4.0.0, which dropped `allowScriptTags`) plus a nonce'd `htmx:before:swap` scrubber mirroring `FSAjaxLoader.sanitizeHtml` (removes script/object/embed/applet/iframe, `on*` handlers, `javascript:` URLs before insertion). The zero-argument `boot()` output MUST remain byte-identical to HCS-05. | MUST |
+
+### Requirement: HCS-10 — Extension tabs load via htmx with URL parity
+
+Extension tab links in `admin_user.html.twig` load their pane declaratively with htmx, reusing the legacy extension URL unchanged (zero server changes).
+
+#### Scenario: extension tab click loads pane once via htmx
+
+- **GIVEN** `admin_user.html.twig` is rendered with tab-type extensions
+- **WHEN** the page is inspected
+- **THEN** each extension tab link carries `hx-get` with the legacy URL (including `&ajax=1`), `hx-target="#ext_{name}"`, `hx-select`, `hx-swap="innerHTML"`, `hx-trigger="click once"`, and keeps `data-toggle="tab"`
+- **AND** no `data-ajax-url` attribute remains on those links
+
+### Requirement: HCS-11 — Fragment selection mirrors effective FSAjaxLoader extraction
+
+`hx-select` uses one selector, `.content-wrapper > *`, matching what `extractMainContent` actually extracted on this theme (its primary `.content-wrapper .content` never matches; the fallback `.content-wrapper` did).
+
+#### Scenario: swapped fragment is the wrapper's children, not duplicates
+
+- **GIVEN** htmx receives a full-page response for an extension tab
+- **WHEN** the fragment is selected with `hx-select=".content-wrapper > *"`
+- **THEN** exactly the direct children of `.content-wrapper` are swapped into the pane
+- **AND** no duplicated wrapper/nested matches occur (a comma list would match all of `.content-wrapper`, `.container-fluid`, `body`, … at once)
+
+### Requirement: HCS-12 — Script sanitization parity via the macro config form
+
+The macro's optional config reproduces FSAjaxLoader's strip-scripts posture; htmx 4.0.0 does not implement `allowScriptTags`, so enforcement is the emitted scrubber, not the meta.
+
+#### Scenario: configured boot emits meta plus scrubber before the asset
+
+- **GIVEN** a view calls `htmx.boot({'allowScriptTags': false})`
+- **WHEN** the page renders
+- **THEN** a `htmx-config` meta with `{"allowScriptTags": false}` and a nonce'd `htmx:before:swap` scrubber appear before the htmx asset
+- **AND** the zero-argument `boot()` output is byte-identical to HCS-05

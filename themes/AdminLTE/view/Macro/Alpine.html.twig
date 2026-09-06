@@ -1,0 +1,33 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * Opt-in Alpine.js 3 (CSP build) boot macro (ABS-02): the ONLY loading
+ * point for Alpine. There is no global include — legacy screens never
+ * load Alpine.
+ *
+ * Import once per opting-in view:
+ *
+ *     {% import 'Macro/Alpine.html.twig' as alpine %}
+ *     {{ alpine.boot() }}
+ *
+ * Emits one nonce'd, deferred <script> tag for the vendored Alpine CSP
+ * build (@alpinejs/csp). Regular Alpine evaluates expressions through
+ * Function declarations, which violates the framework CSP (no
+ * unsafe-eval) — the CSP build does not, so it is safe to serve with a
+ * nonce. The trade-off: inline expressions are restricted to simple
+ * property access and method calls; put any richer logic in
+ * Alpine.data() components registered from your own nonce'd script.
+ *
+ * `defer` matters: Alpine must initialize only after the DOM is parsed.
+ *
+ * Coexists with htmx: a view may import both macros; htmx.boot() and
+ * alpine.boot() both emit deferred scripts, so import order is
+ * irrelevant (hx- attributes and Alpine directives are processed
+ * independently).
+ */
+#}
+{% macro boot() %}
+    <script src="view/js/alpine-csp.min.js" {{ csp_nonce_attr() }} defer></script>
+{% endmacro %}

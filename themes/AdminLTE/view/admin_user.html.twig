@@ -1,5 +1,8 @@
 {{ include('header.html.twig') }}
 
+{% import 'Macro/Htmx.html.twig' as htmx %}
+{{ htmx.boot({'allowScriptTags': false}) }}
+
 {% if fsc.suser %}
 <script type="text/javascript">
    $(document).ready(function() {
@@ -212,7 +215,7 @@
          {% for value in fsc.extensions %}
             {% if value.type == 'tab' %}
             <li role="presentation">
-               <a href="#ext_{{ value.name }}" aria-controls="ext_{{ value.name }}" role="tab" data-toggle="tab" data-ajax-url="index.php?page={{ value.from }}{{ value.params }}&snick={{ fsc.suser.nick }}&ajax=1">{{ value.text }}</a>
+               <a href="#ext_{{ value.name }}" aria-controls="ext_{{ value.name }}" role="tab" data-toggle="tab" hx-get="index.php?page={{ value.from }}{{ value.params }}&snick={{ fsc.suser.nick }}&ajax=1" hx-target="#ext_{{ value.name }}" hx-select=".content-wrapper > *" hx-swap="innerHTML" hx-trigger="click once">{{ value.text }}</a>
             </li>
             {% endif %}
          {% endfor %}

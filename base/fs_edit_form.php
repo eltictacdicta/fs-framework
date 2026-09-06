@@ -108,8 +108,8 @@ class fs_edit_form
                     . '<span class="input-group-addon">'
                     . '<span class="glyphicon glyphicon-calendar"></span>'
                     . '</span>'
-                    . '<input class="form-control datepicker" type="text" name="' . $col_name
-                    . '" value="' . $model->{$col_name} . '" autocomplete="off"' . $required . '/></div>';
+                    . '<input class="form-control" type="date" name="' . $col_name
+                    . '" value="' . self::date_to_iso($model->{$col_name}) . '" autocomplete="off"' . $required . '/></div>';
                 break;
 
             case 'money':
@@ -182,5 +182,31 @@ class fs_edit_form
         }
 
         return $model;
+    }
+
+    /**
+     * Converts a model date string (d-m-Y) to the ISO format (Y-m-d) required
+     * by native <input type="date"> fields. Strict: bare strtotime() parses
+     * "5-1-2026" ambiguously, so only the exact d-m-Y shape passes checkdate()
+     * and is converted; anything else (empty, already ISO, invalid) is
+     * returned unchanged. Same semantics as the Twig date_iso filter.
+     *
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    private static function date_to_iso($value)
+    {
+        if (!is_string($value) || $value === '') {
+            return $value;
+        }
+
+        if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{4})$/', $value, $matches)
+            && checkdate((int) $matches[2], (int) $matches[1], (int) $matches[3])
+        ) {
+            return sprintf('%04d-%02d-%02d', $matches[3], $matches[2], $matches[1]);
+        }
+
+        return $value;
     }
 }

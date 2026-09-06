@@ -387,7 +387,6 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
         echo '<link rel="stylesheet" href="themes/AdminLTE/css/skins/skin-blue.min.css" />' . $nl;
     }
     ?>
-    <link rel="stylesheet" href="view/css/datepicker.css" />
     <link rel="stylesheet" href="view/css/custom.css" />
     <?php
     // Estilos adicionales de AdminLTE
@@ -398,8 +397,6 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
     <!-- Scripts JavaScript -->
     <script type="text/javascript" src="view/js/jquery.min.js"></script>
     <script type="text/javascript" src="view/js/bootstrap.min.js"></script>
-    <script type="text/javascript" src="view/js/bootstrap-datepicker.js" charset="UTF-8"></script>
-    <script type="text/javascript" src="view/js/jquery.autocomplete.min.js"></script>
     <?php
     // Scripts de AdminLTE si están disponibles
     if (file_exists('themes/AdminLTE/js/jquery.slimscroll.min.js')) {
