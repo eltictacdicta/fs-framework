@@ -69,11 +69,6 @@
                     FSFramework\model\cliente that cannot be installed once the
                     real class is loaded by another suite member.
 
-                 4) catalogo_core/tests/FrameworkAutoloaderOverrideTest is
-                    process-order dependent (global-vs-namespaced class
-                    coexistence cannot be exercised after earlier tests loaded
-                    the classes).
-
                  5) catalogo_core view tests (VentasArticuloControllerTest,
                     VentasArticulosControllerTest) fail against the plugin's own
                     current views (|raw drift, plugin-owned).
@@ -104,7 +99,6 @@
             <exclude>plugins/tarifario/tests/Model/TarifTarifaTest.php</exclude>
             <exclude>plugins/clientes_core/tests/CuentaBancoClienteModelTest.php</exclude>
             <exclude>plugins/clientes_core/tests/InitUpgradeTest.php</exclude>
-            <exclude>plugins/catalogo_core/tests/FrameworkAutoloaderOverrideTest.php</exclude>
             <exclude>plugins/catalogo_core/tests/VentasArticuloControllerTest.php</exclude>
             <exclude>plugins/catalogo_core/tests/VentasArticulosControllerTest.php</exclude>
             <exclude>plugins/tarifario/tests/Controller/TarifTarifasGuardarTest.php</exclude>
