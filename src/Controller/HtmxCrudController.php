@@ -36,6 +36,15 @@ class HtmxCrudController extends \fs_controller
     }
 
     /**
+     * URL for the no-htmx PRG fallback redirect.
+     * Subclasses override to append persistent list params (e.g. codtarifa).
+     */
+    protected function listUrl(): string
+    {
+        return $this->url();
+    }
+
+    /**
      * Render a Twig partial via Html::render() — the seam for testing.
      * Subclasses or tests override this to inject fixture HTML.
      */
