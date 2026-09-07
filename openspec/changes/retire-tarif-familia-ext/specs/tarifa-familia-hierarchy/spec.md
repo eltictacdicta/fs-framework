@@ -113,13 +113,15 @@ The `tarif_articulos.php` import writers MUST resolve the target tarifa from the
 
 ### Requirement: tarif_familia is a deprecated read-only API
 
-The `tarif_familia` model MUST remain as a `@deprecated` read-only wrapper. Its write methods (`save`, `delete`, and the extension helpers `save_extension`, `delete_extension`, `load_extension`, `ext_exists`, `calcular_nivel`, `actualizar_niveles_hijas`) MUST be removed. All read methods (`get`, `get_madre`, `get_hijas`, `hijas`, `all`, `all_simple`, `search`, `all_by_capitulo`, `suggest_capitulo`) MUST be preserved unchanged, including the historical ext LEFT JOINs (AD-1, AD-2). Write-needing callers MUST use the base `familia` model plus `tarif_tarifa_familia`.
+The `tarif_familia` model MUST remain as a `@deprecated` read-only wrapper. Its own write surface — the `save` and `delete` overrides plus the extension helpers (`save_extension`, `delete_extension`, `load_extension`, `ext_exists`, `calcular_nivel`, `actualizar_niveles_hijas`) — MUST be removed, so the class declares NO write methods of its own targeting `tarif_familia_ext`. `save()`/`delete()` inherited from base `familia` remain callable but write only the `familias` table; `tarif_familia_ext` is unreachable as a write target through this class. All read methods (`get`, `get_madre`, `get_hijas`, `hijas`, `all`, `all_simple`, `search`, `all_by_capitulo`, `suggest_capitulo`) MUST be preserved unchanged, including the historical ext LEFT JOINs (AD-1, AD-2). Write-needing callers MUST use the base `familia` model plus `tarif_tarifa_familia`.
 
-#### Scenario: Write surface removed and fails loudly
+#### Scenario: No own write surface, ext unreachable
 
 - GIVEN the deprecated class after this change
-- WHEN its API is inspected, or a stale caller invokes a removed write method
-- THEN no write method exists and a stale caller fails loudly (undefined method)
+- WHEN its API is inspected, or a stale caller invokes one of the removed extension helpers (`save_extension`, `delete_extension`, `load_extension`, `ext_exists`, `calcular_nivel`, `actualizar_niveles_hijas`) or the removed `save`/`delete` overrides
+- THEN the class adds no write methods of its own targeting `tarif_familia_ext` — a stale caller of a removed method fails loudly (undefined method)
+- AND the inherited base `familia` `save()`/`delete()` affect only the `familias` table, never `tarif_familia_ext`
+- AND `tarif_familia_ext` is unreachable as a write target through this class
 
 #### Scenario: Read surface unchanged for verified consumers
 
