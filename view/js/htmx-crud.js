@@ -229,7 +229,14 @@
     // SortableJS init — from config.sortable (CRD-04).
     // Handle: .drag-handle, draggable: tr[data-codfamilia].
     // Same-madre onMove guard; onEnd marks dirty.
+    //
+    // Tbody swaps use innerHTML (never outerHTML): the <tbody> element must
+    // persist so the Sortable instance, its id and its styling survive a
+    // server refresh. After any server-driven tbody swap the DOM order is
+    // the server's truth: rebaseline the initial order and hide the bar.
     // =====================================================================
+    var sortableState = null; // {tbodyId, saveBarId, saveUrl, initialIds}
+
     function initSortable() {
         if (!config.sortable || typeof Sortable === 'undefined') {
             return;
@@ -241,11 +248,12 @@
             return;
         }
 
-        var saveBarId = config.sortable.saveBar;
-        var saveUrl = config.sortable.url;
-
-        // Capture initial order for cancel restore
-        var initialIds = getRowCodes(tbody);
+        sortableState = {
+            tbodyId: tbodyId,
+            saveBarId: config.sortable.saveBar || null,
+            saveUrl: config.sortable.url || '',
+            initialIds: getRowCodes(tbody)
+        };
 
         Sortable.create(tbody, {
             handle: '.drag-handle',
@@ -258,25 +266,21 @@
                 return draggedMadre === relatedMadre;
             },
             onEnd: function () {
-                markDirty(tbodyId, saveBarId, saveUrl, initialIds);
+                markDirty();
             }
         });
 
         // Wire save/cancel buttons
-        var saveBar = saveBarId ? document.getElementById(saveBarId + '-savebar') : null;
+        var saveBar = sortableState.saveBarId ? document.getElementById(sortableState.saveBarId + '-savebar') : null;
         if (saveBar) {
             var saveBtn = saveBar.querySelector('.btn-save-order');
             var cancelBtn = saveBar.querySelector('.btn-cancel-order');
 
             if (saveBtn) {
-                saveBtn.addEventListener('click', function () {
-                    saveOrder(tbodyId, saveUrl);
-                });
+                saveBtn.addEventListener('click', saveOrder);
             }
             if (cancelBtn) {
-                cancelBtn.addEventListener('click', function () {
-                    cancelOrder(tbodyId, saveBarId, initialIds);
-                });
+                cancelBtn.addEventListener('click', cancelOrder);
             }
         }
     }
@@ -290,45 +294,51 @@
         return codes;
     }
 
-    function markDirty(tbodyId, saveBarId, saveUrl, initialIds) {
-        var tbody = document.getElementById(tbodyId);
+    function markDirty() {
+        if (!sortableState) {
+            return;
+        }
+        var tbody = document.getElementById(sortableState.tbodyId);
         if (!tbody) {
             return;
         }
 
         var currentIds = getRowCodes(tbody);
-        var dirty = JSON.stringify(currentIds) !== JSON.stringify(initialIds);
+        var dirty = JSON.stringify(currentIds) !== JSON.stringify(sortableState.initialIds);
 
-        var saveBar = saveBarId ? document.getElementById(saveBarId + '-savebar') : null;
+        var saveBar = sortableState.saveBarId ? document.getElementById(sortableState.saveBarId + '-savebar') : null;
         if (saveBar) {
             saveBar.style.display = dirty ? 'block' : 'none';
         }
     }
 
-    function saveOrder(tbodyId, saveUrl) {
-        if (!saveUrl) {
+    function saveOrder() {
+        if (!sortableState || !sortableState.saveUrl) {
             return;
         }
-        var tbody = document.getElementById(tbodyId);
+        var tbody = document.getElementById(sortableState.tbodyId);
         if (!tbody) {
             return;
         }
 
         var codes = getRowCodes(tbody);
 
-        // Issue a single htmx.ajax POST with the flat codes
+        // Single htmx.ajax POST with the flat codes. The tbody target uses
+        // innerHTML so the element (and the Sortable binding) persists.
         if (typeof htmx !== 'undefined' && htmx.ajax) {
-            htmx.ajax('POST', saveUrl, {
+            htmx.ajax('POST', sortableState.saveUrl, {
                 values: { order: JSON.stringify(codes) },
-                target: '#' + tbodyId,
-                swap: 'outerHTML'
+                target: '#' + sortableState.tbodyId,
+                swap: 'innerHTML'
             });
         }
     }
 
-    function cancelOrder(tbodyId, saveBarId, initialIds) {
-        // Restore initial DOM order by sorting rows
-        var tbody = document.getElementById(tbodyId);
+    function cancelOrder() {
+        if (!sortableState) {
+            return;
+        }
+        var tbody = document.getElementById(sortableState.tbodyId);
         if (!tbody) {
             return;
         }
@@ -340,18 +350,35 @@
         }
 
         // Re-append in initial order
-        for (var j = 0; j < initialIds.length; j++) {
-            if (orderMap[initialIds[j]]) {
-                tbody.appendChild(orderMap[initialIds[j]]);
+        for (var j = 0; j < sortableState.initialIds.length; j++) {
+            if (orderMap[sortableState.initialIds[j]]) {
+                tbody.appendChild(orderMap[sortableState.initialIds[j]]);
             }
         }
 
         // Hide save bar — no request
-        var saveBar = saveBarId ? document.getElementById(saveBarId + '-savebar') : null;
+        var saveBar = sortableState.saveBarId ? document.getElementById(sortableState.saveBarId + '-savebar') : null;
         if (saveBar) {
             saveBar.style.display = 'none';
         }
     }
+
+    // Server-driven tbody swaps (save order, save/add/delete) make the
+    // server order the new baseline: rebaseline initialIds and hide the bar.
+    document.addEventListener('htmx:afterSwap', function (evt) {
+        if (!sortableState) {
+            return;
+        }
+        var target = evt.target;
+        if (!target || target.id !== sortableState.tbodyId) {
+            return;
+        }
+        sortableState.initialIds = getRowCodes(target);
+        var saveBar = sortableState.saveBarId ? document.getElementById(sortableState.saveBarId + '-savebar') : null;
+        if (saveBar) {
+            saveBar.style.display = 'none';
+        }
+    });
 
     // Initialize SortableJS after DOM is ready
     if (document.readyState === 'loading') {
