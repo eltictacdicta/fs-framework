@@ -1,0 +1,116 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com.com>
+ *
+ * Opt-in HTMX CRUD macro (HCS-16, CRD-01, CRD-05).
+ *
+ * Import once per opting-in view:
+ *
+ *     {% import 'Macro/HtmxCrud.html.twig' as crud %}
+ *     {{ crud.boot(config) }}
+ *
+ * Scripts (Sortable.min.js → fs-dialogs.js → htmx-crud.js) load ONLY
+ * through boot(); header/footer remain untouched (HCS-09).
+ *
+ * Macros: boot, table, toolbar, flashContainer, saveBar.
+ */
+#}
+
+{# ===================================================================== #}
+{# boot(config)                                                           #}
+{# One-line data-fs-crud-config JSON + ordered deferred nonce'd scripts.  #}
+{# Zero-argument output is byte-stable baseline.                          #}
+{# ===================================================================== #}
+{% macro boot(config = {}) %}
+    <script type="application/json" data-fs-crud-config>{{ config|json_encode(constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_HEX_TAG') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_AMP'))|raw }}</script>
+    <script src="view/js/Sortable.min.js" {{ csp_nonce_attr() }} defer></script>
+    <script src="view/js/fs-dialogs.js" {{ csp_nonce_attr() }} defer></script>
+    <script src="view/js/htmx-crud.js" {{ csp_nonce_attr() }} defer></script>
+{% endmacro %}
+
+{# ===================================================================== #}
+{# table(id, options)                                                    #}
+{# <table> shell + <thead> from columns + <tbody> iterating row partial.  #}
+{# options: {rows, columns, rowPartial, sortable}                        #}
+{# ===================================================================== #}
+{% macro table(id, options = {}) %}
+{% set columns = options.columns|default([]) %}
+{% set rows = options.rows|default([]) %}
+{% set rowPartial = options.rowPartial|default('') %}
+{% set sortable = options.sortable|default(null) %}
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+{% for col in columns %}
+            <th{% if col.class is defined %} class="{{ col.class }}"{% endif %}{% if col.style is defined %} style="{{ col.style }}"{% endif %}>{{ col.label|default('') }}</th>
+{% endfor %}
+        </tr>
+    </thead>
+    <tbody id="{{ id }}-tbody"{% if sortable %} data-sortable="true"{% endif %}>
+{% for row in rows %}
+        {% include rowPartial with {row: row} only %}
+{% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+{# ===================================================================== #}
+{# toolbar(fsc, options)                                                 #}
+{# Reusable floor: title, buttons, filter links.                         #}
+{# options: {title, buttons: [{label, url, icon, class}], filters: []}   #}
+{# ===================================================================== #}
+{% macro toolbar(fsc, options = {}) %}
+{% set title = options.title|default('') %}
+{% set buttons = options.buttons|default([]) %}
+{% set filters = options.filters|default([]) %}
+<div class="box-body no-padding">
+    <div class="row">
+        <div class="col-sm-6">
+            <h4>{{ title }}</h4>
+        </div>
+        <div class="col-sm-6 text-right">
+{% for btn in buttons %}
+            <a href="{{ btn.url|default('#') }}" class="btn {{ btn.class|default('btn-default') }}"{% if btn.title is defined %} title="{{ btn.title }}"{% endif %}>
+{% if btn.icon is defined %} <i class="fa {{ btn.icon }}"></i>{% endif %} {{ btn.label|default('') }}
+            </a>
+{% endfor %}
+{% for filter in filters %}
+            <a href="{{ filter.url|default('#') }}" class="btn {{ filter.active|default(false) ? 'btn-primary' : 'btn-default' }}">
+                {{ filter.label|default('') }}
+            </a>
+{% endfor %}
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# ===================================================================== #}
+{# flashContainer()                                                      #}
+{# Persistent OOB target for oobFlash(true) opt-in.                      #}
+{# ===================================================================== #}
+{% macro flashContainer() %}
+<div id="fs-htmx-flash" aria-live="polite"></div>
+{% endmacro %}
+
+{# ===================================================================== #}
+{# saveBar(id, options)                                                  #}
+{# The "Has modificado el orden / Guardar / Cancelar" bar.               #}
+{# options: {saveUrl, cancelLabel, saveLabel, message}                   #}
+{# ===================================================================== #}
+{% macro saveBar(id, options = {}) %}
+{% set saveUrl = options.saveUrl|default('#') %}
+{% set saveLabel = options.saveLabel|default('Guardar orden') %}
+{% set cancelLabel = options.cancelLabel|default('Cancelar') %}
+{% set message = options.message|default('Ha modificado el orden de las familias.') %}
+<div id="{{ id }}-savebar" class="save-bar" style="display:none">
+    <div class="alert alert-warning">
+        <strong>{{ message }}</strong>
+        <div class="pull-right">
+            <button type="button" class="btn btn-default btn-cancel-order" data-savebar="{{ id }}">{{ cancelLabel }}</button>
+            <button type="button" class="btn btn-primary btn-save-order" data-savebar="{{ id }}" data-save-url="{{ saveUrl }}">{{ saveLabel }}</button>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+</div>
+{% endmacro %}
