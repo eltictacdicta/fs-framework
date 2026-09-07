@@ -127,10 +127,11 @@
     });
 
     // =====================================================================
-    // htmx:afterRequest — update footer debug labels from X-FS-* headers
-    // (HCS-16, HCS-15). Footer markup is frozen; label prefixes preserved.
+    // htmx:after:request — update footer debug labels from X-FS-* headers
+    // (HCS-16, HCS-15). htmx 4 renamed lifecycle events to colon style.
+    // Footer markup is frozen; label prefixes preserved.
     // =====================================================================
-    document.addEventListener('htmx:afterRequest', function (evt) {
+    document.addEventListener('htmx:after:request', function (evt) {
         var xhr = evt.detail && evt.detail.xhr;
         if (!xhr) {
             return;
@@ -169,21 +170,12 @@
     }
 
     // =====================================================================
-    // htmx:afterSettle — strip CSRF inputs from newly swapped content
-    // (HCS-16, CRD-02).
+    // htmx:after:settle — strip CSRF inputs from newly swapped content
+    // (HCS-16, CRD-02). htmx 4 renamed lifecycle events to colon style.
     // =====================================================================
-    document.addEventListener('htmx:afterSettle', function (evt) {
+    document.addEventListener('htmx:after:settle', function (evt) {
         var target = evt.target || document;
         stripCsrfInputs(target);
-    });
-
-    // =====================================================================
-    // htmx:oobErrorNoTarget — console.warn diagnostic (HCS-16).
-    // =====================================================================
-    document.addEventListener('htmx:oobErrorNoTarget', function (evt) {
-        if (typeof console !== 'undefined' && console.warn) {
-            console.warn('[htmx-crud] OOB target not found:', evt.detail);
-        }
     });
 
     // =====================================================================
@@ -365,7 +357,8 @@
 
     // Server-driven tbody swaps (save order, save/add/delete) make the
     // server order the new baseline: rebaseline initialIds and hide the bar.
-    document.addEventListener('htmx:afterSwap', function (evt) {
+    // htmx 4 renamed lifecycle events to colon style (htmx:after:swap).
+    document.addEventListener('htmx:after:swap', function (evt) {
         if (!sortableState) {
             return;
         }
