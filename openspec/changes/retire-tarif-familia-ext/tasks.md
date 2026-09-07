@@ -41,10 +41,10 @@ Chain strategy: pending
 
 ## Phase 3: Writers #1/#2 + Tests + Spec — Commit 3
 
-- [ ] 3.1 RED: `TarifArticulosFamiliaImportTest` — assert writer #1 creates `tarif_tarifa_familia` row with AD-6 flags and AD-7 codtarifa — must FAIL.
-- [ ] 3.2 RED: Assert writer #2 batch step creates tarifa row using session `codtarifa` — must FAIL.
-- [ ] 3.3 GREEN: `tarif_articulos.php` writer #1 `import_tarifa_json()` (~1170–1216) — after familia upsert, save tarifa row with `codtarifa` via `$_POST['codtarifa']` → `get_default()` → `'DEF'`; AD-6 flags (activa/en_tarifa/en_catalogo=true, orden=0).
-- [ ] 3.4 GREEN: writer #2 `process_familias_batch()` (~1583–1628) — session `$_SESSION['import_codtarifa']`; save tarifa row with AD-6 flags.
-- [ ] 3.5 `TarifFamiliaWriteRetirementTest` — add `test_class_deprecated` and `test_read_methods_unchanged`; source-inspect zero ext writes.
-- [ ] 3.6 Amend `openspec/specs/catalog-domain-models/spec.md` lines 44–49 with delta scenario.
-- [ ] 3.7 Verify: `phpunit --testsuite Plugins` green; ext row count probe unchanged.
+- [x] 3.1 RED: `TarifArticulosFamiliaImportTest` — assert writer #1 creates `tarif_tarifa_familia` row with AD-6 flags and AD-7 codtarifa — must FAIL.
+- [x] 3.2 RED: Assert writer #2 batch step creates tarifa row using session `codtarifa` — must FAIL.
+- [x] 3.3 GREEN: `tarif_articulos.php` writer #1 `import_tarifa_json()` (~1170–1216) — after familia upsert, save tarifa row with `codtarifa` via `$_POST['codtarifa']` → `get_default()` → `'DEF'`; AD-6 flags (activa/en_tarifa/en_catalogo=true, orden=0).
+- [x] 3.4 GREEN: writer #2 `process_familias_batch()` (~1583–1628) — session `$_SESSION['import_codtarifa']`; save tarifa row with AD-6 flags.
+- [x] 3.5 `TarifFamiliaWriteRetirementTest` — add `test_class_deprecated` and `test_read_methods_unchanged`; source-inspect zero ext writes.
+- [x] 3.6 Amend `openspec/specs/catalog-domain-models/spec.md` lines 44–49 with delta scenario.
+- [x] 3.7 Verify: `phpunit --testsuite Plugins` green; ext row count probe unchanged.

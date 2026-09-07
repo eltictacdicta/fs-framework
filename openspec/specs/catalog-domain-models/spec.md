@@ -41,12 +41,11 @@ Propiedad única sobre las 7 entidades de catálogo (`articulo`, `familia`, `fab
 - **THEN** la clase se resuelve correctamente desde `catalogo_core/model/core/almacen.php`
 - **AND** no depende de los stubs de `facturacion_base`
 
-### Scenario: dependent plugin can override catalogo_core model
+### Scenario: familia resolves deterministically to the catalogo_core base
 
-- **GIVEN** `tarifario` depende de `catalogo_core` y tiene su propio `model/familia.php`
-- **WHEN** `tarifario` define `class familia extends FSFramework\model\tarif_familia`
-- **THEN** el override funciona correctamente sin error "Cannot declare class"
-- **AND** `fs_model_autoloader` respeta el orden de plugins en `$GLOBALS['plugins']`
+- **GIVEN** the `tarifario` override file `plugins/tarifario/model/familia.php` is deleted
+- **WHEN** any consumer instantiates `new \familia()`
+- **THEN** the instance resolves to the `catalogo_core` base `FSFramework\model\familia` with base behavior
 
 ### Scenario: articulo::url() returns the legacy ventas_articulo URL
 
