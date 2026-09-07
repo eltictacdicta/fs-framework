@@ -13,6 +13,10 @@
  * Scripts (Sortable.min.js → fs-dialogs.js → htmx-crud.js) load ONLY
  * through boot(); header/footer remain untouched (HCS-09).
  *
+ * NOTE: boot() does NOT load htmx core — the consuming view MUST also
+ * import Macro/Htmx.html.twig and call htmx.boot() (Twig macros cannot
+ * call sibling macros).
+ *
  * Macros: boot, table, toolbar, flashContainer, saveBar.
  */
 #}
@@ -99,7 +103,7 @@
 {# options: {saveUrl, cancelLabel, saveLabel, message}                   #}
 {# ===================================================================== #}
 {% macro saveBar(id, options = {}) %}
-{% set saveUrl = options.saveUrl|default('#') %}
+{% set saveUrl = options.saveUrl|default(options.url|default('#')) %}
 {% set saveLabel = options.saveLabel|default('Guardar orden') %}
 {% set cancelLabel = options.cancelLabel|default('Cancelar') %}
 {% set message = options.message|default('Ha modificado el orden de las familias.') %}

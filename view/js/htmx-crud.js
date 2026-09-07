@@ -32,8 +32,13 @@
         }
     }
 
-    // Strip at init
-    stripCsrfInputs(document);
+    // Strip at init — ONLY when htmx core is actually loaded. Deferred
+    // scripts execute in document order, so htmx.boot()'s asset runs
+    // before this module when both are present. Without htmx the embedded
+    // token must survive to validate the plain POST fallback.
+    if (typeof window.htmx !== 'undefined') {
+        stripCsrfInputs(document);
+    }
 
     // =====================================================================
     // fs:flash — transient Bootstrap-3 toasts (HCS-16).
@@ -97,13 +102,27 @@
 
     // =====================================================================
     // fs:modal-close — close the containing Bootstrap modal (HCS-16).
+    // Also closes custom popup overlays (TarifarioComponents.modal_popup_start).
     // Uses Bootstrap 3 jQuery global.
     // =====================================================================
     document.addEventListener('fs:modal-close', function (evt) {
         var target = evt.target || evt.srcElement;
-        var modal = target.closest ? target.closest('.modal') : null;
-        if (modal && window.jQuery) {
+        var scope = target && target.closest ? target : document;
+        if (window.jQuery) {
+            var modal = scope.closest ? scope.closest('.modal') : null;
             window.jQuery(modal).modal('hide');
+        }
+        var overlay = scope.closest ? scope.closest('.modal-popup-overlay') : null;
+        if (overlay) {
+            overlay.style.display = 'none';
+        } else if (scope === document) {
+            // Event fired on document (no element context) — hide any visible overlay.
+            var overlays = document.querySelectorAll('.modal-popup-overlay');
+            for (var i = 0; i < overlays.length; i++) {
+                if (overlays[i].style.display !== 'none') {
+                    overlays[i].style.display = 'none';
+                }
+            }
         }
     });
 
@@ -216,7 +235,7 @@
             return;
         }
 
-        var tbodyId = config.sortable.tbody;
+        var tbodyId = String(config.sortable.tbody || '').replace(/^#/, '');
         var tbody = document.getElementById(tbodyId);
         if (!tbody) {
             return;

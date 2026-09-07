@@ -64,16 +64,22 @@ class HtmxCrudController extends \fs_controller
             'X-FS-Transactions' => (string) $this->transactions(),
         ];
 
-        // Flash payload — CRLF-stripped, JSON_UNESCAPED_UNICODE
+        // HX-Trigger — ONE header carries fs:flash plus optional extra events
+        // (e.g. fs:modal-close). Avoids a second header() call after output.
+        $events = $options['events'] ?? [];
+        $trigger = [];
         if ($flash !== null) {
             $cleaned = $this->cleanFlashPayload($flash);
             $hasContent = !empty($cleaned['errors']) || !empty($cleaned['messages']) || !empty($cleaned['advices']);
             if ($hasContent) {
-                $headers['HX-Trigger'] = json_encode(
-                    ['fs:flash' => $cleaned],
-                    JSON_UNESCAPED_UNICODE
-                );
+                $trigger['fs:flash'] = $cleaned;
             }
+        }
+        foreach ($events as $name => $detail) {
+            $trigger[$name] = $detail;
+        }
+        if (!empty($trigger)) {
+            $headers['HX-Trigger'] = json_encode($trigger, JSON_UNESCAPED_UNICODE);
         }
 
         // OOB flash block — opt-in, <template>-wrapped, only with non-empty payload
@@ -116,11 +122,11 @@ class HtmxCrudController extends \fs_controller
     /**
      * Render a single row fragment (for toggle actions).
      */
-    protected function renderRowFragment(object $row, array $params = []): void
+    protected function renderRowFragment(object $row, array $params = [], array $options = []): void
     {
         $partial = $this->crud->getRowPartial() ?? '';
         $html = $this->renderPartial($partial, ['row' => $row] + $params);
-        $result = $this->buildFragment($html, [
+        $result = $this->buildFragment($html, $options + [
             'flash' => $this->flashPayload(),
         ]);
         $this->emit($result);
@@ -129,14 +135,14 @@ class HtmxCrudController extends \fs_controller
     /**
      * Render a tbody fragment (for structural changes: save, add, delete, reorder).
      */
-    protected function renderTbodyFragment(array $rows): void
+    protected function renderTbodyFragment(array $rows, array $options = []): void
     {
         $partial = $this->crud->getRowPartial() ?? '';
         $html = '';
         foreach ($rows as $row) {
             $html .= $this->renderPartial($partial, ['row' => $row]);
         }
-        $result = $this->buildFragment($html, [
+        $result = $this->buildFragment($html, $options + [
             'flash' => $this->flashPayload(),
         ]);
         $this->emit($result);

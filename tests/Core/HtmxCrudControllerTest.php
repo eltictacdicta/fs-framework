@@ -142,6 +142,37 @@ class HtmxCrudControllerTest extends TestCase
         $this->assertStringContainsString('Guardado con exito ñ', $result['headers']['HX-Trigger']);
     }
 
+    #[Test]
+    public function hxTriggerMergesFlashAndExtraEventsInOneHeader(): void
+    {
+        $ctrl = $this->makeController();
+        $result = $ctrl->buildFragment(self::FIXTURE_HTML, [
+            'flash' => ['errors' => [], 'messages' => ['Saved'], 'advices' => []],
+            'events' => ['fs:modal-close' => []],
+        ]);
+
+        // ONE header carrying both keys
+        $this->assertArrayHasKey('HX-Trigger', $result['headers']);
+        $payload = json_decode($result['headers']['HX-Trigger'], true);
+        $this->assertSame(['Saved'], $payload['fs:flash']['messages']);
+        $this->assertArrayHasKey('fs:modal-close', $payload);
+    }
+
+    #[Test]
+    public function eventsWithEmptyFlashStillEmitHxTrigger(): void
+    {
+        $ctrl = $this->makeController();
+        $result = $ctrl->buildFragment(self::FIXTURE_HTML, [
+            'flash' => ['errors' => [], 'messages' => [], 'advices' => []],
+            'events' => ['fs:modal-close' => []],
+        ]);
+
+        $this->assertArrayHasKey('HX-Trigger', $result['headers']);
+        $payload = json_decode($result['headers']['HX-Trigger'], true);
+        $this->assertArrayHasKey('fs:modal-close', $payload);
+        $this->assertArrayNotHasKey('fs:flash', $payload);
+    }
+
     // =====================================================================
     // OOB flash block — HCS-15
     // =====================================================================
