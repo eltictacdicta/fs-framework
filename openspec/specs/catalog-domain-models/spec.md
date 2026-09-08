@@ -13,12 +13,13 @@ Propiedad única sobre las 7 entidades de catálogo (`articulo`, `familia`, `fab
 | CDM-03 | Los stubs de 30 líneas en `plugins/facturacion_base/model/{articulo,familia,fabricante,impuesto}.php` **MUST** ser eliminados como parte de esta migración | MUST |
 | CDM-04 | El framework `fs_model_autoloader` **MUST** crear automáticamente aliases globales para `articulo`, `familia`, `fabricante` e `impuesto` cuando se cargan desde `FSFramework\model` | MUST |
 | CDM-05 | `almacen`, `divisa` y `pais` **MUST NOT** requerir alias porque ya eran clases globales antes de la migración | MUST NOT |
-| CDM-06 | Los modelos **MUST** permitir que plugins dependientes sobrescriban su lógica mediante el mecanismo de override del framework | MUST |
+| CDM-06 | Los modelos **MUST** seguir resolviéndose a través del mecanismo de modelos del framework (aliases globales de `fs_model_autoloader`); para `familia`, el override por plugin dependiente ya no existe y `\familia` **MUST** resolverse de forma determinista a la implementación base de `catalogo_core` (`FSFramework\model\familia`), independiente del orden de carga de plugins, del aliasing del autoloader y de cachés de model-class-map obsoletas | MUST |
 | CDM-07 | `plugins/catalogo_core/Init.php` **MUST** existir pero **MAY** estar vacío, ya que el framework maneja la carga de modelos | MUST |
 | CDM-08 | La identidad de clase **MUST** preservarse: `new articulo()`, `\FSFramework\model\articulo` y `\FSFramework\Plugins\catalogo_core\Model\Articulo` **MUST** devolver la misma instancia subyacente | MUST |
 | CDM-09 | `articulo::url()`, `familia::url()`, `fabricante::url()` e `impuesto::url()` **MUST** seguir produciendo exactamente las mismas URLs de página que producían antes de la migración | MUST |
 | CDM-10 | El comportamiento de cada entidad (CRUD, validaciones, eventos) **MUST NOT** cambiar respecto a la implementación previa en `facturacion_base` | MUST NOT |
 | CDM-11 | Los modelos existentes en `plugins/catalogo_core/model/core/` para `almacen`, `divisa` y `pais` **MUST** ser cargados correctamente por el `fs_model_autoloader` | MUST |
+| CDM-12 | `FSFramework\model\tarif_familia` (en `plugins/catalogo_core/model/tarif_familia.php`) **MUST** permanecer en los modelos del dominio de catálogo como wrapper `@deprecated` de solo lectura sobre filas de `familias` hidratadas con las columnas históricas de `tarif_familia_ext`; **MUST NOT** exponer operaciones de escritura contra `tarif_familia_ext` y ningún flujo **MAY** usarlo como vía de escritura (el contrato de escritura vive en la capability `tarifa-familia-hierarchy`); sus métodos de lectura, incluidos los LEFT JOIN históricos a ext, **MUST** preservarse para los consumidores de solo lectura verificados | MUST |
 
 ### Scenario: articulo resolves identically across the three namespaces
 
@@ -43,9 +44,16 @@ Propiedad única sobre las 7 entidades de catálogo (`articulo`, `familia`, `fab
 
 ### Scenario: familia resolves deterministically to the catalogo_core base
 
-- **GIVEN** the `tarifario` override file `plugins/tarifario/model/familia.php` is deleted
-- **WHEN** any consumer instantiates `new \familia()`
-- **THEN** the instance resolves to the `catalogo_core` base `FSFramework\model\familia` with base behavior
+- **GIVEN** el archivo de override `plugins/tarifario/model/familia.php` de `tarifario` eliminado
+- **WHEN** cualquier consumidor instancia `new \familia()`
+- **THEN** la instancia resuelve a la base `FSFramework\model\familia` de `catalogo_core` con comportamiento base
+- **AND** la resolución es independiente del orden de carga de plugins y del aliasing del autoloader
+
+### Scenario: Stale caches cannot resurrect the override
+
+- **GIVEN** una caché `tmp/*model_class_map.php` obsoleta o recién limpiada, y cualquier orden de carga de plugins
+- **WHEN** se instancia `\familia`
+- **THEN** la resolución sigue siendo determinista hacia la implementación base
 
 ### Scenario: articulo::url() returns the legacy ventas_articulo URL
 
@@ -65,3 +73,15 @@ Propiedad única sobre las 7 entidades de catálogo (`articulo`, `familia`, `fab
 - **GIVEN** las 7 entidades migradas a `catalogo_core/model/core/` con sus XML en `catalogo_core/model/table/`
 - **WHEN** se ejecuta la suite `phpunit Plugins`
 - **THEN** los tests existentes que tocan `save()`, `delete()`, `exists()`, `get()` y `all()` para cada entidad pasan sin modificación
+
+### Scenario: Read-only consumers unaffected
+
+- **GIVEN** `catalogo_core` activo y la clase deprecada cargada
+- **WHEN** un consumidor de solo lectura (edición de artículo, páginas de opcionales, modelos wrapper) llama a un método de lectura
+- **THEN** el comportamiento no cambia, con las columnas históricas de ext presentes cuando existe la fila ext
+
+### Scenario: Model carries no write surface
+
+- **GIVEN** la clase deprecada tras este cambio
+- **WHEN** se inspecciona su API
+- **THEN** ningún método escribe en `tarif_familia_ext`
