@@ -165,3 +165,119 @@ writer #2 pre-existing). All passing.
 - Suggestion 2/4 of the verify report: optional VARI backfill SQL (AD-4) and
   a DB-backed integration test for writer #2 — explicitly out of this slice.
 - `limpiar_todo()` re-index on `tarif_tarifa_familia` (AD-8 future work).
+
+## 7. Micro-slice: coverage backfill for the 3 PARTIAL scenarios (post-re-verify session)
+
+The re-verification verdict was `fail` **solely** because 3 scenarios lacked
+covering tests (0 criticals; 15/18 scenarios). This slice closes exactly
+those 3 gaps with 3 new test files. **Coverage backfill mode**: the tests are
+approval-style — they must PASS against current code and pin existing
+behavior; **no production code was touched** (the strict-TDD RED gate is
+honored the way Cycle R2 handled pinning tests: live can-fail proofs obtained
+during authoring with throwaway scratch variants, removed afterwards — zero
+residue).
+
+### Cycle M1 — TFH Req 2 S2 "Historical ext data remains readable"
+
+**Test**: `plugins/tarifario/tests/Model/TarifFamiliaHistoricalExtReadTest.php`
+(4 tests / 27 assertions). Runs the REAL `get()` / `hijas()` /
+`all_by_capitulo()` of `FSFramework\model\tarif_familia` against a mock db
+returning rows shaped like the production
+`SELECT f.*, e.capitulo, e.nivel ... LEFT JOIN tarif_familia_ext e` SQL:
+historical values returned when the ext row exists; LEFT JOIN keeps rows with
+no ext counterpart (empty historical fields); per-row values in order; SQL
+pin on the LEFT JOIN. Constructor-bypassed anonymous subclass (real read
+methods, mock db — `select()`/`var2str()` overrides ONLY, the root-suite-safe
+pattern); `fs_model::$checked_tables` reflection-seeded so the nested real
+`new tarif_familia($row)` hydration is DB-free, saved/restored in tearDown.
+
+**Can-fail proof (live RED probe, scratch variant removed after run)**:
+deliberately wrong expected capitulo values → `FAILURES! Tests: 4,
+Assertions: 20, Failures: 2` (both value assertions fired through the real
+read methods).
+
+**GREEN**: `ddev exec php vendor/bin/phpunit -c plugins/tarifario/phpunit.xml --filter TarifFamiliaHistoricalExtReadTest` → OK (4 tests, 27 assertions).
+
+### Cycle M2 — CDM-06 S2 "Stale caches cannot resurrect the override"
+
+**Test**: `plugins/catalogo_core/tests/Integration/FamiliaStaleCacheResolutionTest.php`
+(2 tests / 13 assertions), placed next to the S1 canary
+(`FamiliaTarifaResolutionTest`) per the existing autoloader-test precedent
+(`tests/Base/FsModelAutoloaderAliasTest.php`, `FamiliaTarifaResolutionTest`).
+Simulates BOTH poisoned legs S1 never exercises:
+
+1. **deleted-override leg** — in-memory class map still carrying the deleted
+   `plugins/tarifario/model/familia.php` path; `loadClass('familia')` must
+   evict the dead entry, re-resolve to `FSFramework\model\familia`
+   (`is_a` + `get_class(new \familia())` + no `capitulo` property), and
+   repair the map to the real base path
+   (`plugins/catalogo_core/model/core/familia.php`).
+2. **inactive-plugin leg** — a real poisoned `tmp/*model_class_map.php`
+   fixture mapping `familia` to an inactive plugin, loaded through the real
+   private `loadCache()`; `validateCache()` must unlink the file and empty
+   the map; resolution still lands on the base.
+
+Autoloader state (`classMap`/`cacheFile`) saved via reflection and restored
+in tearDown; the cache file is redirected to a private tempnam path so any
+`saveCache()` during the test cannot leave residue in the repo `tmp/`
+(verified: no `fam_stale_cache_*` remains after the run).
+
+**Can-fail proof (live RED probe, scratch variant removed after run)**:
+flipped expectations (map keeps the stale path; poisoned map survives
+validation) → `FAILURES! Tests: 2, Assertions: 9, Failures: 2` (eviction and
+cache-discard genuinely flow through the autoloader).
+
+**GREEN**: `ddev exec php vendor/bin/phpunit -c plugins/catalogo_core/phpunit.xml --filter FamiliaStaleCacheResolutionTest` → OK (2 tests, 13 assertions).
+
+### Cycle M3 — CDM-12 S1 "Read-only consumers unaffected"
+
+**Test**: `plugins/tarifario/tests/Model/TarifOpcionalFamiliaConsumerReadTest.php`
+(2 tests / 18 assertions). Consumer-level seam per the verify-report wording:
+the verified read-only wrapper model `tarif_opcional_familia`
+(design §1 consumer list, "wrapper models") runs its REAL
+`get_familias_from_opcional()` at runtime: hydrates exactly the deprecated
+`FSFramework\model\tarif_familia` (identity pinned via `get_class`),
+fields/order unchanged, binds the requested opcional id, keeps its
+documented plain-`familias` SQL (no ext join of its own), and the hydrated
+objects keep the historical `capitulo`/`nivel` columns available (empty here;
+the ext-row-present value leg is Cycle M1's coverage).
+
+**Can-fail proof (live RED probe, scratch variant removed after run)**:
+flipped SQL pin (must-contain instead of must-not-contain `tarif_familia_ext`)
+→ `FAILURES! Tests: 2, Assertions: 14, Failures: 1`. The scratch also
+surfaced that plain `assertInstanceOf('familia', ...)` cannot distinguish the
+subclass (parent instanceof passes) — the identity assertion was strengthened
+to an exact `get_class` pin and re-run green.
+
+**GREEN**: `ddev exec php vendor/bin/phpunit -c plugins/tarifario/phpunit.xml --filter "TarifOpcionalFamiliaConsumerReadTest\|TarifFamiliaHistoricalExtReadTest"` → OK (6 tests, 45 assertions).
+
+### TDD Cycle Evidence (micro-slice)
+
+| Cycle | Test file | Layer | Safety net | RED | GREEN | TRIANGULATE | REFACTOR |
+|-------|-----------|-------|------------|-----|-------|-------------|----------|
+| M1 | `TarifFamiliaHistoricalExtReadTest` | Unit (real read methods, mock db) | ✅ 63/63 change-scope + suites at baselines | ➖ approval-style; live can-fail probe: 2 value assertions fired (4 tests, 2 failures) | ✅ 4/4, 27 assertions | ✅ ext-present / ext-absent / multi-row / capitulo-centric read | ➖ None needed |
+| M2 | `FamiliaStaleCacheResolutionTest` | Unit (real autoloader, poisoned map + real cache file) | ✅ S1 canary 4/4 baseline | ➖ approval-style; live can-fail probe: 2 flipped expectations fired | ✅ 2/2, 13 assertions | ✅ deleted-path eviction + inactive-plugin cache discard | ➖ None needed |
+| M3 | `TarifOpcionalFamiliaConsumerReadTest` | Unit (real consumer method, mock db) | ✅ | ➖ approval-style; live can-fail probe: SQL pin fired; led to exact-identity pin | ✅ 2/2, 18 assertions | ✅ hydration/identity leg + SQL/contract leg | ✅ identity assertion strengthened to `get_class` |
+
+**Test summary (micro-slice)**: 8 tests / 58 assertions written, all passing.
+No production code changed; no spec wording changed (the 3 scenarios were
+already correct — they lacked runtime coverage only).
+
+### Work Unit Evidence (micro-slice hard gate)
+
+| Evidence | WU-M (3 new test files, one commit per plugin repo + parent artifacts) |
+|----------|------------------------------------------------------------------------|
+| Focused test commands + exact results | Cycle commands above (4/4, 2/2, 6/6). Combined: `ddev exec php vendor/bin/phpunit -c plugins/tarifario/phpunit.xml --filter "TarifFamiliaHistoricalExtReadTest\|TarifOpcionalFamiliaConsumerReadTest"` → OK (6/6). Plugin suites: tarifario 179 tests / 649 assertions / 1 failure / 3 skipped — the 1 failure IS the documented pre-existing `VentasArticulosQuickCreateGateCompositionTest` (baseline preserved); catalogo_core 269 tests / 584 assertions, OK with 25 pre-existing warnings + 1 skipped (baseline preserved). Root suite check: `ddev exec php vendor/bin/phpunit --filter "TarifFamiliaHistoricalExtReadTest\|TarifOpcionalFamiliaConsumerReadTest\|FamiliaStaleCacheResolutionTest"` → OK (8 tests, 58 assertions, exit 0; the 6 reported deprecations are the documented pre-existing docblock-metadata notices from SessionManagerTest/StealthModeTest/SessionAuthTest, collected at discovery). Full root `--testsuite Plugins`: 791 tests — errors are exactly the documented pre-existing 47 `FacturaPdf1\*` + the 1 documented `VentasArticulosQuickCreateGateCompositionTest` failure; zero failures/errors mention the 3 new files (root-suite mock restrictions respected: `select()`-only mock overrides, no `exec()` overrides, no inline stubs). |
+| Runtime harness command/scenario | N/A — unit-level coverage backfill by design (the verify partials asked for runtime unit evidence of reads/caches/consumers, not a new runtime boundary). The only file-system side effects (private tempnam cache fixtures) are created under the system temp dir and removed in tearDown. |
+| Rollback boundary | `git revert` of the tarifario commit (2 test files) and the catalogo_core commit (1 test file); the parent commit reverts only `apply-progress.md` + carries the already-present `verify-report.md` rewrite. No production file is touched by this slice. |
+
+### Deviations from design (micro-slice)
+
+- None beyond the documented approval-style RED (the orchestrator mandated
+  coverage-backfill tests that must PASS against current code with no
+  production changes; the can-fail mechanism is proven live per cycle).
+- `all()` was deliberately NOT driven in M1: its recursion calls
+  `get_hijas()` on NESTED real objects (their own real `fs_db2`), which
+  would hit the live DB — `get()`/`hijas()`/`all_by_capitulo()` cover the
+  same LEFT JOIN hydration across three read paths instead.
+
