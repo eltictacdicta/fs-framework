@@ -1,0 +1,43 @@
+{#
+ # Single row partial for admin_agentes table.
+ # Rendered both in initial page load and as fragment responses.
+ # Expects: row (agente object), fsc (controller instance)
+#}
+<tr class="agente-row" data-codagente="{{ row.codagente }}">
+    <td>
+        <a href="{{ row.url() }}">{{ row.codagente }}</a>
+        {% if row.f_baja %}
+        <span class="label label-warning" title="Fecha de baja: {{ row.f_baja }}">de baja</span>
+        {% endif %}
+    </td>
+    <td>{{ row.nombre }}</td>
+    <td>{{ row.apellidos }}</td>
+    <td>{{ row.dnicif }}</td>
+    <td>{{ row.email }}</td>
+    <td>{{ row.telefono }}</td>
+    <td>{{ row.cargo }}</td>
+    <td>{{ row.ciudad }}</td>
+    <td class="text-right">{{ row.porcomision }}</td>
+    <td class="text-center">
+        <a href="{{ row.url() }}"
+           hx-get="{{ fsc.url() }}&action=edit_form&codagente={{ row.codagente }}"
+           hx-target="#agente-edit-container" hx-swap="innerHTML"
+           class="btn btn-xs btn-default" title="Ver/Editar">
+            <span class="glyphicon glyphicon-edit"></span>
+        </a>
+        {% if fsc.allow_delete %}
+        <form method="post"
+              action="{{ fsc.url() }}&action=delete"
+              hx-post="{{ fsc.url() }}&action=delete"
+              hx-target="#agentes-tbody" hx-swap="innerHTML"
+              hx-confirm="¿Eliminar el agente {{ row.nombre }} {{ row.apellidos }} ({{ row.codagente }})?"
+              data-fs-csrf-strip class="agentes-inline-form">
+            {{ csrf_field() }}
+            <input type="hidden" name="codagente" value="{{ row.codagente }}">
+            <button type="submit" class="btn btn-xs btn-danger" title="Eliminar">
+                <span class="glyphicon glyphicon-trash"></span>
+            </button>
+        </form>
+        {% endif %}
+    </td>
+</tr>

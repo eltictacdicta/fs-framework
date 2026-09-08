@@ -11,24 +11,35 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /**
- * Controlador de admin -> agentes.
+ * Controlador de admin -> agentes — HTMX-first CRUD (familias pattern).
+ *
+ * List renders via row fragments; create/update/delete respond with tbody
+ * fragments + fs:modal-close; edit is an hx-get modal fragment. No-JS
+ * fallbacks keep full-page PRG behavior. GET delete retired (POST-only,
+ * hx-confirm). The standalone admin_agente page remains for direct URLs.
+ *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
-class admin_agentes extends fs_controller
+class admin_agentes extends \FSFramework\Controller\HtmxCrudController
 {
     private const AGENT_MSG_PREFIX = 'Agente ';
 
+    /** @var agente Model instance for list + save operations. */
     public $agente;
-    public $modificar;
-    public $nuevo_agente;
+
+    /** @var agente|false Agente being edited (fragment + ?cod= fallback). */
+    public $editing_agente = false;
+
+    /** @var bool Include agents with f_baja set in the list (toolbar toggle). */
+    public $show_debaja = false;
 
     public function __construct()
     {
@@ -37,26 +48,81 @@ class admin_agentes extends fs_controller
 
     protected function private_core()
     {
-        $this->agente = new agente();
-        $this->modificar = FALSE;
-        $this->nuevo_agente = FALSE;
+        parent::private_core();
 
-        if (filter_input(INPUT_POST, 'codagente') !== NULL) {
-            $this->save_agente();
-        } else if (filter_input(INPUT_GET, 'delete')) {
-            $this->delete_agente();
-        } else if (filter_input(INPUT_GET, 'cod')) {
-            $this->modificar_agente();
-        } else if (filter_input(INPUT_GET, 'nuevo')) {
-            $this->nuevo_agente = TRUE;
+        $this->agente = new agente();
+        $this->editing_agente = false;
+        $this->allow_delete = $this->user->allow_delete_on($this->class_name);
+        $this->show_debaja = (bool) filter_input(INPUT_GET, 'debaja');
+
+        $this->crud('agentes')
+            ->rowPartial('partials/agentes/agente_row.html.twig')
+            ->rowSwap(false);
+
+        if (isset($_REQUEST['action'])) {
+            $this->process_action($_REQUEST['action']);
+            return;
         }
+
+        // No-JS fallbacks (full-page PRG)
+        if (isset($_POST['save_agente'])) {
+            $this->save_agente();
+        } elseif (isset($_GET['cod'])) {
+            $this->modificar_agente();
+        }
+    }
+
+    private function process_action(string $action): void
+    {
+        $petitionId = $_POST['petition_id'] ?? $_GET['petition_id'] ?? '';
+        if ($petitionId !== '' && $this->isDuplicatedPetition($petitionId)) {
+            $this->noContentWithFlash();
+            return;
+        }
+
+        switch ($action) {
+            case 'edit_form':
+                $this->action_edit_form();
+                break;
+            case 'delete':
+                $this->delete_agente();
+                break;
+            default:
+                $this->noContentWithFlash();
+                break;
+        }
+    }
+
+    /**
+     * GET fragment: edit modal for one agente — HTMX-driven edit without a
+     * full page reload. The same partial renders inline for the no-JS
+     * fallback (?cod=CODE).
+     */
+    private function action_edit_form(): void
+    {
+        $codagente = isset($_GET['codagente']) ? trim($_GET['codagente']) : '';
+        if ($codagente === '') {
+            $this->new_error_msg('Código de agente no proporcionado.');
+            $this->noContentWithFlash();
+            return;
+        }
+
+        $this->editing_agente = $this->agente->get($codagente);
+        if (!$this->editing_agente) {
+            $this->new_error_msg('Agente no encontrado.');
+            $this->noContentWithFlash();
+            return;
+        }
+
+        $this->renderFragment('partials/agentes/edit_modal.html.twig');
     }
 
     private function save_agente()
     {
         $data = $this->collectAgentFormData();
+        $codagente = trim((string) $data['codagente']);
 
-        if (filter_input(INPUT_POST, 'codagente') == '') {
+        if ($codagente === '') {
             $this->createAgente($data);
             return;
         }
@@ -105,11 +171,9 @@ class admin_agentes extends fs_controller
         $this->applyAgentData($agente_obj, $data);
 
         if ($agente_obj->save()) {
-            $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($agente_obj->codagente) . ' creado correctamente.');
-            \FSFramework\Security\SafeRedirect::redirect($agente_obj->url(), 'index.php?page=admin_agentes');
-            return;
+            $this->respondAgenteSaved($agente_obj->codagente, 'creado');
         } else {
-            $this->new_error_msg('Error al crear el agente.');
+            $this->respondAgenteError('Error al crear el agente.');
         }
     }
 
@@ -117,51 +181,121 @@ class admin_agentes extends fs_controller
     {
         $agente_obj = $this->agente->get($data['codagente']);
         if (!$agente_obj) {
-            $this->new_error_msg('Agente no encontrado.');
+            $this->respondAgenteError('Agente no encontrado.');
             return;
         }
 
         $this->applyAgentData($agente_obj, $data);
 
         if ($agente_obj->save()) {
-            $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($agente_obj->codagente) . ' modificado correctamente.');
-            \FSFramework\Security\SafeRedirect::redirect($agente_obj->url(), 'index.php?page=admin_agentes');
-            return;
+            $this->respondAgenteSaved($agente_obj->codagente, 'modificado');
         } else {
-            $this->new_error_msg('Error al modificar el agente.');
+            $this->respondAgenteError('Error al modificar el agente.');
         }
     }
 
+    /**
+     * Shared success response: fragment for HTMX, PRG for the no-JS fallback.
+     */
+    private function respondAgenteSaved(string $codagente, string $verb): void
+    {
+        $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($codagente) . ' ' . $verb . ' correctamente.');
+        if ($this->requireHtmx()) {
+            $this->renderTbodyFragment($this->agente->all($this->show_debaja), ['events' => ['fs:modal-close' => []]]);
+        } else {
+            \FSFramework\Security\SafeRedirect::redirect($this->listUrl(), 'index.php?page=admin_agentes');
+        }
+    }
+
+    /**
+     * Shared error response: 204 + flash for HTMX, PRG for no-JS.
+     */
+    private function respondAgenteError(string $message): void
+    {
+        $this->new_error_msg($message);
+        if ($this->requireHtmx()) {
+            $this->noContentWithFlash();
+        } else {
+            \FSFramework\Security\SafeRedirect::redirect($this->listUrl(), 'index.php?page=admin_agentes');
+        }
+    }
+
+    /**
+     * POST-only delete (GET delete retired, familias CRD-02 pattern).
+     */
     private function delete_agente()
     {
-        $codagente = filter_input(INPUT_GET, 'delete');
+        if (!$this->allow_delete) {
+            $this->respondAgenteError('No tienes permiso para eliminar en esta página.');
+            return;
+        }
+
+        $codagente = fs_filter_input_req('codagente', '');
         $agente_obj = $this->agente->get($codagente);
 
-        if ($agente_obj) {
-            if (FS_DEMO) {
-                $this->new_error_msg('En el modo <b>demo</b> no se pueden eliminar agentes.
-                Esto es así para evitar malas prácticas entre usuarios que prueban la demo.');
-            } else if ($agente_obj->delete()) {
-                $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($agente_obj->codagente) . ' eliminado correctamente.');
+        if (!$agente_obj) {
+            $this->respondAgenteError('¡Agente no encontrado!');
+            return;
+        }
+
+        if (defined('FS_DEMO') && FS_DEMO) {
+            $this->respondAgenteError('En el modo <b>demo</b> no se pueden eliminar agentes. Esto es así para evitar malas prácticas entre usuarios que prueban la demo.');
+            return;
+        }
+
+        if ($agente_obj->delete()) {
+            $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($agente_obj->codagente) . ' eliminado correctamente.');
+            if ($this->requireHtmx()) {
+                $this->renderTbodyFragment($this->agente->all($this->show_debaja));
             } else {
-                $this->new_error_msg("¡Imposible eliminar al agente!");
+                \FSFramework\Security\SafeRedirect::redirect($this->listUrl(), 'index.php?page=admin_agentes');
             }
         } else {
-            $this->new_error_msg("¡Agente no encontrado!");
+            $this->respondAgenteError('¡Imposible eliminar al agente!');
         }
     }
 
     private function modificar_agente()
     {
         $codagente = filter_input(INPUT_GET, 'cod');
-        $agente_obj = $this->agente->get($codagente);
+        $this->editing_agente = $this->agente->get($codagente);
 
-        if ($agente_obj) {
-            $this->agente = $agente_obj;
-            $this->modificar = TRUE;
-        } else {
+        if (!$this->editing_agente) {
             $this->new_error_msg('Agente no encontrado.');
         }
+    }
+
+    /**
+     * Duplicated petition guard — session-based deduplication.
+     */
+    private function isDuplicatedPetition(string $petitionId): bool
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+
+        $key = 'petition_' . md5($petitionId);
+        if (isset($_SESSION[$key])) {
+            return true;
+        }
+
+        // Stored as an expiry timestamp; cleanup below prunes only expired
+        // markers and always preserves the freshly created one.
+        $_SESSION[$key] = time() + 300; // 5-minute deduplication window
+
+        if (count($_SESSION) > 100) {
+            $now = time();
+            foreach ($_SESSION as $k => $v) {
+                if ($k === $key) {
+                    continue;
+                }
+                if (strpos($k, 'petition_') === 0 && is_int($v) && $v < $now) {
+                    unset($_SESSION[$k]);
+                }
+            }
+        }
+
+        return false;
     }
 
     public function all_pages()

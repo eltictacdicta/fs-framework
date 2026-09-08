@@ -244,11 +244,18 @@ class FsDatepickerMigrationContractTest extends TestCase
     #[Test]
     public function agenteTemplatesUseNativeDateInputsWithDateIso(): void
     {
-        foreach (['/admin_agente.html.twig', '/admin_agentes.html.twig'] as $template) {
+        foreach (['/admin_agente.html.twig', '/admin_agentes.html.twig', '/partials/agentes/edit_modal.html.twig'] as $template) {
             $source = (string) file_get_contents(FS_FOLDER . self::THEME_VIEW_DIR . $template);
 
             $this->assertStringNotContainsString('datepicker', $source, $template . ' must not use the datepicker class');
             $this->assertStringContainsString('type="date"', $source);
+        }
+
+        // date_iso contract applies to templates that RENDER date values
+        // (admin_agentes.html.twig only hosts the empty add-modal inputs).
+        foreach (['/admin_agente.html.twig', '/partials/agentes/edit_modal.html.twig'] as $template) {
+            $source = (string) file_get_contents(FS_FOLDER . self::THEME_VIEW_DIR . $template);
+
             $this->assertStringContainsString('|date_iso', $source, $template . ' must convert date values with date_iso');
         }
     }

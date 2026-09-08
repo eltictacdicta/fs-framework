@@ -1,0 +1,137 @@
+{#
+ # Edit agente modal — single source for BOTH edit paths:
+ #   - HTMX fragment (action=edit_form) swapped into #agente-edit-container
+ #   - No-JS fallback: full page render when ?cod=CODE is present
+ # Expects: fsc (controller instance with editing_agente set)
+ # Alpine (CSP build): x-show owns visibility; the form lives INSIDE the modal
+ # so htmx event targets resolve within it. Open state is always true — this
+ # partial is only rendered when an edit is requested.
+#}
+{% set edit_url = fsc.url() %}
+<div x-data="agenteEditModal" x-cloak>
+   <div class="htmx-alpine-backdrop" x-show="open" @click="close()"></div>
+   <div class="htmx-alpine-modal" id="modal_editar_agente" x-show="open" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+         <div class="modal-content">
+            <div class="modal-header">
+               <button type="button" class="close" @click="close()">&times;</button>
+               <h4 class="modal-title"><i class="fa fa-edit"></i>&nbsp; Modificar agente {{ fsc.editing_agente.codagente }}</h4>
+            </div>
+            <form name="f_modificar_agente" class="form" role="form"
+                  action="{{ edit_url }}" method="post"
+                  hx-post="{{ edit_url }}"
+                  hx-target="#agentes-tbody" hx-swap="innerHTML"
+                  data-fs-csrf-strip>
+               {{ csrf_field() }}
+               <input type="hidden" name="save_agente" value="1"/>
+               <input type="hidden" name="codagente" value="{{ fsc.editing_agente.codagente }}"/>
+               <div class="modal-body">
+                  <div class="form-group">
+                     <label class="control-label">Nombre:</label>
+                     <input class="form-control" type="text" name="nombre" maxlength="50" value="{{ fsc.editing_agente.nombre }}" required/>
+                  </div>
+                  <div class="form-group">
+                     <label class="control-label">Apellidos:</label>
+                     <input class="form-control" type="text" name="apellidos" maxlength="100" value="{{ fsc.editing_agente.apellidos }}" required/>
+                  </div>
+                  <div class="row">
+                     <div class="col-sm-6">
+                        <div class="form-group">
+                           <label class="control-label">DNI/CIF:</label>
+                           <input class="form-control" type="text" name="dnicif" maxlength="20" value="{{ fsc.editing_agente.dnicif }}"/>
+                        </div>
+                     </div>
+                     <div class="col-sm-6">
+                        <div class="form-group">
+                           <label class="control-label">Teléfono:</label>
+                           <input class="form-control" type="tel" name="telefono" maxlength="20" value="{{ fsc.editing_agente.telefono }}"/>
+                        </div>
+                     </div>
+                  </div>
+                  <div class="form-group">
+                     <label class="control-label">Email:</label>
+                     <div class="input-group">
+                        <span class="input-group-addon"><span class="glyphicon glyphicon-envelope"></span></span>
+                        <input class="form-control" type="email" name="email" value="{{ fsc.editing_agente.email }}"/>
+                     </div>
+                  </div>
+                  <div class="form-group">
+                     <label class="control-label">Cargo:</label>
+                     <input class="form-control" type="text" name="cargo" maxlength="50" value="{{ fsc.editing_agente.cargo }}"/>
+                  </div>
+                  <div class="form-group">
+                     <label class="control-label">Dirección:</label>
+                     <textarea class="form-control" name="direccion" rows="2">{{ fsc.editing_agente.direccion }}</textarea>
+                  </div>
+                  <div class="row">
+                     <div class="col-sm-4">
+                        <div class="form-group">
+                           <label class="control-label">Código Postal:</label>
+                           <input class="form-control" type="text" name="codpostal" maxlength="10" value="{{ fsc.editing_agente.codpostal }}"/>
+                        </div>
+                     </div>
+                     <div class="col-sm-4">
+                        <div class="form-group">
+                           <label class="control-label">Provincia:</label>
+                           <input class="form-control" type="text" name="provincia" maxlength="50" value="{{ fsc.editing_agente.provincia }}"/>
+                        </div>
+                     </div>
+                     <div class="col-sm-4">
+                        <div class="form-group">
+                           <label class="control-label">Ciudad:</label>
+                           <input class="form-control" type="text" name="ciudad" maxlength="50" value="{{ fsc.editing_agente.ciudad }}"/>
+                        </div>
+                     </div>
+                  </div>
+                  <div class="row">
+                     <div class="col-sm-4">
+                        <div class="form-group">
+                           <label class="control-label">Fecha de nacimiento:</label>
+                           <input class="form-control" type="date" name="f_nacimiento" value="{{ fsc.editing_agente.f_nacimiento|date_iso }}"/>
+                        </div>
+                     </div>
+                     <div class="col-sm-4">
+                        <div class="form-group">
+                           <label class="control-label">Fecha de alta:</label>
+                           <input class="form-control" type="date" name="f_alta" value="{{ fsc.editing_agente.f_alta|date_iso }}"/>
+                        </div>
+                     </div>
+                     <div class="col-sm-4">
+                        <div class="form-group">
+                           <label class="control-label">Fecha de baja:</label>
+                           <input class="form-control" type="date" name="f_baja" value="{{ fsc.editing_agente.f_baja|date_iso }}"/>
+                        </div>
+                     </div>
+                  </div>
+                  <div class="row">
+                     <div class="col-sm-6">
+                        <div class="form-group">
+                           <label class="control-label">% Comisión:</label>
+                           <input class="form-control" type="number" step="0.01" name="porcomision" value="{{ fsc.editing_agente.porcomision }}"/>
+                        </div>
+                     </div>
+                     <div class="col-sm-6">
+                        <div class="form-group">
+                           <label class="control-label">Nº Seguridad Social:</label>
+                           <input class="form-control" type="text" name="seg_social" maxlength="20" value="{{ fsc.editing_agente.seg_social }}"/>
+                        </div>
+                     </div>
+                  </div>
+                  <div class="form-group">
+                     <label class="control-label">Cuenta bancaria:</label>
+                     <input class="form-control" type="text" name="banco" maxlength="50" value="{{ fsc.editing_agente.banco }}"/>
+                  </div>
+               </div>
+               <div class="modal-footer">
+                  <button type="button" class="btn btn-default" @click="close()">
+                     <i class="fa fa-times"></i> Cancelar
+                  </button>
+                  <button class="btn btn-primary" type="submit">
+                     <span class="glyphicon glyphicon-floppy-disk"></span>&nbsp; Guardar cambios
+                  </button>
+               </div>
+            </form>
+         </div>
+      </div>
+   </div>
+</div>

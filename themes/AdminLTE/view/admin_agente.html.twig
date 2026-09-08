@@ -203,9 +203,17 @@
                         </div>
 
                         <div class="form-group">
-                            <a href="#" onclick="delete_agente('{{ fsc.agente.codagente|e('js') }}', '{{ fsc.agente.get_fullname()|e('js') }}')" class="btn btn-danger btn-block">
+                            {# POST-only delete (GET delete retired on the list controller).
+                               Overrides this form's action/method via HTML5 form* attributes,
+                               reusing its CSRF token and codagente hidden field. #}
+                            <button type="submit"
+                                    name="action" value="delete"
+                                    formaction="index.php?page=admin_agentes"
+                                    formmethod="post" formnovalidate
+                                    onclick="return confirm('¿Eliminar el agente {{ fsc.agente.get_fullname()|e('js') }}?');"
+                                    class="btn btn-danger btn-block">
                                 <span class="glyphicon glyphicon-trash"></span> Eliminar agente
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -254,19 +262,5 @@
     </div>
 </div>
 {% endif %}
-
-<script type="text/javascript">
-function delete_agente(codagente, nombre) {
-    bootbox.confirm({
-        title: 'Eliminar agente',
-        message: '¿Estás seguro de que quieres eliminar el agente <b>' + nombre + '</b>?',
-        confirm: function(result) {
-            if (result) {
-                window.location.href = 'index.php?page=admin_agentes&delete=' + codagente;
-            }
-        }
-    });
-}
-</script>
 
 {{ include('footer.html.twig') }}
