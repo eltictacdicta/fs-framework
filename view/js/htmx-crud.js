@@ -103,24 +103,49 @@
     // =====================================================================
     // fs:modal-close — close the containing Bootstrap modal (HCS-16).
     // Also closes custom popup overlays (TarifarioComponents.modal_popup_start).
-    // Uses Bootstrap 3 jQuery global.
+    // jQuery-free: htmx 4 dispatches this event on the triggering form, which
+    // may WRAP the modal instead of living inside it, so closest('.modal')
+    // can miss. Fallback: close any currently visible modal. The hide itself
+    // goes through Bootstrap's own data-dismiss lifecycle (keeps its internal
+    // shown-state and events intact); plain DOM hide only when Bootstrap is
+    // not present (future Bootstrap-free theme).
     // =====================================================================
     document.addEventListener('fs:modal-close', function (evt) {
         var target = evt.target || evt.srcElement;
         var scope = target && target.closest ? target : document;
-        if (window.jQuery) {
-            var modal = scope.closest ? scope.closest('.modal') : null;
-            window.jQuery(modal).modal('hide');
+
+        var modal = scope.closest ? scope.closest('.modal') : null;
+        if (!modal) {
+            modal = document.querySelector('.modal.in');
         }
+        if (modal) {
+            var dismiss = modal.querySelector('[data-dismiss="modal"]');
+            if (dismiss) {
+                dismiss.click();
+            } else {
+                modal.classList.remove('in');
+                modal.setAttribute('aria-hidden', 'true');
+                modal.style.display = 'none';
+                var backdrops = document.querySelectorAll('.modal-backdrop');
+                for (var i = 0; i < backdrops.length; i++) {
+                    backdrops[i].parentNode.removeChild(backdrops[i]);
+                }
+                document.body.classList.remove('modal-open');
+                document.body.style.paddingRight = '';
+                document.body.style.overflow = '';
+            }
+        }
+
         var overlay = scope.closest ? scope.closest('.modal-popup-overlay') : null;
         if (overlay) {
             overlay.style.display = 'none';
-        } else if (scope === document) {
-            // Event fired on document (no element context) — hide any visible overlay.
+        } else {
+            // No overlay ancestor (event fired on a wrapping form/document) —
+            // hide any visible overlay.
             var overlays = document.querySelectorAll('.modal-popup-overlay');
-            for (var i = 0; i < overlays.length; i++) {
-                if (overlays[i].style.display !== 'none') {
-                    overlays[i].style.display = 'none';
+            for (var j = 0; j < overlays.length; j++) {
+                if (overlays[j].style.display !== 'none') {
+                    overlays[j].style.display = 'none';
                 }
             }
         }
