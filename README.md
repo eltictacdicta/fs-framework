@@ -2,7 +2,7 @@
 
 Fork modernizado de FacturaScripts 2017 con integración Symfony 7.4, motor Twig 3 y arquitectura **Symfony-first** con compatibilidad legacy controlada.
 
-**Versión actual:** ver [`VERSION`](VERSION) (v0.16.2)
+**Versión actual:** ver [`VERSION`](VERSION) (v0.19.0)
 
 Software libre bajo licencia GNU/LGPL.
 
@@ -66,7 +66,16 @@ Atajos disponibles en el `composer.json` principal una vez instaladas las herram
 - `ddev exec composer phpstan:baseline`
 - `ddev exec composer phpstan:dead-code`
 
-## Novedades principales (v0.12.x)
+## Novedades principales
+
+### htmx 4 en el core (v0.19.0)
+
+Adopción por etapas de **htmx 4**, manteniendo compatibilidad con Bootstrap 3 / jQuery:
+
+- `view/js/htmx.min.js` — htmx 4.0.0 vendorado vía npm y copiado por `build.sh`
+- Macro de arranque `themes/AdminLTE/view/Macro/Htmx.html.twig`
+- Detección de peticiones HX en `fs_controller`, cubierta por tests (`tests/Base/FsControllerHtmxTest.php`, `tests/Core/HtmxMacroContractTest.php`)
+- Pilotaje progresivo de vistas (catálogo); las vistas legacy siguen funcionando sin cambios
 
 ### Temas separados de plugins
 
@@ -95,9 +104,14 @@ Los dominios de negocio se distribuyen en plugins modulares con dependencias dec
 | `business_data` | https://github.com/eltictacdicta/business_data |
 | `clientes_core` | https://github.com/eltictacdicta/clientes_core |
 | `clientes_facturacion` | https://github.com/eltictacdicta/clientes_facturacion |
+| `presupuestos_y_pedidos` | https://github.com/eltictacdicta/presupuestos_y_pedidos |
+| `facturacion_base` | https://github.com/eltictacdicta/facturacion_base |
 | `clientes_catalogo` | https://github.com/eltictacdicta/clientes_catalogo |
+| `factura_pdf1` | https://github.com/eltictacdicta/factura_pdf1 |
+| `tpvmod` | https://github.com/eltictacdicta/tpvmod |
 | `legacy_support` | https://github.com/eltictacdicta/legacy_support |
 | `facturascripts_support` | https://github.com/eltictacdicta/facturascripts_support |
+| `system_updater` | https://github.com/eltictacdicta/system_updater |
 
 Instalación (desde la raíz del proyecto):
 
@@ -108,19 +122,22 @@ git clone https://github.com/eltictacdicta/clientes_core.git plugins/clientes_co
 # … resto según necesidad
 ```
 
-Dependencias entre plugins:
+Dependencias entre plugins (declaradas en el `fsframework.ini` de cada uno):
 
 ```
-catalogo_core          ← artículos, familias, fabricantes, impuestos, divisas, almacenes, países
-    │
-business_data          ← empresa, ejercicio, serie, formas de pago, cuentas bancarias
-    │
-clientes_core          ← clientes, direcciones, grupos
-    │
-clientes_facturacion   ← integración comercial para facturación
-    │
-clientes_catalogo      ← puente opcional clientes ↔ catálogo
+business_data           ← empresa, ejercicio, serie, formas de pago, cuentas bancarias  (sin dependencias)
+catalogo_core           ← artículos, familias, multiidioma, opcionales, listas de precio (sin dependencias)
+clientes_core           ← clientes, direcciones, grupos                                  (requiere business_data)
+clientes_facturacion    ← facturas, albaranes, pedidos y presupuestos de venta           (requiere clientes_core)
 ```
+
+Además, según necesidad:
+
+- `presupuestos_y_pedidos` — presupuestos y pedidos de venta (documentos comerciales)
+- `facturacion_base` — integración contable y de proveedores (opcional)
+- `factura_pdf1` — impresión PDF de documentos de cliente (mpdf + Twig)
+- `tpvmod` — TPV (Terminal Punto de Venta); requiere `clientes_facturacion`
+- `system_updater` — actualizaciones, backups y tienda de plugins
 
 Plugins de compatibilidad:
 
@@ -131,10 +148,10 @@ Plugins de compatibilidad:
 
 Orden de activación recomendado:
 
-1. `catalogo_core`
-2. `business_data`
+1. `business_data`
+2. `catalogo_core`
 3. `clientes_core`
-4. Resto según necesidad (`clientes_facturacion`, `clientes_catalogo`, …)
+4. Resto según necesidad (`clientes_facturacion`, `presupuestos_y_pedidos`, `facturacion_base`, …)
 
 ### API REST declarativa
 
@@ -205,7 +222,7 @@ Migración completa a **Twig 3.x** con soporte dual:
 | `{if="$cond"}` | `{% if cond %}` |
 | `{include="file"}` | `{{ include('file.html') }}` |
 
-Los assets estáticos compartidos (Bootstrap, jQuery, Font Awesome) viven en `view/css/`, `view/js/` y `view/fonts/`.
+Los assets estáticos compartidos (Bootstrap, jQuery, htmx 4, Font Awesome) viven en `view/css/`, `view/js/` y `view/fonts/`.
 
 ## Integración Symfony 7.4
 
@@ -314,6 +331,9 @@ Probar siempre en entorno de desarrollo antes de producción.
 │   ├── catalogo_core/
 │   ├── business_data/
 │   ├── clientes_core/
+│   ├── clientes_facturacion/
+│   ├── presupuestos_y_pedidos/
+│   ├── facturacion_base/
 │   ├── legacy_support/
 │   └── facturascripts_support/
 ├── view/                    # Assets estáticos compartidos (css, js, fonts)
@@ -357,7 +377,7 @@ ddev exec php vendor/bin/phpunit --testsuite Base       # clases core (base/)
 ddev exec php vendor/bin/phpunit --testsuite Core       # src/Core, Database…
 ddev exec php vendor/bin/phpunit --testsuite Security   # CSRF, sesiones, headers…
 ddev exec php vendor/bin/phpunit --testsuite Plugins    # tests en plugins/*/tests/
-ddev exec php vendor/bin/phpunit -c plugins/OidcProvider/phpunit.xml  # suite aislada
+ddev exec php vendor/bin/phpunit -c plugins/catalogo_core/phpunit.xml # suite aislada de un plugin
 ```
 
 Los tests de plugins viven en `plugins/<PluginName>/tests/` y se descubren automáticamente desde el `phpunit.xml` raíz.
