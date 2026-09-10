@@ -284,6 +284,18 @@ class MailServiceTest extends TestCase
             {
                 return $this->simple_get($name);
             }
+
+            public function get_many(array $names, bool $decrypt = false): array
+            {
+                $result = [];
+                foreach ($names as $name) {
+                    if (array_key_exists($name, $this->values)) {
+                        $result[$name] = $this->values[$name];
+                    }
+                }
+
+                return $result;
+            }
         };
     }
 }

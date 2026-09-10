@@ -131,7 +131,55 @@ class fs_var extends fs_model
      */
     public function simple_get_decrypted($name)
     {
-        $value = $this->simple_get($name);
+        return $this->decryptIfNeeded($this->simple_get($name));
+    }
+
+    /**
+     * Devuelve un array asociativo name => valor para las claves indicadas,
+     * resolviéndolas en una única consulta. Las claves inexistentes se omiten.
+     *
+     * @param string[] $names
+     * @param bool $decrypt descifra los valores con prefijo 'v1:'
+     * @return array<string, mixed>
+     */
+    public function get_many(array $names, bool $decrypt = false): array
+    {
+        $result = [];
+
+        if ($names === []) {
+            return $result;
+        }
+
+        $quoted = [];
+        foreach ($names as $name) {
+            $quoted[] = $this->var2str((string) $name);
+        }
+
+        $data = $this->db->select(
+            "SELECT * FROM " . $this->table_name . " WHERE name IN (" . implode(',', $quoted) . ");"
+        );
+
+        if (!$data) {
+            return $result;
+        }
+
+        foreach ($data as $row) {
+            $value = $row['varchar'];
+            $result[$row['name']] = $decrypt ? $this->decryptIfNeeded($value) : $value;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Descifra un valor con prefijo 'v1:'. Devuelve el valor sin cambios si no
+     * está cifrado, y FALSE si el descifrado falla o el servicio no está disponible.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    private function decryptIfNeeded($value)
+    {
         if ($value === FALSE || !is_string($value)) {
             return $value;
         }

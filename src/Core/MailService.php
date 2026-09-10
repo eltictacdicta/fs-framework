@@ -70,12 +70,10 @@ class MailService
             return $config;
         }
 
+        $stored = $this->fsVar->get_many(array_keys(self::CONFIG_KEYS), true);
+
         foreach ($config as $key => $default) {
-            if ($key === 'mail_password') {
-                $value = $this->fsVar->simple_get_decrypted($key);
-            } else {
-                $value = $this->fsVar->simple_get($key);
-            }
+            $value = $stored[$key] ?? false;
 
             if ($value !== false) {
                 if ($key === 'mail_port') {
