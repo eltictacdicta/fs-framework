@@ -1,6 +1,6 @@
 # Extensión FSFramework — bump de versión al cerrar milestone
 
-> **Proyecto:** panel-ab / FSFramework  
+> **Proyecto:** FSFramework  
 > **Skill:** `.cursor/skills/fsframework-milestone-release/SKILL.md`  
 > **Script:** `scripts/gsd-bump-release-version.sh`
 

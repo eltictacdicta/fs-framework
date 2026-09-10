@@ -316,7 +316,6 @@ Use provided helper functions:
   fs_session_manager.php      # Session handling
   fs_settings.php             # Application settings
   fs_secret_migrator.php      # Secret migration utility
-  fs_api.php                  # API utilities
   fs_auth.php                 # Authentication helpers
   fs_autoload.php             # Autoloader
   fs_chunked_upload.php        # Chunked file uploads
@@ -326,7 +325,6 @@ Use provided helper functions:
   fs_list_decoration.php      # List view decoration
   fs_list_filter.php          # List filters
   fs_model_autoloader.php     # Model autoloading
-  fs_model_crud_trait.php     # CRUD trait for models
   fs_secure_chunked_upload.php # Secure file uploads
 /controller/                   # Main application controllers
   admin_*.php                 # Admin controllers

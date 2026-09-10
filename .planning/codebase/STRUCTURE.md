@@ -43,7 +43,6 @@
 │   ├── fs_schema.php         # Database schema operations
 │   ├── fs_login.php          # Authentication utilities
 │   ├── fs_app.php            # Base application class
-│   ├── fs_api.php            # API utilities
 │   ├── fs_auth.php           # Authentication helpers
 │   ├── fs_autoload.php       # Legacy autoloader
 │   ├── fs_chunked_upload.php # Chunked file uploads
@@ -61,7 +60,6 @@
 │   ├── fs_log_manager.php    # Log persistence to DB
 │   ├── fs_maintenance_mode.php # Maintenance mode gate
 │   ├── fs_model_autoloader.php # Lazy model autoloading
-│   ├── fs_model_crud_trait.php # CRUD trait for models
 │   ├── fs_plugin_downloader.php # Plugin download/install
 │   ├── fs_plugin_manager.php # Plugin management
 │   ├── fs_session_manager.php # Legacy session handling
@@ -97,7 +95,6 @@
 │   ├── fs_page.php           # Page model
 │   ├── fs_access.php         # Access control model
 │   ├── fs_extension.php      # Extensions model
-│   ├── fs_relation.php       # Relations model
 │   ├── fs_rol_access.php     # Role-access mapping
 │   ├── fs_rol_user.php       # Role-user mapping
 │   └── agente.php            # Agent model

@@ -8,34 +8,7 @@ Este documento detalla las mejoras implementadas y propuestas para reducir dupli
 
 ## ✅ MEJORAS IMPLEMENTADAS
 
-### 1. Trait CRUD para Modelos (`base/fs_model_crud_trait.php`)
-
-**Problema**: Código repetitivo en todos los modelos (exists, save, delete, get, all)
-**Solución**: Trait reutilizable que genera SQL automáticamente
-
-```php
-class mi_modelo extends fs_model {
-    use fs_model_crud_trait;
-    
-    protected static string $primaryKey = 'codmodelo';
-    protected static array $fields = ['codmodelo', 'nombre', 'activo'];
-    protected static array $defaults = ['activo' => true];
-    
-    // Solo implementar test() con validaciones específicas
-    public function test() {
-        $this->sanitizeFields();
-        return strlen($this->nombre) > 0;
-    }
-}
-```
-
-**Beneficios**:
-- Reduce ~50-100 líneas por modelo
-- SQL generado automáticamente desde metadatos
-- Métodos adicionales: `findBy()`, `findOneBy()`, `count()`, `toArray()`
-- Compatible con modelos existentes (opt-in)
-
-### 2. SessionManager con Symfony (`src/Security/SessionManager.php`)
+### 1. SessionManager con Symfony (`src/Security/SessionManager.php`)
 
 **Antes**: Implementación custom con `$_SESSION` directo
 **Después**: Usa Symfony HttpFoundation Session internamente
@@ -62,7 +35,7 @@ $valid = $session->verifyCsrfToken($token);
 - Configuración de cookies más robusta
 - Mantiene compatibilidad con cookies legacy
 
-### 3. Extracción del dominio de clientes (`clientes_core`)
+### 2. Extracción del dominio de clientes (`clientes_core`)
 
 **Antes**: Modelos de cliente, dirección y grupo embebidos en `facturacion_base`
 **Después**: Plugin independiente `clientes_core` con:
@@ -78,7 +51,7 @@ $valid = $session->verifyCsrfToken($token);
 - Dominio de terceros aislado de integraciones contables
 - Plugin modernizado desde el inicio (Twig nativo, YAML, sin RainTPL)
 
-### 4. Sistema de Backup de Plugins
+### 3. Sistema de Backup de Plugins
 
 Backup automático al sobrescribir plugins con restore desde el admin:
 - `fs_plugin_manager`: `has_backup()`, `create_backup()`, `restore_backup()`
@@ -89,39 +62,7 @@ Backup automático al sobrescribir plugins con restore desde el admin:
 
 ## 🟡 MEJORAS PROPUESTAS (Pendientes)
 
-### 5. Migrar Modelos a usar el Trait CRUD
-
-**Esfuerzo**: Medio
-**Impacto**: Alto
-
-Migrar gradualmente los modelos existentes para usar `fs_model_crud_trait`:
-
-```php
-// Antes (empresa.php - ~200 líneas de CRUD)
-class empresa extends fs_model {
-    public function exists() { /* 10 líneas */ }
-    public function save() { /* 50 líneas */ }
-    public function delete() { /* 10 líneas */ }
-    public function get($cod) { /* 15 líneas */ }
-    // ...
-}
-
-// Después (~50 líneas)
-class empresa extends fs_model {
-    use fs_model_crud_trait;
-    
-    protected static string $primaryKey = 'id';
-    protected static array $fields = ['id', 'nombre', 'cifnif', ...];
-    
-    public function test() {
-        $this->sanitizeFields();
-        // Validaciones específicas
-        return true;
-    }
-}
-```
-
-### 6. Unificar fs_session_manager con SessionManager
+### 4. Unificar fs_session_manager con SessionManager
 
 **Esfuerzo**: Bajo
 **Impacto**: Medio
@@ -138,7 +79,7 @@ class fs_session_manager {
 }
 ```
 
-### 7. Integrar Symfony Validator en Modelos
+### 5. Integrar Symfony Validator en Modelos
 
 **Estado**: IMPLEMENTADO
 **Esfuerzo**: Alto
@@ -150,21 +91,19 @@ Implementado en `src/Traits/ValidatorTrait.php` con tests en `tests/Traits/Valid
 use Symfony\Component\Validator\Constraints as Assert;
 
 class cliente extends fs_model {
-    use fs_model_crud_trait;
-    
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
     public ?string $nombre = null;
-    
+
     #[Assert\Email]
     public ?string $email = null;
-    
+
     #[Assert\Regex('/^[A-Z0-9]{8,9}[A-Z]?$/')]
     public ?string $cifnif = null;
 }
 ```
 
-### 8. Query Builder Integrado con Modelos
+### 6. Query Builder Integrado con Modelos
 
 **Esfuerzo**: Medio
 **Impacto**: Alto
@@ -186,7 +125,7 @@ $clientes = cliente::query()
     ->get();
 ```
 
-### 9. Event Dispatcher para Hooks de Modelo
+### 7. Event Dispatcher para Hooks de Modelo
 
 **Estado**: IMPLEMENTADO
 **Esfuerzo**: Medio
@@ -199,15 +138,15 @@ Implementado en `src/Event/FSEventDispatcher.php` y `src/Event/ModelEvent.php`. 
 protected function save(): bool {
     $event = new ModelEvent($this);
     $this->dispatcher->dispatch($event, 'model.before_save');
-    
+
     if ($event->isPropagationStopped()) {
         return false;
     }
-    
+
     $result = $this->doSave();
-    
+
     $this->dispatcher->dispatch(new ModelEvent($this), 'model.after_save');
-    
+
     return $result;
 }
 
@@ -225,11 +164,9 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 
 | Mejora | Esfuerzo | Impacto | Riesgo | Prioridad |
 |--------|----------|---------|--------|-----------|
-| Trait CRUD | ✅ Hecho | Alto | Bajo | - |
 | SessionManager Symfony | ✅ Hecho | Medio | Bajo | - |
 | Extracción clientes_core | ✅ Hecho | Alto | Bajo | - |
 | Backup de plugins | ✅ Hecho | Medio | Bajo | - |
-| Migrar modelos a trait | Medio | Alto | Bajo | 🔴 Alta |
 | Unificar session managers | Bajo | Medio | Bajo | 🔴 Alta |
 | Symfony Validator | ✅ Hecho | Alto | Bajo | - |
 | Query Builder en modelos | Medio | Alto | Bajo | 🟡 Media |
@@ -240,21 +177,15 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 ## 🚀 Plan de Migración Sugerido
 
 ### Fase 1: Consolidación (1-2 días)
-1. ✅ Crear trait CRUD
-2. ✅ SessionManager con Symfony
-3. Unificar fs_session_manager → SessionManager
+1. ✅ SessionManager con Symfony
+2. Unificar fs_session_manager → SessionManager
 
-### Fase 2: Migración de Modelos (1 semana)
-1. Migrar modelos core (fs_user, fs_page, fs_access)
-2. Migrar modelos de plugins principales
-3. Documentar patrón de migración
-
-### Fase 3: Validación Moderna (1 semana)
+### Fase 2: Validación Moderna (1 semana)
 1. ✅ Integrar Symfony Validator (`ValidatorTrait`)
 2. ✅ Crear atributos de validación comunes (Assert constraints)
 3. Migrar validaciones de test() a atributos en modelos existentes
 
-### Fase 4: Query Builder Avanzado (3-5 días)
+### Fase 3: Query Builder Avanzado (3-5 días)
 1. Integrar query() estático en modelos
 2. Añadir scopes reutilizables
 3. Documentar patrones de consulta
@@ -264,13 +195,8 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 ## 📁 Archivos Creados/Modificados
 
 ### Nuevos
-- `base/fs_model_crud_trait.php` - Trait CRUD genérico
 - `src/Security/SessionManager.php` - Session con Symfony
 - `docs/MEJORAS_PROPUESTAS.md` - Este documento
-
----
-
-## 🚀 MEJORAS DE PERFORMANCE IMPLEMENTADAS
 
 ---
 
@@ -278,8 +204,6 @@ $dispatcher->addListener('model.before_save', function(ModelEvent $e) {
 
 | Área | Antes | Después | Mejora |
 |------|-------|---------|--------|
-| Líneas de código en modelos | ~150/modelo | ~50/modelo | -67% |
-| Duplicación de CRUD | 100% manual | 0% (trait) | -100% |
 | Clases Cache | 3 implementaciones | 1 + facade | -67% |
 | Controladores duplicados | 2 archivos | 1 archivo | -50% |
 | SQL Injection risk | Alto (concatenación) | Bajo (prepared) | ↓↓↓ |

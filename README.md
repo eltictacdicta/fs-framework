@@ -2,7 +2,7 @@
 
 Fork modernizado de FacturaScripts 2017 con integración Symfony 7.4, motor Twig 3 y arquitectura **Symfony-first** con compatibilidad legacy controlada.
 
-**Versión actual:** ver [`VERSION`](VERSION) (v0.19.0)
+**Versión actual:** ver [`VERSION`](VERSION)
 
 Software libre bajo licencia GNU/LGPL.
 
@@ -42,7 +42,7 @@ ddev exec composer install          # dependencias de producción
 ./build.sh                          # assets frontend (Bootstrap, jQuery, Font Awesome)
 ```
 
-Acceso web: `https://panel-ab.ddev.site` (o el nombre del proyecto en `.ddev/config.yaml`).
+Acceso web: `https://<nombre-del-proyecto>.ddev.site` (ver `name` en `.ddev/config.yaml`).
 
 Comandos habituales:
 

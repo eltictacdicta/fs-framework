@@ -8,11 +8,11 @@
 | --- | --- |
 | Project name | `fs-framework` |
 | Composer package | `facturascripts/fs-framework-modern` |
-| Version (core) | `0.17.0` |
+| Version (core) | `0.21.1` |
 | Origin | Fork of FacturaScripts 2017, modernized with Symfony 7.4 |
 | Artifact store | `openspec/` (file-based) |
 | Strict TDD | enabled |
-| Working directory | `/home/javier/proyectos/panel-ab` |
+| Working directory | `<repository-root>` |
 
 ## Stack Baseline
 

@@ -11,20 +11,20 @@
 
 Auditoría de seguimiento sobre `sdd/production-audit/explore` (15 hallazgos originales, marzo 2026).
 
-**Estado de los 15 hallazgos originales**:
+**Estado de los 15 hallazgos originales** (re-verificado 2026-09-10 sobre v0.21.1):
 
 | ID | Título | Severidad | Estado |
 |----|--------|-----------|--------|
 | C1 | SQLi en `fs_list_controller` search | CRITICAL | ✅ Arreglado (critical-security-fixes-2026-03) |
-| H1 | `no_html()` docblock vs código | HIGH | ⏳ Pendiente |
+| H1 | `no_html()` docblock vs código | HIGH | ✅ Arreglado (docblock e implementación convierten comillas) |
 | H2 | `fs_auth::verifyCsrfRequest()` raw `$_POST` | HIGH | ✅ Arreglado |
 | H3 | `login.php` superglobals | HIGH | ✅ Arreglado |
-| H4 | PostgreSQL identifiers sin quote | HIGH | ⏳ Pendiente |
-| M1 | `random_string()` con `str_shuffle` | MEDIUM | ⏳ Pendiente |
-| M2 | `admin_info.php` GET mutations | MEDIUM | ⏳ Pendiente |
-| M3 | Duplicación `random_string()` × 3 | MEDIUM | ⏳ Pendiente (resuelto con M1) |
+| H4 | PostgreSQL identifiers sin quote | HIGH | ✅ Arreglado (`fs_postgresql` cita tabla/columna/constraint; `tests/Base/FsPostgresqlIdentifierQuotingTest.php`) |
+| M1 | `random_string()` con `str_shuffle` | MEDIUM | ✅ Arreglado (usa `random_bytes`) |
+| M2 | `admin_info.php` GET mutations | MEDIUM | ⚠️ Parcial: `clean_cache` movido a POST + CSRF (botón con `csrf_field()`); `fix` (reset de flags de cron) sigue por GET, severidad baja |
+| M3 | Duplicación `random_string()` × 3 | MEDIUM | ⚠️ Parcial: siguen 3 copias, pero todas usan `random_bytes` (el riesgo de M1 está cerrado) |
 | M4 | Duplicación `setPreferenceCookie` | MEDIUM | 📋 Backlog (no crítico) |
-| L1 | `admin_user.php` superglobals | LOW | ⏳ Pendiente |
+| L1 | `admin_user.php` superglobals | LOW | ✅ Arreglado (sin superglobals) |
 | L2 | DB name en HTML error | LOW | 📋 Backlog |
 | L3 | `php_uname()` info disclosure | LOW | 📋 Backlog |
 | L4 | Legacy cookie `auth_sig` bypass | LOW | ✅ Migrado a `SessionManager` moderno |
@@ -869,10 +869,10 @@ ddev exec php vendor/bin/phpunit --filter admin_user
 
 ## 4. Hallazgos diferidos (fuera de scope, con justificación)
 
-### H4 — PostgreSQL identifier quoting
-**Por qué se difiere**: requiere `quoteIdentifier()` añadido a 11+ métodos en `fs_postgresql.php`. Riesgo de regresión en DDL alto. Necesita un plan de migración con tests de schema en ambos motores. Estimado: ~80 líneas + ~100 líneas de tests, con cobertura de MySQL/PostgreSQL paralela.
+### H4 — PostgreSQL identifier quoting — ✅ RESUELTO (2026-09-10)
+**Estado**: `fs_postgresql` ahora cita tabla, columna y nombre de restricción vía `quote_identifier()` (comillas dobles, escapando `"`), en `compare_columns()`, `compare_constraints()`, `generate_table()` y `default2check_sequence()`. Cubierto por `tests/Base/FsPostgresqlIdentifierQuotingTest.php`. Para identificadores en minúsculas (todo el schema del core) citar equivale a no citar, así que no hay cambio de comportamiento.
 
-**Workaround actual**: el `table_name` viene de XML schemas en el repo, no de input de usuario. Solo un atacante con acceso al filesystem puede manipular el XML, en cuyo caso tiene permisos para escribir SQL directamente.
+**Nota**: no cubre las referencias a columnas en la capa de queries (los modelos las interpolan sin citar). Para identificadores en minúsculas es correcto; un schema con camelCase (p. ej. `api_auth`) seguiría necesitando normalización a snake_case para PostgreSQL.
 
 ### M2 — `admin_info.php` GET mutations
 **Por qué se difiere**: cambiar a POST requiere actualizar el template `admin_info.html.twig` (botones y forms) y posiblemente URLs internas. El usuario ya tiene el flujo funcionando en producción; cambiarlo afecta UX.
