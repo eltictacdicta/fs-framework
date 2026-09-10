@@ -164,7 +164,6 @@ if (!defined('FS_BASE_URL')) {
     define('FS_BASE_URL', $protocol . '://' . $host . $base_path);
 }
 require_once 'base/fs_controller.php';
-require_once 'base/fs_edit_controller.php';
 require_once 'base/fs_list_controller.php';
 require_once 'base/fs_log_manager.php';
 

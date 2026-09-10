@@ -47,16 +47,6 @@ function fs_install_is_valid_database_name(?string $name): bool
     return is_string($name) && preg_match('/^[A-Za-z0-9_]+$/', $name) === 1;
 }
 
-function fs_install_quote_mysql_identifier(string $name): string
-{
-    return '`' . $name . '`';
-}
-
-function fs_install_quote_pg_identifier(string $name): string
-{
-    return '"' . $name . '"';
-}
-
 function fs_install_resolve_session_name(): string
 {
     if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {

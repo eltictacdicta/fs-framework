@@ -226,7 +226,6 @@ class fs_autoload
         return [
             // Base
             'fs_app' => '/base/fs_app.php',
-            'fs_api' => '/base/fs_api.php',
             'fs_cache' => '/base/fs_cache.php',
             'fs_controller' => '/base/fs_controller.php',
             'fs_core_log' => '/base/fs_core_log.php',
@@ -234,8 +233,6 @@ class fs_autoload
             'fs_db_engine' => '/base/fs_db_engine.php',
             'fs_default_items' => '/base/fs_default_items.php',
             'fs_divisa_tools' => '/plugins/catalogo_core/extras/fs_divisa_tools.php',
-            'fs_edit_controller' => '/base/fs_edit_controller.php',
-            'fs_edit_form' => '/base/fs_edit_form.php',
             'fs_excel' => '/base/fs_excel.php',
             'fs_extended_model' => '/base/fs_extended_model.php',
             'fs_file_manager' => '/base/fs_file_manager.php',

@@ -6,9 +6,10 @@ declare(strict_types=1);
  * Contract tests for the jQuery migration phase 4 (datepicker -> native date
  * inputs) plus the generic head_extra_js/head_extra_css plugin asset hook.
  *
- * Core side: every date emitter (fs_edit_form, fs_list_filter_date, the agente
- * templates) emits native <input type="date"> with values converted from the
- * model d-m-Y format via the strict date_iso filter / date_to_iso helpers;
+ * Core side: every date emitter (fs_list_filter_date, the agente templates)
+ * emits native <input type="date"> with values converted from the model d-m-Y
+ * format via the strict date_iso filter / date_to_iso helpers; the legacy
+ * fs_edit_form emitter moved to the legacy_support plugin (covered there);
  * base.js loses the datepicker auto-init block including the type="date"
  * downgrade; the global header and install.php stop loading jQuery UI,
  * bootstrap-datepicker and its CSS. The legacy asset files stay on disk for
@@ -219,16 +220,6 @@ class FsDatepickerMigrationContractTest extends TestCase
     // =====================================================================
     // Core date emitters: native inputs + strict conversion
     // =====================================================================
-
-    #[Test]
-    public function fsEditFormEmitsNativeDateInputsWithoutDatepickerClass(): void
-    {
-        $source = (string) file_get_contents(FS_FOLDER . '/base/fs_edit_form.php');
-
-        $this->assertStringContainsString('type="date"', $source);
-        $this->assertStringNotContainsString('datepicker', $source);
-        $this->assertStringContainsString('date_to_iso', $source);
-    }
 
     #[Test]
     public function fsListFilterDateEmitsNativeDateInputAndKeepsAutoSubmit(): void

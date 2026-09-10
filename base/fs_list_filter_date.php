@@ -98,7 +98,7 @@ class fs_list_filter_date extends fs_list_filter
      * by native <input type="date"> fields. Strict: only the exact d-m-Y shape
      * passes checkdate() and is converted; anything else is returned
      * unchanged. Same semantics as the Twig date_iso filter (see also
-     * fs_edit_form::date_to_iso).
+     * fs_edit_form::date_to_iso, now provided by the legacy_support plugin).
      *
      * @param mixed $value
      *
