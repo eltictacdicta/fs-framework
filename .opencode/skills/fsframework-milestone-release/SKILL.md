@@ -24,6 +24,7 @@ Al hacer `git push origin vX.Y.Z`, el workflow `.github/workflows/release-on-tag
 |---------|--------|-------|
 | `VERSION` | Siempre | Versión del milestone sin prefijo `v` (ej. `0.12.0`) |
 | `plugins/{plugin}/fsframework.ini` | Plugin con cambios en el milestone | Incremento patch del campo `version` |
+| `plugins/{plugin}/releases.json` | Plugin ya adaptado al historial de versiones (ver abajo) | Append de la entrada del release con `version` + `min_version`/`max_version` congelados |
 
 Plugins versionados en el repo (core): `business_data`, `catalogo_core`, `clientes_core`, `clientes_catalogo`, `clientes_facturacion`, `legacy_support`, `facturascripts_support`.
 
@@ -100,6 +101,41 @@ git add VERSION plugins/*/fsframework.ini
 ```
 
 Mensaje sugerido: `chore(release): bump VERSION to X.Y.Z [+ plugins]`
+
+## Metadata de compatibilidad por release (historial de versiones)
+
+> Mecanismo especificado en el change SDD `plugin-compatible-update-resolver`
+> (vive en `plugins/system_updater/openspec/`). El `fsframework.ini` de cada tag
+> sigue siendo la fuente de verdad de `version`, `min_version` y `max_version`.
+
+Aplica **solo a plugins ya adaptados** al historial. Al publicar un release de un
+plugin adaptado, además del bump de `version` en `fsframework.ini`, agregar
+(append) una entrada al historial del plugin:
+
+- `releases.json` del plugin, o alternativamente `versions[]` en la entrada del
+  catálogo.
+- Cada entrada: `version`, `min_version`, `max_version` (congelados del
+  `fsframework.ini` de ese mismo tag) y una referencia de descarga (`zip_url` o
+  id de catálogo).
+
+Reglas:
+
+- **Append-only e inmutable**: una entrada publicada no se reescribe; los límites
+  por release no cambian retroactivamente.
+- Habilita que el actualizador resuelva "la última versión compatible" cuando la
+  punta de rama ya no es compatible con el core en ejecución.
+
+### Retrocompatibilidad (obligatoria)
+
+- La adaptación es **por plugin y opcional**. Un plugin sin `releases.json` sigue
+  usando el mecanismo antiguo (punta de rama + `fsframework.ini` de la rama),
+  indefinidamente.
+- El historial es **aditivo**: los `system_updater` viejos lo ignoran y siguen
+  operando con la punta de rama. Publicarlo **no rompe nada**.
+- **No eliminar** el camino de punta de rama / ini único mientras existan plugins
+  sin adaptar.
+- El resolver **nunca** propone una versión igual o inferior a la instalada (sin
+  auto-downgrade).
 
 ## Verificación
 
