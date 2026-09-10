@@ -83,12 +83,14 @@ class fs_postgresql extends fs_db_engine
     public function compare_columns($table_name, $xml_cols, $db_cols)
     {
         $sql = '';
+        $table = $this->quote_identifier($table_name);
 
         foreach ($xml_cols as $xml_col) {
+            $col = $this->quote_identifier($xml_col['nombre']);
             $db_col = $this->search_in_array($db_cols, 'name', $xml_col['nombre']);
             if (empty($db_col)) {
                 /// columna no encontrada en $db_cols. La creamos
-                $sql .= 'ALTER TABLE ' . $table_name . ' ADD COLUMN "' . $xml_col['nombre'] . '" ' . $xml_col['tipo'];
+                $sql .= 'ALTER TABLE ' . $table . ' ADD COLUMN ' . $col . ' ' . $xml_col['tipo'];
                 $sql .= ($xml_col['defecto'] !== NULL) ? ' DEFAULT ' . $xml_col['defecto'] : '';
                 $sql .= ($xml_col['nulo'] == 'NO') ? ' NOT NULL;' : ';';
                 continue;
@@ -96,24 +98,24 @@ class fs_postgresql extends fs_db_engine
 
             /// columna ya presente en db_cols. La modificamos
             if (!$this->compare_data_types($db_col['type'], $xml_col['tipo'])) {
-                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER COLUMN "' . $xml_col['nombre'] . '" TYPE ' . $xml_col['tipo'] . ';';
+                $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' TYPE ' . $xml_col['tipo'] . ';';
             }
 
             if ($db_col['default'] == $xml_col['defecto']) {
                 /// do nothing
             } elseif (is_null($xml_col['defecto'])) {
-                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER COLUMN "' . $xml_col['nombre'] . '" DROP DEFAULT;';
+                $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' DROP DEFAULT;';
             } else {
                 $this->default2check_sequence($table_name, $xml_col['defecto'], $xml_col['nombre']);
-                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER COLUMN "' . $xml_col['nombre'] . '" SET DEFAULT ' . $xml_col['defecto'] . ';';
+                $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' SET DEFAULT ' . $xml_col['defecto'] . ';';
             }
 
             if ($db_col['is_nullable'] == $xml_col['nulo']) {
                 /// do nothing
             } elseif ($xml_col['nulo'] == 'YES') {
-                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER COLUMN "' . $xml_col['nombre'] . '" DROP NOT NULL;';
+                $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' DROP NOT NULL;';
             } else {
-                $sql .= 'ALTER TABLE ' . $table_name . ' ALTER COLUMN "' . $xml_col['nombre'] . '" SET NOT NULL;';
+                $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' SET NOT NULL;';
             }
         }
 
@@ -131,6 +133,7 @@ class fs_postgresql extends fs_db_engine
     public function compare_constraints($table_name, $xml_cons, $db_cons, $delete_only = FALSE)
     {
         $sql = '';
+        $table = $this->quote_identifier($table_name);
 
         if (!empty($db_cons)) {
             /// comprobamos una a una las viejas
@@ -138,7 +141,7 @@ class fs_postgresql extends fs_db_engine
                 $xml_con = $this->search_in_array($xml_cons, 'nombre', $db_con['name']);
                 if (empty($xml_con)) {
                     /// eliminamos la restriccion
-                    $sql .= "ALTER TABLE " . $table_name . " DROP CONSTRAINT " . $db_con['name'] . ";";
+                    $sql .= 'ALTER TABLE ' . $table . ' DROP CONSTRAINT ' . $this->quote_identifier($db_con['name']) . ';';
                 }
             }
         }
@@ -149,7 +152,7 @@ class fs_postgresql extends fs_db_engine
                 $db_con = $this->search_in_array($db_cons, 'name', $xml_con['nombre']);
                 if (empty($db_con)) {
                     /// añadimos la restriccion
-                    $sql .= "ALTER TABLE " . $table_name . " ADD CONSTRAINT " . $xml_con['nombre'] . " " . $xml_con['consulta'] . ";";
+                    $sql .= 'ALTER TABLE ' . $table . ' ADD CONSTRAINT ' . $this->quote_identifier($xml_con['nombre']) . ' ' . $xml_con['consulta'] . ';';
                 }
             }
         }
@@ -218,6 +221,16 @@ class fs_postgresql extends fs_db_engine
     }
 
     /**
+     * Cita un identificador de PostgreSQL (tabla, columna, restricción).
+     * Necesario con nombres reservados o con mayúsculas; para identificadores
+     * en minúsculas citarlos equivale a no citarlos.
+     */
+    private function quote_identifier(string $identifier): string
+    {
+        return '"' . str_replace('"', '""', $identifier) . '"';
+    }
+
+    /**
      * Ejecuta sentencias SQL sobre la base de datos (inserts, updates o deletes).
      * Para hacer selects, mejor usar select() o selec_limit().
      * Por defecto se inicia una transacción, se ejecutan las consultas, y si todo
@@ -273,7 +286,7 @@ class fs_postgresql extends fs_db_engine
      */
     public function generate_table($table_name, $xml_cols, $xml_cons)
     {
-        $sql = 'CREATE TABLE IF NOT EXISTS ' . $table_name . ' (';
+        $sql = 'CREATE TABLE IF NOT EXISTS ' . $this->quote_identifier($table_name) . ' (';
 
         $i = FALSE;
         foreach ($xml_cols as $col) {
@@ -284,7 +297,7 @@ class fs_postgresql extends fs_db_engine
                 $i = TRUE;
             }
 
-            $sql .= '"' . $col['nombre'] . '" ' . $col['tipo'];
+            $sql .= $this->quote_identifier($col['nombre']) . ' ' . $col['tipo'];
 
             if ($col['nulo'] == 'NO') {
                 $sql .= ' NOT NULL';
@@ -604,12 +617,12 @@ class fs_postgresql extends fs_db_engine
             if (count($aux) == 3 && !$this->sequence_exists($aux[1])) {
                 /// ¿En qué número debería empezar esta secuencia?
                 $num = 1;
-                $aux_num = $this->select("SELECT MAX(" . $colname . "::integer) as num FROM " . $table_name . ";");
+                $aux_num = $this->select("SELECT MAX(" . $this->quote_identifier($colname) . "::integer) as num FROM " . $this->quote_identifier($table_name) . ";");
                 if ($aux_num) {
                     $num += intval($aux_num[0]['num']);
                 }
 
-                $this->exec("CREATE SEQUENCE " . $aux[1] . " START " . $num . ";");
+                $this->exec("CREATE SEQUENCE " . $this->quote_identifier($aux[1]) . " START " . $num . ";");
             }
         }
     }
