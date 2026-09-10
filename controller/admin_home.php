@@ -133,7 +133,7 @@ class admin_home extends fs_controller
 
             return is_array($internet_ini)
                 && isset($internet_ini['version'])
-                && $plugin['version'] < intval($internet_ini['version']);
+                && version_compare((string) $plugin['version'], (string) $internet_ini['version'], '<');
         }
 
         if ($plugin['idplugin'] && $plugin['download2_url'] != '') {

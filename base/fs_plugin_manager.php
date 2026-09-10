@@ -1341,19 +1341,19 @@ class fs_plugin_manager
         $plugin_name = $this->normalize_plugin_name($plugin_folder);
 
         // Intentar leer la versión del archivo ini
-        $version = 1;
+        $version = '1.0.0';
         $fsframework_ini = $temp_dir . $plugin_folder . '/fsframework.ini';
         $facturascripts_ini = $temp_dir . $plugin_folder . '/facturascripts.ini';
 
         if (file_exists($fsframework_ini)) {
             $ini_data = parse_ini_file($fsframework_ini);
             if (isset($ini_data['version'])) {
-                $version = (int) $ini_data['version'];
+                $version = fs_normalize_plugin_version($ini_data['version']);
             }
         } elseif (file_exists($facturascripts_ini)) {
             $ini_data = parse_ini_file($facturascripts_ini);
             if (isset($ini_data['version'])) {
-                $version = (int) $ini_data['version'];
+                $version = fs_normalize_plugin_version($ini_data['version']);
             }
         }
 
