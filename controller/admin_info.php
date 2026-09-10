@@ -191,7 +191,8 @@ class admin_info extends fs_list_controller
             $cron_vars['cron_error'] = FALSE;
             $cron_vars['cron_lock'] = FALSE;
             $this->fsvar->array_save($cron_vars);
-        } else if (isset($_GET['clean_cache'])) {
+        } else if (filter_input(INPUT_POST, 'clean_cache')) {
+            /// POST + CSRF (validado en pre_private_core): ya no es una mutación por GET.
             $this->clean_all_cache();
         } else if (!$cron_vars['cron_exists']) {
             $this->new_advice('Nunca se ha ejecutado el'

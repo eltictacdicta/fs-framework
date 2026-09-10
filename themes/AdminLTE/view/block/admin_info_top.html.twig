@@ -64,10 +64,13 @@
         </div>
         <div class="col-xs-4 text-right">
             {% if fsc.allow_delete %}
-            <a class="btn btn-xs btn-danger" href="{{ fsc.url() }}&clean_cache=TRUE">
-                <i class="fa fa-trash" aria-hidden="true"></i>
-                <span class="hidden-xs">&nbsp;Limpiar la cache</span>
-            </a>
+            <form method="post" action="{{ fsc.url() }}" style="display:inline;">
+                {{ csrf_field() }}
+                <button type="submit" name="clean_cache" value="TRUE" class="btn btn-xs btn-danger">
+                    <i class="fa fa-trash" aria-hidden="true"></i>
+                    <span class="hidden-xs">&nbsp;Limpiar la cache</span>
+                </button>
+            </form>
             {% endif %}
         </div>
     </div>
