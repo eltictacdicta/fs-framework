@@ -24,7 +24,8 @@
  * List renders via row fragments; create/update/delete respond with tbody
  * fragments + fs:modal-close; edit is an hx-get modal fragment. No-JS
  * fallbacks keep full-page PRG behavior. GET delete retired (POST-only,
- * hx-confirm). The standalone admin_agente page remains for direct URLs.
+ * hx-confirm). The standalone admin_agente page was removed — editing lives
+ * here via the hx-get modal fragment and the ?cod= no-JS fallback.
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */

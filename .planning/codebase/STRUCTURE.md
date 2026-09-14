@@ -74,8 +74,7 @@
 │   ├── admin_users.php       # User management
 │   ├── admin_user.php        # Single user edit
 │   ├── admin_rol.php         # Role management
-│   ├── admin_agentes.php     # Agent management
-│   ├── admin_agente.php      # Single agent edit
+│   ├── admin_agentes.php     # Agent management (HTMX CRUD)
 │   ├── admin_info.php        # System info + cache clear
 │   ├── admin_email.php       # Email configuration
 │   ├── admin_orden_menu.php  # Menu ordering

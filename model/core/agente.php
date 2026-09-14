@@ -186,7 +186,7 @@ class agente extends \fs_model
             return "index.php?page=admin_agentes";
         }
 
-        return "index.php?page=admin_agente&cod=" . $this->codagente;
+        return "index.php?page=admin_agentes&cod=" . $this->codagente;
     }
 
     /**

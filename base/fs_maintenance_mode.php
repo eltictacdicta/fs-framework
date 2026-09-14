@@ -22,7 +22,6 @@ final class fs_maintenance_mode
         'admin_rol',
         'admin_stealth',
         'admin_system_branding',
-        'admin_agente',
         'admin_agentes',
         'admin_updater',
         'admin_plugin_store',
