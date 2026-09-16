@@ -139,16 +139,19 @@ class SessionIdentityCharacterizationTest extends TestCase
     }
 
     // =====================================================================
-    // isAdmin() / getCurrentRole() read the SESSION snapshot, not the DB
+    // SessionManager::isAdmin() / getCurrentRole() read the SESSION
+    // snapshot, not the DB
     // =====================================================================
 
     /**
-     * No user row is involved here at all — isAdmin() is satisfied purely by
-     * the session value. This duplication is why any code rewriting the
-     * identity must rewrite all of these session keys together
+     * No user row is involved here at all — SessionManager::isAdmin() is
+     * satisfied purely by the session value. This duplication is why any code
+     * rewriting the identity must rewrite all of these session keys together
      * (user_nick, user_email, user_role, user_admin, ...); fs_auth::user()
-     * re-fetches the user from the DB each request, while fs_auth::role() and
-     * fs_auth::isAdmin() read the stale session snapshot.
+     * re-fetches the user from the DB each request, and fs_auth::role() /
+     * fs_auth::isAdmin() answer from that DB-loaded user object, not the
+     * snapshot. SessionManager::isAdmin() and SessionManager::getCurrentRole()
+     * are the methods that answer from the session snapshot.
      */
     #[Test]
     public function isAdminReflectsSessionSnapshotTrue(): void

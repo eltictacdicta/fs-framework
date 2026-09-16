@@ -118,10 +118,16 @@ class fs_auth
     public static function role()
     {
         $user = self::user();
-        if ($user && $user->admin) {
-            return 'admin';
+
+        // La base manda. El 'user_role' de la sesión es una copia de la bandera
+        // admin hecha al iniciar sesión, así que usarlo como fallback reportaba
+        // 'admin' para un usuario ya degradado y también para uno eliminado de
+        // la base: con $user nulo se caía al snapshot y se devolvía su valor.
+        if (!$user) {
+            return 'guest';
         }
-        return fs_session_manager::getCurrentRole();
+
+        return $user->admin ? 'admin' : 'user';
     }
 
     /**

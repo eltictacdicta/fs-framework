@@ -15,14 +15,16 @@ declare(strict_types=1);
  *     the access_denied template when it returns false
  *     (base/fs_controller.php:271).
  *  2. fs_auth::isAdmin() — reads the fs_user object, not the session snapshot.
- *  3. fs_auth::role() — mixes both sources and keeps reporting 'admin' from the
- *     stale session snapshot for a demoted admin.
+ *  3. fs_auth::role() — reads only the freshly loaded fs_user object, returns
+ *     'guest' when there is no user, and ignores the stale session role.
  *  4. fs_maintenance_mode::hasAdminSession() — trusts the session snapshot and
- *     never consults the database.
+ *     never consults the database; inside that snapshot user_admin is
+ *     authoritative when present and user_role is only a legacy fallback.
  *  5. fs_user has no load_from_session() method even though
  *     controller/login.php:131 calls it.
  *
- * Nothing here is a fix. The tests exist to pin what is there today.
+ * Items 3 and 4 pin the corrected contract; the rest still characterizes the
+ * surrounding behaviour.
  */
 
 namespace Tests\Base;
@@ -200,24 +202,24 @@ class AuthorizationFreshnessTest extends TestCase
     }
 
     // =====================================================================
-    // 3. fs_auth::role() mixes DB state and the session snapshot
+    // 3. fs_auth::role() reads only the DB-loaded user object
     // =====================================================================
 
     /**
-     * The latent trap: a demoted admin (user->admin === false) whose session
-     * still holds user_role = 'admin' keeps getting 'admin' from role(),
-     * because role() falls back to fs_session_manager::getCurrentRole(), which
-     * reads the session snapshot. isAdmin() and role() disagree.
+     * The trap is closed: a demoted admin (user->admin === false) whose stale
+     * session still holds user_role = 'admin' now gets 'user' from role(),
+     * because role() reads only the freshly loaded user object and IGNORES the
+     * session snapshot. isAdmin() and role() now agree.
      */
     #[Test]
-    public function authRoleFallsBackToTheStaleSessionRoleForADemotedAdmin(): void
+    public function authRoleIgnoresTheStaleSessionRoleForADemotedAdmin(): void
     {
         $this->activateSession($this->identity('demoted', false, 'admin'));
         $this->installAuthUser('demoted', false);
 
         $this->assertFalse(\fs_auth::isAdmin());
         $this->assertSame('admin', \fs_session_manager::getCurrentRole());
-        $this->assertSame('admin', \fs_auth::role());
+        $this->assertSame('user', \fs_auth::role());
     }
 
     /**
@@ -236,6 +238,25 @@ class AuthorizationFreshnessTest extends TestCase
         $this->assertSame('admin', \fs_auth::role());
     }
 
+    /**
+     * No user object at all: when fs_auth::user() resolves to null (the user
+     * row was deleted), role() must return 'guest' instead of falling back to
+     * the stale session snapshot, which may still say 'admin'.
+     */
+    #[Test]
+    public function authRoleReturnsGuestWhenThereIsNoUserObject(): void
+    {
+        // The session snapshot still claims admin...
+        $this->activateSession(['user_role' => 'admin']);
+
+        // ...but there is no logged-in user object to resolve.
+        $this->setStatic(\fs_auth::class, 'currentUser', null);
+
+        $this->assertFalse(\fs_auth::isAdmin());
+        $this->assertSame('admin', \fs_session_manager::getCurrentRole());
+        $this->assertSame('guest', \fs_auth::role());
+    }
+
     // =====================================================================
     // 4. fs_maintenance_mode::hasAdminSession() trusts the session snapshot
     // =====================================================================
@@ -247,12 +268,13 @@ class AuthorizationFreshnessTest extends TestCase
     }
 
     /**
-     * The snapshot is consulted without any database check, and user_role =
-     * 'admin' alone is enough: a demoted admin (user_admin = false) still
-     * passes the maintenance-mode bypass as long as the session row says so.
+     * The snapshot is still consulted without any database check — maintenance
+     * mode must work while the DB is down — but user_admin is authoritative
+     * when the key is present, so a demoted admin (user_admin = false) with a
+     * stale user_role = 'admin' no longer passes the bypass.
      */
     #[Test]
-    public function maintenanceBypassAcceptsAdminRoleEvenWithUserAdminFalse(): void
+    public function maintenanceBypassIgnoresAStaleAdminRoleWhenUserAdminIsFalse(): void
     {
         $session = [
             'user_nick' => 'demoted',
@@ -263,7 +285,64 @@ class AuthorizationFreshnessTest extends TestCase
             'last_activity' => time(),
         ];
 
+        $this->assertFalse(\fs_maintenance_mode::hasAdminSession($session));
+    }
+
+    /**
+     * user_role is kept as a fallback for snapshots written before the
+     * user_admin flag existed: with no user_admin key at all, a legacy
+     * user_role = 'admin' still grants the bypass.
+     */
+    #[Test]
+    public function maintenanceBypassAcceptsALegacyAdminRoleWithoutTheAdminFlag(): void
+    {
+        $session = [
+            'user_nick' => 'legacy-admin',
+            'user_role' => 'admin',
+            'user_logged_in' => true,
+            'login_time' => time(),
+            'last_activity' => time(),
+        ];
+
         $this->assertTrue(\fs_maintenance_mode::hasAdminSession($session));
+    }
+
+    /**
+     * The mirror of the legacy fallback: the same snapshot with
+     * user_role = 'user' and no user_admin key is still rejected.
+     */
+    #[Test]
+    public function maintenanceBypassRejectsALegacyRoleWithoutTheAdminFlag(): void
+    {
+        $session = [
+            'user_nick' => 'legacy-user',
+            'user_role' => 'user',
+            'user_logged_in' => true,
+            'login_time' => time(),
+            'last_activity' => time(),
+        ];
+
+        $this->assertFalse(\fs_maintenance_mode::hasAdminSession($session));
+    }
+
+    /**
+     * A present-but-null user_admin is NOT a legacy snapshot: array_key_exists
+     * (not isset) is what makes it authoritative, so it must not fall through
+     * to the user_role chain.
+     */
+    #[Test]
+    public function maintenanceBypassTreatsAPresentButNullAdminFlagAsNotAdmin(): void
+    {
+        $session = [
+            'user_nick' => 'null-admin',
+            'user_admin' => null,
+            'user_role' => 'admin',
+            'user_logged_in' => true,
+            'login_time' => time(),
+            'last_activity' => time(),
+        ];
+
+        $this->assertFalse(\fs_maintenance_mode::hasAdminSession($session));
     }
 
     #[Test]

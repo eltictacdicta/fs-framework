@@ -260,6 +260,15 @@ final class fs_maintenance_mode
         return unlink($path);
     }
 
+    /**
+     * Comprueba si el snapshot de sesión corresponde a un administrador.
+     *
+     * fs_maintenance_mode no puede consultar la base de datos: debe funcionar
+     * precisamente mientras la base de datos está caída, que es el sentido de
+     * la fase de mantenimiento. Por eso la única fuente disponible es el
+     * snapshot de sesión, y esta comprobación es de precisión, no una
+     * validación contra el usuario actual.
+     */
     public static function hasAdminSession(?array $session = null): bool
     {
         $session = $session ?? self::readSessionSnapshot();
@@ -267,10 +276,8 @@ final class fs_maintenance_mode
             return false;
         }
 
-        $legacyAdmin = isset($session['user_admin']) && self::toBool($session['user_admin']);
-        $legacyRole = strtolower(trim((string) ($session['user_role'] ?? '')));
         $legacyLoggedIn = isset($session['user_logged_in']) ? self::toBool($session['user_logged_in']) : isset($session['user_nick']);
-        if (($legacyAdmin || $legacyRole === 'admin') && $legacyLoggedIn && self::isSessionStillValid($session)) {
+        if (self::sessionSaysAdmin($session) && $legacyLoggedIn && self::isSessionStillValid($session)) {
             return true;
         }
 
@@ -279,15 +286,31 @@ final class fs_maintenance_mode
             return false;
         }
 
-        $modernAdmin = isset($attributes['user_admin']) && self::toBool($attributes['user_admin']);
-        $modernRole = strtolower(trim((string) ($attributes['user_role'] ?? '')));
         $modernLoggedIn = isset($attributes['user_logged_in'])
             ? self::toBool($attributes['user_logged_in'])
             : isset($attributes['user_nick']);
 
-        return ($modernAdmin || $modernRole === 'admin')
+        return self::sessionSaysAdmin($attributes)
             && $modernLoggedIn
             && self::isSessionStillValid($attributes);
+    }
+
+    /**
+     * Si el snapshot de sesión dice que el usuario es administrador.
+     *
+     * 'user_admin' manda cuando la clave está presente, así que un false
+     * explícito nunca queda anulado por la cadena de rol. 'user_role' es
+     * únicamente un respaldo para sesiones escritas antes de que existiera la
+     * bandera: una sesión con user_role = 'admin' junto a user_admin = false es
+     * un administrador degradado, no un administrador.
+     */
+    private static function sessionSaysAdmin(array $session): bool
+    {
+        if (array_key_exists('user_admin', $session)) {
+            return self::toBool($session['user_admin']);
+        }
+
+        return strtolower(trim((string) ($session['user_role'] ?? ''))) === 'admin';
     }
 
     public static function hasStealthAdminAccess(?array $server = null, ?array $query = null, ?array $post = null): bool
