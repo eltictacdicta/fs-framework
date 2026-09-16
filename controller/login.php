@@ -127,9 +127,16 @@ class login extends fs_controller
             return;
         }
 
-        if ($this->select_db($requestedDb)) {
-            $this->user->load_from_session();
-        }
+        // El cambio de base de datos se heredó de FacturaScripts 2017 y nunca se
+        // portó: select_db() y fs_user::load_from_session() no existen en este
+        // código, y $multi_db está declarado en false sin que nadie lo active,
+        // así que esta rama jamás se ejecutó. Se declara explícitamente para que
+        // el fallo sea legible: activar la bandera moría antes con "Call to
+        // undefined method" a mitad de camino, que se lee como un error de quien
+        // llama y no como la funcionalidad que falta. Implementarlo implica
+        // seleccionar la base y después recargar el usuario y revalidar la sesión
+        // contra ella.
+        throw new \LogicException('El cambio de base de datos no está implementado.');
     }
 
     private function handleCredentialLogin($defaultRedirectUrl)

@@ -302,7 +302,10 @@ class LoginSuperglobalsTest extends TestCase
         $this->injectRequest($request);
         $this->callPrivateMethod('switchDatabaseIfRequested');
         // If POST is read first (correct), cdb = FS_DB_NAME → early return, no error.
-        // If GET were read first (wrong), cdb = 'other_db' → select_db() would be called and fail.
+        // If GET were read first (wrong), cdb = 'other_db' would fall through past
+        // the early return into the unimplemented-switch guard, which throws
+        // LogicException and fails this test. That throw is what keeps this
+        // scenario able to detect the wrong source.
 
         // Scenario 4: No cdb parameter → method returns without error
         $request = Request::create('/login', 'GET');
@@ -310,5 +313,32 @@ class LoginSuperglobalsTest extends TestCase
         $this->callPrivateMethod('switchDatabaseIfRequested');
 
         // All scenarios completed without exception → cdb is read from Request, not superglobals
+    }
+
+    /**
+     * switchDatabaseIfRequested() is inherited FacturaScripts 2017 code whose
+     * collaborators were never ported: neither login::select_db() nor
+     * fs_user::load_from_session() exists, and $multi_db is declared false with
+     * no setter, so the branch is unreachable in production. Activating the flag
+     * used to die with "Call to undefined method" halfway through the switch,
+     * which reads like a bug in the caller rather than the missing feature it
+     * is. It must now fail with a legible message instead.
+     */
+    #[Test]
+    public function databaseSwitchDeclaresItselfUnimplemented(): void
+    {
+        $ref = new ReflectionClass(\login::class);
+        $multiDbProp = $ref->getProperty('multi_db');
+        $multiDbProp->setAccessible(true);
+        $multiDbProp->setValue($this->controller, true);
+
+        $this->assertFalse(method_exists(\login::class, 'select_db'));
+        $this->assertFalse(method_exists(\fs_user::class, 'load_from_session'));
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('El cambio de base de datos no está implementado.');
+
+        $this->injectRequest(Request::create('/login?cdb=other_db', 'GET'));
+        $this->callPrivateMethod('switchDatabaseIfRequested');
     }
 }
