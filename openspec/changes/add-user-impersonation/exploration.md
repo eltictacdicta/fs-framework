@@ -227,4 +227,9 @@ banner plus one-click leave.
 
 ## Next
 
-`next_recommended: sdd-propose` — all product decisions confirmed.
+**None — the change was decided against.** See `DECISION.md` in this directory.
+
+Nothing here recommends a phase any more: `sdd-propose` already ran and the proposal was
+never taken forward. The decisions above are kept as an analysis record. If the change is
+ever revived they must be **re-confirmed rather than trusted**, because they were collected
+before the concept had been explained to the owner.
