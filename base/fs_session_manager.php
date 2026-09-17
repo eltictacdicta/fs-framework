@@ -257,7 +257,15 @@ class fs_session_manager
     }
 
     /**
-     * Verifica si el usuario es administrador
+     * Verifica si el usuario es administrador.
+     *
+     * Responde desde el snapshot de sesión: lee la clave 'user_admin' que se
+     * escribió al iniciar sesión. No vuelve a consultar la base, así que para un
+     * administrador degradado a mitad de sesión sigue diciendo que sí hasta que
+     * la sesión caduque. Si necesitás el valor actual, usá fs_auth::isAdmin(),
+     * que relee el usuario desde la base.
+     *
+     * Se mantiene como parte de la fachada legacy: los plugins la consumen.
      *
      * @return bool
      */
