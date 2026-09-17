@@ -192,13 +192,21 @@ class TrustedSessionRestampTest extends TestCase
 
     /**
      * Companion to the test above: for a non remember-me session
-     * SessionPolicy::cookieExpireFor(false) returns 0 (browser-session cookie),
-     * and LegacyAuthBridge::syncLegacyCookieGlobals() treats any expiry below
-     * time() as "clear" — 0 included. So the $_COOKIE mirror is removed even
-     * though issueLegacyCookies() was still invoked. Pinned as observed.
+     * SessionPolicy::cookieExpireFor(false) returns 0, which SessionPolicy
+     * documents as a browser-session cookie (SessionPolicy.php:29) — a LIVE
+     * cookie, not a deletion.
+     *
+     * BEFORE THE FIX, LegacyAuthBridge::syncLegacyCookieGlobals() tested
+     * `$expire < time()`, and `0 < time()` is true, so it cleared the $_COOKIE
+     * mirror even though issueLegacyCookies() had just written live cookies.
+     * This test originally pinned that cleared mirror; it is deliberately
+     * flipped now to pin the corrected contract. The flip is the point of the
+     * fix, not test weakening: an expiry of 0 is a live browser-session cookie,
+     * so the mirror must be POPULATED with the session nick, the user's
+     * log_key and a 64-hex signature.
      */
     #[Test]
-    public function trustedSessionLoginClearsLegacyCookieMirrorWhenNotRemembered(): void
+    public function trustedSessionLoginPopulatesLegacyCookieMirrorWhenNotRemembered(): void
     {
         $user = $this->makeUser(self::SESSION_NICK, self::SESSION_LOG_KEY);
         $login = $this->makeLogin($user);
@@ -213,14 +221,66 @@ class TrustedSessionRestampTest extends TestCase
         $result = $this->callPrivate($login, 'applyTrustedSessionLogin', [$user, &$controllerUser]);
 
         $this->assertTrue($result);
-        $this->assertArrayNotHasKey('user', $_COOKIE);
-        $this->assertArrayNotHasKey('logkey', $_COOKIE);
-        $this->assertArrayNotHasKey('auth_sig', $_COOKIE);
+        // A live browser-session cookie (expiry 0) keeps the mirror populated.
+        $this->assertSame(self::SESSION_NICK, $_COOKIE['user']);
+        $this->assertSame(self::SESSION_LOG_KEY, $_COOKIE['logkey']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $_COOKIE['auth_sig']);
+    }
+
+    // =====================================================================
+    // Cookie path resolution: deletion-shaped write vs live write
+    // =====================================================================
+
+    /**
+     * resolveLegacyCookiePaths() decides between the single live path and the
+     * deletion-shaped write. A live write (a future remember-me expiry, or 0
+     * for a browser-session cookie) resolves to exactly one path. The method is
+     * private, so it is reached with reflection.
+     */
+    #[Test]
+    public function resolveLegacyCookiePathsKeepsSinglePathForLiveExpiries(): void
+    {
+        $_SERVER['REQUEST_URI'] = '/subdir/index.php';
+
+        // remember-me: a future timestamp is a live cookie.
+        $this->assertSame(['/subdir/'], $this->resolvedLegacyCookiePaths(time() + 3600));
+
+        // 0 is a live browser-session cookie, NOT a deletion. Conflating it
+        // with a past timestamp is exactly the bug this change corrects.
+        $this->assertSame(['/subdir/'], $this->resolvedLegacyCookiePaths(0));
+    }
+
+    /**
+     * A real deletion passes a positive timestamp already in the past
+     * (clearLegacyCookies() uses time() - 3600). With a resolved path other
+     * than '/', that is the deletion-shaped write and must add '/' as a second
+     * path so the stale cookie is removed from both scopes.
+     */
+    #[Test]
+    public function resolveLegacyCookiePathsAddsRootPathForDeletionExpiry(): void
+    {
+        $_SERVER['REQUEST_URI'] = '/subdir/index.php';
+
+        $this->assertSame(['/subdir/', '/'], $this->resolvedLegacyCookiePaths(time() - 3600));
     }
 
     // =====================================================================
     // Helpers
     // =====================================================================
+
+    /**
+     * Reach the private resolveLegacyCookiePaths() and return the resolved path
+     * list for the given expiry. The session is irrelevant to path resolution.
+     *
+     * @return list<string>
+     */
+    private function resolvedLegacyCookiePaths(int $expire): array
+    {
+        $bridge = new LegacyAuthBridge(new Session(new MockArraySessionStorage()));
+        $options = $this->callPrivate($bridge, 'resolveLegacyCookiePaths', [$expire]);
+
+        return array_column($options, 'path');
+    }
 
     private function makeUser(string $nick, string $logKey): object
     {

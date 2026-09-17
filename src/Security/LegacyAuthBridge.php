@@ -207,6 +207,16 @@ final class LegacyAuthBridge
     }
 
     /**
+     * A write with an expiry of 0 is a browser-session cookie: it is live, not a
+     * deletion. Only a positive timestamp already in the past means "remove it",
+     * which is what the logout path passes (time() - 3600).
+     */
+    private static function isCookieDeletion(int $expire): bool
+    {
+        return $expire > 0 && $expire < time();
+    }
+
+    /**
      * @return array<int, array{expires: int, path: string, secure: bool, httponly: bool, samesite: string}>
      */
     private function resolveLegacyCookiePaths(int $expire): array
@@ -214,7 +224,7 @@ final class LegacyAuthBridge
         $secure = SecureRequestDetector::isSecure();
         $paths = [$this->resolveLegacyCookiePath()];
 
-        if ($expire < time() && $paths[0] !== '/') {
+        if (self::isCookieDeletion($expire) && $paths[0] !== '/') {
             $paths[] = '/';
         }
 
@@ -254,7 +264,7 @@ final class LegacyAuthBridge
 
     private function syncLegacyCookieGlobals(string $nick, string $logkey, string $signature, int $expire): void
     {
-        if ($expire < time()) {
+        if (self::isCookieDeletion($expire)) {
             unset($_COOKIE['user'], $_COOKIE['logkey'], $_COOKIE['auth_sig'], $_COOKIE['fsNick']);
             return;
         }
