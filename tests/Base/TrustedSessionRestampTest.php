@@ -47,8 +47,27 @@ class TrustedSessionRestampTest extends TestCase
     private Session $session;
     private mixed $previousSessionManagerInstance = null;
 
+    /** @var array<string, mixed> */
+    private array $previousCookie = [];
+
+    /** @var array<string, array{0: bool, 1: string}> key => [existed, original value] */
+    private array $previousServerKeys = [];
+
     protected function setUp(): void
     {
+        // phpunit.xml does not declare backupGlobals, and PHPUnit 11 defaults it to
+        // false, so nothing restores superglobals between tests. Save what we are
+        // about to overwrite and put it back in tearDown -- wiping instead would
+        // destroy values an earlier test or the bootstrap had set. The keys below
+        // are recorded with whether they existed, so a key that was absent stays
+        // absent rather than being left behind with our value.
+        $this->previousCookie = $_COOKIE;
+        $this->previousServerKeys = $this->captureServerKeys([
+            'REMOTE_ADDR',
+            'HTTP_USER_AGENT',
+            'REQUEST_URI',
+        ]);
+
         $_COOKIE = [];
         $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
         $_SERVER['HTTP_USER_AGENT'] = 'PHPUnit';
@@ -62,8 +81,36 @@ class TrustedSessionRestampTest extends TestCase
     {
         $this->sessionManagerInstanceProperty()->setValue(null, $this->previousSessionManagerInstance);
 
-        $_COOKIE = [];
-        unset($_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT'], $_SERVER['REQUEST_URI']);
+        $_COOKIE = $this->previousCookie;
+        $this->restoreServerKeys();
+    }
+
+    /**
+     * @param  list<string>  $keys
+     * @return array<string, array{0: bool, 1: string}>
+     */
+    private function captureServerKeys(array $keys): array
+    {
+        $captured = [];
+        foreach ($keys as $key) {
+            $captured[$key] = [array_key_exists($key, $_SERVER), (string) ($_SERVER[$key] ?? '')];
+        }
+
+        return $captured;
+    }
+
+    private function restoreServerKeys(): void
+    {
+        foreach ($this->previousServerKeys as $key => [$existed, $value]) {
+            if ($existed) {
+                $_SERVER[$key] = $value;
+                continue;
+            }
+
+            unset($_SERVER[$key]);
+        }
+
+        $this->previousServerKeys = [];
     }
 
     // =====================================================================
