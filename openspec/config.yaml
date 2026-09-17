@@ -9,7 +9,8 @@ context: >
   Symfony 7.4 integration with legacy base/ + modern src/ split.
   DDEV required for all PHP/Composer/PHPUnit commands.
   Twig 3 templates, AdminLTE theme. Plugin architecture with PSR-4 autoloading.
-  Version: 0.17.0. Production stable.
+  Version: 0.21.3. Production stable. (The version above the last sdd-init
+  re-initialization drifts as the core is released; VERSION is the source of truth.)
 
 strict_tdd: true
 persistence: openspec
