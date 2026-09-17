@@ -105,7 +105,7 @@ from the same place. Their content was **not read** in this blocked run and noth
 asserted about them.
 
 - `vendor/symfony/security-core` — named as holding `SwitchUserToken` / `AuthenticatedVoter` (Q4).
-- `openspec/changes/add-user-impersonation/exploration.md` — in-repo findings already
+- `openspec/changes/add-user-impersonation-decided-against/exploration.md` — in-repo findings already
   measured; must be built upon, not repeated.
 
 ## Recovery path

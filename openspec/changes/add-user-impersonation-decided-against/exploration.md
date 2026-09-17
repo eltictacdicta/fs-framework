@@ -1,6 +1,8 @@
 # Exploration — add-user-impersonation
 
-**Status**: exploration complete, proposal **gated** on the product decisions below.
+**Status**: exploration complete. The change was **decided against** after the proposal
+was written — see `DECISION.md`. Nothing below is an active recommendation; the decisions
+and findings are kept as an analysis record.
 **Artifact store**: openspec. **Scope**: core (`base/`, `src/`, `controller/`, `model/`, `themes/`).
 **Strict TDD**: active (`openspec/config.yaml`). Tests: `ddev exec php vendor/bin/phpunit`.
 
