@@ -548,8 +548,16 @@ class fs_user extends \fs_model
     }
 
     /**
-     * Genera una nueva clave de login, para usar en lugar de la contraseña (via cookie),
-     * esto impide que dos o más personas utilicen el mismo usuario al mismo tiempo.
+     * Genera una nueva clave de login, para usar en lugar de la contraseña (via cookie).
+     *
+     * Rotar la clave invalida las credenciales que ya se entregaron en cookies
+     * --el par legacy 'user' + 'logkey' y la firma 'auth_sig'--, porque el camino
+     * de autologin por cookie las compara con hash_equals.
+     *
+     * NO cierra las sesiones abiertas. SessionManager::isValid() solo mira que
+     * haya user_nick y que SessionPolicy no haya caducado, y nunca consulta
+     * log_key, así que un usuario que ya está trabajando sigue trabajando. Esta
+     * clave no garantiza un usuario a la vez.
      */
     public function new_logkey()
     {
