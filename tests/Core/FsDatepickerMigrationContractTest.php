@@ -196,6 +196,62 @@ class FsDatepickerMigrationContractTest extends TestCase
         $this->assertLessThan($baseJsPos, $jsPos, 'head_extra_js tags must load before base.js');
     }
 
+    #[Test]
+    public function headerTemplateDeclaresTheDeferredHeadExtraLoop(): void
+    {
+        $source = file_get_contents(FS_FOLDER . self::THEME_VIEW_DIR . '/header.html.twig');
+
+        $this->assertNotFalse($source);
+        $this->assertStringContainsString(
+            "{% for js_url in head_extra_js_defer|default([]) %}",
+            (string) $source
+        );
+    }
+
+    #[Test]
+    public function headExtraJsDeferRendersLocalAssetsWithDefer(): void
+    {
+        $twig = $this->makeTwig();
+        $twig->addGlobal('head_extra_js_defer', ['view/js/chart.umd.min.js']);
+
+        $output = $twig->render('header.html.twig', [
+            'fsc' => new StubDatepickerHeaderController(),
+        ]);
+
+        $this->assertStringContainsString(
+            '<script nonce="test-nonce" defer src="view/js/chart.umd.min.js"></script>',
+            $output
+        );
+    }
+
+    #[Test]
+    public function headExtraJsDeferPassesAbsoluteUrlsThroughUnprefixed(): void
+    {
+        $twig = $this->makeTwig();
+        $twig->addGlobal('head_extra_js_defer', [
+            'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js',
+        ]);
+
+        $output = $twig->render('header.html.twig', [
+            'fsc' => new StubDatepickerHeaderController(),
+        ]);
+
+        $this->assertStringContainsString(
+            '<script nonce="test-nonce" defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script>',
+            $output
+        );
+    }
+
+    #[Test]
+    public function headerNoLongerLoadsChartJsOrBlockingThirdPartyScripts(): void
+    {
+        $output = $this->renderHeader();
+
+        $this->assertStringNotContainsString('Chart.js', $output);
+        // Third-party scripts must never come back as parser-blocking tags.
+        $this->assertStringNotContainsString('<script nonce="test-nonce" src="https://', $output);
+    }
+
     // =====================================================================
     // base.js: auto-init block removed, no type="date" downgrade
     // =====================================================================
