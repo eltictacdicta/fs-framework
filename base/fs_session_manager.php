@@ -259,11 +259,12 @@ class fs_session_manager
     /**
      * Verifica si el usuario es administrador.
      *
-     * Responde desde el snapshot de sesión: lee la clave 'user_admin' que se
-     * escribió al iniciar sesión. No vuelve a consultar la base, así que para un
-     * administrador degradado a mitad de sesión sigue diciendo que sí hasta que
-     * la sesión caduque. Si necesitás el valor actual, usá fs_auth::isAdmin(),
-     * que relee el usuario desde la base.
+     * Delega en el SessionManager moderno, que relee el usuario desde la base
+     * y falla cerrado: un administrador degradado a mitad de sesión deja de
+     * serlo en la siguiente comprobación. Coincide con fs_auth::isAdmin().
+     *
+     * El fallback legacy (solo cuando la clase moderna no existe) sigue
+     * leyendo el snapshot 'user_admin' de $_SESSION.
      *
      * Se mantiene como parte de la fachada legacy: los plugins la consumen.
      *
@@ -379,17 +380,13 @@ class fs_session_manager
         if (isset($_COOKIE[$sessionName])) {
             $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
 
-            if (PHP_VERSION_ID >= 70300) {
-                setcookie($sessionName, '', [
-                    'expires' => time() - 3600,
-                    'path' => '/',
-                    'secure' => $secure,
-                    'httponly' => true,
-                    'samesite' => 'Lax'
-                ]);
-            } else {
-                setcookie($sessionName, '', time() - 3600, '/; SameSite=Lax', '', $secure, true);
-            }
+            setcookie($sessionName, '', [
+                'expires' => time() - 3600,
+                'path' => '/',
+                'secure' => $secure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
         }
 
         session_destroy();
@@ -675,8 +672,8 @@ final class FsSessionLegacyFallback
             'fs_core_log' => '/base/fs_core_log.php',
             'fs_db2' => '/base/fs_db2.php',
             'fs_model' => '/base/fs_model.php',
-            'fs_page' => '/model/core/fs_page.php',
-            'fs_access' => '/model/core/fs_access.php',
+            'fs_page' => '/model/fs_page.php',
+            'fs_access' => '/model/fs_access.php',
             'fs_user' => '/model/core/fs_user.php',
         ];
 

@@ -139,42 +139,25 @@ class SessionIdentityCharacterizationTest extends TestCase
     }
 
     // =====================================================================
-    // SessionManager::isAdmin() / getCurrentRole() read the SESSION
-    // snapshot, not the DB
+    // SessionManager::isAdmin() delegates to fs_auth; getCurrentRole() stays
+    // a session snapshot
     // =====================================================================
 
     /**
-     * No user row is involved here at all — SessionManager::isAdmin() is
-     * satisfied purely by the session value. This duplication is why any code
-     * rewriting the identity must rewrite all of these session keys together
-     * (user_nick, user_email, user_role, user_admin, ...); fs_auth::user()
-     * re-fetches the user from the DB each request, and fs_auth::role() /
-     * fs_auth::isAdmin() answer from that DB-loaded user object, not the
-     * snapshot. SessionManager::isAdmin() and SessionManager::getCurrentRole()
-     * are the methods that answer from the session snapshot.
+     * Authority is no longer answered here: isAdmin() delegates to
+     * fs_auth::isAdmin(), which re-reads the user from the database. That
+     * contract is covered by AuthorizationFreshnessTest, where the
+     * authoritative facade is stubbed without a database.
+     *
+     * The role, by contrast, is still the login-time snapshot.
      */
     #[Test]
-    public function isAdminReflectsSessionSnapshotTrue(): void
+    public function getCurrentRoleStaysASessionSnapshot(): void
     {
         $manager = $this->makeManager();
-        $manager->set('user_nick', 'nobody');
-        $manager->set('user_admin', true);
         $manager->set('user_role', 'admin');
 
-        $this->assertTrue($manager->isAdmin());
         $this->assertSame('admin', $manager->getCurrentRole());
-    }
-
-    #[Test]
-    public function isAdminReflectsSessionSnapshotFalse(): void
-    {
-        $manager = $this->makeManager();
-        $manager->set('user_nick', 'nobody');
-        $manager->set('user_admin', false);
-        $manager->set('user_role', 'user');
-
-        $this->assertFalse($manager->isAdmin());
-        $this->assertSame('user', $manager->getCurrentRole());
     }
 
     #[Test]

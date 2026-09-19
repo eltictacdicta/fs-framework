@@ -479,14 +479,44 @@ class SessionManager
         return $this->session->get('user_nick');
     }
 
+    /**
+     * Obtiene el rol del usuario actual.
+     *
+     * Responde desde el snapshot 'user_role' escrito al iniciar sesión, igual
+     * que ocurría con 'user_admin': un rol degradado a mitad de sesión sigue
+     * apareciendo hasta que la sesión caduque. Para el valor actual usá
+     * fs_auth::role(), que relee el usuario desde la base.
+     */
     public function getCurrentRole(): string
     {
         return $this->session->get('user_role', 'guest');
     }
 
+    /**
+     * Verifica si el usuario actual es administrador.
+     *
+     * Delega en fs_auth::isAdmin(), la implementación autoritativa, que relee
+     * el usuario desde la base en vez de confiar en el snapshot 'user_admin'
+     * escrito al iniciar sesión: un administrador degradado a mitad de sesión
+     * deja de serlo en la siguiente comprobación. Falla cerrado cuando no hay
+     * sesión válida ni fila de usuario.
+     *
+     * Al delegar, ambas APIs responden lo mismo por construcción.
+     */
     public function isAdmin(): bool
     {
-        return $this->session->get('user_admin', false) === true;
+        if (!class_exists(\fs_auth::class)) {
+            $folder = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__, 2);
+            $path = $folder . '/base/fs_auth.php';
+
+            if (!file_exists($path)) {
+                return false;
+            }
+
+            require_once $path;
+        }
+
+        return class_exists(\fs_auth::class) && \fs_auth::isAdmin();
     }
 
     public function isValid(): bool

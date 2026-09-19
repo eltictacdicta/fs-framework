@@ -172,21 +172,39 @@ class AuthorizationFreshnessTest extends TestCase
     // =====================================================================
 
     /**
-     * fs_auth::isAdmin() resolves the user through fs_auth::user(), which is
-     * the object fetched (and cached) by the legacy user service, and then
-     * reads $user->admin. It ignores the session's user_admin snapshot.
+     * The trap is closed on BOTH entry points: neither fs_session_manager::
+     * isAdmin() nor fs_auth::isAdmin() answers from the session's user_admin
+     * snapshot. A demoted admin whose session still says admin resolves to a
+     * non-admin user and is denied.
      */
     #[Test]
-    public function authIsAdminIgnoresTheSessionAdminSnapshot(): void
+    public function sessionIsAdminIgnoresTheAdminSnapshot(): void
     {
         $this->activateSession($this->identity('demoted', true, 'admin'));
         $this->installAuthUser('demoted', false);
 
         // The session snapshot still claims admin...
+        $this->assertSame('admin', \fs_session_manager::getCurrentRole());
+
+        // ...but no authority check believes it anymore.
+        $this->assertFalse(\fs_session_manager::isAdmin());
+        $this->assertFalse(\fs_auth::isAdmin());
+    }
+
+    /**
+     * fs_session_manager::isAdmin() follows the resolved user on every call,
+     * so a promotion is picked up immediately too.
+     */
+    #[Test]
+    public function sessionIsAdminFollowsTheResolvedUserAdminFlag(): void
+    {
+        $this->activateSession($this->identity('member', false, 'user'));
+
+        $this->installAuthUser('member', true);
         $this->assertTrue(\fs_session_manager::isAdmin());
 
-        // ...but fs_auth::isAdmin() answers from the user object.
-        $this->assertFalse(\fs_auth::isAdmin());
+        $this->installAuthUser('member', false);
+        $this->assertFalse(\fs_session_manager::isAdmin());
     }
 
     #[Test]
