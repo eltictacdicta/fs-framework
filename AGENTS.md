@@ -568,11 +568,25 @@ class admin_mi_modulo extends fs_controller { }
 | Saving | `fs_rol_access::save()` returns `false` and writes nothing when the target page is admin-only, regardless of the actor. This also closes direct writers such as the `factura_pdf1` role-permissions gateway. |
 | Access | `fs_user::get_menu()` skips admin-only pages in the non-admin branch regardless of any stale `fs_roles_access` row. Administrators keep the full list. The rule propagates to `have_access_to()`, `select_default_page()`, the modern `enforcePageAccessOrExit()` gate and the `admin_user` default-page check. |
 
-#### `FS_DEMO` exception
+#### `FS_DEMO` never widens authority
 
-With `FS_DEMO` enabled, `fs_user::get_menu()` keeps its pre-existing all-pages
-branch and admin-only pages remain visible. This is a deliberate, acknowledged
-exception: demo mode is a showcase, not a production posture.
+`FS_DEMO` grants nothing. It used to make `fs_user::get_menu()` return every
+page (including `admin_users` and `admin_rol`) and `allow_delete_on()` return
+`TRUE` for everything, so a demo deployment on real data exposed the whole
+permission system and allowed anyone to delete. Only `fs_users.admin` and role
+grants confer authority now.
+
+`fs_user::get_menu()`, `fs_user::compose_menu()` and
+`fs_user::allow_delete_on()` must not read `FS_DEMO`. `compose_menu()` does not
+even accept a demo flag, so the widening cannot come back by convention.
+
+The declaration in code is also the access boundary, not the persisted row: the
+concrete controller is already instantiated when access is decided, so
+`fs_controller::isAccessAllowed()` and
+`Controller::enforcePageAccessOrExit()` consult its `#[AdminOnly]` attribute
+directly. `fs_pages.admin_only` is an index so the role listing can hide those
+pages without instantiating controllers — if the migration never runs, the
+worst case is a cosmetic leak in the role selector, never an access bypass.
 
 #### Revocation semantics (deliberate)
 

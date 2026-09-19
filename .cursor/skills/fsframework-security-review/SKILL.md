@@ -261,8 +261,12 @@ Rules:
   authorization: every method that mutates authority (users, roles,
   permissions, menu order) must still check `$this->user->admin` at its own
   entry point.
-- The `FS_DEMO` exception is deliberate: with `FS_DEMO` enabled the menu keeps
-  its all-pages branch. That is a showcase posture, never a production one.
+- `FS_DEMO` grants nothing: it must never widen a menu or a delete permission.
+  `fs_user::get_menu()`, `compose_menu()` and `allow_delete_on()` must not read
+  it. Only `fs_users.admin` and role grants confer authority.
+- The declaration in code is the access boundary, not the `fs_pages.admin_only`
+  row: the instantiated controller's `#[AdminOnly]` attribute is consulted
+  directly, so a failed migration degrades to a cosmetic listing leak.
 
 ## Report Format
 
