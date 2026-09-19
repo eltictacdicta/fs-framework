@@ -14,6 +14,7 @@ parameters:
         - FS_DB_TYPE
         - FS_FOREIGN_KEYS
         - FS_CHECK_DB_TYPES
+        - FS_DEMO
     scanFiles:
         - base/fs_maintenance_mode.php
         - base/fs_plugin_manager.php
@@ -35,3 +36,24 @@ parameters:
         -
             identifier: function.notFound
             path: tests/Base/UpdaterPathValidationTest.php
+        # Characterization tests assert that log_in_user() and
+        # applyTrustedSessionLogin() leave the by-reference controller user
+        # untouched. PHPStan reads the fixture's initial logged_on = false and
+        # cannot follow the reference mutation through
+        # ReflectionMethod::invokeArgs(), so it reports a tautological
+        # assertion. The assertion is meaningful at runtime.
+        -
+            identifier: method.impossibleType
+            path: tests/Base/FsLoginCharacterizationTest.php
+        -
+            identifier: method.impossibleType
+            path: tests/Base/TrustedSessionRestampTest.php
+        # fs_user (legacy global) and FSFramework\model\fs_user are the SAME
+        # class: the runtime autoloader aliases them
+        # (fs_model_autoloader::ensureGlobalAlias -> class_alias). PHPStan
+        # cannot model that runtime alias, so it reads the argument to
+        # fs_login::log_in() as a type mismatch. Retyping either side to make
+        # PHPStan happy would misdeclare the other callers.
+        -
+            message: '#fs_login::log_in\(\) expects fs_user#'
+            path: model/core/fs_user.php

@@ -196,7 +196,7 @@ class fs_page extends fs_model
 
     /**
      * Devuelve todas las páginas o entradas del menú
-     * @return \fs_page
+     * @return \fs_page[]
      */
     public function all()
     {

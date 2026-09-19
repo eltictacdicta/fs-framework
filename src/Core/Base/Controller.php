@@ -193,15 +193,6 @@ class Controller
             echo \FSFramework\Core\Html::render('access_denied', ['fsc' => $this]);
             exit;
         }
-
-        if ($this->user->admin && !$this->user->have_access_to($this->page->name)) {
-            $access = new \fs_access();
-            $access->fs_user = $this->user->nick;
-            $access->fs_page = $this->page->name;
-            $access->allow_delete = true;
-            $access->save();
-            $this->user->clean_cache(true);
-        }
     }
 
     private function loadSessionMenuAndEmpresa(): void

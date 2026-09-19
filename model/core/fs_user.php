@@ -29,20 +29,20 @@ class fs_user extends \fs_model
 
     /**
      * Clave primaria. Varchar (12).
-     * @var string 
+     * @var string|null
      */
     public $nick;
 
     /**
     * Contraseña del usuario.
     * Se almacenan hashes modernos con password_hash(); pueden existir hashes SHA1 legacy durante la transición.
-     * @var string 
+     * @var string|null
      */
     public $password;
 
     /**
      * Email del usuario.
-     * @var string 
+     * @var string|null
      */
     public $email;
 
@@ -51,7 +51,7 @@ class fs_user extends \fs_model
      * sirve para no tener que guardar la contraseña.
      * Se regenera cada vez que el cliente inicia sesión. Así se
      * impide que dos personas accedan con el mismo usuario.
-     * @var string 
+     * @var string|null
      */
     public $log_key;
 
@@ -64,13 +64,13 @@ class fs_user extends \fs_model
 
     /**
      * Código del agente/empleado asociado
-     * @var string 
+     * @var string|null
      */
     public $codagente;
 
     /**
      * El objeto agente asignado. Hay que llamar previamente la función get_agente().
-     * @var agente 
+     * @var agente|null
      */
     public $agente;
 
@@ -88,13 +88,13 @@ class fs_user extends \fs_model
 
     /**
      * Fecha del último login.
-     * @var string
+     * @var string|null
      */
     public $last_login;
 
     /**
      * Hora del último login.
-     * @var string
+     * @var string|null
      */
     public $last_login_time;
 
@@ -112,7 +112,7 @@ class fs_user extends \fs_model
 
     /**
      * Página de inicio.
-     * @var string
+     * @var string|null
      */
     public $fs_page;
 
@@ -687,7 +687,7 @@ class fs_user extends \fs_model
 
     /**
      * Devuelve la lista completa de usuarios de FSFramework.
-     * @return \fs_user
+     * @return \fs_user[]
      */
     public function all()
     {
@@ -712,7 +712,7 @@ class fs_user extends \fs_model
 
     /**
      * Devuelve la lista completa de usuarios activados de FSFramework.
-     * @return \fs_user
+     * @return \fs_user[]
      */
     public function all_enabled()
     {

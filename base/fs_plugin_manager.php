@@ -29,8 +29,6 @@ class fs_plugin_manager
     private const PLUGINS_PATH = '/plugins/';
     private const ERR_NO_WRITE_PERMS = 'No tienes permisos de escritura sobre la carpeta plugins/';
     private const CONTROLLER_PATH = '/controller/';
-    private const DOWNLOAD_ZIP_PATH = '/download.zip';
-    private const FS_VAR_MODEL = 'model/fs_var.php';
     private const TMP_PLUGIN_UPLOAD_PATH = '/tmp/plugin_upload_temp/';
     private const TMP_PLUGIN_DETECT_PATH = '/tmp/plugin_detect_temp/';
     private const AUDIT_LOG_DIR = '/tmp/audit/';
@@ -70,7 +68,7 @@ class fs_plugin_manager
      * Versión de FSFramework (archivo VERSION)
      * @var string
      */
-    public $version = 2025.101;
+    public $version = '2025.101';
 
     public function __construct()
     {
@@ -100,7 +98,7 @@ class fs_plugin_manager
                 error_log("Debug fs_plugin_manager: Read VERSION file. Content: '$raw_version', Result: '{$this->version}'");
             }
         } elseif (class_exists('FSFramework\\Core\\Kernel')) {
-            $this->version = \FSFramework\Core\Kernel::version();
+            $this->version = (string) \FSFramework\Core\Kernel::version();
         }
     }
 
@@ -157,111 +155,6 @@ class fs_plugin_manager
     private function pluginsPath($pluginName = '')
     {
         return FS_FOLDER . self::PLUGINS_PATH . $pluginName;
-    }
-
-    /**
-     * Descarga un plugin privado de la lista.
-     * @param string $plugin_id ID del plugin (prefijado con 'priv_')
-     * @param bool $create_backup Crear backup antes de sobrescribir
-     * @return bool
-     */
-    public function download_private($plugin_id, $create_backup = true)
-    {
-        if ($this->disable_mod_plugins) {
-            $this->core_log->new_error('No tienes permiso para descargar plugins.');
-            return false;
-        }
-
-        if (!$this->is_private_plugins_enabled()) {
-            $this->core_log->new_error('La descarga de plugins privados no está configurada.');
-            return false;
-        }
-
-        $config = $this->get_private_config();
-
-        foreach ($this->private_downloads() as $item) {
-            if ($item['id'] != $plugin_id) {
-                continue;
-            }
-
-            $this->core_log->new_message('Descargando el plugin privado ' . $item['nombre']);
-
-            // Descargar usando autenticación
-            if (!@fs_file_download_auth($item['zip_link'], $this->downloadZipPath(), $config['github_token'], 60)) {
-                $this->core_log->new_error('Error al descargar el plugin privado. Verifica el token y los permisos del repositorio.');
-                return false;
-            }
-
-            // SIEMPRE crear backup si el plugin ya existe (para plugins privados)
-            if (file_exists($this->pluginsPath($item['nombre']))) {
-                if (!$this->create_backup($item['nombre'])) {
-                    $this->deleteDownloadZip();
-                    return false;
-                }
-            }
-
-            $plugins_list = fs_file_manager::scan_folder($this->pluginsPath());
-
-            if (!$this->finalizeDownloadedPlugin($item, $plugins_list)) {
-                return false;
-            }
-
-            $this->core_log->new_message('Plugin privado añadido correctamente.');
-            return $this->enable($item['nombre']);
-        }
-
-        $this->core_log->new_error('Plugin privado no encontrado en la lista.');
-        return false;
-    }
-
-    /**
-     * Prueba la conexión con los plugins privados.
-     * @return array Array con 'success' (bool) y 'message' (string)
-     */
-    public function test_private_connection()
-    {
-        $config = $this->get_private_config();
-
-        if (empty($config['github_token']) || empty($config['private_plugins_url'])) {
-            return [
-                'success' => false,
-                'message' => 'Configuración incompleta. Debes proporcionar el token y la URL.'
-            ];
-        }
-
-        // Intentar descargar el JSON
-        $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 10);
-
-        if (!$json || $json == 'ERROR') {
-            return [
-                'success' => false,
-                'message' => 'No se pudo conectar. Verifica el token y la URL del JSON.'
-            ];
-        }
-
-        $plugins = json_decode($json, true);
-        if (!is_array($plugins)) {
-            return [
-                'success' => false,
-                'message' => 'El archivo JSON no tiene un formato válido.'
-            ];
-        }
-
-        // Probar lectura del ini del primer plugin
-        $ini_test = '';
-        if (count($plugins) > 0 && isset($plugins[0]['link'])) {
-            $ini_data = $this->get_remote_plugin_ini($plugins[0], $config['github_token']);
-            if ($ini_data) {
-                $ini_test = ' | INI leído correctamente: v' . (isset($ini_data['version']) ? $ini_data['version'] : '?');
-            } else {
-                $ini_test = ' | Error al leer fsframework.ini del primer plugin';
-            }
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Conexión exitosa. Se encontraron ' . count($plugins) . ' plugin(s) disponible(s).' . $ini_test
-        ];
     }
 
     public function disable($plugin_name)
@@ -343,91 +236,6 @@ class fs_plugin_manager
         }
 
         return $disabled;
-    }
-
-    /**
-     * Método de depuración para probar la lectura del ini remoto.
-     * @param string $plugin_name Nombre del plugin a probar
-     * @return array Resultado del debug
-     */
-    public function debug_remote_ini($plugin_name = null)
-    {
-        $config = $this->get_private_config();
-        $result = [
-            'token_presente' => !empty($config['github_token']),
-            'token_length' => strlen($config['github_token']),
-            'plugins' => []
-        ];
-
-        $this->cache->delete('private_download_list');
-        $json = @fs_file_get_contents_auth($config['private_plugins_url'], $config['github_token'], 10);
-
-        if (!$json || $json == 'ERROR') {
-            $result['error'] = 'No se pudo descargar el JSON';
-            return $result;
-        }
-
-        $plugins = json_decode($json, true);
-        if (!is_array($plugins)) {
-            $result['error'] = 'JSON inválido';
-            return $result;
-        }
-
-        foreach ($plugins as $plugin) {
-            if ($plugin_name && $plugin['nombre'] !== $plugin_name) {
-                continue;
-            }
-            $result['plugins'][] = $this->debugSinglePlugin($plugin, $config);
-        }
-
-        return $result;
-    }
-
-    private function debugSinglePlugin(array $plugin, array $config)
-    {
-        $plugin_debug = [
-            'nombre' => $plugin['nombre'],
-            'link' => $plugin['link'] ?? 'NO DEFINIDO',
-            'branch' => $plugin['branch'] ?? 'master (default)',
-        ];
-
-        if (!isset($plugin['link'])) {
-            return $plugin_debug;
-        }
-
-        $repo_parts = $this->extract_repo_parts($plugin['link']);
-        if (false === $repo_parts) {
-            $plugin_debug['ini_response'] = 'Link inválido o malformado';
-            return $plugin_debug;
-        }
-
-        $branch = $plugin['branch'] ?? 'master';
-        $api_url = "https://api.github.com/repos/{$repo_parts['user']}/{$repo_parts['repo']}/contents/fsframework.ini?ref={$branch}";
-        $plugin_debug['api_url'] = $api_url;
-
-        $ini_content = @fs_file_get_contents_github_api($api_url, $config['github_token'], 10);
-        $plugin_debug['ini_response'] = ($ini_content && $ini_content != 'ERROR') ? substr($ini_content, 0, 200) : 'ERROR o vacío';
-
-        if ($ini_content && $ini_content != 'ERROR') {
-            $plugin_debug['ini_parsed'] = @parse_ini_string($ini_content, true);
-        }
-
-        return $plugin_debug;
-    }
-
-    /**
-     * Refresca la cache de plugins privados.
-     * @return bool
-     */
-    public function refresh_private_downloads()
-    {
-        // Eliminar la caché de la lista de plugins privados
-        $this->cache->delete('private_download_list');
-        // Resetear la variable interna para forzar recarga
-        $this->private_download_list = null;
-        // Forzar recarga inmediata con los datos del INI
-        $this->private_downloads(true);
-        return true;
     }
 
     public function enable($plugin_name)
@@ -879,29 +687,6 @@ class fs_plugin_manager
         }
     }
 
-    private function grantAdminAccessToPage($controller, $shortName)
-    {
-        if (!class_exists('fs_access')) {
-            return;
-        }
-
-        $realPageName = $shortName;
-        if (method_exists($controller, 'getPageData')) {
-            $pd = $controller->getPageData();
-            if (!empty($pd['name'])) {
-                $realPageName = $pd['name'];
-            }
-        } elseif (isset($controller->page) && !empty($controller->page->name)) {
-            $realPageName = $controller->page->name;
-        }
-
-        $access = new \fs_access();
-        $access->fs_user = 'admin';
-        $access->fs_page = $realPageName;
-        $access->allow_delete = TRUE;
-        $access->save();
-    }
-
     private function enableLegacyControllers($plugin_name, array &$page_list)
     {
         if (!file_exists($this->pluginsPath($plugin_name . '/controller'))) {
@@ -972,7 +757,6 @@ class fs_plugin_manager
         try {
             $new_fsc = new $full_class();
             $this->saveControllerPage($new_fsc, $page_name, 'Imposible guardar la página moderna ');
-            $this->grantAdminAccessToPage($new_fsc, $page_name);
             unset($new_fsc);
         } finally {
             \fs_controller::setRegisteringPluginPages(false);
@@ -1135,7 +919,7 @@ class fs_plugin_manager
         $plugin['enabled'] = in_array($plugin_name, $this->enabled());
         $plugin['version'] = fs_normalize_plugin_version((string) $plugin['version']);
         $plugin['min_version'] = (string) $plugin['min_version'];
-        $plugin['max_version'] = (string) ($plugin['max_version'] ?? '');
+        $plugin['max_version'] = (string) $plugin['max_version'];
 
         $this->applyPluginCompatibility($plugin, $isFsFrameworkIni);
 
