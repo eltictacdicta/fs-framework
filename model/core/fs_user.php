@@ -334,12 +334,17 @@ class fs_user extends \fs_model
         if (!isset($this->menu) || $reload) {
             $page = new \fs_page();
             $isAdmin = (bool) $this->admin;
-            $isDemo = (bool) FS_DEMO;
 
-            /// Los administradores y el modo demo no necesitan consultar roles.
-            $allowed_pages = ($isAdmin || $isDemo) ? [] : $this->get_role_allowed_pages();
+            /*
+             * Solo un administrador ve todas las páginas. FS_DEMO ya NO otorga
+             * autoridad: concedía el menú completo —incluidas admin_users y
+             * admin_rol— y saltaba los roles, así que desplegar demo con datos
+             * reales exponía el sistema de permisos. El flag sigue existiendo
+             * para lo que sí es cosmético, pero nunca amplía el acceso.
+             */
+            $allowed_pages = $isAdmin ? [] : $this->get_role_allowed_pages();
 
-            $this->menu = self::compose_menu($page->all(), $allowed_pages, $isAdmin, $isDemo);
+            $this->menu = self::compose_menu($page->all(), $allowed_pages, $isAdmin);
         }
         return $this->menu;
     }
@@ -347,20 +352,18 @@ class fs_user extends \fs_model
     /**
      * Compone el menú del usuario a partir de las páginas y los permisos.
      *
-     * Los administradores y el modo demo reciben todas las páginas. Para el
-     * resto, una página solo-administrador se excluye incluso si existe una
-     * concesión de rol (stale grant), y las páginas ordinarias requieren
-     * concesión explícita.
+     * Un administrador recibe todas las páginas. Para el resto, una página
+     * solo-administrador se excluye incluso si existe una concesión de rol
+     * (stale grant), y las páginas ordinarias requieren concesión explícita.
      *
      * @param array $pages lista de páginas (\fs_page[])
      * @param array $allowed mapa nombre => permiso devuelto por los roles
      * @param boolean $admin TRUE si el usuario es administrador
-     * @param boolean $demo TRUE si FS_DEMO está activo
      * @return array
      */
-    public static function compose_menu(array $pages, array $allowed, bool $admin, bool $demo): array
+    public static function compose_menu(array $pages, array $allowed, bool $admin): array
     {
-        if ($admin || $demo) {
+        if ($admin) {
             return $pages;
         }
 
@@ -430,12 +433,16 @@ class fs_user extends \fs_model
 
     /**
      * Devuelve TRUE si el usuario tiene permiso para eliminar elementos en la página solicitada.
+     *
+     * Solo un administrador tiene permiso implícito. FS_DEMO ya NO lo concede:
+     * lo otorgaba para todas las páginas, saltándose los roles por completo.
+     *
      * @param string $page_name
      * @return boolean
      */
     public function allow_delete_on($page_name)
     {
-        if ($this->admin || FS_DEMO) {
+        if ($this->admin) {
             return TRUE;
         }
 

@@ -69,7 +69,7 @@ final class FsUserComposeMenuTest extends TestCase
     #[Test]
     public function nonAdminMenuDropsAdminOnlyPagesEvenWithAStaleGrant(): void
     {
-        $menu = fs_user::compose_menu(array_values($this->pages()), $this->allowedWithStaleGrant(), false, false);
+        $menu = fs_user::compose_menu(array_values($this->pages()), $this->allowedWithStaleGrant(), false);
 
         $names = array_map(static fn (MenuPageStub $page): string => $page->name, $menu);
 
@@ -80,7 +80,7 @@ final class FsUserComposeMenuTest extends TestCase
     #[Test]
     public function nonAdminMenuKeepsOnlyGrantedOrdinaryPages(): void
     {
-        $menu = fs_user::compose_menu(array_values($this->pages()), [], false, false);
+        $menu = fs_user::compose_menu(array_values($this->pages()), [], false);
 
         self::assertSame([], $menu, 'Without grants a non-admin has no pages.');
     }
@@ -88,21 +88,27 @@ final class FsUserComposeMenuTest extends TestCase
     #[Test]
     public function adminKeepsTheFullList(): void
     {
-        $menu = fs_user::compose_menu(array_values($this->pages()), [], true, false);
+        $menu = fs_user::compose_menu(array_values($this->pages()), [], true);
 
         $names = array_map(static fn (MenuPageStub $page): string => $page->name, $menu);
 
         self::assertSame(['admin_users', 'ventas', 'compras'], $names);
     }
 
+    /**
+     * FS_DEMO must never widen authority. It used to return the full page list
+     * (including admin_users and admin_rol) and skip roles entirely, so a demo
+     * deployment on real data exposed the permission system. Only $admin does.
+     */
     #[Test]
-    public function demoModeKeepsTheFullList(): void
+    public function demoModeDoesNotWidenAuthority(): void
     {
-        $menu = fs_user::compose_menu(array_values($this->pages()), [], false, true);
+        $menu = fs_user::compose_menu(array_values($this->pages()), $this->allowedWithStaleGrant(), false);
 
         $names = array_map(static fn (MenuPageStub $page): string => $page->name, $menu);
 
-        self::assertSame(['admin_users', 'ventas', 'compras'], $names);
+        self::assertSame(['ventas'], $names, 'A non-admin in demo mode keeps only its granted ordinary pages.');
+        self::assertNotContains('admin_users', $names, 'Demo mode must not expose admin-only pages.');
     }
 
     #[Test]
@@ -124,7 +130,6 @@ final class FsUserComposeMenuTest extends TestCase
         $menuProp->setValue($user, fs_user::compose_menu(
             array_values($this->pages()),
             $this->allowedWithStaleGrant(),
-            false,
             false
         ));
 
