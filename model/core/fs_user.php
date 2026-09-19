@@ -332,22 +332,50 @@ class fs_user extends \fs_model
     public function get_menu($reload = FALSE)
     {
         if (!isset($this->menu) || $reload) {
-            $this->menu = [];
             $page = new \fs_page();
+            $isAdmin = (bool) $this->admin;
+            $isDemo = (bool) FS_DEMO;
 
-            if ($this->admin || FS_DEMO) {
-                $this->menu = $page->all();
-            } else {
-                /// Obtenemos las páginas permitidas por los roles del usuario
-                $allowed_pages = $this->get_role_allowed_pages();
-                foreach ($page->all() as $p) {
-                    if (isset($allowed_pages[$p->name])) {
-                        $this->menu[] = $p;
-                    }
-                }
-            }
+            /// Los administradores y el modo demo no necesitan consultar roles.
+            $allowed_pages = ($isAdmin || $isDemo) ? [] : $this->get_role_allowed_pages();
+
+            $this->menu = self::compose_menu($page->all(), $allowed_pages, $isAdmin, $isDemo);
         }
         return $this->menu;
+    }
+
+    /**
+     * Compone el menú del usuario a partir de las páginas y los permisos.
+     *
+     * Los administradores y el modo demo reciben todas las páginas. Para el
+     * resto, una página solo-administrador se excluye incluso si existe una
+     * concesión de rol (stale grant), y las páginas ordinarias requieren
+     * concesión explícita.
+     *
+     * @param array $pages lista de páginas (\fs_page[])
+     * @param array $allowed mapa nombre => permiso devuelto por los roles
+     * @param boolean $admin TRUE si el usuario es administrador
+     * @param boolean $demo TRUE si FS_DEMO está activo
+     * @return array
+     */
+    public static function compose_menu(array $pages, array $allowed, bool $admin, bool $demo): array
+    {
+        if ($admin || $demo) {
+            return $pages;
+        }
+
+        $menu = [];
+        foreach ($pages as $page) {
+            if ($page->admin_only === TRUE) {
+                continue;
+            }
+
+            if (isset($allowed[$page->name])) {
+                $menu[] = $page;
+            }
+        }
+
+        return $menu;
     }
 
     /**

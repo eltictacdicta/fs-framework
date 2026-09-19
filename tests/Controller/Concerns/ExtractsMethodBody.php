@@ -36,17 +36,36 @@ trait ExtractsMethodBody
             Assert::fail(sprintf('Opening brace for %s() not found.', $method));
         }
 
+        // Brace counting must ignore braces inside strings, comments and other
+        // literals: a `{` in a message or a `'}'` in a string would otherwise
+        // truncate or overrun the body. token_get_all() gives us the syntax.
+        $tokens = token_get_all($source);
         $depth = 0;
-        $length = strlen($source);
-        for ($i = $open; $i < $length; $i++) {
-            if ($source[$i] === '{') {
-                $depth++;
-            } elseif ($source[$i] === '}') {
-                $depth--;
-                if ($depth === 0) {
-                    return substr($source, $open, $i - $open + 1);
+        $started = false;
+        $offset = 0;
+
+        foreach ($tokens as $token) {
+            $text = is_array($token) ? $token[1] : $token;
+            $length = strlen($text);
+
+            // Only T_CURLY_OPEN / T_DOLLAR_OPEN_CURLY_BRACES and literal braces
+            // count as structure; string/comment tokens are single units.
+            if ($offset + $length > $open && ($started || $offset >= $open)) {
+                if ($text === '{') {
+                    $depth++;
+                    $started = true;
+                } elseif ($text === '}' && $started) {
+                    $depth--;
+                    if ($depth === 0) {
+                        $start = $open;
+                        $end = $offset + $length;
+
+                        return substr($source, $start, $end - $start);
+                    }
                 }
             }
+
+            $offset += $length;
         }
 
         Assert::fail(sprintf('Unbalanced braces while reading %s().', $method));

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Tests\Controller;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -22,19 +23,24 @@ use Tests\Controller\Concerns\ExtractsMethodBody;
  * Guards for authority-mutating admin actions.
  *
  * fs_controller's `$admin` constructor flag is OBSOLETO and ignored
- * (base/fs_controller.php:187), so an `admin_*` page is reachable by any user
- * whose role grants it. That makes the per-controller check on
- * `$this->user->admin` the ONLY thing stopping a delegated non-admin from
- * editing the permission system itself.
+ * (base/fs_controller.php:187): it is NOT a declaration source. Admin-only
+ * pages are declared with the `#[AdminOnly]` class attribute and enforced by
+ * the listing filters, `fs_rol_access::save()` and `fs_user::get_menu()`.
  *
- * Every method listed below mutates authority — users, roles, role
- * permissions, or the global menu order — and must therefore re-check the
- * admin flag at its own entry point.
+ * That enforcement is defense in depth, not a substitute for per-controller
+ * authorization: a page is still only as protected as the code that runs in
+ * it, so every method below — which mutates authority: users, roles, role
+ * permissions, or the global menu order — must re-check the admin flag at its
+ * own entry point.
  *
  * Static source analysis is used for the same reason as
  * AdminUserInputAccessTest: instantiating fs_controller boots a database
  * connection plus user, menu, extensions and plugins.
  */
+#[CoversClass(\admin_users::class)]
+#[CoversClass(\admin_user::class)]
+#[CoversClass(\admin_rol::class)]
+#[CoversClass(\admin_orden_menu::class)]
 final class AdminAuthorityGuardsTest extends TestCase
 {
     use ExtractsMethodBody;

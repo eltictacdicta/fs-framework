@@ -21,6 +21,10 @@ parameters:
         - base/install_security.php
         - controller/admin_home.php
         - controller/force_password_change.php
+        - controller/admin_rol.php
+        - controller/admin_user.php
+        - controller/admin_users.php
+        - controller/admin_orden_menu.php
     ignoreErrors:
         # Symbols from optional plugins (separate gitignored repos) are unknown to
         # PHPStan when the plugin is not installed; runtime guards handle absence.

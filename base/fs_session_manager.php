@@ -382,7 +382,7 @@ class fs_session_manager
 
             setcookie($sessionName, '', [
                 'expires' => time() - 3600,
-                'path' => '/',
+                'path' => self::resolveCookiePath(),
                 'secure' => $secure,
                 'httponly' => true,
                 'samesite' => 'Lax'

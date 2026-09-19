@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Tests\Controller;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Tests\Controller\Concerns\ExtractsMethodBody;
@@ -33,6 +34,7 @@ use Tests\Controller\Concerns\ExtractsMethodBody;
  * AdminUserInputAccessTest: instantiating fs_controller boots a database
  * connection plus user, menu, extensions and plugins.
  */
+#[CoversClass(\admin_rol::class)]
 final class AdminRolPersistenceGateTest extends TestCase
 {
     use ExtractsMethodBody;
@@ -58,5 +60,49 @@ final class AdminRolPersistenceGateTest extends TestCase
             'admin_rol::private_core() must NOT gate the save on the description value: '
             . 'an empty description silently discarded page permissions and user assignments.'
         );
+    }
+
+    /**
+     * A partial POST that omits a section must NOT be read as "nothing checked".
+     *
+     * `modify()` deletes every grant of a section when the corresponding array is
+     * absent (`!$enabled` / `!$idusers`). Without a per-section marker, a POST
+     * carrying only `descripcion` would therefore wipe every page permission and
+     * every user assignment of the role.
+     */
+    #[Test]
+    public function eachSectionIsGatedOnItsOwnFormMarker(): void
+    {
+        $this->assertFileExists(self::TARGET_FILE);
+
+        $source = (string) file_get_contents(self::TARGET_FILE);
+        $body = $this->methodBody($source, 'modify');
+
+        $this->assertStringContainsString(
+            "has('pages_form_present')",
+            $body,
+            'The page-permission section must only run when pages_form_present travelled in the POST.'
+        );
+        $this->assertStringContainsString(
+            "has('users_form_present')",
+            $body,
+            'The user-assignment section must only run when users_form_present travelled in the POST.'
+        );
+    }
+
+    /**
+     * The template must actually send both markers, or the guards would make the
+     * form a no-op from the real UI.
+     */
+    #[Test]
+    public function theRoleTemplateSendsBothSectionMarkers(): void
+    {
+        $template = dirname(__DIR__, 2) . '/themes/AdminLTE/view/admin_rol.html.twig';
+        $this->assertFileExists($template);
+
+        $source = (string) file_get_contents($template);
+
+        $this->assertStringContainsString('name="pages_form_present"', $source);
+        $this->assertStringContainsString('name="users_form_present"', $source);
     }
 }

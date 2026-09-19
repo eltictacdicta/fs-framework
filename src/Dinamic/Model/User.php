@@ -21,7 +21,7 @@ class User
 {
     public $idempresa;
     public $nick;
-    public $admin = false;
+    public bool $admin = false;
     public $fs_user_legacy;
 
     public function __construct()

@@ -21,6 +21,7 @@
  * Controlador para modificar el rol de usuarios.
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
+#[\FSFramework\Attribute\AdminOnly]
 class admin_rol extends fs_controller
 {
 
@@ -60,6 +61,11 @@ class admin_rol extends fs_controller
 
         /// Obtenemos la lista de páginas. Todas
         foreach ($this->menu as $m) {
+            /// Las páginas solo-administrador nunca son asignables a un rol.
+            if ($m->admin_only === TRUE) {
+                continue;
+            }
+
             $m->enabled = FALSE;
             $m->allow_delete = FALSE;
             $returnlist[] = $m;
@@ -127,55 +133,66 @@ class admin_rol extends fs_controller
             $allow_delete = filter_input(INPUT_POST, 'allow_delete', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
             $enabled = filter_input(INPUT_POST, 'enabled', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
 
-            /// para cada página, comprobamos si hay que darle acceso o no
-            foreach ($this->all_pages() as $p) {
-                /**
-                 * Creamos un objeto fs_rol_access con los datos del rol y la página.
-                 * Si tiene acceso guardamos, sino eliminamos. Así no tenemos que comprobar uno a uno
-                 * si ya estaba en la base de datos. Eso lo hace el modelo.
-                 */
-                $a = new fs_rol_access(array('codrol' => $this->rol->codrol, 'fs_page' => $p->name, 'allow_delete' => FALSE));
-                if ($allow_delete) {
-                    $a->allow_delete = in_array($p->name, $allow_delete);
-                }
-
-                if (!$enabled) {
+            /*
+             * Cada sección se procesa solo si su marcador viajó en el POST.
+             * Sin marcador, "no hay casillas" es ambiguo: podría significar
+             * "el usuario desmarcó todo" o "el POST no incluyó esta sección".
+             * Tratarlo como lo segundo evita que un POST parcial borre todos
+             * los permisos de páginas o todas las asignaciones de usuarios.
+             */
+            if ($this->request->request->has('pages_form_present')) {
+                /// para cada página, comprobamos si hay que darle acceso o no
+                foreach ($this->all_pages() as $p) {
                     /**
-                     * No se ha marcado ningún checkbox de autorizado, así que eliminamos el acceso
-                     * a todas las páginas. Una a una.
+                     * Creamos un objeto fs_rol_access con los datos del rol y la página.
+                     * Si tiene acceso guardamos, sino eliminamos. Así no tenemos que comprobar uno a uno
+                     * si ya estaba en la base de datos. Eso lo hace el modelo.
                      */
-                    $a->delete();
-                } else if (in_array($p->name, $enabled)) {
-                    /// la página ha sido marcada como autorizada.
-                    $a->save();
-                } else {
-                    /// la página no está marcada como autorizada.
-                    $a->delete();
+                    $a = new fs_rol_access(array('codrol' => $this->rol->codrol, 'fs_page' => $p->name, 'allow_delete' => FALSE));
+                    if ($allow_delete) {
+                        $a->allow_delete = in_array($p->name, $allow_delete);
+                    }
+
+                    if (!$enabled) {
+                        /**
+                         * No se ha marcado ningún checkbox de autorizado, así que eliminamos el acceso
+                         * a todas las páginas. Una a una.
+                         */
+                        $a->delete();
+                    } else if (in_array($p->name, $enabled)) {
+                        /// la página ha sido marcada como autorizada.
+                        $a->save();
+                    } else {
+                        /// la página no está marcada como autorizada.
+                        $a->delete();
+                    }
                 }
             }
 
-            /// para cada usuario, comprobamos si hay que incluirlo o no
-            $idusers = filter_input(INPUT_POST, 'iuser', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
-            foreach ($this->all_users() as $u) {
-                /**
-                 * Creamos un objeto fs_rol_user con los datos del rol y el usuario.
-                 * Si tiene acceso guardamos, sino eliminamos. Así no tenemos que comprobar uno a uno
-                 * si ya estaba en la base de datos. Eso lo hace el modelo.
-                 */
-                $a = new fs_rol_user(array('codrol' => $this->rol->codrol, 'fs_user' => $u->nick));
-
-                if (!$idusers) {
+            if ($this->request->request->has('users_form_present')) {
+                /// para cada usuario, comprobamos si hay que incluirlo o no
+                $idusers = filter_input(INPUT_POST, 'iuser', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
+                foreach ($this->all_users() as $u) {
                     /**
-                     * No se ha marcado ningún checkbox de autorizado, así que eliminamos la relación
-                     * con todos los usuarios, uno a uno.
+                     * Creamos un objeto fs_rol_user con los datos del rol y el usuario.
+                     * Si tiene acceso guardamos, sino eliminamos. Así no tenemos que comprobar uno a uno
+                     * si ya estaba en la base de datos. Eso lo hace el modelo.
                      */
-                    $a->delete();
-                } else if (in_array($u->nick, $idusers)) {
-                    /// el usuario ha sido marcado como incluido.
-                    $a->save();
-                } else {
-                    /// el usuario no está marcado como incluido.
-                    $a->delete();
+                    $a = new fs_rol_user(array('codrol' => $this->rol->codrol, 'fs_user' => $u->nick));
+
+                    if (!$idusers) {
+                        /**
+                         * No se ha marcado ningún checkbox de autorizado, así que eliminamos la relación
+                         * con todos los usuarios, uno a uno.
+                         */
+                        $a->delete();
+                    } else if (in_array($u->nick, $idusers)) {
+                        /// el usuario ha sido marcado como incluido.
+                        $a->save();
+                    } else {
+                        /// el usuario no está marcado como incluido.
+                        $a->delete();
+                    }
                 }
             }
 
