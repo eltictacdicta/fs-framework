@@ -22,6 +22,7 @@
  * Controlador de admin -> users.
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
+#[\FSFramework\Attribute\AdminOnly]
 class admin_users extends fs_controller
 {
 
@@ -171,6 +172,11 @@ class admin_users extends fs_controller
 
         /// Obtenemos la lista de páginas. Todas
         foreach ($this->menu as $m) {
+            /// Las páginas solo-administrador nunca son asignables a un rol.
+            if ($m->admin_only === TRUE) {
+                continue;
+            }
+
             $m->enabled = FALSE;
             $m->allow_delete = FALSE;
             $m->users = [];

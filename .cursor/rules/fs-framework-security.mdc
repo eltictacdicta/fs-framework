@@ -170,6 +170,39 @@ exec($command . ' ' . $safeArg);
 // $safeCmd = escapeshellcmd($command); // Peligroso - rompe comandos válidos
 ```
 
+## 🔴 CRÍTICO — Autorización de Páginas Solo-Administrador
+
+Una página solo-administrador se declara con el atributo de clase
+`#[AdminOnly]`. El 4º parámetro `$admin` de `fs_controller::__construct()` es
+**OBSOLETO y se ignora**: usarlo da una falsa sensación de protección.
+
+```php
+// ✅ Declaración correcta
+#[\FSFramework\Attribute\AdminOnly]
+class admin_mi_modulo extends \fs_controller { }
+
+// ❌ El flag posicional NO protege nada
+// parent::__construct(__CLASS__, 'Mi Módulo', 'admin', true, true);
+```
+
+Garantías del framework (no las reimplementes):
+
+- Las páginas solo-administrador **nunca** son asignables a un rol:
+  `admin_rol::all_pages()`, `admin_users::all_pages()` y
+  `admin_user::all_pages()` las excluyen incluso para un administrador.
+- `fs_rol_access::save()` devuelve `false` sin escribir nada cuando la página
+  destino es solo-administrador, sin importar el actor. Esto cierra también a
+  los escritores directos (por ejemplo, el gateway de permisos de
+  `factura_pdf1`).
+- `fs_user::get_menu()` omite las páginas solo-administrador en la rama de
+  no-administrador, incluso si existe una fila obsoleta en `fs_roles_access`.
+  Se propaga a `have_access_to()`, `select_default_page()` y al gate moderno
+  `enforcePageAccessOrExit()`.
+
+La autorización por atributo es defensa en profundidad, no un sustituto: cada
+método que mute autoridad (usuarios, roles, permisos, orden del menú) debe
+seguir comprobando `$this->user->admin` en su propio punto de entrada.
+
 ## 🟡 IMPORTANTE — Headers HTTP de Seguridad
 
 Añadir en el controlador base o middleware:
@@ -240,6 +273,7 @@ Antes de hacer commit, verificar:
 - [ ] No hay variables de usuario concatenadas en SQL
 - [ ] Todos los outputs en Twig usan `{{ }}` (usar `|raw` solo cuando sea necesario y con fuentes confiables)
 - [ ] Los formularios POST tienen `{{ csrf_field() }}`
+- [ ] Las páginas solo-administrador declaran `#[AdminOnly]` y no dependen del obsoleto 4º parámetro `$admin`
 - [ ] Las contraseñas usan `Container::passwordHasher()`
 - [ ] Los uploads validan MIME type y generan nombre aleatorio
 - [ ] Los errores no muestran stack traces en producción

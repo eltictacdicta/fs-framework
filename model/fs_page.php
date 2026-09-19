@@ -64,6 +64,14 @@ class fs_page extends fs_model
     public $important;
     public $orden;
 
+    /**
+     * TRUE -> solo los administradores pueden acceder a esta página y no puede
+     * asignarse a ningún rol. Se resuelve desde el atributo #[AdminOnly] del
+     * controlador y se persiste aquí para poder consultarlo sin instanciarlo.
+     * @var boolean
+     */
+    public bool $admin_only;
+
     public function __construct($data = FALSE)
     {
         parent::__construct('fs_pages');
@@ -79,6 +87,7 @@ class fs_page extends fs_model
 
             $this->show_on_menu = $this->str2bool($data['show_on_menu']);
             $this->important = $this->str2bool($data['important']);
+            $this->admin_only = $this->str2bool($data['admin_only'] ?? FALSE);
 
             $this->orden = 100;
             if (isset($data['orden'])) {
@@ -91,6 +100,7 @@ class fs_page extends fs_model
             $this->version = NULL;
             $this->show_on_menu = TRUE;
             $this->important = FALSE;
+            $this->admin_only = FALSE;
             $this->orden = 100;
         }
 
@@ -109,6 +119,7 @@ class fs_page extends fs_model
         $page->version = $this->version;
         $page->show_on_menu = $this->show_on_menu;
         $page->important = $this->important;
+        $page->admin_only = $this->admin_only;
         $page->orden = $this->orden;
     }
 
@@ -167,16 +178,18 @@ class fs_page extends fs_model
                 . ", version = " . $this->var2str($this->version)
                 . ", show_on_menu = " . $this->var2str($this->show_on_menu)
                 . ", important = " . $this->var2str($this->important)
+                . ", admin_only = " . $this->var2str($this->admin_only)
                 . ", orden = " . $this->var2str($this->orden)
                 . "  WHERE name = " . $this->var2str($this->name) . ";";
         } else {
-            $sql = "INSERT INTO " . $this->table_name . " (name,title,folder,version,show_on_menu,important,orden) VALUES "
+            $sql = "INSERT INTO " . $this->table_name . " (name,title,folder,version,show_on_menu,important,admin_only,orden) VALUES "
                 . "(" . $this->var2str($this->name)
                 . "," . $this->var2str($this->title)
                 . "," . $this->var2str($this->folder)
                 . "," . $this->var2str($this->version)
                 . "," . $this->var2str($this->show_on_menu)
                 . "," . $this->var2str($this->important)
+                . "," . $this->var2str($this->admin_only)
                 . "," . $this->var2str($this->orden) . ");";
         }
 
@@ -192,6 +205,54 @@ class fs_page extends fs_model
     private function clean_cache()
     {
         $this->cache->delete('m_fs_page_all');
+    }
+
+    /**
+     * Resuelve si un controlador declara la página como solo-administrador.
+     *
+     * La detección se hace comparando el nombre del atributo (nunca se llama a
+     * newInstance() ni a getArguments()), de modo que una clase de atributo no
+     * cargable en controladores legacy no provoca un error de autoload.
+     *
+     * @param string $class nombre de clase del controlador concreto
+     * @param string $expected FQCN del atributo a buscar
+     * @return boolean
+     */
+    public static function is_admin_only_class(string $class, string $expected = \FSFramework\Attribute\AdminOnly::class): bool
+    {
+        if ($class === '' || !class_exists($class)) {
+            return FALSE;
+        }
+
+        try {
+            $reflection = new \ReflectionClass($class);
+        } catch (\Throwable $exception) {
+            return FALSE;
+        }
+
+        foreach ($reflection->getAttributes() as $attribute) {
+            if ($attribute->getName() === $expected) {
+                return TRUE;
+            }
+        }
+
+        return FALSE;
+    }
+
+    /**
+     * Resuelve el valor efectivo de solo-administrador con OR que escala.
+     *
+     * El atributo nunca puede degradarse: un valor `false` o ausente en los
+     * datos de la página no lo desactiva. Si ninguna fuente lo declara, el
+     * resultado es `false` (compatibilidad hacia atrás).
+     *
+     * @param boolean $attribute leído del atributo #[AdminOnly] del controlador
+     * @param mixed $pageData valor opcional de getPageData()['admin_only']
+     * @return boolean
+     */
+    public static function resolve_admin_only(bool $attribute, mixed $pageData): bool
+    {
+        return $attribute || filter_var($pageData, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**

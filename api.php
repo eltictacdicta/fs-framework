@@ -133,6 +133,13 @@ try {
     error_log('Core tables self-heal failed in API: ' . $e->getMessage());
 }
 
+// Migración one-shot de páginas solo-administrador (tras el self-heal)
+try {
+    \FSFramework\Core\Schema\AdminOnlyPagesMigration::run();
+} catch (\Throwable $e) {
+    error_log('AdminOnlyPagesMigration bootstrap failed in API: ' . $e->getMessage());
+}
+
 try {
     $container->get('api.runtime')->handle();
 } catch (\Throwable $e) {

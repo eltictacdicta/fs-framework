@@ -29,6 +29,7 @@
 - Never concatenate unsanitized user input into SQL; use prepared statements or the framework escaping helpers when working with legacy queries.
 - Escape output by default. In Twig use `{{ }}` and only allow raw HTML from trusted sources.
 - Keep CSRF protection in mutating POST flows.
+- Administrator-only pages declare the class-level `#[AdminOnly]` attribute (`FSFramework\Attribute\AdminOnly`); the obsolete 4th `$admin` constructor flag is NOT a declaration source. Admin-only pages are never role-grantable and are filtered from listings, refused by `fs_rol_access::save()` and skipped by the non-admin menu.
 - Add or update PHPUnit coverage for business logic changes, especially in `src/` and reusable model/service code.
 - Keep plugin-specific tests inside `plugins/<PluginName>/tests/`; the root PHPUnit configuration auto-discovers them when the plugin is present.
 - Keep changes minimal, consistent with FSFramework conventions, and compatible with the existing plugin architecture.

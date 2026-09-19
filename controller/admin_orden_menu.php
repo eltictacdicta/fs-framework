@@ -22,6 +22,7 @@
  *
  * @author alagoro
  */
+#[\FSFramework\Attribute\AdminOnly]
 class admin_orden_menu extends fs_controller
 {
 

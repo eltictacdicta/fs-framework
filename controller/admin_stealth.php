@@ -14,6 +14,7 @@
  * Permite activar/desactivar el modo, configurar el parámetro secreto
  * y editar la homepage pública con un editor WYSIWYG.
  */
+#[\FSFramework\Attribute\AdminOnly]
 class admin_stealth extends fs_controller
 {
     /** @var \FSFramework\Core\StealthMode */

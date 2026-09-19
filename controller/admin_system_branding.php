@@ -23,6 +23,7 @@ require_once dirname(__DIR__) . '/base/fs_settings.php';
  * Controlador para gestionar el branding del sistema (logo, nombre).
  * Solo accesible por administradores.
  */
+#[\FSFramework\Attribute\AdminOnly]
 class admin_system_branding extends fs_controller
 {
     /**

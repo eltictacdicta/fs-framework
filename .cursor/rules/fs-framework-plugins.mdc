@@ -365,6 +365,36 @@ class ventas_mi_modulo extends \fs_controller
 }
 ```
 
+### Páginas solo-administrador
+
+El 4º parámetro `$admin` de `fs_controller::__construct()` es **OBSOLETO y se
+ignora**: pasar `true` NO protege la página. La declaración correcta es el
+atributo de clase `#[AdminOnly]`:
+
+```php
+// Controlador legacy
+#[\FSFramework\Attribute\AdminOnly]
+class admin_mi_modulo extends \fs_controller
+{
+    public function __construct()
+    {
+        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', false, true);
+    }
+}
+
+// Controlador moderno (src/Core/Base/Controller)
+use FSFramework\Attribute\AdminOnly;
+
+#[AdminOnly]
+class AdminAlmacenes extends \FSFramework\Core\Base\Controller
+{
+}
+```
+
+Una página solo-administrador no es asignable a roles: se excluye de los
+listados, `fs_rol_access::save()` la rechaza y el menú de un no-administrador la
+omite. Ver `AGENTS.md` → "Admin-Only Pages".
+
 ## Extender el Core con Eventos
 
 ```php

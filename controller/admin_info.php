@@ -22,6 +22,7 @@
  * Controlador de admin -> información del sistema.
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
+#[\FSFramework\Attribute\AdminOnly]
 class admin_info extends fs_list_controller
 {
     private const CACHE_MANAGER_CLASS = 'FSFramework\\Cache\\CacheManager';

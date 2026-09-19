@@ -819,6 +819,11 @@ class fs_controller extends fs_app
      */
     private function check_fs_page($name, $title, $folder, $shmenu, $important)
     {
+        /// El atributo #[AdminOnly] del controlador concreto declara la página
+        /// como solo-administrador. Se persiste en fs_pages para poder
+        /// consultarlo sin instanciar ningún controlador.
+        $adminOnly = fs_page::is_admin_only_class(get_class($this));
+
         $this->page = new fs_page(
             array(
                 'name' => $name,
@@ -827,7 +832,8 @@ class fs_controller extends fs_app
                 'version' => $this->version(),
                 'show_on_menu' => $shmenu,
                 'important' => $important,
-                'orden' => 100
+                'orden' => 100,
+                'admin_only' => $adminOnly
             )
         );
 
@@ -841,7 +847,7 @@ class fs_controller extends fs_app
             return;
         }
 
-        $this->updateExistingPage($page, $name, $title, $folder, $shmenu, $important);
+        $this->updateExistingPage($page, $name, $title, $folder, $shmenu, $important, $adminOnly);
     }
 
     private function createNewPage($name, $shmenu)
@@ -852,9 +858,9 @@ class fs_controller extends fs_app
         $this->page->save();
     }
 
-    private function updateExistingPage($page, $name, $title, $folder, $shmenu, $important)
+    private function updateExistingPage($page, $name, $title, $folder, $shmenu, $important, $adminOnly)
     {
-        if ($this->mustUpdatePage($page, $title, $folder, $shmenu, $important)) {
+        if ($this->mustUpdatePage($page, $title, $folder, $shmenu, $important, $adminOnly)) {
             if (defined('FS_DEBUG') && FS_DEBUG) {
                 error_log("Updating page $name: show_on_menu from " . ($page->show_on_menu ? 'TRUE' : 'FALSE') . " to " . ($shmenu ? 'TRUE' : 'FALSE'));
             }
@@ -862,18 +868,20 @@ class fs_controller extends fs_app
             $page->folder = $folder;
             $page->show_on_menu = $shmenu;
             $page->important = $important;
+            $page->admin_only = $adminOnly;
             $page->save();
         }
 
         $this->page = $page;
     }
 
-    private function mustUpdatePage($page, $title, $folder, $shmenu, $important)
+    private function mustUpdatePage($page, $title, $folder, $shmenu, $important, $adminOnly)
     {
         return $page->title != $title
             || $page->folder != $folder
             || $page->show_on_menu != $shmenu
-            || $page->important != $important;
+            || $page->important != $important
+            || $page->admin_only != $adminOnly;
     }
 
     private function load_extensions()

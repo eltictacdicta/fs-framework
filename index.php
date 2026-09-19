@@ -87,6 +87,13 @@ try {
     error_log('Core tables self-heal failed: ' . $e->getMessage());
 }
 
+/// Migración one-shot de páginas solo-administrador (tras el self-heal)
+try {
+    \FSFramework\Core\Schema\AdminOnlyPagesMigration::run();
+} catch (\Throwable $e) {
+    error_log('AdminOnlyPagesMigration bootstrap failed: ' . $e->getMessage());
+}
+
 /// Boot del Kernel moderno (inicializa plugins de FS2025)
 \FSFramework\Core\Kernel::boot();
 

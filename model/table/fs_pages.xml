@@ -40,6 +40,12 @@
         <defecto>false</defecto>
     </columna>
     <columna>
+        <nombre>admin_only</nombre>
+        <tipo>boolean</tipo>
+        <nulo>NO</nulo>
+        <defecto>false</defecto>
+    </columna>
+    <columna>
         <nombre>orden</nombre>
         <tipo>integer</tipo>
         <nulo>NO</nulo>

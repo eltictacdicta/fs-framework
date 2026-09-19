@@ -262,7 +262,9 @@ class admin_users extends fs_controller
 {
     public function __construct()
     {
-        parent::__construct(__CLASS__, 'Usuarios', 'admin', TRUE, TRUE);
+        // The 4th $admin argument is OBSOLETE and ignored. Administrator-only
+        // pages declare #[AdminOnly] on the class (see "Admin-Only Pages").
+        parent::__construct(__CLASS__, 'Usuarios', 'admin', FALSE, TRUE);
     }
     
     protected function private_core() { /* ... */ }
@@ -521,6 +523,82 @@ if (!$this->isCsrfValid()) {
     error_log("Form submitted without valid CSRF token");
 }
 ```
+
+### Admin-Only Pages (`#[AdminOnly]`)
+
+Some pages must never be delegated: user management, role/permission editing,
+system information, mail settings, branding, stealth mode, menu order and the
+agents CRUD. FSFramework declares that with a class-level attribute; the
+resolved boolean is mirrored on `fs_pages.admin_only` so listings, role
+assignment and access control can query it **without instantiating any
+controller**.
+
+#### Public API
+
+```php
+use FSFramework\Attribute\AdminOnly;
+
+// Modern controller (src/Core/Base/Controller)
+#[AdminOnly]
+class AdminAlmacenes extends \FSFramework\Core\Base\Controller { }
+
+// Legacy controller
+#[\FSFramework\Attribute\AdminOnly]
+class admin_mi_modulo extends fs_controller { }
+```
+
+- Valid on legacy `fs_controller` and modern `FSFramework\Core\Base\Controller`
+  subclasses. Detection compares the attribute **name string**
+  (`ReflectionClass::getAttributes()` + `getName()`); `newInstance()` is never
+  called, so a legacy plugin controller whose namespaced attribute class is not
+  autoloadable still resolves safely.
+- The 4th `$admin` constructor parameter is **OBSOLETO and is NOT a declaration
+  source**. Passing `TRUE` there does not make a page admin-only.
+- Modern controllers may also set `admin_only` in `getPageData()`. The effective
+  value is `attribute OR getPageData()['admin_only']` (OR-escalation,
+  fail-closed): the attribute can never be downgraded by an oversight.
+- Absent attribute and absent key resolve to `false` — fully backwards
+  compatible. No existing controller changes behaviour.
+
+#### Enforcement guarantees
+
+| Layer | Behaviour |
+|---|---|
+| Listing | `admin_rol::all_pages()`, `admin_users::all_pages()` and `admin_user::all_pages()` always exclude admin-only pages, including for administrators. They are not role-grantable by definition. |
+| Saving | `fs_rol_access::save()` returns `false` and writes nothing when the target page is admin-only, regardless of the actor. This also closes direct writers such as the `factura_pdf1` role-permissions gateway. |
+| Access | `fs_user::get_menu()` skips admin-only pages in the non-admin branch regardless of any stale `fs_roles_access` row. Administrators keep the full list. The rule propagates to `have_access_to()`, `select_default_page()`, the modern `enforcePageAccessOrExit()` gate and the `admin_user` default-page check. |
+
+#### `FS_DEMO` exception
+
+With `FS_DEMO` enabled, `fs_user::get_menu()` keeps its pre-existing all-pages
+branch and admin-only pages remain visible. This is a deliberate, acknowledged
+exception: demo mode is a showcase, not a production posture.
+
+#### Revocation semantics (deliberate)
+
+`updateExistingPage()` assigns `$page->admin_only = $adminOnly` on every page
+update. **Dropping the attribute downgrades the persisted flag to `false`** —
+that is intentional and documented, so removing the declaration revokes the
+protection instead of silently keeping it. Keep the attribute on the controller
+for as long as the page must stay administrator-only.
+
+#### Core scope
+
+The nine core pages declared admin-only are `admin_users`, `admin_user`,
+`admin_rol`, `admin_info`, `admin_email`, `admin_system_branding`,
+`admin_stealth`, `admin_orden_menu` and `admin_agentes`. **`admin_home` stays
+accessible** (it is the default landing page).
+
+#### Migration
+
+`FSFramework\Core\Schema\AdminOnlyPagesMigration` runs once from the bootstrap
+sequence, immediately after `fs_schema::selfHealCoreTables()` in `index.php`,
+`api.php` and `cron.php`. It drops `fs_pages` from the checked-tables cache,
+triggers lazy column adoption, backfills the explicit 9-name allowlist (never a
+`LIKE 'admin_%'` prefix, so plugin pages are not flagged by accident), deletes
+stale `fs_roles_access` rows for admin-only pages, clears `m_fs_page_all` and
+writes the `admin_only_pages_migrated` `fs_var` flag only after every step
+succeeds. A failed step leaves the flag unwritten and the next request retries.
 
 ### Event System
 
@@ -1661,6 +1739,7 @@ Before publishing a plugin, verify:
 - [ ] All POST forms include `{{ csrf_field() }}`
 - [ ] Models implement `test()`, `save()`, `delete()`, `exists()`
 - [ ] `declare(strict_types=1)` in all modern PHP files (`Model/`, `Controller/`, `src/`)
+- [ ] Administrator-only pages declare `#[AdminOnly]` (never the obsolete 4th `$admin` constructor flag)
 - [ ] Translation keys have plugin-specific prefix
 - [ ] Plugin-specific tests live in `plugins/<PluginName>/tests/`
 - [ ] The plugin provides `plugins/<PluginName>/phpunit.xml` when isolated execution is useful

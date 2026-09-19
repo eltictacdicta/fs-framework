@@ -67,6 +67,13 @@ class fs_rol_access extends fs_model
 
     public function save()
     {
+        /// Una página solo-administrador nunca es asignable a un rol. Se
+        /// rechaza incondicionalmente, sin importar el actor, para cerrar
+        /// también a los escritores directos (p. ej. factura_pdf1).
+        if ($this->is_admin_only_page((string) $this->fs_page)) {
+            return FALSE;
+        }
+
         if ($this->exists()) {
             $sql = "UPDATE " . $this->table_name . " SET allow_delete = " . $this->var2str($this->allow_delete)
                 . " WHERE codrol = " . $this->var2str($this->codrol)
@@ -100,5 +107,37 @@ class fs_rol_access extends fs_model
         }
 
         return $accesslist;
+    }
+
+    /**
+     * Resuelve una página por su nombre. Punto de sustitución para pruebas sin
+     * base de datos; en producción usa la búsqueda indexada del modelo.
+     *
+     * @param string $name
+     * @return \fs_page|false
+     */
+    protected function findPage(string $name): \fs_page|false
+    {
+        return (new \fs_page())->get($name);
+    }
+
+    /**
+     * Devuelve TRUE si la página es solo-administrador.
+     *
+     * Una fila ausente se trata como NO solo-administrador (D5): solo las filas
+     * existentes son alcanzables y rechazar añadiría un fallo de instalación
+     * sin ganancia de seguridad.
+     *
+     * @param string $name
+     * @return boolean
+     */
+    protected function is_admin_only_page(string $name): bool
+    {
+        if ($name === '') {
+            return FALSE;
+        }
+
+        $page = $this->findPage($name);
+        return $page !== FALSE && $page->admin_only === TRUE;
     }
 }

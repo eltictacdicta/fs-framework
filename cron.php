@@ -32,6 +32,13 @@ require_once 'base/fs_secret_migrator.php';
 fs_secret_migrator::ensure();
 require_once 'base/config2.php';
 
+/// Autoloader de Composer: necesario para clases namespaced de src/ (p. ej. la
+/// migración de páginas solo-administrador). Debe cargarse antes de usarlas.
+$composerAutoload = __DIR__ . '/vendor/autoload.php';
+if (file_exists($composerAutoload)) {
+    require_once $composerAutoload;
+}
+
 $tiempo = explode(' ', microtime());
 $uptime = $tiempo[1] + $tiempo[0];
 
@@ -53,6 +60,13 @@ if ($db->connect()) {
         fs_schema::selfHealCoreTables();
     } catch (\Throwable $e) {
         $core_log->new_error('Core tables self-heal failed in cron: ' . $e->getMessage());
+    }
+
+    // Migración one-shot de páginas solo-administrador (tras el self-heal)
+    try {
+        \FSFramework\Core\Schema\AdminOnlyPagesMigration::run();
+    } catch (\Throwable $e) {
+        $core_log->new_error('AdminOnlyPagesMigration bootstrap failed: ' . $e->getMessage());
     }
 
     $fsvar = new fs_var();

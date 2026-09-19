@@ -29,6 +29,7 @@
  *
  * @author Carlos García Gómez <neorazorx@gmail.com>
  */
+#[\FSFramework\Attribute\AdminOnly]
 class admin_agentes extends \FSFramework\Controller\HtmxCrudController
 {
     private const AGENT_MSG_PREFIX = 'Agente ';

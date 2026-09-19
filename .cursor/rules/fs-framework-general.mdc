@@ -28,6 +28,7 @@ alwaysApply: true
 - Mantener convenciones legacy al tocar código antiguo y usar convenciones modernas en `src/`.
 - Preferir Twig para vistas nuevas, servicios Symfony y el contenedor para código moderno, y helpers ya presentes en el framework antes de introducir patrones nuevos.
 - Mantener la base de seguridad compartida: SQL seguro, salida escapada, CSRF en flujos mutables y manejo seguro de contraseñas y archivos.
+- Las páginas solo-administrador se declaran con el atributo de clase `#[AdminOnly]` (`FSFramework\Attribute\AdminOnly`); el 4º parámetro `$admin` del constructor es OBSOLETO y NO declara nada. No son asignables a roles: se filtran de los listados, `fs_rol_access::save()` las rechaza y el menú de un no-administrador las omite.
 - Añadir o actualizar tests para lógica nueva o modificada, sobre todo en `src/` y en código reutilizable de plugins.
 - Mantener compatibilidad con la arquitectura y dependencias del sistema de plugins.
 

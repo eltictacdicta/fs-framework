@@ -23,6 +23,7 @@ use FSFramework\Translation\FSTranslator;
 /**
  * Controlador de administración de configuración de email SMTP.
  */
+#[\FSFramework\Attribute\AdminOnly]
 class admin_email extends fs_controller
 {
     private const NOT_CONFIGURED_LABEL = '(no configurado)';

@@ -158,6 +158,11 @@ class Controller
      */
     private function resolveOrCreatePage(array $pageData): \fs_page
     {
+        $adminOnly = \fs_page::resolve_admin_only(
+            \fs_page::is_admin_only_class(static::class),
+            $pageData['admin_only'] ?? null
+        );
+
         $tempPage = new \fs_page();
         $existingPage = $tempPage->get($pageData['name']);
 
@@ -166,6 +171,7 @@ class Controller
             $existingPage->folder = $pageData['menu'];
             $existingPage->show_on_menu = $pageData['showonmenu'] ?? true;
             $existingPage->orden = $pageData['ordernum'] ?? 100;
+            $existingPage->admin_only = $adminOnly;
             $existingPage->save();
 
             return $existingPage;
@@ -177,7 +183,8 @@ class Controller
             'folder' => $pageData['menu'],
             'show_on_menu' => $pageData['showonmenu'] ?? true,
             'important' => false,
-            'orden' => $pageData['ordernum'] ?? 100
+            'orden' => $pageData['ordernum'] ?? 100,
+            'admin_only' => $adminOnly
         ]);
         $page->save();
         $this->cache->delete('m_fs_page_all');
