@@ -194,7 +194,14 @@ class Controller
 
     private function enforcePageAccessOrExit(): void
     {
-        $hasAccess = $this->user->admin || $this->user->have_access_to($this->page->name);
+        // El código manda: el controlador ya está instanciado, así que el
+        // atributo #[AdminOnly] basta para negar el acceso aunque la fila de
+        // fs_pages todavía no esté marcada (migración sin correr).
+        $adminOnly = \fs_page::is_admin_only_class(static::class);
+
+        $hasAccess = $this->user->admin
+            ? true
+            : (!$adminOnly && $this->user->have_access_to($this->page->name));
 
         if (!$hasAccess) {
             echo \FSFramework\Core\Html::render('access_denied', ['fsc' => $this]);

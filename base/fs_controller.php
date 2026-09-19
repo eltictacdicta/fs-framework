@@ -250,7 +250,7 @@ class fs_controller extends fs_app
                 if ($this->pre_private_core()) {
                     $this->private_core();
                 }
-            } else if ($this->user->have_access_to($this->page->name)) {
+            } else if ($this->isAccessAllowed()) {
                 if ($name == __CLASS__) {
                     $this->template = 'index';
                 } else {
@@ -902,6 +902,31 @@ class fs_controller extends fs_app
     protected function load_menu($reload = FALSE)
     {
         $this->menu = $this->user->get_menu($reload);
+    }
+
+    /**
+     * Devuelve TRUE si el usuario realmente tiene acceso a esta página.
+     *
+     * El código es la fuente de verdad: el controlador concreto ya está
+     * instanciado aquí, así que si declara #[AdminOnly] la página se niega a
+     * cualquier no-administrador aunque la fila de fs_pages no esté marcada
+     * todavía (por ejemplo si la migración no llegó a correr). El índice en
+     * base de datos es lo que permite que el listado de roles sepa qué páginas
+     * ocultar, no una frontera de seguridad.
+     *
+     * @return boolean
+     */
+    private function isAccessAllowed(): bool
+    {
+        if ($this->user->admin) {
+            return TRUE;
+        }
+
+        if (\fs_page::is_admin_only_class(\get_class($this))) {
+            return FALSE;
+        }
+
+        return $this->user->have_access_to($this->page->name);
     }
 
     /**
