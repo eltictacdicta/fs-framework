@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace Tests\Base;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -77,6 +78,7 @@ final class ExplodingAnnotatedControllerFixture
 /**
  * PA-01: `#[AdminOnly]` class declaration resolution.
  */
+#[CoversClass(\fs_page::class)]
 final class AdminOnlyAttributeTest extends TestCase
 {
     #[Test]

@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace Tests\Base;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -34,7 +35,7 @@ final class PageCacheStub
         return isset($this->items[$key]) && is_array($this->items[$key]) ? $this->items[$key] : [];
     }
 
-    public function set(string $key, $value, int $ttl = 5400): bool
+    public function set(string $key, mixed $value, int $ttl = 5400): bool
     {
         $this->items[$key] = $value;
         return true;
@@ -63,13 +64,13 @@ final class PageDbStub
         return $this->selectResult;
     }
 
-    public function exec(string $sql, $transaction = null, array $params = [], bool $batch = false): bool
+    public function exec(string $sql, mixed $transaction = null, array $params = [], bool $batch = false): bool
     {
         $this->executedSql[] = $sql;
         return true;
     }
 
-    public function var2str($value): string
+    public function var2str(mixed $value): string
     {
         if ($value === null) {
             return 'NULL';
@@ -93,10 +94,10 @@ final class PageDbStub
  * semantics; the eventual persistence guarantees are covered by the round-trip
  * and `all()` cases below.
  */
+#[CoversClass(\fs_page::class)]
 final class FsPageAdminOnlyTest extends TestCase
 {
-    /** @var mixed */
-    private $previousCheckedTables;
+    private mixed $previousCheckedTables;
 
     private bool $hadCheckedTables = false;
 
