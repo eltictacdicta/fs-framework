@@ -75,8 +75,9 @@ class admin_users extends fs_controller
             if ($nu->set_password(filter_input(INPUT_POST, 'npassword'))) {
                 $nu->admin = (bool) filter_input(INPUT_POST, 'nadmin');
                 // Only set codagente if the agente class exists and a value was provided
-                if (class_exists('agente') && filter_input(INPUT_POST, 'ncodagente') && filter_input(INPUT_POST, 'ncodagente') != '') {
-                    $nu->codagente = filter_input(INPUT_POST, 'ncodagente');
+                $codagente = filter_input(INPUT_POST, 'ncodagente');
+                if (class_exists('agente') && $codagente) {
+                    $nu->codagente = $codagente;
                 }
 
                 if ($nu->save()) {
@@ -91,15 +92,11 @@ class admin_users extends fs_controller
                                 $fru->codrol = $codrol;
                                 $fru->fs_user = $nu->nick;
 
-                                if ($fru->save()) {
-                                    foreach ($rol->get_accesses() as $p) {
-                                        $a = new fs_access();
-                                        $a->fs_page = $p->fs_page;
-                                        $a->fs_user = $nu->nick;
-                                        $a->allow_delete = $p->allow_delete;
-                                        $a->save();
-                                    }
-                                }
+                                // El vínculo rol↔usuario es lo único que concede
+                                // permisos (fs_user::get_role_allowed_pages()).
+                                // Volcar los accesos a fs_access escribía filas
+                                // que ningún código lee.
+                                $fru->save();
                             }
                         }
                     }
@@ -133,6 +130,11 @@ class admin_users extends fs_controller
 
     private function add_rol()
     {
+        if (!$this->user->admin) {
+            $this->new_error_msg('Solamente un administrador puede crear roles.', 'login', TRUE, TRUE);
+            return;
+        }
+
         $this->rol->codrol = filter_input(INPUT_POST, 'nrol');
         $this->rol->descripcion = filter_input(INPUT_POST, 'descripcion');
 
@@ -146,6 +148,11 @@ class admin_users extends fs_controller
 
     private function delete_rol()
     {
+        if (!$this->user->admin) {
+            $this->new_error_msg('Solamente un administrador puede eliminar roles.', 'login', TRUE, TRUE);
+            return;
+        }
+
         $rol = $this->rol->get(filter_input(INPUT_GET, 'delete_rol'));
         if ($rol) {
             if ($rol->delete()) {

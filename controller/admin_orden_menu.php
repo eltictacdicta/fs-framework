@@ -39,7 +39,12 @@ class admin_orden_menu extends fs_controller
 
     private function guardar_orden()
     {
-        $ordenData = filter_input(INPUT_POST, 'orden', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
+        if (!$this->user->admin) {
+            $this->new_error_msg('Solamente un administrador puede reordenar el menú.', 'login', TRUE, TRUE);
+            return;
+        }
+
+        $ordenData = $this->request->request->all('orden');
         
         if (empty($ordenData)) {
             $this->new_error_msg('No se recibieron datos de orden.');

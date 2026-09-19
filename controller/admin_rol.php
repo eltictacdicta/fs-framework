@@ -43,7 +43,10 @@ class admin_rol extends fs_controller
         }
 
         if ($this->rol) {
-            if (filter_input(INPUT_POST, 'descripcion')) {
+            // Cualquier POST del formulario del rol debe procesarse. Exigir una
+            // descripción no vacía descartaba en silencio los cambios de páginas
+            // (enabled[]/allow_delete[]) y de usuarios (iuser[]).
+            if ($this->request->isMethod('POST')) {
                 $this->modify();
             }
         } else {
@@ -108,7 +111,17 @@ class admin_rol extends fs_controller
 
     private function modify()
     {
-        $this->rol->descripcion = filter_input(INPUT_POST, 'descripcion');
+        if (!$this->user->admin) {
+            $this->new_error_msg('Solamente un administrador puede modificar los permisos de un rol.', 'login', TRUE, TRUE);
+            return;
+        }
+
+        // Solo se toca la descripción si el campo vino en la petición: así un
+        // POST parcial no la borra, y los permisos se guardan igual.
+        $descripcion = filter_input(INPUT_POST, 'descripcion');
+        if ($descripcion !== null) {
+            $this->rol->descripcion = $descripcion;
+        }
 
         if ($this->rol->save()) {
             $allow_delete = filter_input(INPUT_POST, 'allow_delete', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
