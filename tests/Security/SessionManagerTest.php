@@ -286,9 +286,7 @@ class SessionManagerTest extends TestCase
         return (string) $method->invoke(null, $preferredPath, $server);
     }
 
-    /**
-     * @runInSeparateProcess
-     */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
     public function testInitializeSkipsReinitOnMatchingNamedSession(): void
     {
         $sessionName = SessionManager::resolveSessionName();
@@ -306,9 +304,7 @@ class SessionManagerTest extends TestCase
         $this->assertSame($sessionName, session_name());
     }
 
-    /**
-     * @runInSeparateProcess
-     */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
     public function testMigrateLegacyPhpSessionTransfersData(): void
     {
         // Step 1: Create a legacy PHPSESSID session with test data

@@ -150,9 +150,7 @@ class StealthModeTest extends TestCase
         $this->assertStringContainsString('cdn.jsdelivr.net', $db->lastExecSql);
     }
 
-    /**
-     * @runInSeparateProcess
-     */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
     public function testEnsurePhpSessionStartedSetsSessionName(): void
     {
         // Simula define faltante en proceso aislado
