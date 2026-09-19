@@ -1,5 +1,21 @@
 # Verify Report: `admin-only-pages`
 
+> **SUPERSEDED SNAPSHOT — read `archive-report.md` for the final state.**
+>
+> This report records the state at verification time. Work landed **after** it
+> and is NOT reflected below:
+>
+> - **W-1 was FIXED**: `AdminOnlyPagesMigration::execute()` now aborts before
+>   `markApplied()` when a step returns falsy, so a silent SQL failure can no
+>   longer write the success flag. The PA-08 assessment below therefore reads
+>   more severely than the shipped code.
+> - **S-1 was RESOLVED**: the tautological clone test was removed and the PHP
+>   shallow-copy limitation documented instead.
+> - **S-7 was RESOLVED**: the scaffold-skill mirrors were synced.
+> - The suite has since grown; the counts below are the snapshot's.
+>
+> Everything else below is the historical record and has been left unedited.
+
 - **Change**: `admin-only-pages` (CORE FSFramework change)
 - **Artifact store**: openspec
 - **Phase**: verify (independent)
@@ -16,11 +32,15 @@ hold in the source, the 9-page allowlist matches the 9 controllers that actually
 the attribute, both documented exceptions (`admin_home`, `FS_DEMO`) are preserved, and
 the full test suite plus the PHPStan gate are green.
 
-No CRITICAL issue was found. 4 WARNINGs and 6 SUGGESTIONs are recorded; the most
+*(As of this snapshot PA-08 carried the W-1 gap described below — `markApplied()` could
+run after an unthrown SQL failure. It was fixed afterwards; see the banner above. The
+PASS below is therefore qualified for PA-08 and unconditional for the other nine.)*
+
+No CRITICAL issue was found. 4 WARNINGs and 7 SUGGESTIONs are recorded; the most
 important is a robustness gap in the migration's success flag (PA-08). None of them
 enables an authorization bypass.
 
-**Issue counts: CRITICAL 0 · WARNING 4 · SUGGESTION 6.**
+**Issue counts: CRITICAL 0 · WARNING 4 · SUGGESTION 7.**
 
 ## Commands run (via `ddev exec` only)
 
@@ -28,7 +48,7 @@ enables an authorization bypass.
 |---|---|
 | `ddev exec php vendor/bin/phpunit` | `OK, but there were issues!` — **2355 tests, 7855 assertions, 0 failures, 20 PHPUnit deprecations, 24 skipped**, exit code `0` |
 | `ddev exec php vendor/bin/phpstan analyse --memory-limit=1G` | `[OK] No errors` (206/206 files) |
-| `ddev exec php vendor/bin/phpunit tests/Base/AdminOnly* … tests/Core/AdminOnlyPagesMigrationTest.php` | `OK (62 tests, 135 assertions)` |
+| `ddev exec php vendor/bin/phpunit tests/Base/AdminOnlyAttributeTest.php tests/Base/FsPageAdminOnlyTest.php tests/Base/FsPageConstructionTest.php tests/Base/FsRolAccessAdminOnlyTest.php tests/Base/FsUserComposeMenuTest.php tests/Controller/AdminOnlyListingTest.php tests/Controller/AdminOnlyScopeTest.php tests/Core/AdminOnlyPagesMigrationTest.php` | `OK (62 tests, 135 assertions)` **at snapshot time**; the same command reports more now, because tests were added after this report (W-2/W-3/S-3 and the access-gate test) |
 | `ddev exec php vendor/bin/phpunit --filter MaintenanceModeCompatTest` | `3/3` pass (6 deprecations) — **the 2 allegedly pre-existing failures did not manifest** |
 | Independent behavioral script (16 checks: PA-01/PA-03/PA-05/PA-06/PA-09) | `16 passed, 0 failed` |
 
