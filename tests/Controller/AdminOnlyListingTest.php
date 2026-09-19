@@ -14,7 +14,6 @@ declare(strict_types=1);
 
 namespace Tests\Controller;
 
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -108,17 +107,6 @@ final class ListingSuserStub
 final class AdminOnlyListingTest extends TestCase
 {
     /**
-     * @return array<string, array{bool}>
-     */
-    public static function actorCases(): array
-    {
-        return [
-            'administrator actor' => [true],
-            'non-admin actor' => [false],
-        ];
-    }
-
-    /**
      * @return array<int, ListingPageStub>
      */
     private function menuPages(): array
@@ -159,9 +147,15 @@ final class AdminOnlyListingTest extends TestCase
         ));
     }
 
+    /**
+     * The filter is unconditional by design, so the actor dimension is not a
+     * variable here: it must hold for an administrator too. The injected menu
+     * deliberately CONTAINS the admin-only page (the shape an admin's
+     * get_menu() returns), so the assertion proves the filter did the work
+     * rather than the fixture hiding it.
+     */
     #[Test]
-    #[DataProvider('actorCases')]
-    public function adminRolMatrixExcludesAdminOnlyPages(bool $isAdmin): void
+    public function adminRolMatrixExcludesAdminOnlyPages(): void
     {
         $controller = (new \ReflectionClass(\admin_rol::class))->newInstanceWithoutConstructor();
         $this->setProperty($controller, 'menu', $this->menuPages());
@@ -174,8 +168,7 @@ final class AdminOnlyListingTest extends TestCase
     }
 
     #[Test]
-    #[DataProvider('actorCases')]
-    public function adminUsersMatrixExcludesAdminOnlyPages(bool $isAdmin): void
+    public function adminUsersMatrixExcludesAdminOnlyPages(): void
     {
         $controller = (new \ReflectionClass(\admin_users::class))->newInstanceWithoutConstructor();
         $this->setProperty($controller, 'menu', $this->menuPages());
@@ -188,8 +181,7 @@ final class AdminOnlyListingTest extends TestCase
     }
 
     #[Test]
-    #[DataProvider('actorCases')]
-    public function adminUserMatrixExcludesAdminOnlyPagesEvenWithAStaleGrant(bool $isAdmin): void
+    public function adminUserMatrixExcludesAdminOnlyPagesEvenWithAStaleGrant(): void
     {
         $controller = (new \ReflectionClass(\admin_user::class))->newInstanceWithoutConstructor();
         $this->setProperty($controller, 'menu', $this->menuPages());

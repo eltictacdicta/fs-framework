@@ -22,13 +22,15 @@ use Tests\Controller\Concerns\ExtractsMethodBody;
 require_once FS_FOLDER . '/model/core/fs_user.php';
 
 /**
- * Minimal page double carrying the two properties `compose_menu()` reads.
+ * Minimal page double carrying the properties `compose_menu()` and the
+ * default-page fallthrough read.
  */
 final class MenuPageStub
 {
     public function __construct(
         public string $name,
-        public bool $admin_only
+        public bool $admin_only,
+        public bool $show_on_menu = true
     ) {
     }
 }
@@ -135,5 +137,108 @@ final class FsUserComposeMenuTest extends TestCase
 
         self::assertFalse($user->have_access_to('admin_users'), 'A stale grant must not grant access.');
         self::assertTrue($user->have_access_to('ventas'));
+    }
+
+    /**
+     * PA-06 propagation: a non-admin whose STORED default page is admin-only
+     * must not land there.
+     *
+     * select_default_page() redirects only when `have_access_to($homePage)` is
+     * true, so the filtered menu makes it fall through to the first visible
+     * page. This models that decision without invoking header()/exit().
+     */
+    #[Test]
+    public function adminOnlyDefaultPageFallsThroughForANonAdmin(): void
+    {
+        $user = (new \ReflectionClass(fs_user::class))->newInstanceWithoutConstructor();
+        $menuProp = new \ReflectionProperty(fs_user::class, 'menu');
+        $menuProp->setAccessible(true);
+        $menuProp->setValue($user, fs_user::compose_menu(
+            array_values($this->pages()),
+            $this->allowedWithStaleGrant(),
+            false
+        ));
+
+        // The stored default page is admin-only and the stale grant "allows" it.
+        self::assertFalse(
+            $user->have_access_to('admin_users'),
+            'select_default_page() must not honour an admin-only default page.'
+        );
+
+        $fallback = null;
+        foreach ($user->get_menu() as $page) {
+            if ($page->show_on_menu) {
+                $fallback = $page->name;
+                break;
+            }
+        }
+
+        self::assertSame('ventas', $fallback, 'The first visible ordinary page wins the fallthrough.');
+    }
+
+    /**
+     * The propagation is only real while select_default_page() keeps gating on
+     * the access check; pin it so a future edit cannot bypass the filter.
+     */
+    #[Test]
+    public function defaultPageSelectionConsumesTheAccessGate(): void
+    {
+        $source = (string) file_get_contents(FS_FOLDER . '/base/fs_controller.php');
+        $body = $this->methodBody($source, 'select_default_page');
+
+        self::assertStringContainsString('have_access_to', $body);
+    }
+
+    /**
+     * Regression guard for the FS_DEMO bypass removal.
+     *
+     * FS_DEMO used to widen authority in two places in this class: get_menu()
+     * returned every page (including admin_users and admin_rol) and
+     * allow_delete_on() returned TRUE for everything, skipping roles. Neither
+     * may READ the constant again.
+     *
+     * Comments are stripped first: the docblocks deliberately explain the
+     * removal, and matching the bare word would fail on its own documentation.
+     */
+    #[Test]
+    public function userAuthorityNeverReadsFsDemo(): void
+    {
+        $source = (string) file_get_contents(FS_FOLDER . '/model/core/fs_user.php');
+
+        foreach (['get_menu', 'compose_menu', 'allow_delete_on'] as $method) {
+            $code = self::withoutComments($this->methodBody($source, $method));
+
+            self::assertStringNotContainsString(
+                'FS_DEMO',
+                $code,
+                $method . '() must not read FS_DEMO: it granted authority unconditionally.'
+            );
+        }
+    }
+
+    /**
+     * Drops comments and docblocks so a test can assert on executable code
+     * without tripping over the prose that explains it.
+     */
+    private static function withoutComments(string $php): string
+    {
+        // The fragment has no `<?php` tag, so it must be added or the whole
+        // body tokenizes as inline HTML and comments are never recognised.
+        $code = '';
+
+        foreach (token_get_all('<?php ' . $php) as $token) {
+            if (is_array($token)) {
+                if ($token[0] === T_COMMENT || $token[0] === T_DOC_COMMENT) {
+                    continue;
+                }
+
+                $code .= $token[1];
+                continue;
+            }
+
+            $code .= $token;
+        }
+
+        return $code;
     }
 }
