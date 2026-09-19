@@ -335,7 +335,9 @@ class admin_mi_modulo extends fs_controller
 {
     public function __construct()
     {
-        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', true, true);
+        // The 4th $admin argument is OBSOLETE and ignored; declare
+        // administrator-only pages with #[AdminOnly] instead (see below).
+        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', false, true);
     }
 
     protected function private_core(): void
@@ -345,6 +347,30 @@ class admin_mi_modulo extends fs_controller
     }
 }
 ```
+
+**Admin-only pages**: the 4th `$admin` constructor argument is
+**OBSOLETE and ignored** — passing `true` does NOT protect the page.
+To make a page administrator-only, add the class-level
+`#[AdminOnly]` attribute. For legacy controllers the framework reads
+it by name string, so the namespaced class does not need to be
+autoloadable, but an explicit `require_once` keeps it obvious:
+
+```php
+require_once dirname(__DIR__, 3) . '/src/Attribute/AdminOnly.php';
+
+#[\FSFramework\Attribute\AdminOnly]
+class admin_mi_modulo extends fs_controller
+{
+    public function __construct()
+    {
+        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', false, true);
+    }
+}
+```
+
+Admin-only pages are never role-grantable: listings exclude them,
+`fs_rol_access::save()` refuses them and the non-admin menu skips
+them. See `AGENTS.md` → "Admin-Only Pages".
 
 **Modern route controllers** in `Controller/*.php` (PSR-4, namespaced
 under `FSFramework\Plugins\{NamePlugin}\Controller`) follow a
@@ -391,7 +417,9 @@ class admin_mi_modulo extends fs_controller
 {
     public function __construct()
     {
-        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', true, true);
+        // The 4th $admin argument is OBSOLETE and ignored; declare
+        // administrator-only pages with #[AdminOnly] instead (see Step 6).
+        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', false, true);
     }
 
     protected function private_core(): void
@@ -400,6 +428,10 @@ class admin_mi_modulo extends fs_controller
     }
 }
 ```
+
+> Reminder: the 4th `$admin` argument above is obsolete and ignored. For an
+> administrator-only page use `#[\FSFramework\Attribute\AdminOnly]` on the
+> class (see "Admin-only pages" above) instead of relying on that flag.
 
 **Modern route controller** in `Controller/MiController.php`:
 

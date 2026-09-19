@@ -27,6 +27,7 @@ Security Audit:
 - [ ] 7. Session Security
 - [ ] 8. Input Validation
 - [ ] 9. Error Exposure
+- [ ] 10. Page Authorization (Admin-Only Pages)
 ```
 
 ## 1. SQL Injection (CRITICAL)
@@ -234,6 +235,34 @@ Ensure no stack traces or raw error details are shown to users.
 rg --type php "var_dump|print_r|debug_backtrace" plugins/ src/
 rg --type php "display_errors.*=.*1" plugins/ src/
 ```
+
+## 10. Page Authorization (Admin-Only Pages)
+
+**Search for**: the obsolete positional `$admin` flag used as if it protected a
+page, and pages that mutate authority without their own admin check.
+
+```bash
+# Positional 4th $admin argument used as a false protection
+rg --type php "parent::__construct\([^)]*,\s*(true|TRUE)\s*,\s*(true|TRUE)\s*\)" plugins/ controller/
+# Declared admin-only pages
+rg --type php "AdminOnly" plugins/ controller/ src/
+```
+
+Rules:
+
+- An administrator-only page declares the class-level `#[AdminOnly]`
+  attribute. The 4th `$admin` parameter of `fs_controller::__construct()` is
+  **OBSOLETE and ignored** — passing `TRUE` there does not make the page
+  admin-only. Flag any controller that relies on it for authorization.
+- Admin-only pages are never role-grantable. The framework already enforces
+  this: listings exclude them, `fs_rol_access::save()` refuses them, and the
+  non-admin menu skips them. Do not reimplement those filters in a plugin.
+- The attribute is defense in depth, not a substitute for per-method
+  authorization: every method that mutates authority (users, roles,
+  permissions, menu order) must still check `$this->user->admin` at its own
+  entry point.
+- The `FS_DEMO` exception is deliberate: with `FS_DEMO` enabled the menu keeps
+  its all-pages branch. That is a showcase posture, never a production one.
 
 ## Report Format
 

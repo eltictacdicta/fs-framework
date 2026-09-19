@@ -18,14 +18,16 @@ Plugin Scaffold:
 - [ ] Step 1: Gather requirements (name, description, dependencies)
 - [ ] Step 2: Create directory structure
 - [ ] Step 3: Create fsframework.ini
-- [ ] Step 4: Create Init.php (init + update + uninstall via InitClass)
-- [ ] Step 5: Create model(s) with XML schema and install() seeds
+- [ ] Step 4: Create Init.php (InitClass: init + update + uninstall)
+- [ ] Step 5: Create model(s) with XML schema and optional install() seeds
 - [ ] Step 6: Create controller(s)
 - [ ] Step 7: Create view template(s)
 - [ ] Step 8: Create translations
 - [ ] Step 9: Create config/services.php (if needed)
-- [ ] Step 10: Create tests
-- [ ] Step 11: Create phpunit.xml for isolated execution
+- [ ] Step 10: Use CacheManager for expensive or frequent data
+- [ ] Step 11: Create tests
+- [ ] Step 12: Create phpunit.xml for isolated execution
+- [ ] Step 13: Run security audit (fsframework-security-review)
 ```
 
 ## Step 1: Gather Requirements
@@ -74,15 +76,108 @@ require = ""
 
 ## Step 4: Init.php
 
-El core distingue **arranque diario** (`init()`) de **migraciones al activar o
-actualizar** (`update()`). Al activar o actualizar un plugin, el core ejecuta
-`fs_plugin_manager::applyPluginSchemaUpdates()` → `PluginSchemaSynchronizer`:
+The `Init` class is the plugin's bootstrap hook. Use it to register event listeners,
+Twig extensions, and other runtime wiring. **Never modify core files** — extend behavior
+through events instead.
 
-1. `Init::update()` — migraciones PHP del plugin
-2. `fs_schema::syncPluginTables()` — sincroniza `model/table/*.xml`
-3. Refresco de modelos legacy — `fs_model::check_table()` + `install()` para datos semilla
+### Event System (FSEventDispatcher)
 
-**Patrón recomendado** — extender `InitClass`:
+Plugins MUST use `FSEventDispatcher` to hook into core flows without touching core code.
+This is the FSFramework delegation pattern: the core fires events, plugins listen.
+
+Available events:
+
+| Event Constant | When | Use Case |
+|---------------|------|----------|
+| `ModelEvent::BEFORE_SAVE` | Before any model save | Validation, enrichment, audit |
+| `ModelEvent::AFTER_SAVE` | After successful save | Cache invalidation, notifications, side effects |
+| `ModelEvent::BEFORE_DELETE` | Before deletion | Dependency checks, soft-delete logic |
+| `ModelEvent::AFTER_DELETE` | After deletion | Cleanup, cache invalidation |
+| `ControllerEvent::BEFORE_ACTION` | Before `private_core()` | Access control, request modification |
+| `ControllerEvent::AFTER_ACTION` | After `private_core()` | Response modification, logging |
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace FSFramework\Plugins\NombrePlugin;
+
+use FSFramework\Core\Template\InitClass;
+use FSFramework\Event\FSEventDispatcher;
+use FSFramework\Event\ModelEvent;
+use FSFramework\Event\ControllerEvent;
+
+class Init extends InitClass
+{
+    public function init(): void
+    {
+        $dispatcher = FSEventDispatcher::getInstance();
+
+        // Example: validate plugin-specific rules before saving a core model
+        $dispatcher->addListener(ModelEvent::BEFORE_SAVE, function (ModelEvent $event) {
+            $model = $event->getModel();
+            if ($model instanceof \cliente) {
+                // Enrich or validate without touching clientes_core
+                if (!$this->cumpleRequisitosPlugin($model)) {
+                    $event->cancel('No cumple los requisitos del plugin');
+                }
+            }
+        });
+
+        // Example: invalidate cache after a model is saved
+        $dispatcher->addListener(ModelEvent::AFTER_SAVE, function (ModelEvent $event) {
+            $model = $event->getModel();
+            if ($model instanceof \articulo) {
+                \FSFramework\Cache\CacheManager::getInstance()
+                    ->delete('nombre_plugin:latest_articles');
+            }
+        });
+
+        // Example: controller-level access control
+        $dispatcher->addListener(ControllerEvent::BEFORE_ACTION, function (ControllerEvent $event) {
+            $controller = $event->getController();
+            if ($controller instanceof \admin_mi_modulo) {
+                // Custom permission check
+            }
+        });
+    }
+
+    public function update(): void
+    {
+        // Migraciones idempotentes al activar/actualizar — ver sección siguiente
+    }
+
+    public function uninstall(): void
+    {
+        // Limpieza al desinstalar permanentemente
+    }
+
+    private function cumpleRequisitosPlugin(\cliente $cliente): bool
+    {
+        // Plugin-specific business rules
+        return true;
+    }
+}
+```
+
+### Delegation Rule
+
+> **Delegate to core whenever possible.** If `fs_controller`, `fs_model`, `Container`, 
+> or a Symfony component already provides the capability, use it. Only create 
+> plugin-specific logic for truly plugin-specific behavior.
+
+### Migraciones al activar o actualizar (InitClass::update)
+
+El core distingue **arranque diario** (`init()`) de **migraciones** (`update()`).
+Al activar o actualizar un plugin, `fs_plugin_manager::applyPluginSchemaUpdates()`
+delega en `FSFramework\Core\Plugin\PluginSchemaSynchronizer`, que ejecuta en orden:
+
+1. **`Init::update()`** — migraciones PHP del plugin (`InitClass`, instancia o legacy `Init::upgrade()`)
+2. **`fs_schema::syncPluginTables()`** — sincroniza todos los XML de `model/table/`
+3. **Refresco de modelos legacy** — `fs_model::forgetCheckedTables()` + `check_table()` + `install()`
+
+**Patrón recomendado para plugins nuevos** — extender `InitClass`:
 
 ```php
 <?php
@@ -97,55 +192,45 @@ use FSFramework\Event\ModelEvent;
 
 class Init extends InitClass
 {
-    /**
-     * Se ejecuta en cada arranque del framework (plugin activo).
-     * Solo wiring runtime: listeners, Twig, rutas, etc.
-     */
+    /** Wiring runtime: listeners, Twig, providers. Se ejecuta en cada boot. */
     public function init(): void
     {
         $dispatcher = FSEventDispatcher::getInstance();
         $dispatcher->addListener(ModelEvent::AFTER_SAVE, function (ModelEvent $event) {
-            // Side effects en runtime
+            // Side effects en runtime — no migraciones aquí
         });
     }
 
-    /**
-     * Se ejecuta al activar o actualizar el plugin.
-     * Migraciones de datos, SQL puntual, ajustes idempotentes de configuración.
-     */
+    /** Migraciones idempotentes al activar o actualizar el plugin. */
     public function update(): void
     {
-        // Ejemplo: sembrar filas por defecto si no existen
-        // Ejemplo: ALTER TABLE manual cuando XML no basta
+        // SQL puntual, backfill de datos, settings por defecto del plugin
     }
 
-    /**
-     * Se ejecuta al desinstalar/desactivar permanentemente el plugin.
-     */
+    /** Limpieza al desinstalar el plugin permanentemente. */
     public function uninstall(): void
     {
-        // Limpieza opcional (tmp, settings del plugin, etc.)
+        // tmp, ficheros, entradas de configuración del plugin
     }
 }
 ```
 
-### Qué poner en cada capa
+#### Qué poner en cada capa
 
-| Capa | Cuándo usarla | Ejemplo |
-|------|---------------|---------|
-| `model/table/*.xml` | Estructura declarativa (tablas, columnas, PK/FK) | Añadir columna `activo` |
-| `fs_model::install()` | Datos semilla al crear tabla nueva | Registro `DEFAULT` en tabla vacía |
-| `Init::update()` | Migraciones de datos o SQL no expresable en XML | Renombrar valores, backfill |
-| `Init::init()` | **Nunca** migraciones de esquema/datos | Solo listeners y wiring |
+| Capa | Cuándo | Ejemplo |
+|------|--------|---------|
+| `model/table/*.xml` | Estructura declarativa | Nueva columna, PK, FK |
+| `fs_model::install()` | Semillas al crear tabla nueva | Fila `DEFAULT` |
+| `Init::update()` | Datos/SQL no expresable en XML | Renombrar valores, migrar filas |
+| `Init::init()` | Solo runtime | Listeners — **nunca** ALTER/INSERT masivo |
 
-### Reglas
+#### Reglas
 
-- **No** pongas sincronización de BD en `init()` — se ejecuta en cada request.
-- **Sí** haz `update()` idempotente (comprobar antes de insertar/alterar).
-- Retrocompat: si no extiendes `InitClass`, puedes exponer `public function update(): void`
-  o el legacy estático `Init::upgrade()`; el core los detecta en ese orden.
-- Tras cambiar XML, basta con actualizar el plugin: el core llama al sincronizador
-  automáticamente (activación, instalación con overwrite, descarga desde tienda/updater).
+- **No** sincronices esquema ni datos en `init()` — corre en cada request con el plugin activo.
+- **Sí** haz `update()` idempotente (comprueba existencia antes de alterar/insertar).
+- Retrocompat: sin `InitClass`, basta `public function update(): void` o estático `Init::upgrade()`.
+- Tras cambiar XML, actualizar el plugin desde el panel basta: el core invoca el sincronizador
+  en activación, instalación con overwrite y descarga desde tienda/updater.
 
 ## Step 5: Model with XML Schema
 
@@ -174,7 +259,7 @@ class Init extends InitClass
 **Model class** in `model/mi_tabla.php` — must implement `test()`, `save()`, `delete()`, `exists()`, and should point to the plural DB table name (for example, `mi_tablas`).
 
 Opcionalmente implementa `install()` para datos semilla cuando la tabla se crea por
-primera vez (el core lo invoca vía `check_table()` durante la sincronización):
+primera vez (invocado vía `check_table()` durante la sincronización del plugin):
 
 ```php
 protected function install(): bool
@@ -190,6 +275,141 @@ See skill [fsframework-model-crud](../fsframework-model-crud/SKILL.md) for the c
 
 ## Step 6: Controller
 
+### Plugin Controller Requires (HARD RULE)
+
+> **Every `base/*` class used in a plugin controller needs an explicit
+> `require_once` at the top of the file. Without exceptions. The
+> framework autoloader (`fs_autoload::register()`) is not reliable in
+> the plugin-controller execution path: only some legacy `fs_*`
+> classes are registered in its class map (e.g., `fs_settings` is, but
+> `fs_session_manager` is not), and the composer PSR-4 autoloader for
+> namespaced `FSFramework\…` classes does not always fire in time
+> during a plugin request.**
+
+**Path pattern** (use the exact same depth from any plugin controller at
+`plugins/{name}/controller/*.php`):
+
+```php
+require_once dirname(__DIR__, 3) . '/base/<class>.php';
+```
+
+`dirname(__DIR__, 3)` resolves three directory levels up from the
+controller's directory, landing on the project root
+(`/var/www/html/` in ddev, or whatever `FS_FOLDER` points to in
+production). The trailing `/base/<class>.php` then references the
+target file in the core's `base/` directory.
+
+**Common `base/*` classes that need explicit requires in a plugin
+controller**:
+
+| Class | When you need it |
+|-------|------------------|
+| `fs_controller` | Always (or rely on the legacy autoload if your project is already working — explicit is safer) |
+| `fs_settings` | Any read/write via the global INI config (`new fs_settings()`) |
+| `fs_session_manager` | Any CSRF field generation, session helpers, or `csrfField()` calls |
+| `fs_auth` | Any cookie signing, `isCsrfValid()` custom checks, or auth helpers |
+| `fs_functions` | Any global helper like `bround()`, `fs_fix_html()`, `fs_is_local_ip()` |
+
+**Minimal legacy controller template with the requires** (note the
+explicit `require_once` block before the `class` declaration):
+
+```php
+<?php
+/**
+ * This file is part of NombrePlugin.
+ * Copyright (C) <year> <author> <email>
+ * License: LGPL-3.0-or-later
+ */
+
+require_model('...');   // plugin-local models, as before
+
+// === Plugin Controller Requires (HARD RULE) ============================
+// Any base/* class used in this controller MUST be required explicitly.
+// The framework autoloader is unreliable in plugin context.
+require_once dirname(__DIR__, 3) . '/base/fs_controller.php';
+require_once dirname(__DIR__, 3) . '/base/fs_settings.php';      // if used
+require_once dirname(__DIR__, 3) . '/base/fs_session_manager.php'; // if used
+// =======================================================================
+
+class admin_mi_modulo extends fs_controller
+{
+    public function __construct()
+    {
+        // The 4th $admin argument is OBSOLETE and ignored; declare
+        // administrator-only pages with #[AdminOnly] instead (see below).
+        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', false, true);
+    }
+
+    protected function private_core(): void
+    {
+        $settings = new fs_settings();
+        // ...
+    }
+}
+```
+
+**Admin-only pages**: the 4th `$admin` constructor argument is
+**OBSOLETE and ignored** — passing `true` does NOT protect the page.
+To make a page administrator-only, add the class-level
+`#[AdminOnly]` attribute. For legacy controllers the framework reads
+it by name string, so the namespaced class does not need to be
+autoloadable, but an explicit `require_once` keeps it obvious:
+
+```php
+require_once dirname(__DIR__, 3) . '/src/Attribute/AdminOnly.php';
+
+#[\FSFramework\Attribute\AdminOnly]
+class admin_mi_modulo extends fs_controller
+{
+    public function __construct()
+    {
+        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', false, true);
+    }
+}
+```
+
+Admin-only pages are never role-grantable: listings exclude them,
+`fs_rol_access::save()` refuses them and the non-admin menu skips
+them. See `AGENTS.md` → "Admin-Only Pages".
+
+**Modern route controllers** in `Controller/*.php` (PSR-4, namespaced
+under `FSFramework\Plugins\{NamePlugin}\Controller`) follow a
+different rule: they use the composer PSR-4 autoloader plus
+`use FSFramework\…;` statements, so the explicit `require_once` of
+`base/*` is generally **not** needed. The only exception is when
+calling legacy helpers like `fs_session_manager::csrfField()` from a
+modern controller — in that case, add the explicit
+`require_once dirname(__DIR__, 4) . '/base/fs_session_manager.php';`
+(one extra level up because modern controllers sit in
+`Controller/`, not `controller/`).
+
+**Why this rule exists (background, not a runtime concern)**: a
+real-world example is the `terminal-opcional` change in
+`plugins/tpvmod/` (2026-06-20), which hit the bug three times in
+succession: F2 (`fs_settings` not found), F3 (no F4 consequence but
+it would have been), F4 (`fs_session_manager` not found). Each fix
+followed the same pattern: "add a new `base/*` class use without the
+require, get a runtime fatal, add the require, re-verify." Scaffolding
+new plugin controllers with the requires block in place from day
+one eliminates the entire class of bug.
+
+**Verification rule** (also a hard rule): after every controller
+edit, run an actual HTTP request to the new/modified page in
+ddev, e.g.:
+
+```bash
+curl -sL "https://<project>.ddev.site/index.php?page=<controller_name>" \
+    -o /tmp/resp.html -w "HTTP %{http_code}\n"
+grep -ci 'fatal\|class .* not found' /tmp/resp.html
+```
+
+If the grep returns 0, the class loading is fine. `php -l` and
+PHPUnit do NOT catch this class of error — they only check syntax
+and pre-existing test coverage. The HTTP smoke is the only safety
+net for missing requires.
+
+### Legacy Controller Template
+
 **Legacy controller** in `controller/admin_mi_modulo.php`:
 
 ```php
@@ -197,7 +417,9 @@ class admin_mi_modulo extends fs_controller
 {
     public function __construct()
     {
-        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', true, true);
+        // The 4th $admin argument is OBSOLETE and ignored; declare
+        // administrator-only pages with #[AdminOnly] instead (see Step 6).
+        parent::__construct(__CLASS__, 'Mi Módulo', 'admin', false, true);
     }
 
     protected function private_core(): void
@@ -206,6 +428,10 @@ class admin_mi_modulo extends fs_controller
     }
 }
 ```
+
+> Reminder: the 4th `$admin` argument above is obsolete and ignored. For an
+> administrator-only page use `#[\FSFramework\Attribute\AdminOnly]` on the
+> class (see "Admin-only pages" above) instead of relying on that flag.
 
 **Modern route controller** in `Controller/MiController.php`:
 
@@ -288,7 +514,98 @@ return function (\Symfony\Component\DependencyInjection\ContainerBuilder $contai
 };
 ```
 
-## Step 10: Tests
+## Step 10: CacheManager
+
+FSFramework includes a unified cache system via `CacheManager`. Plugins MUST use it
+instead of raw `$_SESSION`, file-based cache, or manual Memcache. The default TTL
+is 180 seconds — ideal for admin systems where data changes frequently.
+
+### When to Use Cache
+
+| Scenario | Recommendation |
+|----------|---------------|
+| Expensive queries run on every request | Cache the result set |
+| Dashboard stats, counters, summaries | Cache with `SHORT_TTL` (30s) |
+| Dropdown lists, config values | Cache with `DEFAULT_TTL` (180s) |
+| Rarely-changing reference data | Cache with `MEDIUM_TTL` (600s) or `LONG_TTL` (3600s) |
+
+### TTL Constants
+
+| Constant | Value | Use Case |
+|----------|-------|----------|
+| `CacheManager::SHORT_TTL` | 30s | Counters, status, very dynamic data |
+| `CacheManager::DEFAULT_TTL` | 180s | Standard admin system cache |
+| `CacheManager::MEDIUM_TTL` | 600s | Semi-static data (config, menus) |
+| `CacheManager::LONG_TTL` | 3600s | Rarely changing data |
+
+### Usage in Controllers
+
+```php
+use FSFramework\Cache\CacheManager;
+
+// Inside private_core() or any controller method:
+$cache = CacheManager::getInstance();
+
+// Get with callback (auto-generates if missing — PREFERRED pattern)
+$items = $cache->get('nombre_plugin:dashboard_stats', function () {
+    return $this->loadExpensiveData();
+}, CacheManager::SHORT_TTL);
+
+// Simple get/set
+if ($cache->has('nombre_plugin:config')) {
+    $config = $cache->getItem('nombre_plugin:config', []);
+} else {
+    $config = $this->loadConfigFromDB();
+    $cache->set('nombre_plugin:config', $config, CacheManager::MEDIUM_TTL);
+}
+```
+
+### Cache Invalidation
+
+Invalidate cache keys on write (save/delete) to avoid stale data:
+
+```php
+public function save(): bool
+{
+    if (!parent::save()) {
+        return false;
+    }
+
+    // Invalidate affected cache keys
+    CacheManager::getInstance()->deleteMultiple([
+        'nombre_plugin:dashboard_stats',
+        'nombre_plugin:latest_items',
+    ]);
+
+    return true;
+}
+```
+
+### Cache Key Convention
+
+All plugin cache keys MUST use a plugin-specific prefix to avoid collisions:
+
+```
+nombre_plugin:feature_identifier
+nombre_plugin:feature:sub_key
+```
+
+**Never** use generic keys like `all_users` or `config` — another plugin might use the same key.
+
+### Cache in Event Listeners
+
+Invalidate cache from `Init.php` event listeners when core models change:
+
+```php
+$dispatcher->addListener(ModelEvent::AFTER_SAVE, function (ModelEvent $event) {
+    $model = $event->getModel();
+    if ($model instanceof \articulo) {
+        CacheManager::getInstance()->delete('nombre_plugin:article_cache');
+    }
+});
+```
+
+## Step 11: Tests
 
 In `tests/MiModeloTest.php`:
 
@@ -311,7 +628,7 @@ class MiModeloTest extends TestCase
 }
 ```
 
-## Step 11: Plugin phpunit.xml
+## Step 12: Plugin phpunit.xml
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -338,13 +655,81 @@ class MiModeloTest extends TestCase
 </phpunit>
 ```
 
+## Step 13: Security Audit
+
+After scaffolding and before merging, run the security audit via
+[fsframework-security-review](../fsframework-security-review/SKILL.md). At minimum,
+verify:
+
+- All SQL uses `$this->var2str()` — never string concatenation
+- All POST forms include `{{ csrf_field() }}` (Twig) or `{$fsc->csrf_field}` (RainTPL — see Step 6)
+- All controllers processing POST validate CSRF with `$this->isCsrfValid()`
+- All user input is sanitized with `$this->no_html()` or Symfony Request type methods
+- No plaintext passwords, `md5()`, or `sha1()` — only `PasswordHasherService`
+- No open redirects from request parameters without validation
+
+### Runtime Smoke (Required for any controller change)
+
+`php -l`, PHPUnit, and PHPStan do NOT catch runtime class-loading
+errors introduced by a new `base/*` class use in a plugin controller.
+After any edit to a plugin controller (scaffold, feature add, or
+bug fix), verify the page actually loads in a browser via ddev:
+
+```bash
+# 1. Syntax check (catches parse errors only)
+ddev exec php -l plugins/<Plugin>/controller/<controller>.php
+
+# 2. PHPUnit (catches test regressions; does NOT catch missing requires)
+ddev exec php vendor/bin/phpunit --testsuite Base
+ddev exec php vendor/bin/phpunit --testsuite Plugins
+
+# 3. HTTP smoke (catches the F2/F4 class — missing requires — and fatals)
+curl -sL "https://<project>.ddev.site/index.php?page=<controller>" \
+    -o /tmp/resp.html -w "HTTP %{http_code}\n"
+grep -ci 'fatal\|class .* not found' /tmp/resp.html   # must be 0
+
+# 4. For templates: also grep for literal Twig tokens in RainTPL files (and vice versa)
+grep -nE '\{\{[ ]*[a-z_]+\(\)[ ]*\}\}' plugins/<Plugin>/view/*.html      # Twig-style calls in RainTPL — bad
+grep -nE '\{[ ]*[a-z_]+\(\)[ ]*\}' plugins/<Plugin>/view/*.html.twig    # RainTPL-style in Twig — bad
+```
+
+If step 3 returns any matches OR a non-200 status, the change is
+broken at runtime even if the syntax check and tests passed. The
+fix is almost always "add the missing `require_once`" per the
+**Plugin Controller Requires** rule in Step 6.
+
+## API REST (Deferred)
+
+Plugins do **not** bake in their own REST API. The API layer is provided by the
+`api_base` plugin, which scans models with `#[ApiResource]` attributes and exposes
+generic CRUD endpoints.
+
+When a plugin needs a REST API later:
+1. Add `#[ApiResource]` attributes to the plugin's model classes
+2. Install and activate `api_base` (separate repository)
+3. No custom routing or controllers required — `api_base` handles it
+
+This keeps plugins focused on business logic and avoids duplicated API infrastructure.
+
 ## Verification
 
 After scaffolding, run:
 
 ```bash
+# Unit tests (isolated)
 ddev exec php vendor/bin/phpunit -c plugins/NombrePlugin/phpunit.xml
+
+# Full suite (includes plugin tests via auto-discovery)
+ddev exec php vendor/bin/phpunit --testsuite Plugins
 ```
+
+## Related Skills
+
+| Skill | Use When |
+|-------|----------|
+| [fsframework-model-crud](../fsframework-model-crud/SKILL.md) | Creating models with XML schema, CRUD, and validation |
+| [fsframework-security-review](../fsframework-security-review/SKILL.md) | Auditing plugin code for vulnerabilities before merge |
+| [fsframework-test-writing](../fsframework-test-writing/SKILL.md) | Writing PHPUnit 11 tests following project conventions |
 
 ## Quick Reference: Naming Conventions
 

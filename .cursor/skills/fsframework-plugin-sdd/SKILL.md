@@ -84,12 +84,33 @@ Archive Plugin SDD:
 - [ ] 2. Verify verify-report has no CRITICAL issues
 - [ ] 3. Verify no unchecked implementation tasks in tasks.md
 - [ ] 4. Run round-trip / smoke test if applicable
+- [ ] 4a. If the change adds a Composer dependency: verify `plugins/{name}/vendor/` is committed (see "Dependency Commits in Plugin SDDs" below)
 - [ ] 5. Create archive dir: plugins/{name}/openspec/changes/archive/
 - [ ] 6. Move change dir to: plugins/{name}/openspec/changes/archive/YYYY-MM-DD-{name}/
 - [ ] 7. Create archive-report.md (mirror verify-report format + closing summary)
 - [ ] 8. Update spec source of truth if delta added/removed/renamed requirements
 - [ ] 9. Verify NO entries in core openspec/ for this change name
 ```
+
+## Dependency Commits in Plugin SDDs
+
+FSFramework plugins **MUST** version their `vendor/` directory together
+with `composer.json` and `composer.lock` — the plugin loader does NOT run
+`composer install` at boot, so a fresh clone without `vendor/` will not
+boot. See `AGENTS.md` → "Plugin Composer Dependencies" for the full rule.
+
+**When a plugin SDD adds or upgrades a Composer dependency**, the
+`tasks.md` MUST include the step to commit `vendor/`. Before archiving
+the SDD, verify:
+
+- `git ls-files plugins/{name}/vendor/` returns a non-empty list.
+- The `composer.lock` version of the new/updated package matches the
+  version actually present in `plugins/{name}/vendor/{vendor}/{pkg}/`.
+- `/vendor/` is **not** in `plugins/{name}/.gitignore` (the only
+  Composer-related line that stays ignored is `/composer.phar`).
+
+**Anti-patrón**: ~~dejar `vendor/` gitignored y delegar al operador que
+corra `composer install` en producción~~. El plugin se entrega completo.
 
 **Sync de delta specs**: si el delta spec tiene `ADDED Requirements`,
 `MODIFIED Requirements` o `REMOVED Requirements`, mergearlos en

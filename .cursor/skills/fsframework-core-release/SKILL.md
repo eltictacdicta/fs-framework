@@ -9,7 +9,7 @@ description: >-
 
 # FSFramework Core Release
 
-Repositorio: el directorio raíz del proyecto (git remoto: `facturascripts/fs-framework-modern`).
+Repositorio: el directorio raíz del proyecto (git remoto: `eltictacdicta/fs-framework`).
 
 El panel **system_updater** compara la versión local con el **GitHub Release** del tag `vX.Y.Z`. Sin tag con prefijo `v`, no hay release automático.
 
