@@ -37,7 +37,7 @@ class fs_rol_access extends fs_model
         if ($data) {
             $this->codrol = $data['codrol'];
             $this->fs_page = $data['fs_page'];
-            $this->allow_delete = $this->str2bool($data['allow_delete']);
+            $this->allow_delete = $this->str2bool($data['allow_delete'] ?? false);
         } else {
             $this->codrol = NULL;
             $this->fs_page = NULL;

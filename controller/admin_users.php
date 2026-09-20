@@ -114,10 +114,7 @@ class admin_users extends fs_controller
     {
         $nu = $this->user->get(filter_input(INPUT_GET, 'delete'));
         if ($nu) {
-            if (FS_DEMO) {
-                $this->new_error_msg('En el modo <b>demo</b> no se pueden eliminar usuarios.
-               Esto es así para evitar malas prácticas entre usuarios que prueban la demo.');
-            } else if (!$this->user->admin) {
+            if (!$this->user->admin) {
                 $this->new_error_msg("Solamente un administrador puede eliminar usuarios.", 'login', TRUE);
             } else if ($nu->delete()) {
                 $this->new_message("Usuario " . $nu->nick . " eliminado correctamente.", TRUE, 'login', TRUE);

@@ -240,11 +240,6 @@ class admin_agentes extends \FSFramework\Controller\HtmxCrudController
             return;
         }
 
-        if (defined('FS_DEMO') && FS_DEMO) {
-            $this->respondAgenteError('En el modo <b>demo</b> no se pueden eliminar agentes. Esto es así para evitar malas prácticas entre usuarios que prueban la demo.');
-            return;
-        }
-
         if ($agente_obj->delete()) {
             $this->new_message(self::AGENT_MSG_PREFIX . $this->no_html($agente_obj->codagente) . ' eliminado correctamente.');
             if ($this->requireHtmx()) {

@@ -98,9 +98,8 @@ final class FsUserComposeMenuTest extends TestCase
     }
 
     /**
-     * FS_DEMO must never widen authority. It used to return the full page list
-     * (including admin_users and admin_rol) and skip roles entirely, so a demo
-     * deployment on real data exposed the permission system. Only $admin does.
+     * FS_DEMO was removed. This test guards that a non-admin with no demo flag
+     * keeps only its granted ordinary pages — the demo bypass must never return.
      */
     #[Test]
     public function demoModeDoesNotWidenAuthority(): void
@@ -190,15 +189,9 @@ final class FsUserComposeMenuTest extends TestCase
     }
 
     /**
-     * Regression guard for the FS_DEMO bypass removal.
-     *
-     * FS_DEMO used to widen authority in two places in this class: get_menu()
-     * returned every page (including admin_users and admin_rol) and
-     * allow_delete_on() returned TRUE for everything, skipping roles. Neither
-     * may READ the constant again.
-     *
-     * Comments are stripped first: the docblocks deliberately explain the
-     * removal, and matching the bare word would fail on its own documentation.
+     * Regression guard: FS_DEMO was fully removed from the codebase. This test
+     * ensures the constant never reappears in authority methods. Comments are
+     * stripped so documentation prose does not trigger a false positive.
      */
     #[Test]
     public function userAuthorityNeverReadsFsDemo(): void

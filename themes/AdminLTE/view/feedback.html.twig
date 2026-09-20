@@ -51,7 +51,7 @@
     </div>
 </form>
 
-{% if fsc.empresa and not constant('FS_DEMO') and random(49)==0 %}
+{% if fsc.empresa and random(49)==0 %}
 {# Background tasks via AJAX instead of hidden iframes #}
 <script>
 $(function() {

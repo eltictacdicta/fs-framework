@@ -177,26 +177,13 @@ The 9 core pages `admin_users`, `admin_user`, `admin_rol`, `admin_info`, `admin_
 - WHEN the migration backfills
 - THEN `admin_custom` is not set to `admin_only = true`
 
-### Requirement: PA-09 — `FS_DEMO` never widens authority
+### Requirement: PA-09 — `FS_DEMO` fully removed
 
-`FS_DEMO` MUST NOT grant authority or delete permission. `fs_user::get_menu()`,
-`fs_user::compose_menu()` and `fs_user::allow_delete_on()` MUST NOT read
-`FS_DEMO` at all: admin status and role grants are the only sources of
-authority. `compose_menu()` MUST NOT accept a demo flag, so the widening is
-impossible by construction rather than by convention.
-
-#### Scenario: A non-admin in demo mode keeps only its granted ordinary pages
-
-- GIVEN `FS_DEMO` is enabled and the user is not an administrator
-- WHEN its menu is built
-- THEN admin-only pages are excluded, exactly as with `FS_DEMO` disabled
-- AND only pages granted through its roles are present
-
-#### Scenario: Demo mode does not grant delete permission
-
-- GIVEN `FS_DEMO` is enabled and the user is not an administrator
-- WHEN `allow_delete_on()` is evaluated for a page
-- THEN the result is governed solely by the user's role grants
+`FS_DEMO` was completely removed from the codebase. The constant, all
+conditional branches, the `log_in_demo()` method, and the Twig demo
+conditionals were deleted. Only `fs_users.admin` and role grants confer
+authority. A regression test in `FsUserComposeMenuTest` guards that the
+constant never reappears in authority methods.
 
 ### Requirement: PA-10 — Backwards compatibility
 

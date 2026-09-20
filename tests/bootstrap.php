@@ -56,7 +56,6 @@ define('FS_DB_HISTORY', false);
 define('FS_FOREIGN_KEYS', true);
 define('FS_CHECK_DB_TYPES', true);
 define('FS_PATH', '');
-define('FS_DEMO', false);
 
 // Secreto de testing determinista (64 hex chars): satisface la validación de
 // SecretManager (>= 32 caracteres) sin recurrir al fallback de fichero.

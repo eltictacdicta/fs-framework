@@ -193,10 +193,7 @@ class admin_user extends fs_controller
 
     private function modificar_user()
     {
-        if (FS_DEMO && $this->user->nick != $this->suser->nick) {
-            $this->new_error_msg('En el modo <b>demo</b> sólo puedes modificar los datos de TU usuario.
-        Esto es así para evitar malas prácticas entre usuarios que prueban la demo.');
-        } else if (!$this->allow_modify) {
+        if (!$this->allow_modify) {
             $this->new_error_msg('No tienes permiso para modificar estos datos.');
         } else {
             $error = FALSE;

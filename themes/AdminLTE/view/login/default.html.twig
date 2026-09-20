@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es" >
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-   <title>{{ constant('FS_DEMO') ? 'DEMO FacturaScripts' : (fsc.empresa.nombrecorto ?: fsc.empresa.nombre) }}</title>
+   <title>{{ fsc.empresa.nombrecorto ?: fsc.empresa.nombre }}</title>
    <meta name="description" content="FSFramework es un software de facturación y contabilidad para pymes. Es software libre bajo licencia GNU/LGPL." />
    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
    <meta name="generator" content="FSFramework" />
@@ -28,11 +28,7 @@
          }
          {% endif %}
          
-         {% if constant('FS_DEMO') %}
-         document.f_login.user.focus();
-         {% else %}
          document.f_login.password.focus();
-         {% endif %}
          
          // Enlace a recuperación de contraseña por email
       });
@@ -71,22 +67,11 @@
       
       <div class="login-box-body">
          <p class="login-box-msg">
-            {% if constant('FS_DEMO') %}
-            Bienvenido a la demo, escribe tu email:
-            {% else %}
             Inicia sesión para acceder al sistema
-            {% endif %}
          </p>
 
          <form name="f_login" action="{{ fsc.loginActionUrl() }}" method="post">
             {{ csrf_field() }}
-            {% if constant('FS_DEMO') %}
-            <input type="hidden" name="password" value="demo"/>
-            <div class="form-group has-feedback">
-               <input type="text" name="user" class="form-control" placeholder="Escribe tu email" required="" autocomplete="off"/>
-               <span class="fa fa-envelope form-control-feedback"></span>
-            </div>
-            {% else %}
             <div class="form-group has-feedback">
                <input type="text" name="user" class="form-control" placeholder="Usuario" required="" autocomplete="off"/>
                <span class="fa fa-user form-control-feedback"></span>
@@ -95,15 +80,12 @@
                <input type="password" name="password" class="form-control" maxlength="32" required="" placeholder="Contraseña"/>
                <span class="fa fa-lock form-control-feedback"></span>
             </div>
-            {% endif %}
 
-            {% if not constant('FS_DEMO') %}
             <div class="checkbox" style="margin-bottom: 10px;">
                <label>
                   <input type="checkbox" name="remember_me" value="1" checked> {{ trans('remember-session') }}
                </label>
             </div>
-            {% endif %}
 
             <div class="row">
                <div class="col-xs-12">
@@ -114,7 +96,7 @@
             </div>
          </form>
 
-         {% if not constant('FS_DEMO') and fsc.shouldShowPasswordResetLink() %}
+         {% if fsc.shouldShowPasswordResetLink() %}
          <br/>
          <a href="index.php?page=password_reset" class="text-center">{{ trans('i-forgot-password') }}</a>
          {% endif %}

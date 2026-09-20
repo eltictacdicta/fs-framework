@@ -47,6 +47,12 @@ class fs_plugin_manager
     private $core_log;
 
     /**
+     * Wizard page name from the last successful enableWithoutDependencyResolution() call.
+     * Null when the last activation had no wizard or has not been called yet.
+     */
+    private ?string $lastEnableWizard = null;
+
+    /**
      *
      * @var bool
      */
@@ -109,7 +115,7 @@ class fs_plugin_manager
      * @param string $pluginName Name of the plugin
      * @param array $context Additional context data
      */
-    private function auditLog(string $action, string $pluginName, array $context = []): void
+    protected function auditLog(string $action, string $pluginName, array $context = []): void
     {
         $logEntry = [
             'timestamp' => date('c'),
@@ -281,6 +287,8 @@ class fs_plugin_manager
      */
     public function enableWithoutDependencyResolution($plugin_name, $runWizard = true)
     {
+        $this->lastEnableWizard = null;
+
         if (in_array($plugin_name, $GLOBALS['plugins'])) {
             $this->core_log->new_message('Plugin <b>' . $plugin_name . '</b> ya activado.');
             return true;
@@ -320,15 +328,20 @@ class fs_plugin_manager
             return false;
         }
 
-        if ($wizard) {
+        if ($wizard && $runWizard) {
+            $this->lastEnableWizard = $wizard;
             $this->core_log->new_advice('Ya puedes <a href="index.php?page=' . $wizard . '">configurar el plugin</a>.');
-            if ($runWizard) {
-                header('Location: index.php?page=' . $wizard);
-                $this->auditLog('enable', $name, ['success' => true, 'wizard' => $wizard]);
-                $this->clean_cache();
 
-                return true;
+            if (!$this->isAjaxRequest()) {
+                $this->emitRedirect('index.php?page=' . $wizard);
             }
+
+            $this->auditLog('enable', $name, ['success' => true, 'wizard' => $wizard]);
+            $this->clean_cache();
+
+            return true;
+        } elseif ($wizard) {
+            $this->core_log->new_advice('Ya puedes <a href="index.php?page=' . $wizard . '">configurar el plugin</a>.');
         }
 
         $this->core_log->new_message('Plugin <b>' . $name . '</b> activado correctamente.');
@@ -336,6 +349,42 @@ class fs_plugin_manager
         $this->auditLog('enable', $name, ['success' => true]);
         $this->clean_cache();
         return true;
+    }
+
+    /**
+     * Returns the wizard page name from the last successful activation,
+     * or null when the plugin had no wizard or runWizard was false.
+     */
+    public function getLastEnableWizard(): ?string
+    {
+        return $this->lastEnableWizard;
+    }
+
+    /**
+     * Detects whether the current request is AJAX.
+     * Checks X-Requested-With header and/or ajax parameter,
+     * without coupling to jQuery or any specific JS framework.
+     */
+    protected function isAjaxRequest(): bool
+    {
+        try {
+            $request = \FSFramework\Core\Kernel::request();
+
+            return $request->isXmlHttpRequest()
+                || $request->query->has('ajax')
+                || $request->request->has('ajax');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Sends a Location header. Extracted for testability — tests override
+     * this to capture redirect calls without emitting real headers.
+     */
+    protected function emitRedirect(string $url): void
+    {
+        header('Location: ' . $url);
     }
 
     public function resolvePluginName($plugin_name): string
@@ -626,7 +675,7 @@ class fs_plugin_manager
         $this->clean_cache();
     }
 
-    private function clean_cache()
+    protected function clean_cache()
     {
         $this->cache->clean();
         fs_file_manager::clear_raintpl_cache();
@@ -972,7 +1021,7 @@ class fs_plugin_manager
         return preg_replace('/[^A-Za-z0-9_-]/', '', (string) $normalized);
     }
 
-    private function save()
+    protected function save()
     {
         if (empty($GLOBALS['plugins'])) {
             return unlink(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'enabled_plugins.list');

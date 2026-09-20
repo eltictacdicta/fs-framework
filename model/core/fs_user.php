@@ -335,13 +335,7 @@ class fs_user extends \fs_model
             $page = new \fs_page();
             $isAdmin = (bool) $this->admin;
 
-            /*
-             * Solo un administrador ve todas las páginas. FS_DEMO ya NO otorga
-             * autoridad: concedía el menú completo —incluidas admin_users y
-             * admin_rol— y saltaba los roles, así que desplegar demo con datos
-             * reales exponía el sistema de permisos. El flag sigue existiendo
-             * para lo que sí es cosmético, pero nunca amplía el acceso.
-             */
+            /* Solo un administrador ve todas las páginas. */
             $allowed_pages = $isAdmin ? [] : $this->get_role_allowed_pages();
 
             $this->menu = self::compose_menu($page->all(), $allowed_pages, $isAdmin);
@@ -434,8 +428,7 @@ class fs_user extends \fs_model
     /**
      * Devuelve TRUE si el usuario tiene permiso para eliminar elementos en la página solicitada.
      *
-     * Solo un administrador tiene permiso implícito. FS_DEMO ya NO lo concede:
-     * lo otorgaba para todas las páginas, saltándose los roles por completo.
+     * Solo un administrador tiene permiso implícito.
      *
      * @param string $page_name
      * @return boolean
@@ -577,9 +570,7 @@ class fs_user extends \fs_model
      */
     public function rotate_logkey()
     {
-        if (is_null($this->log_key) || !FS_DEMO) {
-            $this->log_key = bin2hex(random_bytes(32));
-        }
+        $this->log_key = bin2hex(random_bytes(32));
     }
 
     /**

@@ -137,11 +137,6 @@ class fs_login
         }
 
         if ($nick && $password) {
-            if (FS_DEMO) {
-                /// en el modo demo nos olvidamos de la contraseña
-                return $this->log_in_demo($controller_user, $nick);
-            }
-
             $this->ip_filter->set_attempt($ip);
             return $this->log_in_user($controller_user, $nick, $password, $ip);
         }
@@ -310,54 +305,6 @@ class fs_login
 
         $this->core_log->new_message($msg);
         $this->log_out();
-    }
-
-    /**
-     * 
-     * @param fs_user $controller_user
-     * @param string  $email
-     *
-     * @return bool
-     */
-    private function log_in_demo(&$controller_user, $email)
-    {
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->core_log->new_error('Email no válido: ' . $email);
-            return FALSE;
-        }
-
-        $aux = explode('@', $email);
-        $nick = substr($aux[0], 0, 12);
-        if ($nick == 'admin') {
-            $nick .= $this->random_string(7);
-        }
-
-        $user = $this->user_model->get($nick);
-        if (!$user) {
-            $user = new fs_user();
-            $user->nick = $nick;
-            $user->set_password('demo');
-            $user->email = $email;
-
-            /// creamos un agente para asociarlo
-            $agente = new agente();
-            $agente->codagente = $agente->get_new_codigo();
-            $agente->nombre = $nick;
-            $agente->apellidos = 'Demo';
-            $agente->email = $email;
-
-            if ($agente->save()) {
-                $user->codagente = $agente->codagente;
-            }
-        }
-
-        $user->new_logkey();
-        if ($user->save()) {
-            $this->save_session_data($user, regenerateSession: true);
-            $controller_user = $user;
-        }
-
-        return $controller_user->logged_on;
     }
 
     /**

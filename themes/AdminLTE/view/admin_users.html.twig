@@ -70,7 +70,6 @@
             <span class="badge">{{ count(fsc.user.all()) }}</span>
          </a>
       </li>
-      {% if not constant('FS_DEMO') %}
       <li role="presentation">
          <a href="#permisos" aria-controls="permisos" role="tab" data-toggle="tab">
             <i class="fa fa-check-square" aria-hidden="true"></i>
@@ -83,7 +82,6 @@
             <span class="hidden-xs">&nbsp;Roles</span>
          </a>
       </li>
-      {% endif %}
       <li role="presentation">
          <a href="#historial" aria-controls="historial" role="tab" data-toggle="tab">
             <i class="fa fa-history" aria-hidden="true"></i>
@@ -128,7 +126,7 @@
                {% for value in fsc.user.all() %}
                <tr class='clickableRow{% if value.show_last_login() == '-' %} warning{% endif %}' href='{{ value.url() }}'>
                   <td><a href="{{ value.url() }}">{{ value.nick }}</a></td>
-                  <td>{% if constant('FS_DEMO') %}XXX@XXX.com{% else %}{{ value.email }}{% endif %}</td>
+                  <td>{{ value.email }}</td>
                   <td>{% if class_exists('agente') %}{{ value.get_agente_fullname() }}{% else %}-{% endif %}</td>
                   <td class="text-center">
                      {% if value.enabled %}<span class="glyphicon glyphicon-ok"></span>{% else %}<span class="glyphicon glyphicon-lock"></span>{% endif %}
@@ -136,7 +134,7 @@
                   <td class="text-center">
                      {% if value.admin %}<span class="glyphicon glyphicon-ok"></span>{% endif %}
                   </td>
-                  <td>{% if constant('FS_DEMO') %}XX.XX.XX.XX{% else %}{{ value.last_ip }}{% endif %}</td>
+                  <td>{{ value.last_ip }}</td>
                   <td>{{ value.fs_page }}</td>
                   <td class="text-right">{{ value.show_last_login() }}</td>
                </tr>
@@ -144,7 +142,6 @@
             </table>
          </div>
       </div>
-      {% if not constant('FS_DEMO') %}
       <div role="tabpanel" class="tab-pane" id="permisos">
          <div class="container-fluid" style="margin-top: 15px; margin-bottom: 10px;">
             <div class="row">
@@ -229,7 +226,6 @@
             </table>
          </div>
       </div>
-      {% endif %}
       <div role="tabpanel" class="tab-pane" id="historial">
          <div class="container-fluid" style="margin-top: 15px; margin-bottom: 10px;">
             <div class="row">

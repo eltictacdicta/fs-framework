@@ -138,6 +138,15 @@ final class PluginEnableOrchestrator
         return false;
     }
 
+    /**
+     * Returns the wizard page name from the last enablePluginStep() call,
+     * or null when the activated plugin had no wizard.
+     */
+    public function getLastEnableWizard(): ?string
+    {
+        return $this->pluginManager->getLastEnableWizard();
+    }
+
     public function enablePluginStep(string $targetPlugin, string $pluginToEnable): bool
     {
         $targetPlugin = $this->pluginManager->resolvePluginName($targetPlugin);
