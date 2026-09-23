@@ -61,6 +61,16 @@ define('FS_PATH', '');
 // SecretManager (>= 32 caracteres) sin recurrir al fallback de fichero.
 define('FS_SECRET_KEY', '9f1c2d3e4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d');
 
+// OidcProvider: los tests de locale parten del valor por defecto del código
+// (francés deshabilitado). Sin esta constante, LocaleManager::loadEnabledLocalesFromConfig()
+// leería el fs_var `oidc_enabled_locales` persistido por el administrador en la
+// base de datos y la suite dejaría de ser determinista. Los tests que necesiten
+// otros locales usan el seam `new LocaleManager([...])`, que tiene prioridad
+// sobre esta constante.
+if (!defined('OIDC_ENABLED_LOCALES')) {
+    define('OIDC_ENABLED_LOCALES', 'es_ES,en_GB');
+}
+
 if (!isset($GLOBALS['plugins']) || !is_array($GLOBALS['plugins'])) {
     $GLOBALS['plugins'] = [];
 }
