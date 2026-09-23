@@ -127,6 +127,32 @@ final class FsSchemaConvertTypeTest extends TestCase
         $this->assertSame('VARCHAR(6)', $this->convertType('character varying(6)', true));
     }
 
+    /**
+     * PostgreSQL time-zone qualifiers have no MySQL equivalent. The translated
+     * type MUST be the bare temporal type so the fallback can never emit the
+     * invalid MySQL DDL `TIMESTAMP WITH TIME ZONE` / `TIME WITH TIME ZONE`.
+     */
+    #[DataProvider('provideTimeZoneQualifiedTypes')]
+    public function testTimeZoneQualifiedTypesNeverEmitInvalidMysqlDdl(string $input, string $expected): void
+    {
+        $result = $this->convertType($input, true);
+
+        $this->assertSame($expected, $result);
+        // Discriminating assertion: valid MySQL temporal types never carry the
+        // PostgreSQL qualifier, so its presence proves the DDL would be invalid.
+        $this->assertStringNotContainsString('TIME ZONE', $result);
+    }
+
+    public static function provideTimeZoneQualifiedTypes(): array
+    {
+        return [
+            'timestamp with time zone' => ['timestamp with time zone', 'TIMESTAMP'],
+            'timestamp(6) with time zone' => ['timestamp(6) with time zone', 'TIMESTAMP(6)'],
+            'time with time zone' => ['time with time zone', 'TIME'],
+            'timestamp(6) without time zone' => ['timestamp(6) without time zone', 'TIMESTAMP(6)'],
+        ];
+    }
+
     public function testRemainingMappedTypesKeepTheirMapping(): void
     {
         $this->assertSame('DOUBLE', $this->convertType('double precision', true));

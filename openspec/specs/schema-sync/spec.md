@@ -196,4 +196,4 @@ The type-translation fix **MUST** cover the table-creation path only. It **MUST 
 
 - **GIVEN** an existing column stored as `TIME` whose XML declares `timestamp`
 - **WHEN** a schema sync runs after this fix
-- **THEN** the column is left unchanged, because constraint comparison treats `time` and `TIMESTAMP` as equivalent
+- **THEN** the column is left unchanged, because the column type comparison (`SchemaComparator::compareColumns()`, via `TypeNormalizer::compareDataTypes()`) treats `time` and `TIMESTAMP` as equivalent
