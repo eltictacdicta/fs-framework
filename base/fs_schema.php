@@ -427,7 +427,8 @@ class fs_schema
 
             // Buscar en el mapeo
             foreach (self::$typeMapping as $pgType => $mysqlType) {
-                if ($baseType === $pgType || strpos($baseType, $pgType) === 0) {
+                // Exact match: mapping keys are exact, so declaration order never affects the result.
+                if ($baseType === $pgType) {
                     if ($length && strpos($mysqlType, '(') === false) {
                         return "{$mysqlType}({$length})";
                     }
