@@ -94,6 +94,14 @@ try {
     error_log('AdminOnlyPagesMigration bootstrap failed: ' . $e->getMessage());
 }
 
+/// Cargar la clase base legacy de controladores ANTES del boot.
+/// El Router se construye dentro de Kernel::boot() y refleja src/Controller/* y
+/// plugins/*/Controller/* para leer sus atributos de ruta; clases como
+/// HtmxCrudController extienden \fs_controller, así que la clase debe existir
+/// en ese momento. El mapa legacy de base/fs_autoload.php no está cableado en
+/// el entry path, por eso se requiere explícitamente acá.
+require_once 'base/fs_controller.php';
+
 /// Boot del Kernel moderno (inicializa plugins de FS2025)
 \FSFramework\Core\Kernel::boot();
 
@@ -170,7 +178,6 @@ if (!defined('FS_BASE_URL')) {
 
     define('FS_BASE_URL', $protocol . '://' . $host . $base_path);
 }
-require_once 'base/fs_controller.php';
 require_once 'base/fs_list_controller.php';
 require_once 'base/fs_log_manager.php';
 
