@@ -52,11 +52,17 @@ class FSTranslator
     /** @var Translator|null Instancia singleton del traductor Symfony */
     private static ?Translator $instance = null;
 
+    /**
+     * Locale de arranque: valor inicial de la locale activa y del default
+     * (fallback final). `reset()` restaura ambos a este valor.
+     */
+    private const INITIAL_LOCALE = 'es_ES';
+
     /** @var string Locale actual */
-    private static string $locale = 'es_ES';
+    private static string $locale = self::INITIAL_LOCALE;
 
     /** @var string Locale por defecto (fallback final) */
-    private static string $defaultLocale = 'es_ES';
+    private static string $defaultLocale = self::INITIAL_LOCALE;
 
     /** @var array<string> Plugins ya cargados para evitar duplicados */
     private static array $loadedPlugins = [];
@@ -185,6 +191,16 @@ class FSTranslator
     }
 
     /**
+     * Obtiene el locale por defecto (fallback final).
+     *
+     * @return string
+     */
+    public static function getDefaultLocale(): string
+    {
+        return self::$defaultLocale;
+    }
+
+    /**
      * Carga traducciones de un plugin
      * 
      * Rutas físicas conocidas por convención:
@@ -290,7 +306,10 @@ class FSTranslator
         self::$instance = null;
         self::$initialized = false;
         self::$loadedPlugins = [];
-        self::$locale = 'es_ES';
+        self::$locale = self::INITIAL_LOCALE;
+        // Restaurar también el default: un `setDefaultLocale()` filtrado
+        // envenenaría los fallbacks de todo test posterior del proceso.
+        self::$defaultLocale = self::INITIAL_LOCALE;
     }
 
     /**

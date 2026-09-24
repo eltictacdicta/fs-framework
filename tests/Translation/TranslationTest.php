@@ -69,4 +69,23 @@ class TranslationTest extends TestCase
 
         $this->assertArrayHasKey('en', TranslationHelper::getAvailableLanguages());
     }
+
+    public function testResetRestoresTheDeclaredInitialState(): void
+    {
+        FSTranslator::initialize(FS_FOLDER);
+        FSTranslator::setDefaultLocale('en_US');
+        FSTranslator::setLocale('en_US');
+
+        FSTranslator::reset();
+
+        // reset() is the isolation seam tests rely on between cases. It must
+        // restore BOTH the active and the default locale to the declared
+        // initial value: a leaked setDefaultLocale() would otherwise poison
+        // the fallbacks of every later test in the same process.
+        $this->assertSame('es_ES', FSTranslator::getLocale());
+        $this->assertSame('es_ES', FSTranslator::getDefaultLocale());
+
+        FSTranslator::initialize(FS_FOLDER);
+        $this->assertSame('Guardar', FSTranslator::trans('save'), 'reset() must not leave the default locale at en_US');
+    }
 }
