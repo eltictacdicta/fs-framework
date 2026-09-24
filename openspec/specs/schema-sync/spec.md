@@ -14,6 +14,9 @@ Defensive schema synchronization: FOREIGN KEY constraints are emitted only when 
 | SS-04 | A previously omitted FK **MUST** be re-attempted by a later sync via constraint comparison | MUST |
 | SS-05 | Dependency-ordered schema sync/resync **MUST** be served by core-owned services | MUST |
 | SS-06 | system_updater **MUST NOT** load against a core lacking the centralized classes | MUST |
+| SS-07 | PostgreSQL→MySQL type translation **MUST** match mapping keys exactly and independently of declaration order | MUST |
+| SS-07a | No other mapped type, the length suffix, or the PostgreSQL passthrough **MUST** regress | MUST |
+| SS-07b | The fix is creation-only: no migration, and the deferred related defect stays untouched | MUST |
 
 ### Requirement: SS-01 — Defensive FK creation
 
@@ -92,3 +95,105 @@ When `system_updater` uses the core classes, its `fsframework.ini` `min_version`
 - **GIVEN** a core version older than the one shipping the centralized classes
 - **WHEN** system_updater attempts to load
 - **THEN** loading is blocked by the updated `min_version` and call sites remain API-compatible
+
+### Requirement: SS-07 — Exact-match, order-independent type translation
+
+When translating PostgreSQL-style XML types to MySQL, `fs_schema::convertType()` **MUST** resolve a mapping key by exact equality, so the result never depends on the declaration order of the type mapping. Temporal types **MUST** map correctly: `timestamp` to `TIMESTAMP` and `datetime` to `DATETIME`.
+
+#### Scenario: timestamp maps to TIMESTAMP
+
+- **GIVEN** the XML declares a column as `timestamp` and the DB is MySQL
+- **WHEN** the schema sync translates the type
+- **THEN** the result is `TIMESTAMP`
+
+#### Scenario: datetime maps to DATETIME
+
+- **GIVEN** the XML declares a column as `datetime` and the DB is MySQL
+- **WHEN** the schema sync translates the type
+- **THEN** the result is `DATETIME`
+
+#### Scenario: timestamp with length keeps the length
+
+- **GIVEN** the XML declares a column as `timestamp(6)`
+- **WHEN** the schema sync translates the type
+- **THEN** the result is `TIMESTAMP(6)`
+
+#### Scenario: timestamp without time zone maps to TIMESTAMP
+
+- **GIVEN** the XML declares a column as `timestamp without time zone`
+- **WHEN** the schema sync translates the type
+- **THEN** the result is `TIMESTAMP`
+
+#### Scenario: Mapping is independent of declaration order
+
+- **GIVEN** the type mapping keys in any declaration order
+- **WHEN** a temporal type is translated
+- **THEN** the result is identical to the result under the original declaration order
+
+### Requirement: SS-07a — No regression, length suffix and passthrough preserved
+
+Every other mapped type **MUST** keep its mapping, the length suffix **MUST** still be appended when the mapped type has none, and the PostgreSQL path **MUST** return the type unchanged.
+
+#### Scenario: character varying maps to VARCHAR, not CHAR
+
+- **GIVEN** the XML declares a column as `character varying(6)`
+- **WHEN** the schema sync translates the type for MySQL
+- **THEN** the result is `VARCHAR(6)` and not `CHAR(6)`
+
+#### Scenario: character maps to CHAR
+
+- **GIVEN** the XML declares a column as `character(10)`
+- **WHEN** the schema sync translates the type
+- **THEN** the result is `CHAR(10)`
+
+#### Scenario: integer family maps distinctly
+
+- **GIVEN** the XML declares `integer`, `smallint` and `bigint` columns
+- **WHEN** the schema sync translates each type
+- **THEN** the results are `INT`, `SMALLINT` and `BIGINT` respectively
+
+#### Scenario: plain temporal types keep their mapping
+
+- **GIVEN** the XML declares `date`, `time` and `time without time zone` columns
+- **WHEN** the schema sync translates each type
+- **THEN** the results are `DATE`, `TIME` and `TIME` respectively
+
+#### Scenario: Remaining mapped types keep their mapping
+
+- **GIVEN** the XML declares `text`, `boolean`, `double precision`, `real`, `numeric(12,2)`, `bytea` and `serial` columns
+- **WHEN** the schema sync translates each type
+- **THEN** the results are `TEXT`, `TINYINT(1)`, `DOUBLE`, `FLOAT`, `DECIMAL(12,2)`, `BLOB` and `INT AUTO_INCREMENT` respectively
+
+#### Scenario: Length suffix is preserved
+
+- **GIVEN** a mapped type whose MySQL target has no parentheses
+- **WHEN** the XML type carries a length
+- **THEN** the length is appended to the mapped type
+
+#### Scenario: PostgreSQL passthrough is unchanged
+
+- **GIVEN** the database engine is PostgreSQL
+- **WHEN** any type is translated
+- **THEN** the type is returned unchanged
+
+#### Scenario: CREATE TABLE integration emits TIMESTAMP
+
+- **GIVEN** an XML schema declaring a `timestamp` column
+- **WHEN** the schema sync generates the `CREATE TABLE` DDL for MySQL
+- **THEN** the emitted column type is `TIMESTAMP` and not `TIME`
+
+### Requirement: SS-07b — Creation-only scope and deferred related defect
+
+The type-translation fix **MUST** cover the table-creation path only. It **MUST NOT** introduce any `ALTER TABLE`, data migration, or retroactive repair of existing columns. The prefix-matching defect in `TypeNormalizer::compareDataTypes()` (which makes `time` equivalent to `TIMESTAMP` and therefore prevents auto-repair of an existing wrongly-typed column) **MUST NOT** be altered by this change.
+
+#### Scenario: No migration or ALTER is introduced
+
+- **GIVEN** the type-translation fix is applied
+- **WHEN** the change is reviewed
+- **THEN** no `ALTER TABLE`, data migration or retroactive repair is present
+
+#### Scenario: Existing wrongly-typed columns are not auto-repaired
+
+- **GIVEN** an existing column stored as `TIME` whose XML declares `timestamp`
+- **WHEN** a schema sync runs after this fix
+- **THEN** the column is left unchanged, because the column type comparison (`SchemaComparator::compareColumns()`, via `TypeNormalizer::compareDataTypes()`) treats `time` and `TIMESTAMP` as equivalent

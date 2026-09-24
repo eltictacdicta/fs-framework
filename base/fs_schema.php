@@ -419,15 +419,21 @@ class fs_schema
             return $type;
         }
 
-        // Extraer tipo base y longitud
+        // Extraer tipo base y longitud. The optional time-zone qualifier comes
+        // after the length in PostgreSQL (`timestamp(6) with time zone`), and
+        // MySQL has no time-zone-aware temporal type, so both `with` and
+        // `without` are stripped before the mapping lookup. This keeps the
+        // fallback from ever emitting invalid MySQL DDL such as
+        // `TIMESTAMP WITH TIME ZONE`.
         $matches = [];
-        if (preg_match('/^([a-z\s]+?)(?:\s+without\s+time\s+zone)?(?:\((\d+(?:,\d+)?)\))?$/i', trim($type), $matches)) {
+        if (preg_match('/^([a-z\s]+?)(?:\((\d+(?:,\d+)?)\))?(?:\s+(?:with|without)\s+time\s+zone)?$/i', trim($type), $matches)) {
             $baseType = strtolower(trim($matches[1]));
             $length = isset($matches[2]) ? $matches[2] : null;
 
             // Buscar en el mapeo
             foreach (self::$typeMapping as $pgType => $mysqlType) {
-                if ($baseType === $pgType || strpos($baseType, $pgType) === 0) {
+                // Exact match: mapping keys are exact, so declaration order never affects the result.
+                if ($baseType === $pgType) {
                     if ($length && strpos($mysqlType, '(') === false) {
                         return "{$mysqlType}({$length})";
                     }
