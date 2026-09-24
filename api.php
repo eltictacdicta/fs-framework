@@ -74,6 +74,13 @@ require_once 'base/fs_secret_migrator.php';
 fs_secret_migrator::ensure();
 require_once 'base/config2.php';
 
+/// Cargar la clase base legacy de controladores ANTES del boot: el Router se
+/// construye dentro de Kernel::boot() y refleja src/Controller/* y
+/// plugins/*/Controller/* para leer sus atributos de ruta; clases como
+/// HtmxCrudController extienden \fs_controller. El mapa legacy de
+/// base/fs_autoload.php no está cableado en el entry path.
+require_once 'base/fs_controller.php';
+
 try {
     \FSFramework\Core\Kernel::boot();
     $container = Container::getContainer();
