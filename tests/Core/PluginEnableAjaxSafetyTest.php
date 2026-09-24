@@ -305,7 +305,7 @@ final class AjaxGuardTestPluginManager extends \fs_plugin_manager
 
     public function applyPluginSchemaUpdates(string $plugin_name): array
     {
-        return ['success' => true, 'errors' => []];
+        return ['success' => true, 'changes' => [], 'errors' => []];
     }
 
     protected function clean_cache(): void
