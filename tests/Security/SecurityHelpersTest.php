@@ -80,6 +80,45 @@ class SecurityHelpersTest extends TestCase
         $this->assertSame([], SafeRedirect::getAllowedHosts());
     }
 
+    public function testSafeRedirectRejectsBackslashUserinfoAndProtocolRelativeTargets(): void
+    {
+        $baseUrl = defined('FS_BASE_URL') ? (string) FS_BASE_URL : 'https://app.local';
+        $baseHost = strtolower((string) parse_url($baseUrl, PHP_URL_HOST));
+
+        $_SERVER['HTTP_HOST'] = $baseHost;
+
+        $fallback = 'index.php';
+
+        // Raw backslash: WHATWG browsers normalize "\" to "/" (visiting
+        // evil.example) while PHP parse_url() reads it as userinfo (host looks
+        // like the trusted one). The redirect must fall back.
+        $this->assertSame($fallback, SafeRedirect::validate(
+            'https://evil.example\\@app.example.test/dashboard/x',
+            $fallback
+        ));
+        $this->assertSame($fallback, SafeRedirect::validate(
+            'HTTPS://EVIL.EXAMPLE\\@app.example.test/dashboard/x',
+            $fallback
+        ));
+
+        // Userinfo present: a redirect target has no legitimate need for it.
+        $this->assertSame($fallback, SafeRedirect::validate(
+            'https://user:pass@app.example.test/profile',
+            $fallback
+        ));
+
+        // Protocol-relative targets and genuinely foreign hosts stay rejected.
+        $this->assertSame($fallback, SafeRedirect::validate('//evil.example/dashboard/x', $fallback));
+        $this->assertSame($fallback, SafeRedirect::validate('https://evil.example/dashboard/x', $fallback));
+
+        // Accepted targets must keep working.
+        $this->assertSame('/account', SafeRedirect::validate('/account', $fallback));
+        $this->assertSame('index.php?page=home', SafeRedirect::validate('index.php?page=home', $fallback));
+
+        $sameHostUrl = 'https://' . $baseHost . '/account';
+        $this->assertSame($sameHostUrl, SafeRedirect::validate($sameHostUrl, $fallback));
+    }
+
     public function testSafeRedirectFallsBackTo302ForInvalidHttpStatusCodes(): void
     {
         $this->assertSame(302, SafeRedirect::resolveRedirectHttpStatusCode(299));
