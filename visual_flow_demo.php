@@ -6,6 +6,16 @@
  * durante y después de la instalación.
  */
 
+// Deny direct web access. Only CLI (cron) and loopback callers may run this
+// operator script; .htaccess is inert on nginx, so the guard lives in code.
+if (PHP_SAPI !== 'cli') {
+    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+    if (!in_array($remoteAddr, ['127.0.0.1', '::1'], true)) {
+        http_response_code(404);
+        exit;
+    }
+}
+
 const DEMO_CONFIG2_PATH = 'base/config2.php';
 const DEMO_RAINTPL_PATH = 'raintpl/rain.tpl.class.php';
 const DEMO_BOX_TOP = "┌─────────────────────────────────────────────────────────────────┐\n";
