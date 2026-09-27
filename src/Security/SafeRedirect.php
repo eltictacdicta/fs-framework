@@ -302,7 +302,10 @@ class SafeRedirect
 
         $reconstructed = $scheme . '://' . strtolower((string) $parts['host']);
 
-        if (isset($parts['port']) && is_int($parts['port'])) {
+        // parse_url() tipa 'port' como int (stub de PHPStan), así que un
+        // is_int() acá sería siempre verdadero y PHPStan lo reporta como
+        // booleanAnd.rightAlwaysTrue. isset() es la única guarda real.
+        if (isset($parts['port'])) {
             $reconstructed .= ':' . $parts['port'];
         }
 
