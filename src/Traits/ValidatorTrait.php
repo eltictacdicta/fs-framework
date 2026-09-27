@@ -229,53 +229,37 @@ class ConstraintBuilder
 
     public function notBlank(?string $message = null): self
     {
-        $options = $message ? ['message' => $message] : [];
-        $this->constraints[] = new Assert\NotBlank($options);
+        $this->constraints[] = new Assert\NotBlank(message: $message);
         return $this;
     }
 
     public function notNull(?string $message = null): self
     {
-        $options = $message ? ['message' => $message] : [];
-        $this->constraints[] = new Assert\NotNull($options);
+        $this->constraints[] = new Assert\NotNull(message: $message);
         return $this;
     }
 
     public function length(?int $min = null, ?int $max = null, ?string $message = null): self
     {
-        $options = array_filter([
-            'min' => $min,
-            'max' => $max,
-            'maxMessage' => $message,
-            'minMessage' => $message,
-        ]);
-        $this->constraints[] = new Assert\Length($options);
+        $this->constraints[] = new Assert\Length(min: $min, max: $max, minMessage: $message, maxMessage: $message);
         return $this;
     }
 
     public function email(?string $message = null): self
     {
-        $options = $message ? ['message' => $message] : [];
-        $this->constraints[] = new Assert\Email($options);
+        $this->constraints[] = new Assert\Email(message: $message);
         return $this;
     }
 
     public function regex(string $pattern, ?string $message = null): self
     {
-        $options = ['pattern' => $pattern];
-        if ($message) {
-            $options['message'] = $message;
-        }
-        $this->constraints[] = new Assert\Regex($options);
+        $this->constraints[] = new Assert\Regex(pattern: $pattern, message: $message);
         return $this;
     }
 
     public function range(?int $min = null, ?int $max = null): self
     {
-        $this->constraints[] = new Assert\Range(array_filter([
-            'min' => $min,
-            'max' => $max,
-        ]));
+        $this->constraints[] = new Assert\Range(min: $min, max: $max);
         return $this;
     }
 
@@ -293,11 +277,7 @@ class ConstraintBuilder
 
     public function choice(array $choices, ?string $message = null): self
     {
-        $options = ['choices' => $choices];
-        if ($message) {
-            $options['message'] = $message;
-        }
-        $this->constraints[] = new Assert\Choice($options);
+        $this->constraints[] = new Assert\Choice(choices: $choices, message: $message);
         return $this;
     }
 
@@ -315,7 +295,7 @@ class ConstraintBuilder
 
     public function url(): self
     {
-        $this->constraints[] = new Assert\Url();
+        $this->constraints[] = new Assert\Url(requireTld: false);
         return $this;
     }
 

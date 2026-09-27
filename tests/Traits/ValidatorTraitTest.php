@@ -225,7 +225,7 @@ class ValidatorTraitTest extends TestCase
             ->date()
             ->dateTime()
             ->iban()
-            ->add(new Assert\Url())
+            ->add(new Assert\Url(requireTld: false))
             ->get();
 
         $this->assertCount(8, $constraints);
