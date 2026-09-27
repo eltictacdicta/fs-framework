@@ -80,6 +80,104 @@ class SecurityHelpersTest extends TestCase
         $this->assertSame([], SafeRedirect::getAllowedHosts());
     }
 
+    public function testSafeRedirectRejectsBackslashUserinfoAndProtocolRelativeTargets(): void
+    {
+        $baseUrl = defined('FS_BASE_URL') ? (string) FS_BASE_URL : 'https://app.local';
+        $baseHost = strtolower((string) parse_url($baseUrl, PHP_URL_HOST));
+
+        $_SERVER['HTTP_HOST'] = $baseHost;
+
+        $fallback = 'index.php';
+
+        // Raw backslash: WHATWG browsers normalize "\" to "/" (visiting
+        // evil.example) while PHP parse_url() reads it as userinfo (host looks
+        // like the trusted one). The redirect must fall back.
+        $this->assertSame($fallback, SafeRedirect::validate(
+            'https://evil.example\\@app.example.test/dashboard/x',
+            $fallback
+        ));
+        $this->assertSame($fallback, SafeRedirect::validate(
+            'HTTPS://EVIL.EXAMPLE\\@app.example.test/dashboard/x',
+            $fallback
+        ));
+
+        // Userinfo present: a redirect target has no legitimate need for it.
+        $this->assertSame($fallback, SafeRedirect::validate(
+            'https://user:pass@app.example.test/profile',
+            $fallback
+        ));
+
+        // Protocol-relative targets and genuinely foreign hosts stay rejected.
+        $this->assertSame($fallback, SafeRedirect::validate('//evil.example/dashboard/x', $fallback));
+        $this->assertSame($fallback, SafeRedirect::validate('https://evil.example/dashboard/x', $fallback));
+
+        // Accepted targets must keep working.
+        $this->assertSame('/account', SafeRedirect::validate('/account', $fallback));
+        $this->assertSame('index.php?page=home', SafeRedirect::validate('index.php?page=home', $fallback));
+
+        $sameHostUrl = 'https://' . $baseHost . '/account';
+        $this->assertSame($sameHostUrl, SafeRedirect::validate($sameHostUrl, $fallback));
+    }
+
+    /**
+     * Locks the explicit-port branch of reconstructAbsoluteUrl().
+     *
+     * parse_url() keeps the port in its own component, so isAllowedHost() must
+     * match on the host ALONE and the rebuilt Location must carry the port the
+     * caller asked for. There was no port coverage at all before this test, and
+     * the dead `is_int($parts['port'])` guard was removed from that branch.
+     */
+    public function testSafeRedirectPreservesExplicitPortWhenRebuildingAbsoluteUrls(): void
+    {
+        $baseUrl = defined('FS_BASE_URL') ? (string) FS_BASE_URL : 'https://app.local';
+        $baseHost = strtolower((string) parse_url($baseUrl, PHP_URL_HOST));
+
+        $_SERVER['HTTP_HOST'] = $baseHost;
+
+        $fallback = 'index.php';
+
+        // An allow-listed host matches on the host alone: the entry does NOT
+        // need to repeat the port, and the port survives the rebuild untouched.
+        SafeRedirect::addAllowedHosts(['trusted.example']);
+
+        $this->assertSame(
+            'https://trusted.example:8443/dashboard?x=1',
+            SafeRedirect::validate('https://trusted.example:8443/dashboard?x=1', $fallback)
+        );
+
+        // Same host, non-default port: the realistic dev/staging shape.
+        $sameHostWithPort = 'https://' . $baseHost . ':8443/account';
+        $this->assertSame($sameHostWithPort, SafeRedirect::validate($sameHostWithPort, $fallback));
+
+        // A port with no path must not invent one.
+        $this->assertSame(
+            'https://trusted.example:8443',
+            SafeRedirect::validate('https://trusted.example:8443', $fallback)
+        );
+
+        // Anti-regression: a port must never become a way past the allow-list.
+        $this->assertSame($fallback, SafeRedirect::validate('https://evil.example:8443/dashboard', $fallback));
+        $this->assertSame($fallback, SafeRedirect::validate('https://trusted.example.evil.example:8443/x', $fallback));
+    }
+
+    /**
+     * Browsers put a non-default port in the Host header, so the host
+     * comparison has to strip it while the redirect target keeps it.
+     */
+    public function testSafeRedirectTreatsHostHeaderWithPortAsTheSameHost(): void
+    {
+        $baseUrl = defined('FS_BASE_URL') ? (string) FS_BASE_URL : 'https://app.local';
+        $baseHost = strtolower((string) parse_url($baseUrl, PHP_URL_HOST));
+
+        $_SERVER['HTTP_HOST'] = $baseHost . ':8443';
+
+        $fallback = 'index.php';
+        $target = 'https://' . $baseHost . ':8443/account';
+
+        $this->assertSame($target, SafeRedirect::validate($target, $fallback));
+        $this->assertSame($fallback, SafeRedirect::validate('https://evil.example:8443/account', $fallback));
+    }
+
     public function testSafeRedirectFallsBackTo302ForInvalidHttpStatusCodes(): void
     {
         $this->assertSame(302, SafeRedirect::resolveRedirectHttpStatusCode(299));

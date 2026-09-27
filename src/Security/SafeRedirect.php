@@ -71,11 +71,27 @@ class SafeRedirect
         if (!empty($url)) {
             $url = trim($url);
 
+            // A raw backslash is never legitimate in a redirect target. Browser
+            // URL parsers (WHATWG) normalize "\" to "/" while PHP parse_url()
+            // keeps it inside the userinfo component, so a target such as
+            // "https://evil.example\@trusted.example/x" is read as host
+            // "trusted.example" by PHP but visited as "evil.example" by the
+            // browser. Reject early, before any component parsing.
+            if (self::containsRawBackslash($url)) {
+                return $fallbackUrl;
+            }
+
             if (!self::hasDangerousProtocol($url)) {
                 if (self::isRelativeUrl($url)) {
                     $safeUrl = self::sanitizeRelativeUrl($url);
                 } elseif (self::isAbsoluteUrl($url) && self::isAllowedHost($url)) {
-                    $safeUrl = $url;
+                    // Never echo the raw input: rebuild the URL from the
+                    // validated components so parser differentials cannot
+                    // survive into the Location header.
+                    $reconstructed = self::reconstructAbsoluteUrl($url);
+                    if ($reconstructed !== null) {
+                        $safeUrl = $reconstructed;
+                    }
                 }
             }
         }
@@ -254,11 +270,78 @@ class SafeRedirect
     }
 
     /**
+     * Detecta un backslash literal. Los navegadores lo tratan como "/", pero
+     * parse_url() lo mete en el componente userinfo: ese diferencial permite
+     * colar un host ajeno que el allow-list no ve. Ninguna URL de redirección
+     * legítima lo necesita.
+     */
+    private static function containsRawBackslash(string $url): bool
+    {
+        return str_contains($url, '\\');
+    }
+
+    /**
+     * Reconstruye una URL absoluta a partir de los componentes ya validados.
+     *
+     * Se usa en lugar de devolver la entrada cruda: garantiza que solo viajen
+     * al header Location el esquema, host, puerto, path, query y fragment que
+     * pasaron la validación. Devuelve null si la URL no se puede reconstruir.
+     */
+    private static function reconstructAbsoluteUrl(string $url): ?string
+    {
+        $parts = parse_url($url);
+
+        if ($parts === false || !isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+
+        $scheme = strtolower((string) $parts['scheme']);
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            return null;
+        }
+
+        $reconstructed = $scheme . '://' . strtolower((string) $parts['host']);
+
+        // parse_url() tipa 'port' como int (stub de PHPStan), así que un
+        // is_int() acá sería siempre verdadero y PHPStan lo reporta como
+        // booleanAnd.rightAlwaysTrue. isset() es la única guarda real.
+        if (isset($parts['port'])) {
+            $reconstructed .= ':' . $parts['port'];
+        }
+
+        if (isset($parts['path']) && $parts['path'] !== '') {
+            $reconstructed .= $parts['path'];
+        }
+
+        if (isset($parts['query'])) {
+            $reconstructed .= '?' . $parts['query'];
+        }
+
+        if (isset($parts['fragment'])) {
+            $reconstructed .= '#' . $parts['fragment'];
+        }
+
+        return $reconstructed;
+    }
+
+    /**
      * Verifica si el host de una URL está permitido.
      */
     private static function isAllowedHost(string $url): bool
     {
         $urlParts = parse_url($url);
+
+        if (!is_array($urlParts)) {
+            return false;
+        }
+
+        // Un destino de redirección no tiene ninguna necesidad legítima de
+        // userinfo (user:pass@). Se rechaza para que las credenciales o un
+        // diferencial de parser no puedan influir en el host permitido.
+        if (isset($urlParts['user']) || isset($urlParts['pass'])) {
+            return false;
+        }
+
         $currentHost = self::getCurrentHost();
 
         if (!isset($urlParts['host'])) {
