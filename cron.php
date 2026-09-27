@@ -17,6 +17,15 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+// Deny direct web access. Only CLI (cron) and loopback callers may run this
+// operator script; .htaccess is inert on nginx, so the guard lives in code.
+if (PHP_SAPI !== 'cli') {
+    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+    if (!in_array($remoteAddr, ['127.0.0.1', '::1'], true)) {
+        http_response_code(404);
+        exit;
+    }
+}
 echo 'Iniciando cron de FSFramework...';
 
 /// establecemos el límite de ejecución de PHP en 50 minutos
