@@ -57,7 +57,7 @@ final class SchemaInspector
         $tableName = $this->requireIdentifier($tableName, 'table');
         $constraints = [];
         $sql = "SELECT CONSTRAINT_NAME as name, CONSTRAINT_TYPE as type FROM information_schema.table_constraints "
-            . 'WHERE table_schema = schema() AND table_name = ' . $this->quoteStringLiteral($tableName) . ';';
+            . 'WHERE table_schema = DATABASE() AND table_name = ' . $this->quoteStringLiteral($tableName) . ';';
 
         $aux = $this->db->select($sql);
         if ($aux) {
@@ -90,7 +90,7 @@ final class SchemaInspector
          LEFT JOIN information_schema.referential_constraints t3
             ON t3.constraint_schema = t1.table_schema
             AND t3.constraint_name = t1.constraint_name
-            WHERE t1.table_schema = SCHEMA() AND t1.table_name = " . $this->quoteStringLiteral($tableName) . "
+            WHERE t1.table_schema = DATABASE() AND t1.table_name = " . $this->quoteStringLiteral($tableName) . "
             ORDER BY type DESC, name ASC, t2.ordinal_position ASC;";
 
         $aux = $this->db->select($sql);
@@ -122,7 +122,7 @@ final class SchemaInspector
         $tableName = $this->requireIdentifier($tableName, 'table');
         $columns = [];
         $sql = "SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE "
-            . 'WHERE TABLE_SCHEMA = SCHEMA() AND TABLE_NAME = ' . $this->quoteStringLiteral($tableName) . ' '
+            . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ' . $this->quoteStringLiteral($tableName) . ' '
             . "AND REFERENCED_TABLE_NAME IS NOT NULL;";
         $data = $this->db->select($sql);
         if ($data) {
