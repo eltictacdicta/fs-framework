@@ -1197,7 +1197,7 @@ class fs_mysql extends fs_db_engine
         $tableName = $this->requireIdentifier((string) $table_name, 'table');
         $columns = [];
         $sql = "SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE "
-            . 'WHERE TABLE_SCHEMA = SCHEMA() AND TABLE_NAME = ' . $this->quoteStringLiteral($tableName) . ' '
+            . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ' . $this->quoteStringLiteral($tableName) . ' '
             . "AND REFERENCED_TABLE_NAME IS NOT NULL;";
         $data = $this->select($sql);
         if ($data) {
