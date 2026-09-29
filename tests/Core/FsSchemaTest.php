@@ -24,8 +24,12 @@ final class FsSchemaTest extends TestCase
         $this->injectDb(null);
     }
 
-    public function testCreateTableOmitsFkOnCollationMismatch(): void
+    public function testCreateTableKeepsFkWhenLocalCharsetIsUnknownEvenIfDatabaseDefaultDiffers(): void
     {
+        // Regression: the referenced column is utf8mb3 while the database
+        // default is utf8mb4. The local column charset cannot be resolved at
+        // CREATE time, so the validator must NOT substitute the database
+        // default and drop the FK (that was the false positive).
         $db = $this->fakeDb([
             'utf8mb4' => 'utf8mb4_general_ci',
             'parent_table' => [
@@ -63,7 +67,7 @@ XML);
         $lastSql = end($db->executed);
         $this->assertIsString($lastSql);
         $this->assertStringContainsString('CREATE TABLE IF NOT EXISTS `child_table`', $lastSql);
-        $this->assertStringNotContainsString('FOREIGN KEY', $lastSql);
+        $this->assertStringContainsString('FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)', $lastSql);
     }
 
     public function testCreateTableKeepsFkOnCollationMatch(): void
