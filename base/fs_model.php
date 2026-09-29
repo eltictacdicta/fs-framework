@@ -400,30 +400,51 @@ abstract class fs_model
     /**
      * Ejecuta migraciones de datos necesarias antes de aplicar restricciones.
      * Convierte cadenas vacías a NULL en columnas que tendrán restricción UNIQUE
-     * y la columna permite nulos, para evitar errores de duplicados.
+     * o que participan en una FOREIGN KEY declarada en el XML, y la columna
+     * permite nulos. Un '' en una columna FK nunca es válido y es la causa de
+     * que la creación de la restricción falle.
      */
     protected function pre_migrate_data($table_name, $xml_cons)
     {
         $identifier_quote = strtolower(FS_DB_TYPE) === 'mysql' ? '`' : '"';
 
         foreach ($xml_cons as $con) {
-            if (preg_match('/^UNIQUE\s*\((\w+)\)/i', $con['consulta'], $matches)) {
-                $col_name = $matches[1];
-                $db_cols = $this->db->get_columns($table_name);
-                $is_nullable = false;
-                foreach ($db_cols as $col) {
-                    if ($col['name'] === $col_name && strtoupper($col['is_nullable']) === 'YES') {
-                        $is_nullable = true;
-                        break;
-                    }
-                }
-                if ($is_nullable) {
-                    $this->db->exec('UPDATE ' . $identifier_quote . $table_name . $identifier_quote
-                        . ' SET ' . $identifier_quote . $col_name . $identifier_quote . ' = NULL'
-                        . ' WHERE ' . $identifier_quote . $col_name . $identifier_quote . " = '';");
+            $col_name = $this->preMigrateColumnToNormalize((string) ($con['consulta'] ?? ''));
+            if ($col_name === null) {
+                continue;
+            }
+
+            $db_cols = $this->db->get_columns($table_name);
+            $is_nullable = false;
+            foreach ($db_cols as $col) {
+                if ($col['name'] === $col_name && strtoupper($col['is_nullable']) === 'YES') {
+                    $is_nullable = true;
+                    break;
                 }
             }
+            if ($is_nullable) {
+                $this->db->exec('UPDATE ' . $identifier_quote . $table_name . $identifier_quote
+                    . ' SET ' . $identifier_quote . $col_name . $identifier_quote . ' = NULL'
+                    . ' WHERE ' . $identifier_quote . $col_name . $identifier_quote . " = '';");
+            }
         }
+    }
+
+    /**
+     * Devuelve la columna a normalizar cuando la restricción es UNIQUE o una
+     * FOREIGN KEY de una sola columna; NULL en cualquier otro caso.
+     */
+    private function preMigrateColumnToNormalize(string $consulta): ?string
+    {
+        if (preg_match('/^UNIQUE\s*\((\w+)\)/i', $consulta, $matches)) {
+            return $matches[1];
+        }
+
+        if (preg_match('/^FOREIGN\s+KEY\s*\((\w+)\)\s+REFERENCES\b/i', $consulta, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     /**
