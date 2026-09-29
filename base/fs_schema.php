@@ -34,6 +34,13 @@ class fs_schema
 
     private const SQL_LINE_SEPARATOR = ",\n  ";
     private const SQL_DEFAULT = ' DEFAULT ';
+
+    /**
+     * Marks a failed statement inside the flat syncTable() result so
+     * collectSyncTableChanges() routes it to the `errors` channel instead of
+     * reporting it as a successful change.
+     */
+    private const SYNC_ERROR_PREFIX = '[sync-error] ';
     private const CORE_TABLE_FILES = [
         'fs_pages.xml',
         'fs_users.xml',
@@ -706,9 +713,16 @@ class fs_schema
             }
 
             foreach ($changes as $change) {
-                if (is_string($change) && $change !== '') {
-                    $result['changes'][] = $change;
+                if (!is_string($change) || $change === '') {
+                    continue;
                 }
+
+                if (str_starts_with($change, self::SYNC_ERROR_PREFIX)) {
+                    $result['errors'][] = $change;
+                    continue;
+                }
+
+                $result['changes'][] = $change;
             }
         } catch (Exception $e) {
             $result['errors'][] = basename($xmlFile) . ': ' . $e->getMessage();
@@ -730,9 +744,20 @@ class fs_schema
         }
 
         $sql = $db->compare_columns($tableName, $xmlColumns, $dbColumns);
-        if (!empty($sql) && $db->exec($sql, null, [], true)) {
-            $changes[] = "Columnas actualizadas en {$tableName}";
+        if (empty($sql)) {
+            return;
         }
+
+        if ($db->exec($sql, null, [], true)) {
+            $changes[] = "Columnas actualizadas en {$tableName}";
+            return;
+        }
+
+        $changes[] = self::statementFailure(
+            "Error al actualizar las columnas de {$tableName}",
+            (string) $sql,
+            self::dbErrorMessage($db)
+        );
     }
 
     private static function syncConstraints($db, $tableName, $xml, array &$changes)
@@ -750,10 +775,76 @@ class fs_schema
             ];
         }
 
-        $sql = $db->compare_constraints($tableName, $xmlConstraints, $dbConstraints);
-        if (!empty($sql) && $db->exec($sql, null, [], true)) {
-            $changes[] = "Restricciones actualizadas en {$tableName}";
+        $xmlColumns = [];
+        if (isset($xml->columna)) {
+            foreach ($xml->columna as $col) {
+                $xmlColumns[] = [
+                    'nombre' => (string) $col->nombre,
+                    'nulo' => isset($col->nulo) ? (string) $col->nulo : 'YES',
+                ];
+            }
         }
+
+        // The fs_schema path never ran fs_model::pre_migrate_data(), so an
+        // empty string in a column about to receive a constraint would make the
+        // ADD fail (MySQL errno 1452). Normalise it first, reusing the same
+        // guarded logic the model path uses.
+        $sanitization = \FSFramework\Database\FkDataSanitizer::normalizeEmptyStringsForConstraints(
+            $db,
+            (string) $tableName,
+            $xmlConstraints,
+            $xmlColumns
+        );
+        foreach ($sanitization['failures'] as $failure) {
+            $changes[] = self::statementFailure(
+                "Error al normalizar los datos de {$tableName} antes de las restricciones",
+                (string) $failure['sql'],
+                (string) $failure['error']
+            );
+        }
+
+        $sql = $db->compare_constraints($tableName, $xmlConstraints, $dbConstraints);
+        if (empty($sql)) {
+            return;
+        }
+
+        if ($db->exec($sql, null, [], true)) {
+            $changes[] = "Restricciones actualizadas en {$tableName}";
+            return;
+        }
+
+        // A failed ALTER used to be swallowed here (there was no else), which is
+        // how a constraint error such as MySQL 1452 stayed invisible.
+        $changes[] = self::statementFailure(
+            "Error al actualizar las restricciones de {$tableName}",
+            (string) $sql,
+            self::dbErrorMessage($db)
+        );
+    }
+
+    /**
+     * Builds and logs the message for a failed schema statement. The prefix is
+     * what makes collectSyncTableChanges() route the entry to the errors
+     * channel rather than reporting it as a successful change.
+     */
+    private static function statementFailure(string $context, string $sql, string $dbError): string
+    {
+        $message = self::SYNC_ERROR_PREFIX . $context
+            . ' [SQL: ' . $sql . ']'
+            . ' [Error: ' . $dbError . ']';
+
+        error_log($message);
+
+        return $message;
+    }
+
+    private static function dbErrorMessage($db): string
+    {
+        if (is_object($db) && method_exists($db, 'get_error_msg')) {
+            return (string) $db->get_error_msg();
+        }
+
+        return '';
     }
 
     /**
