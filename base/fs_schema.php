@@ -212,10 +212,11 @@ class fs_schema
     }
 
     /**
-     * Resuelve la información de la columna local que lleva la FK desde el XML
-     * (nunca desde information_schema: la tabla local aún no existe en el
-     * CREATE). El charset/collation local se dejan sin rellenar para que el
-     * validador los complete desde la configuración @@ de la BD.
+     * Resolves the local FK column info from the XML (never from
+     * information_schema: the local table does not exist yet in the CREATE
+     * path). The local charset/collation are left null on purpose: they cannot
+     * be resolved here, so the validator treats an unknown local
+     * charset/collation as compatible instead of assuming the database default.
      *
      * @param SimpleXMLElement $xml Definición XML
      * @param bool $isMySQL Si es MySQL

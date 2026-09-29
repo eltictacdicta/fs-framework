@@ -40,9 +40,6 @@ final class FkCompatibilityValidator
 {
     private const IDENTIFIER_REGEX = '/^[a-z0-9_]+$/i';
 
-    /** @var array<string, string>|null Configuración @@ de la BD (charset => collation). */
-    private ?array $dbConfig = null;
-
     public function __construct(
         private object $db,
         private ?bool $isMySql = null
@@ -65,8 +62,6 @@ final class FkCompatibilityValidator
         if (!$this->isMySqlEngine()) {
             return true;
         }
-
-        $localColInfo = $this->resolveLocalCollationDefaults($localColInfo);
 
         // Tipo no colacionable (int, date, ...): no hay collation que comparar.
         if (!$this->isCollatableType($localColInfo['type'] ?? '')) {
@@ -153,61 +148,6 @@ final class FkCompatibilityValidator
         return defined('FS_DB_TYPE') && strtolower(FS_DB_TYPE) === 'mysql';
     }
 
-    /**
-     * Rellena charset/collation local ausentes con la configuración @@ de la BD,
-     * porque en el CREATE la tabla local todavía no existe y ambos generadores
-     * emiten DEFAULT CHARSET/COLLATE desde esas mismas variables.
-     *
-     * @param array{name?: string, type?: string, charset?: ?string, collation?: ?string} $localColInfo
-     *
-     * @return array{name?: string, type?: string, charset: ?string, collation: ?string}
-     */
-    private function resolveLocalCollationDefaults(array $localColInfo): array
-    {
-        if (!empty($localColInfo['charset']) && !empty($localColInfo['collation'])) {
-            return $localColInfo;
-        }
-
-        $config = $this->dbConfig();
-        if ($config === null) {
-            return $localColInfo;
-        }
-
-        $charset = $localColInfo['charset'] ?? array_key_first($config);
-        $collation = $localColInfo['collation'] ?? reset($config);
-
-        return array_merge($localColInfo, [
-            'charset' => is_string($charset) ? $charset : null,
-            'collation' => is_string($collation) ? $collation : null,
-        ]);
-    }
-
-    /**
-     * @return array<string, string>|null Mapa charset => collation, o null si no se pudo leer.
-     */
-    private function dbConfig(): ?array
-    {
-        if ($this->dbConfig !== null) {
-            return $this->dbConfig;
-        }
-
-        $rows = $this->db->select('SELECT @@character_set_database AS db_charset, @@collation_database AS db_collation;');
-        if (empty($rows)) {
-            return null;
-        }
-
-        $charset = isset($rows[0]['db_charset']) ? strtolower((string) $rows[0]['db_charset']) : '';
-        $collation = isset($rows[0]['db_collation']) ? strtolower((string) $rows[0]['db_collation']) : '';
-
-        if (!preg_match(self::IDENTIFIER_REGEX, $charset) || !preg_match(self::IDENTIFIER_REGEX, $collation)) {
-            return null;
-        }
-
-        $this->dbConfig = [$charset => $collation];
-
-        return $this->dbConfig;
-    }
-
     private function isCollatableType(string $type): bool
     {
         $base = strtolower(preg_replace('/\(\d+(?:,\d+)?\)/', '', trim($type)) ?? '');
@@ -258,9 +198,18 @@ final class FkCompatibilityValidator
     private function charsetMatches(array $local, array $ref): bool
     {
         $localCharset = strtolower((string) ($local['charset'] ?? ''));
-        $refCharset = strtolower($ref['charset']);
 
-        return $localCharset !== '' && $localCharset === $refCharset;
+        // An unknown local charset is not evidence of a mismatch, so it must
+        // not reject the FK. The CREATE path cannot know the local charset
+        // (the table may not exist yet) and the database default is NOT a
+        // reliable substitute: a utf8mb3 column on a utf8mb4-default schema
+        // would be wrongly flagged. If the FK is genuinely incompatible, MySQL
+        // rejects it with a clear errno 150.
+        if ($localCharset === '') {
+            return true;
+        }
+
+        return $localCharset === strtolower($ref['charset']);
     }
 
     /**
@@ -270,9 +219,14 @@ final class FkCompatibilityValidator
     private function collationMatches(array $local, array $ref): bool
     {
         $localCollation = strtolower((string) ($local['collation'] ?? ''));
-        $refCollation = strtolower($ref['collation']);
 
-        return $localCollation !== '' && $localCollation === $refCollation;
+        // Same rationale as charsetMatches(): an unresolved local collation is
+        // not a mismatch and must not cause a rejection.
+        if ($localCollation === '') {
+            return true;
+        }
+
+        return $localCollation === strtolower($ref['collation']);
     }
 
     private function typesMatch(string $localType, string $refType): bool

@@ -109,6 +109,59 @@ final class FkCompatibilityValidatorTest extends TestCase
         ));
     }
 
+    public function testLocalAndReferencedShareUtf8mb3DespiteUtf8mb4DatabaseDefault(): void
+    {
+        // The database default is utf8mb4 but BOTH the local and the referenced
+        // column are really utf8mb3: the FK is compatible. This is the real
+        // production shape (oidc_clients.codcliente -> clientes.codcliente).
+        $validator = new FkCompatibilityValidator($this->fakeDb([
+            'utf8mb4' => 'utf8mb4_general_ci',
+            'parent_table' => [
+                'id' => ['charset' => 'utf8mb3', 'collation' => 'utf8mb3_general_ci', 'type' => 'varchar(32)'],
+            ],
+        ]), true);
+
+        $this->assertTrue($validator->isFkCompatible(
+            'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)',
+            ['name' => 'parent_id', 'type' => 'varchar(32)', 'charset' => 'utf8mb3', 'collation' => 'utf8mb3_general_ci']
+        ));
+    }
+
+    public function testUnknownLocalCharsetIsAcceptedDespiteUtf8mb4DatabaseDefault(): void
+    {
+        // CREATE path: the local charset is unknown (null). The database
+        // default must not be treated as the local charset, otherwise a
+        // utf8mb3 parent is wrongly flagged as incompatible. Unknown => keep.
+        $validator = new FkCompatibilityValidator($this->fakeDb([
+            'utf8mb4' => 'utf8mb4_general_ci',
+            'parent_table' => [
+                'id' => ['charset' => 'utf8mb3', 'collation' => 'utf8mb3_general_ci', 'type' => 'varchar(32)'],
+            ],
+        ]), true);
+
+        $this->assertTrue($validator->isFkCompatible(
+            'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)',
+            ['name' => 'parent_id', 'type' => 'varchar(32)', 'charset' => null, 'collation' => null]
+        ));
+    }
+
+    public function testKnownUtf8mb4LocalAgainstUtf8mb3ReferencedIsIncompatible(): void
+    {
+        // A real mismatch must still be rejected when the local charset is
+        // known (the ADD path reads it from information_schema).
+        $validator = new FkCompatibilityValidator($this->fakeDb([
+            'utf8mb4' => 'utf8mb4_general_ci',
+            'parent_table' => [
+                'id' => ['charset' => 'utf8mb3', 'collation' => 'utf8mb3_general_ci', 'type' => 'varchar(32)'],
+            ],
+        ]), true);
+
+        $this->assertFalse($validator->isFkCompatible(
+            'FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)',
+            ['name' => 'parent_id', 'type' => 'varchar(32)', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci']
+        ));
+    }
+
     public function testTypeMismatchReturnsFalse(): void
     {
         $validator = new FkCompatibilityValidator($this->fakeDb([

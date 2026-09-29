@@ -97,13 +97,18 @@ class SchemaComparatorTest extends TestCase
         );
     }
 
-    public function testGenerateTableOmitsFkOnCollationMismatch(): void
+    public function testGenerateTableKeepsFkWhenLocalCharsetIsUnknownEvenIfDatabaseDefaultDiffers(): void
     {
+        // Regression: the referenced column is utf8mb3 while the database
+        // default is utf8mb4. The local column charset cannot be resolved at
+        // CREATE time (the local table may already exist as utf8mb3), so the
+        // validator must NOT substitute the database default and drop the FK.
+        // That assumption caused the false positive and the endless
+        // ADD CONSTRAINT retry loop.
         $comparator = new SchemaComparator($this->createSchemaDb(
             ['parent_table'],
             [
                 'parent_table' => [
-                    // collation distinta a la de la tabla local (utf8mb4_general_ci)
                     'id' => ['charset' => 'utf8mb3', 'collation' => 'utf8mb3_general_ci', 'type' => 'varchar(32)'],
                 ],
             ]
@@ -121,7 +126,7 @@ class SchemaComparatorTest extends TestCase
         );
 
         $this->assertStringContainsString('PRIMARY KEY (id)', $sql);
-        $this->assertStringNotContainsString('FOREIGN KEY', $sql);
+        $this->assertStringContainsString('FOREIGN KEY (`parent_id`) REFERENCES `parent_table` (`id`)', $sql);
     }
 
     public function testGenerateTableKeepsFkOnCollationMatch(): void
@@ -130,7 +135,8 @@ class SchemaComparatorTest extends TestCase
             ['parent_table'],
             [
                 'parent_table' => [
-                    // collation que coincide con la de la tabla local
+                    // referenced column is utf8mb4; the local charset is unknown
+                    // in the CREATE path, so the FK must be kept.
                     'id' => ['charset' => 'utf8mb4', 'collation' => 'utf8mb4_general_ci', 'type' => 'varchar(32)'],
                 ],
             ]
