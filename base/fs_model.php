@@ -37,12 +37,6 @@ abstract class fs_model
     private const ERROR_LABEL = '] [Error: ';
 
     /**
-     * Regla de identificadores SQL que aplican los motores de la base de datos
-     * (ver fs_mysql::requireIdentifier() y FSFramework\Database\SchemaInspector).
-     */
-    private const IDENTIFIER_REGEX = '/^[a-z0-9_]+$/i';
-
-    /**
      * Directorio donde se encuentra el directorio table con
      * el XML con la estructura de la tabla.
      * @var string[] 
@@ -428,139 +422,13 @@ abstract class fs_model
     protected function pre_migrate_data($table_name, $xml_cons)
     {
         $table_name = (string) $table_name;
-        if (!$this->isValidIdentifier($table_name)) {
-            return;
-        }
 
-        $identifier_quote = strtolower(FS_DB_TYPE) === 'mysql' ? '`' : '"';
-        $db_cols = null;
-
-        foreach ($xml_cons as $con) {
-            $target = $this->preMigrateColumnToNormalize((string) ($con['consulta'] ?? ''));
-            if ($target === null) {
-                continue;
-            }
-
-            $col_name = $target['column'];
-            if (!$this->isValidIdentifier($col_name)) {
-                continue;
-            }
-
-            if ($db_cols === null) {
-                $db_cols = $this->db->get_columns($table_name);
-            }
-
-            if (!$this->isNullableColumn($db_cols, $table_name, $col_name)) {
-                continue;
-            }
-
-            if ($target['reference_table'] !== null && $this->referencedKeyAcceptsEmptyString($target)) {
-                continue;
-            }
-
-            try {
-                $this->db->exec('UPDATE ' . $identifier_quote . $table_name . $identifier_quote
-                    . ' SET ' . $identifier_quote . $col_name . $identifier_quote . ' = NULL'
-                    . ' WHERE ' . $identifier_quote . $col_name . $identifier_quote . " = '';");
-            } catch (\Throwable $e) {
-                // Una columna que el XML suavizará más tarde puede rechazar el
-                // NULL hasta que corra compare_columns(); no abortar el chequeo.
-                continue;
-            }
-        }
-    }
-
-    /**
-     * Describe la columna a normalizar cuando la restricción es UNIQUE o una
-     * FOREIGN KEY de una sola columna; NULL en cualquier otro caso.
-     *
-     * @return array{column: string, reference_table: ?string, reference_column: ?string}|null
-     */
-    private function preMigrateColumnToNormalize(string $consulta): ?array
-    {
-        if (preg_match('/^UNIQUE\s*\((\w+)\)/i', $consulta, $matches)) {
-            return ['column' => $matches[1], 'reference_table' => null, 'reference_column' => null];
-        }
-
-        if (preg_match('/^FOREIGN\s+KEY\s*\((\w+)\)\s+REFERENCES\s+(\w+)\s*\((\w+)\)/i', $consulta, $matches)) {
-            return [
-                'column' => $matches[1],
-                'reference_table' => $matches[2],
-                'reference_column' => $matches[3],
-            ];
-        }
-
-        return null;
-    }
-
-    /**
-     * TRUE cuando la columna admite nulos según la base de datos o según el XML.
-     *
-     * @param array<int, array{name?: string, is_nullable?: string}> $db_cols
-     */
-    private function isNullableColumn(array $db_cols, string $table_name, string $column_name): bool
-    {
-        foreach ($db_cols as $col) {
-            if (
-                ($col['name'] ?? '') === $column_name
-                && strtoupper((string) ($col['is_nullable'] ?? 'NO')) === 'YES'
-            ) {
-                return true;
-            }
-        }
-
-        foreach ($this->xml_columns[$table_name] ?? [] as $col) {
-            if (
-                ($col['nombre'] ?? '') === $column_name
-                && strtoupper((string) ($col['nulo'] ?? 'YES')) !== 'NO'
-            ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * TRUE cuando la tabla referenciada almacena '' como clave, lo que convierte
-     * un '' en la columna FK en una referencia legítima que no debe tocarse.
-     *
-     * Cualquier fallo (tabla ausente, error del motor) se interpreta como "no
-     * hay clave vacía": normalizar sigue siendo seguro y mantiene intacto el
-     * arreglo de producción.
-     *
-     * @param array{column: string, reference_table: ?string, reference_column: ?string} $target
-     */
-    private function referencedKeyAcceptsEmptyString(array $target): bool
-    {
-        $reference_table = (string) $target['reference_table'];
-        $reference_column = (string) $target['reference_column'];
-
-        if (!$this->isValidIdentifier($reference_table) || !$this->isValidIdentifier($reference_column)) {
-            return false;
-        }
-
-        $identifier_quote = strtolower(FS_DB_TYPE) === 'mysql' ? '`' : '"';
-
-        try {
-            $rows = $this->db->select(
-                'SELECT 1 FROM ' . $identifier_quote . $reference_table . $identifier_quote
-                . ' WHERE ' . $identifier_quote . $reference_column . $identifier_quote . " = '' LIMIT 1;"
-            );
-        } catch (\Throwable $e) {
-            return false;
-        }
-
-        return !empty($rows);
-    }
-
-    /**
-     * Valida un identificador SQL con la misma regla que aplican los motores de
-     * la base de datos (ver fs_mysql::requireIdentifier()).
-     */
-    private function isValidIdentifier(string $identifier): bool
-    {
-        return preg_match(self::IDENTIFIER_REGEX, $identifier) === 1;
+        \FSFramework\Database\FkDataSanitizer::normalizeEmptyStringsForConstraints(
+            $this->db,
+            $table_name,
+            is_array($xml_cons) ? $xml_cons : [],
+            $this->xml_columns[$table_name] ?? []
+        );
     }
 
     /**
