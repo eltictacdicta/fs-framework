@@ -1,21 +1,27 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * Tests for fs_model::pre_migrate_data().
  *
  * The method normalises '' to NULL on columns that are declared UNIQUE in the
- * XML. It was extended to also cover columns participating in a FOREIGN KEY,
- * because an empty string in an FK column is never valid and is exactly how
- * the oidc_clients.codcliente data-loss bug was born.
+ * XML or that participate in a FOREIGN KEY. It only touches nullable columns
+ * and never rewrites a '' that the referenced table actually holds as a key,
+ * because that '' is a legitimate reference.
  *
  * The real SQL is executed against an isolated in-memory SQLite database so the
  * assertions prove behaviour, not that a query was built. fs_db2's contract is
- * emulated by a small adapter that exposes get_columns() + exec().
+ * emulated by a small adapter that exposes get_columns() + select() + exec().
  */
 
 namespace Tests\Base;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(\fs_model::class)]
 class FsModelPreMigrateDataTest extends TestCase
 {
     private const TABLE = 'pre_migrate_widgets';
@@ -75,7 +81,8 @@ class FsModelPreMigrateDataTest extends TestCase
     /**
      * Pre-existing behaviour: a nullable UNIQUE column with '' becomes NULL.
      */
-    public function testEmptyStringInUniqueColumnBecomesNull(): void
+    #[Test]
+    public function emptyStringInUniqueColumnBecomesNull(): void
     {
         $this->seedRow('', '', '', 'keep');
 
@@ -89,9 +96,12 @@ class FsModelPreMigrateDataTest extends TestCase
     }
 
     /**
-     * New behaviour: a nullable FK column with '' becomes NULL.
+     * A nullable FK column with '' becomes NULL. The referenced table is
+     * missing here, proving the lookup failure is swallowed and the
+     * normalisation still happens.
      */
-    public function testEmptyStringInForeignKeyColumnBecomesNull(): void
+    #[Test]
+    public function emptyStringInForeignKeyColumnBecomesNull(): void
     {
         $this->seedRow('', '', '', 'keep');
 
@@ -105,10 +115,54 @@ class FsModelPreMigrateDataTest extends TestCase
     }
 
     /**
-     * Guard: a NOT NULL FK column has no NULL state to fall back to, so it must
-     * be left alone (matching the existing is_nullable === 'YES' guard).
+     * F1 (forward direction): when the referenced table keeps '' as a key, the
+     * '' in the FK column is a real reference and must survive untouched.
      */
-    public function testEmptyStringInNotNullForeignKeyColumnIsLeftAlone(): void
+    #[Test]
+    public function emptyStringForeignKeyIsPreservedWhenTheReferenceHoldsEmptyKey(): void
+    {
+        $this->createReferenceTable('pre_migrate_ref_empty', ['', 'C001']);
+
+        $this->seedRow('', '', '', 'keep');
+
+        $this->runPreMigrateData([
+            ['nombre' => 'w_fk', 'consulta' => 'FOREIGN KEY (fk_col) REFERENCES pre_migrate_ref_empty (code)'],
+        ]);
+
+        $this->assertSame(
+            '',
+            $this->row(1)['fk_col'],
+            'An empty string held as a key by the referenced table must not be nulled'
+        );
+    }
+
+    /**
+     * F1 (reverse direction): when the referenced table has no '' key, the FK
+     * '' is normalised to NULL, so the production fix stays intact.
+     */
+    #[Test]
+    public function emptyStringForeignKeyIsNulledWhenTheReferenceHasNoEmptyKey(): void
+    {
+        $this->createReferenceTable('pre_migrate_ref_solid', ['C001']);
+
+        $this->seedRow('', '', '', 'keep');
+
+        $this->runPreMigrateData([
+            ['nombre' => 'w_fk', 'consulta' => 'FOREIGN KEY (fk_col) REFERENCES pre_migrate_ref_solid (code)'],
+        ]);
+
+        $this->assertNull(
+            $this->row(1)['fk_col'],
+            'An empty string with no matching reference key must still become NULL'
+        );
+    }
+
+    /**
+     * Guard: a NOT NULL FK column with no XML evidence of nullability has no
+     * NULL state to fall back to, so it must be left alone.
+     */
+    #[Test]
+    public function emptyStringInNotNullForeignKeyColumnIsLeftAlone(): void
     {
         $this->seedRow('', '', '', 'keep');
 
@@ -121,10 +175,59 @@ class FsModelPreMigrateDataTest extends TestCase
     }
 
     /**
+     * F2: the DB metadata says NOT NULL but the XML declares the column
+     * nullable, so compare_columns() will soften it after this method. The ''
+     * must be normalised anyway, or it survives and the FK creation fails.
+     *
+     * The adapter reports the column as NOT NULL while the physical SQLite
+     * column stays nullable, isolating the DB+XML decision from the physical
+     * NOT NULL constraint (which MySQL would eventually relax via the XML).
+     */
+    #[Test]
+    public function emptyStringIsNormalisedWhenDbSaysNotNullButXmlSaysNullable(): void
+    {
+        $this->db->nullableOverrides['fk_col'] = 'NO';
+        $this->setXmlColumns([
+            ['nombre' => 'fk_col', 'nulo' => 'YES'],
+        ]);
+
+        $this->seedRow('', '', '', 'keep');
+
+        $this->runPreMigrateData([
+            ['nombre' => 'w_fk', 'consulta' => 'FOREIGN KEY (fk_col) REFERENCES pre_migrate_ref_solid (code)'],
+        ]);
+
+        $this->assertNull(
+            $this->row(1)['fk_col'],
+            'The XML nullability must be enough to normalise, even when the DB reports NOT NULL'
+        );
+    }
+
+    /**
+     * F3: a table name that fails identifier validation is skipped defensively
+     * and no SQL is emitted (no UPDATE, no metadata lookup).
+     */
+    #[Test]
+    public function invalidTableIdentifierIsSkippedWithoutEmittingSql(): void
+    {
+        $this->seedRow('', '', '', 'keep');
+
+        $this->runPreMigrateData(
+            [['nombre' => 'w_fk', 'consulta' => 'FOREIGN KEY (fk_col) REFERENCES pre_migrate_ref_solid (code)']],
+            'bad; DROP TABLE ' . self::TABLE
+        );
+
+        $this->assertSame([], $this->db->executedSql, 'No UPDATE may be emitted for an invalid identifier');
+        $this->assertSame([], $this->db->selectedSql, 'No lookup may run for an invalid identifier');
+        $this->assertSame('', $this->row(1)['fk_col']);
+    }
+
+    /**
      * Non-empty values are never rewritten, and unrelated constraints are
      * ignored.
      */
-    public function testNonEmptyValuesArePreserved(): void
+    #[Test]
+    public function nonEmptyValuesArePreserved(): void
     {
         $this->seedRow('U1', 'C001', 'N1', 'keep');
 
@@ -143,11 +246,33 @@ class FsModelPreMigrateDataTest extends TestCase
     /**
      * @param list<array{nombre: string, consulta: string}> $constraints
      */
-    private function runPreMigrateData(array $constraints): void
+    private function runPreMigrateData(array $constraints, string $table = self::TABLE): void
     {
         $method = new \ReflectionMethod(\fs_model::class, 'pre_migrate_data');
         $method->setAccessible(true);
-        $method->invoke($this->model, self::TABLE, $constraints);
+        $method->invoke($this->model, $table, $constraints);
+    }
+
+    /**
+     * @param list<array{nombre: string, nulo: string}> $columns
+     */
+    private function setXmlColumns(array $columns): void
+    {
+        $property = new \ReflectionProperty(\fs_model::class, 'xml_columns');
+        $property->setAccessible(true);
+        $property->setValue($this->model, [self::TABLE => $columns]);
+    }
+
+    /**
+     * @param list<string> $codes
+     */
+    private function createReferenceTable(string $table, array $codes): void
+    {
+        $this->pdo->exec('CREATE TABLE ' . $table . ' (code TEXT PRIMARY KEY);');
+        $stmt = $this->pdo->prepare('INSERT INTO ' . $table . ' (code) VALUES (?)');
+        foreach ($codes as $code) {
+            $stmt->execute([$code]);
+        }
     }
 
     private function seedRow(string $uniq, ?string $fk, string $fkNotNull, string $other): void
@@ -170,13 +295,22 @@ class FsModelPreMigrateDataTest extends TestCase
     }
 
     /**
-     * Minimal fs_db2-compatible adapter exposing the two methods
+     * Minimal fs_db2-compatible adapter exposing the methods
      * pre_migrate_data() actually calls.
      */
     private function buildDbAdapter(\PDO $pdo): object
     {
         return new class ($pdo) {
             private \PDO $pdo;
+
+            /** @var list<string> */
+            public array $executedSql = [];
+
+            /** @var list<string> */
+            public array $selectedSql = [];
+
+            /** @var array<string, string> */
+            public array $nullableOverrides = [];
 
             public function __construct(\PDO $pdo)
             {
@@ -190,17 +324,36 @@ class FsModelPreMigrateDataTest extends TestCase
             {
                 $columns = [];
                 foreach ($this->pdo->query('PRAGMA table_info(' . $table . ')') as $info) {
+                    $name = (string) $info['name'];
+                    $isNullable = ((int) $info['notnull']) === 1 ? 'NO' : 'YES';
+                    if (isset($this->nullableOverrides[$name])) {
+                        $isNullable = $this->nullableOverrides[$name];
+                    }
+
                     $columns[] = [
-                        'name' => (string) $info['name'],
-                        'is_nullable' => ((int) $info['notnull']) === 1 ? 'NO' : 'YES',
+                        'name' => $name,
+                        'is_nullable' => $isNullable,
                     ];
                 }
 
                 return $columns;
             }
 
+            /**
+             * @return list<array<string, mixed>>
+             */
+            public function select(string $sql): array
+            {
+                $this->selectedSql[] = $sql;
+                $stmt = $this->pdo->query($sql);
+
+                return $stmt === false ? [] : $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            }
+
             public function exec($sql, $transaction = null, $params = [], $batch = false): bool
             {
+                $this->executedSql[] = $sql;
+
                 return $this->pdo->exec($sql) !== false;
             }
         };
