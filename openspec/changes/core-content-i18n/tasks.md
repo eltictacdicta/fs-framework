@@ -129,21 +129,21 @@ executable-classification boundary) and is intentionally omitted.
 Depends on: none. Implements D1, D2, D8, D12. Satisfies CI-01…CI-05, CI-24 (schema shape),
 and Q6 (reserved name).
 
-- [ ] 1.1 Create `model/table/idiomas.xml` with `codidioma VARCHAR(5)` primary key,
+- [x] 1.1 Create `model/table/idiomas.xml` with `codidioma VARCHAR(5)` primary key,
       `nombre VARCHAR(50) NOT NULL`, `activo boolean` (default true) and `por_defecto boolean`
       (default false). Add **no** foreign key on `codidioma` (D12 / CI-13). Use the standard
       FSFramework XML schema format. *(CI-13, CI-18, CI-24; D12)*
-- [ ] 1.2 Create a minimal `model/idioma.php` skeleton: global `class idioma extends \fs_model`
+- [x] 1.2 Create a minimal `model/idioma.php` skeleton: global `class idioma extends \fs_model`
       with `public const TABLE = 'idiomas'`, `public const DEFAULT_CODE = 'es'`, the four
       public properties and the method signatures from `design.md` §Interfaces, with bodies that
       throw `\LogicException('not implemented')`. This lets the test suite autoload the class and
       fail on behavior rather than syntax. *(D1)*
-- [ ] 1.3 Create `tests/Support/IdiomaModelFakeDb.php` — an in-memory `fs_db2`-compatible double
+- [x] 1.3 Create `tests/Support/IdiomaModelFakeDb.php` — an in-memory `fs_db2`-compatible double
       that answers the `idiomas` statements used by the model (select/insert/update/delete/escape).
       *(testing strategy)*
-- [ ] 1.4 Create `tests/Support/FakeIdioma.php` — a DB-free `idioma` subclass that skips the
+- [x] 1.4 Create `tests/Support/FakeIdioma.php` — a DB-free `idioma` subclass that skips the
       `fs_model` constructor and injects `IdiomaModelFakeDb`. *(testing strategy)*
-- [ ] 1.5 **RED**: create `tests/Base/IdiomaModelTest.php` covering CI-01, CI-02 (model side),
+- [x] 1.5 **RED**: create `tests/Base/IdiomaModelTest.php` covering CI-01, CI-02 (model side),
       CI-03, CI-04 and CI-05: explicit default wins, lowest-active fallback, inactive flag ignored,
       zero-active degrades to `'es'`, permutation independence, `set_default` flag flip with no
       translation write, normalization collapsing duplicate defaults, deactivation/deletion guards
@@ -151,14 +151,14 @@ and Q6 (reserved name).
       non-empty→unchanged / second-run→no-op states. Run
       `ddev exec php vendor/bin/phpunit tests/Base/IdiomaModelTest.php` and observe RED.
       *(CI-01…CI-05; D2, D8)*
-- [ ] 1.6 **GREEN**: implement `model/idioma.php` bodies — `install()` single-row `es` seed SQL,
+- [x] 1.6 **GREEN**: implement `model/idioma.php` bodies — `install()` single-row `es` seed SQL,
       `ensure_defaults()` insert only when empty, `get()`, `get_default()`, total deterministic
       `defaultCode()`, `set_default()` flag flip, `normalize_default()`, `test()` (`codidioma`
       2–5 chars, `nombre` 1–50), `save()`/`delete()` guards, `all()`, `all_activos()`. Re-run the
       focused command until GREEN. *(CI-01…CI-05; D2, D8)*
-- [ ] 1.7 **REFACTOR**: remove duplication between `defaultCode()`/`get_default()`/`all_activos()`
+- [x] 1.7 **REFACTOR**: remove duplication between `defaultCode()`/`get_default()`/`all_activos()`
       without changing behavior; re-run `tests/Base/IdiomaModelTest.php` and keep it green.
-- [ ] 1.8 **RED→GREEN**: create `tests/Base/ContentI18nReservedNameTest.php` (Q6) asserting
+- [x] 1.8 **RED→GREEN**: create `tests/Base/ContentI18nReservedNameTest.php` (Q6) asserting
       `(new \ReflectionClass('idioma'))->getFileName()` ends with `/model/idioma.php` and that no
       plugin declares `class idioma` or a conflicting `idiomas` table. Run it, then fix only if it
       exposes a real collision (expected: pass once the autoloader finds `model/idioma.php`).
