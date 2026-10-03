@@ -187,27 +187,27 @@ Depends on: S1 (and S2 for a linear chain). Implements D7, D8. Satisfies CI-05 (
 path), CI-18, CI-19, CI-20. This slice owns the only applicable Threat-Matrix boundary
 (Process integration).
 
-- [ ] 3.1 **RED** (threat-matrix RED test): create `tests/Core/ContentI18nMigrationTest.php`
+- [x] 3.1 **RED** (threat-matrix RED test): create `tests/Core/ContentI18nMigrationTest.php`
       modeled on `tests/Core/AdminOnlyPagesMigrationTest.php` (read-only reference). Use a no-DB
       recorder that overrides the `protected` steps to assert step order, the `fs_var` flag written
       only after all steps succeed, retry on partial failure, the allowlist being exactly
       `['idiomas']`, and the no-DB/no-throw path. Run
       `ddev exec php vendor/bin/phpunit tests/Core/ContentI18nMigrationTest.php` and observe RED.
       *(CI-18, CI-20; D7)*
-- [ ] 3.2 **RED** (threat-matrix RED test): create `tests/Core/ContentI18nHookTest.php` that reads
+- [x] 3.2 **RED** (threat-matrix RED test): create `tests/Core/ContentI18nHookTest.php` that reads
       the source of `index.php`, `api.php` and `cron.php` and asserts
       `strpos(selfHealCoreTables) < strpos(ContentI18nMigration::run)` and that each call sits
       inside a `try { … } catch (` block. This test is authored before the hooks exist and must
       fail. *(CI-19; D7)*
-- [ ] 3.3 **GREEN**: create `src/Core/Schema/ContentI18nMigration.php` with
+- [x] 3.3 **GREEN**: create `src/Core/Schema/ContentI18nMigration.php` with
       `FLAG = 'content_i18n_migrated'`, `TABLE_ALLOWLIST = ['idiomas']`, `run()`, `execute()`
       (`isApplied() ? true : (adoptTable() && seed() && markApplied())`), `adoptTable()` (lazy
       `new \idioma()` + `db()->get_columns('idiomas')` guard), `seed()` (`ensure_defaults()` +
       ≥1-row check), `markApplied()` (`fs_var::simple_save`), `loadDependencies()` guarded by
       `class_exists($class, false)`, and the allowlist assertion before any work. Re-run
       `tests/Core/ContentI18nMigrationTest.php` until GREEN. *(CI-18, CI-20; D7, D8)*
-- [ ] 3.4 **GREEN**: add the additive hook `try { \FSFramework\Core\Schema\ContentI18nMigration::run(); } catch (\Throwable $e) { … }` immediately after the existing `AdminOnlyPagesMigration` block in `index.php` (after line 95), `api.php` (after line 148) and `cron.php` (after line 79, inside the connected branch). Re-run `tests/Core/ContentI18nHookTest.php` until GREEN. *(CI-19; D7)*
-- [ ] 3.5 **REFACTOR**: de-duplicate the migration's boolean-step helpers; re-run both focused
+- [x] 3.4 **GREEN**: add the additive hook `try { \FSFramework\Core\Schema\ContentI18nMigration::run(); } catch (\Throwable $e) { … }` immediately after the existing `AdminOnlyPagesMigration` block in `index.php` (after line 95), `api.php` (after line 148) and `cron.php` (after line 79, inside the connected branch). Re-run `tests/Core/ContentI18nHookTest.php` until GREEN. *(CI-19; D7)*
+- [x] 3.5 **REFACTOR**: de-duplicate the migration's boolean-step helpers; re-run both focused
       commands and keep them green.
 
 ## Phase 4: Slice 4 — Translation stores (PR 4)

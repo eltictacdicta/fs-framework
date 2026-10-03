@@ -147,6 +147,13 @@ try {
     error_log('AdminOnlyPagesMigration bootstrap failed in API: ' . $e->getMessage());
 }
 
+// Migración one-shot del registro de idiomas de contenido (tras el self-heal)
+try {
+    \FSFramework\Core\Schema\ContentI18nMigration::run();
+} catch (\Throwable $e) {
+    error_log('ContentI18nMigration bootstrap failed in API: ' . $e->getMessage());
+}
+
 try {
     $container->get('api.runtime')->handle();
 } catch (\Throwable $e) {

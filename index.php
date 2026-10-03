@@ -94,6 +94,13 @@ try {
     error_log('AdminOnlyPagesMigration bootstrap failed: ' . $e->getMessage());
 }
 
+/// Migración one-shot del registro de idiomas de contenido (tras el self-heal)
+try {
+    \FSFramework\Core\Schema\ContentI18nMigration::run();
+} catch (\Throwable $e) {
+    error_log('ContentI18nMigration bootstrap failed: ' . $e->getMessage());
+}
+
 /// Cargar la clase base legacy de controladores ANTES del boot.
 /// El Router se construye dentro de Kernel::boot() y refleja src/Controller/* y
 /// plugins/*/Controller/* para leer sus atributos de ruta; clases como

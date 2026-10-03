@@ -78,6 +78,13 @@ if ($db->connect()) {
         $core_log->new_error('AdminOnlyPagesMigration bootstrap failed: ' . $e->getMessage());
     }
 
+    // Migración one-shot del registro de idiomas de contenido (tras el self-heal)
+    try {
+        \FSFramework\Core\Schema\ContentI18nMigration::run();
+    } catch (\Throwable $e) {
+        $core_log->new_error('ContentI18nMigration bootstrap failed: ' . $e->getMessage());
+    }
+
     $fsvar = new fs_var();
     $cron_vars = $fsvar->array_get(array('cron_exists' => FALSE, 'cron_lock' => FALSE, 'cron_error' => FALSE));
 
