@@ -274,32 +274,32 @@ Depends on: S2, S4. Implements D9. Satisfies CI-06, CI-07, CI-17.
 Depends on: S1–S5. Implements D10, D11. Satisfies CI-21, CI-22, CI-23, CI-24, and closes
 CI-15's "no plugin identifier in core" gate.
 
-- [ ] 6.1 **RED**: create `tests/Traits/TranslatableControllerTraitTest.php` with an anonymous
+- [x] 6.1 **RED**: create `tests/Traits/TranslatableControllerTraitTest.php` with an anonymous
       trait user overriding the three guard seams (`translationRequestIsPost`,
       `translationActorIsAdmin`, `translationCsrfIsValid`) and an in-memory store double; cover
       the four CI-21 cases (GET rejected, non-admin denied, invalid CSRF rejected, authorized POST
       persists). Run `ddev exec php vendor/bin/phpunit tests/Traits/TranslatableControllerTraitTest.php`
       and observe RED. *(CI-21; D10)*
-- [ ] 6.2 **RED**: create `tests/Core/TranslationMacroContractTest.php` rendering
+- [x] 6.2 **RED**: create `tests/Core/TranslationMacroContractTest.php` rendering
       `Macro/Translation.html.twig` through a `FilesystemLoader` rooted at `/themes/AdminLTE/view`
       (pattern of `tests/Core/HtmxMacroContractTest.php`, read-only reference) and asserting one
       escaped input per locale, no `<form`, no `<script`, no `csrf`. Run it and observe RED.
       *(CI-22; D11)*
-- [ ] 6.3 **RED→GREEN**: create `tests/Core/ContentI18nCoreIsolationTest.php` asserting zero
+- [x] 6.3 **RED→GREEN**: create `tests/Core/ContentI18nCoreIsolationTest.php` asserting zero
       `catalogo_idiomas` occurrences under the new core files (`src/Translation/LanguageRegistry.php`,
       `src/Translation/ContentTranslator.php`, `src/Translation/Store/**`, `model/idioma.php`,
       `model/table/idiomas.xml`, `src/Core/Schema/ContentI18nMigration.php`), that
       `ContentI18nMigration::TABLE_ALLOWLIST === ['idiomas']`, and that the protected consumer
       identifiers are not modified by this change's new file set. *(CI-15, CI-23, CI-24; D12)*
-- [ ] 6.4 **GREEN**: create `src/Traits/TranslatableControllerTrait.php` with `persistTranslation()`
+- [x] 6.4 **GREEN**: create `src/Traits/TranslatableControllerTrait.php` with `persistTranslation()`
       calling `translationRequestIsPost()`, `translationActorIsAdmin()`, `translationCsrfIsValid()`
       in order, then `$store->set(...)`, with the three guards as `protected` overridable seams
       defaulting to the `fs_controller` surface. Re-run the trait test until GREEN. *(CI-21; D10)*
-- [ ] 6.5 **GREEN**: create `themes/AdminLTE/view/Macro/Translation.html.twig` with a render-only
+- [x] 6.5 **GREEN**: create `themes/AdminLTE/view/Macro/Translation.html.twig` with a render-only
       `fields(field, locales, values, opts = {})` macro emitting one escaped labelled
       `<input>`/`<textarea>` per locale and nothing else. Re-run the macro contract test until
       GREEN. *(CI-22; D11)*
-- [ ] 6.6 **REFACTOR**: keep the trait guards expression-only and the macro free of `<form>`/CSRF/
+- [x] 6.6 **REFACTOR**: keep the trait guards expression-only and the macro free of `<form>`/CSRF/
       script; re-run all three focused commands and keep them green.
 
 ## Phase 7: Verification & release note (post-chain)

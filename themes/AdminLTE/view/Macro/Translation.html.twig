@@ -1,0 +1,34 @@
+{#
+/**
+ * This file is part of FSFramework
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * Render-only content-i18n macro (design D11, CI-22).
+ *
+ * Import it inside the consumer's own view section and render one translation
+ * field per locale. The macro only renders: it emits no wrapping form, no
+ * token field and no script, and performs no mutation by itself.
+ *
+ *     {% import 'Macro/Translation.html.twig' as i18n %}
+ *     {{ i18n.fields('subtitle', locales, values, {'multiline': false}) }}
+ *
+ * `locales` is a list of `{code, name}`; `values` is a `code => string` map.
+ * `opts.multiline` switches each field to a textarea.
+ */
+#}
+
+{% macro fields(field, locales, values, opts = {}) %}
+{% set multiline = opts.multiline|default(false) %}
+{% for locale in locales %}
+{% set code = locale.code %}
+{% set value = values[code]|default('') %}
+<div class="form-group">
+    <label for="{{ field }}_{{ code }}">{{ locale.name }}</label>
+{% if multiline %}
+    <textarea id="{{ field }}_{{ code }}" name="{{ field }}[{{ code }}]" class="form-control">{{ value }}</textarea>
+{% else %}
+    <input type="text" id="{{ field }}_{{ code }}" name="{{ field }}[{{ code }}]" value="{{ value }}" class="form-control" />
+{% endif %}
+</div>
+{% endfor %}
+{% endmacro %}
