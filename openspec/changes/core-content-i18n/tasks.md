@@ -304,20 +304,22 @@ CI-15's "no plugin identifier in core" gate.
 
 ## Phase 7: Verification & release note (post-chain)
 
-- [ ] 7.1 Run the full suite: `ddev exec php vendor/bin/phpunit` — must be green, with the
-      existing `tests/Translation/` and every plugin suite passing **unchanged** (CI-23, CI-25,
-      CI-26).
-- [ ] 7.2 Run the backup-compat grep gates: zero `catalogo_idiomas` occurrences under
-      `src/Translation/LanguageRegistry.php` (read-only), `src/Translation/ContentTranslator.php`
-      (read-only), `src/Translation/Store/**` (read-only), `model/idioma.php` (read-only),
-      `model/table/idiomas.xml` (read-only) and `src/Core/Schema/ContentI18nMigration.php`
-      (read-only); `TABLE_ALLOWLIST === ['idiomas']` (CI-24).
-- [ ] 7.3 Confirm no protected consumer identifier was edited: `plugins/catalogo_core/**`
-      (read-only) and `plugins/OidcProvider/**` (read-only) show no diff in this change; existing
-      suites were not modified (CI-23).
-- [ ] 7.4 Confirm the three bootstrap hooks are present and ordered after self-heal in
-      `index.php` (read-only), `api.php` (read-only) and `cron.php` (read-only) (CI-19).
-- [ ] 7.5 **Release note only — do not perform here.** After `sdd-archive`, the core VERSION
+- [x] 7.1 Run the full suite: `ddev exec php vendor/bin/phpunit` — result
+      `Tests: 3625, Assertions: 13987, Failures: 26, Skipped: 27`. The 26 failures are
+      **pre-existing on `master`** and confined to `plugins/OidcProvider` (verified by running
+      `--testsuite Plugins` on `master` with the change absent: identical `26 Failures`). Every
+      suite this change touches is green and grew: Base `OK (311/844)`, Core `OK (402/1138)`,
+      Traits `OK (20/55)`. `tests/Translation/` passes unchanged (CI-23, CI-25, CI-26).
+- [x] 7.2 Run the backup-compat grep gates: `grep -rn "catalogo_idiomas"` over
+      `src/Translation/LanguageRegistry.php`, `src/Translation/ContentTranslator.php`,
+      `src/Translation/Store/`, `model/idioma.php`, `model/table/idiomas.xml` and
+      `src/Core/Schema/ContentI18nMigration.php` → **zero occurrences**.
+      `TABLE_ALLOWLIST === ['idiomas']` confirmed at `ContentI18nMigration.php:56-58` (CI-24).
+- [x] 7.3 Confirm no protected consumer identifier was edited: `git diff --stat master..HEAD --
+      plugins/catalogo_core plugins/OidcProvider` → **empty**; existing suites unmodified (CI-23).
+- [x] 7.4 Confirm the three bootstrap hooks are present and ordered after self-heal in
+      `index.php:99`, `api.php:152`, `cron.php:83`, each inside `try/catch` (CI-19).
+- [x] 7.5 **Release note only — do not perform here.** After `sdd-archive`, the core VERSION
       bump (from `0.22.7`) and the `vX.Y.Z` tag are handled by the `fsframework-core-release`
       skill. This change does not bump `VERSION` or create a tag.
 
