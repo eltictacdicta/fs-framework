@@ -169,16 +169,16 @@ and Q6 (reserved name).
 Depends on: S1. Implements D2. Satisfies CI-01, CI-02, CI-06 leg 3 (consumed by S5),
 CI-15's "registry does not purge plugin rows" boundary is asserted here structurally.
 
-- [ ] 2.1 **RED**: create `tests/Core/LanguageRegistryTest.php` over `FakeIdioma` asserting
+- [x] 2.1 **RED**: create `tests/Core/LanguageRegistryTest.php` over `FakeIdioma` asserting
       `defaultCode()` delegation is total, `activeCodes()` excludes inactive codes and is
       deterministically sorted ascending by `codidioma` in PHP (CI-02), and that `all()`,
       `get()`, `defaultRow()`, `save()`, `setDefault()`, `delete()` delegate to the model without
       side effects. Run `ddev exec php vendor/bin/phpunit tests/Core/LanguageRegistryTest.php`
       and observe RED. *(CI-01, CI-02; D2)*
-- [ ] 2.2 **GREEN**: create `src/Translation/LanguageRegistry.php` (`namespace FSFramework\Translation`)
+- [x] 2.2 **GREEN**: create `src/Translation/LanguageRegistry.php` (`namespace FSFramework\Translation`)
       as a `final class` with an optional `?\idioma` constructor seam, delegating to the model and
       implementing the sorted `activeCodes()`. Re-run until GREEN. *(CI-01, CI-02; D2)*
-- [ ] 2.3 **REFACTOR**: keep the model the single source of truth; the facade holds no cached state.
+- [x] 2.3 **REFACTOR**: keep the model the single source of truth; the facade holds no cached state.
       Re-run the focused command.
 
 ## Phase 3: Slice 3 — Migration + bootstrap hooks (PR 3)
