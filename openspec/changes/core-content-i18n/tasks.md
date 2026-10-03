@@ -242,7 +242,7 @@ CI-15.
 
 Depends on: S2, S4. Implements D9. Satisfies CI-06, CI-07, CI-17.
 
-- [ ] 5.1 **RED**: create `tests/Core/ContentTranslatorTest.php` covering the full chain — exact
+- [x] 5.1 **RED**: create `tests/Core/ContentTranslatorTest.php` covering the full chain — exact
       match wins (CI-06), prefix leg when the store opted in, configured-default leg, caller
       `base` leg, `''` terminal, two-letter caller no double-match — for both store kinds, plus
       the locale matrix `en_US`, `fr_CA`, `pt_BR`, `es`, `en`. Assert CI-07: store rows are
@@ -250,23 +250,23 @@ Depends on: S2, S4. Implements D9. Satisfies CI-06, CI-07, CI-17.
       consulted when an explicit locale is passed. Run
       `ddev exec php vendor/bin/phpunit tests/Core/ContentTranslatorTest.php` and observe RED.
       *(CI-06, CI-07; D3)*
-- [ ] 5.2 **RED**: create `tests/Core/ContentI18nDiContractTest.php` asserting
+- [x] 5.2 **RED**: create `tests/Core/ContentI18nDiContractTest.php` asserting
       `core.language_registry` and `core.content_translator` resolve to the core classes, a plugin
       registering a colliding `core.content_translator` cannot replace the core instance, and a
       plugin's own bare id still resolves. Run it and observe RED. *(CI-17; D9)*
-- [ ] 5.3 **GREEN**: create `src/Translation/ContentTranslator.php` (`final class`, optional
+- [x] 5.3 **GREEN**: create `src/Translation/ContentTranslator.php` (`final class`, optional
       `?LanguageRegistry` constructor, `read(store, field, ?locale, base = '')` iterating
       `$store->candidates($locale)` then the configured default then base then `''`,
       `defaultCode()`). Re-run `tests/Core/ContentTranslatorTest.php` until GREEN.
       *(CI-06, CI-07; D3)*
-- [ ] 5.4 **GREEN**: modify `src/DependencyInjection/Container.php` — add
+- [x] 5.4 **GREEN**: modify `src/DependencyInjection/Container.php` — add
       `registerContentI18nServices()` registering `core.language_registry` and
       `core.content_translator` (the latter taking a `Reference` to the former), call it after
       `self::registerLegacyModels()` and before `self::loadPluginServices()`, capture the resulting
       `Definition` objects in `private static array $reservedDefinitions`, and call
       `restoreReservedServices()` immediately after `loadPluginServices()` returns. Additive lines
       only. Re-run `tests/Core/ContentI18nDiContractTest.php` until GREEN. *(CI-17; D9)*
-- [ ] 5.5 **REFACTOR**: verify the reserved-id re-assert covers exactly the two `core.` ids and
+- [x] 5.5 **REFACTOR**: verify the reserved-id re-assert covers exactly the two `core.` ids and
       leaves plugin ids untouched; re-run both focused commands.
 
 ## Phase 6: Slice 6 — Consumer surface + isolation gates (PR 6)

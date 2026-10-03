@@ -54,6 +54,17 @@ class Container
     private static bool $compiled = false;
 
     /**
+     * Core service definitions that plugins must not be able to shadow.
+     *
+     * Symfony's `ContainerBuilder::register()` overwrites unconditionally, so
+     * the definitions registered before `loadPluginServices()` are captured here
+     * and re-asserted right after the plugins have had their say (CI-17, D9).
+     *
+     * @var array<string, \Symfony\Component\DependencyInjection\Definition>
+     */
+    private static array $reservedDefinitions = [];
+
+    /**
      * Obtiene el contenedor de servicios.
      * Lo inicializa si no existe.
      */
@@ -118,8 +129,14 @@ class Container
         // Registrar modelos legacy como servicios
         self::registerLegacyModels();
 
+        // Registrar servicios core de content-i18n (reservados ante plugins)
+        self::registerContentI18nServices();
+
         // Cargar servicios de plugins
         self::loadPluginServices();
+
+        // Re-afirmar los ids core reservados tras la carga de plugins
+        self::restoreReservedServices();
     }
 
     /**
@@ -143,6 +160,37 @@ class Container
                 self::$container->register($modelName, $modelName)
                     ->setPublic(true);
             }
+        }
+    }
+
+    /**
+     * Registra los servicios core de content-i18n con ids namespaced.
+     *
+     * Los `Definition` resultantes se memorizan en `$reservedDefinitions` para
+     * poder re-afirmarlos despues de que los plugins registren sus servicios
+     * (CI-17, D9).
+     */
+    private static function registerContentI18nServices(): void
+    {
+        self::$reservedDefinitions['core.language_registry'] = self::$container
+            ->register('core.language_registry', \FSFramework\Translation\LanguageRegistry::class)
+            ->setPublic(true);
+
+        self::$reservedDefinitions['core.content_translator'] = self::$container
+            ->register('core.content_translator', \FSFramework\Translation\ContentTranslator::class)
+            ->setPublic(true)
+            ->setArguments([new Reference('core.language_registry')]);
+    }
+
+    /**
+     * Re-afirma los ids core reservados sobre cualquier colision registrada por
+     * un plugin. Solo toca los ids `core.` reservados; los ids propios de los
+     * plugins quedan intactos (CI-17, D9).
+     */
+    private static function restoreReservedServices(): void
+    {
+        foreach (self::$reservedDefinitions as $id => $definition) {
+            self::$container->setDefinition($id, $definition);
         }
     }
 
@@ -307,5 +355,6 @@ class Container
     {
         self::$container = null;
         self::$compiled = false;
+        self::$reservedDefinitions = [];
     }
 }
