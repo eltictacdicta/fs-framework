@@ -215,7 +215,7 @@ path), CI-18, CI-19, CI-20. This slice owns the only applicable Threat-Matrix bo
 Depends on: S1, S2. Implements D3, D4, D5, D6, D12. Satisfies CI-08…CI-16 (stores), CI-13,
 CI-15.
 
-- [ ] 4.1 **RED**: create `tests/Support/FakeRowStoreDb.php` (in-memory db double for
+- [x] 4.1 **RED**: create `tests/Support/FakeRowStoreDb.php` (in-memory db double for
       `RowTranslationStore`) and `tests/Core/TranslationStoresTest.php` covering: exact stored
       code wins for a row store (CI-08), the opt-in pair over identical data via two constructor
       instances (CI-09), region-distinctness `pt_BR`/`pt_PT` (CI-10), no alias / `en_US` selects
@@ -225,17 +225,17 @@ CI-15.
       `FixedColumnTranslationStore` map read/write with no schema change (CI-16). Run
       `ddev exec php vendor/bin/phpunit tests/Core/TranslationStoresTest.php` and observe RED.
       *(CI-08…CI-16; D3, D4, D5, D6, D12)*
-- [ ] 4.2 **GREEN**: create `src/Translation/Store/TranslationStoreInterface.php` (`get`, `set`,
+- [x] 4.2 **GREEN**: create `src/Translation/Store/TranslationStoreInterface.php` (`get`, `set`,
       `candidates`) and `src/Translation/Store/RowTranslationStore.php` (constructor
       `bool $prefixFallback = false`; exact `get`/`set`; `candidates` exact-then-optional-prefix;
       per-field clear + conditional row delete when all mapped columns are null;
       `purgeLanguage(string $locale): int`; `tableName()`). Re-run until GREEN.
       *(CI-08…CI-15; D3, D4, D6, D12)*
-- [ ] 4.3 **GREEN**: create `src/Translation/Store/FixedColumnTranslationStore.php` (constructor
+- [x] 4.3 **GREEN**: create `src/Translation/Store/FixedColumnTranslationStore.php` (constructor
       `array $localeColumnMap`, `\Closure $reader`, `\Closure $writer`,
       `bool $prefixFallback = true`; `candidates` returns `[$locale, substr($locale,0,2)]` deduped;
       no alias table; no `ALTER TABLE`). Re-run until GREEN. *(CI-09, CI-11, CI-16; D3, D4, D5)*
-- [ ] 4.4 **REFACTOR**: factor the shared candidate dedup; re-run the focused command and keep it
+- [x] 4.4 **REFACTOR**: factor the shared candidate dedup; re-run the focused command and keep it
       green.
 
 ## Phase 5: Slice 5 — Resolution engine + DI wiring (PR 5)
