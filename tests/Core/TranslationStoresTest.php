@@ -378,6 +378,35 @@ final class TranslationStoresTest extends TestCase
     /** @var array<string, ?string> */
     private array $fixedColumns = [];
 
+    // --- Write-result propagation (CodeRabbit finding) ---------------------
+
+    public function test_set_write_returns_false_when_the_insert_fails(): void
+    {
+        $db = new FakeRowStoreDb();
+        $store = $this->rowStore($db);
+        $db->failExec = true;
+
+        $this->assertFalse($store->set('title', 'en', 'Hello'), 'A failed INSERT must not report success');
+    }
+
+    public function test_set_clear_returns_false_when_the_update_fails(): void
+    {
+        $db = new FakeRowStoreDb();
+        $db->seed(self::TABLE, self::RECORD, 'en', ['title' => 'Hello']);
+        $store = $this->rowStore($db);
+        $db->failExec = true;
+
+        $this->assertFalse($store->set('title', 'en', null), 'A failed clearing UPDATE must not report success');
+    }
+
+    public function test_set_write_returns_true_on_successful_insert(): void
+    {
+        $db = new FakeRowStoreDb();
+        $store = $this->rowStore($db);
+
+        $this->assertTrue($store->set('title', 'en', 'Hello'));
+    }
+
     /**
      * Mirror of the engine's store legs (S5 owns the full chain): walk the
      * declared candidates in order and return the first exact hit.

@@ -121,7 +121,11 @@ final class RowTranslationStore implements TranslationStoreInterface
     {
         $where = $this->recordWhere() . ' AND ' . $this->localeWhere($locale);
 
-        $this->db->exec('UPDATE ' . $this->table . ' SET ' . $column . ' = NULL WHERE ' . $where . ';');
+        // Propagation matters: a failed UPDATE/DELETE must surface as a false
+        // `set()` result, never as a silent success.
+        if (!$this->db->exec('UPDATE ' . $this->table . ' SET ' . $column . ' = NULL WHERE ' . $where . ';')) {
+            return false;
+        }
 
         // Absence semantics: the row only disappears once every mapped column
         // is null, so sibling fields of the same record/locale survive (D6).
@@ -129,11 +133,10 @@ final class RowTranslationStore implements TranslationStoreInterface
         foreach ($this->fieldColumns as $mapped) {
             $nulls[] = $mapped . ' IS NULL';
         }
-        $this->db->exec(
+
+        return (bool) $this->db->exec(
             'DELETE FROM ' . $this->table . ' WHERE ' . $where . ' AND ' . implode(' AND ', $nulls) . ';'
         );
-
-        return true;
     }
 
     private function write(string $column, string $locale, string $value): bool
@@ -141,23 +144,19 @@ final class RowTranslationStore implements TranslationStoreInterface
         $where = $this->recordWhere() . ' AND ' . $this->localeWhere($locale);
 
         if ($this->rowExists($locale)) {
-            $this->db->exec(
+            return (bool) $this->db->exec(
                 'UPDATE ' . $this->table . ' SET ' . $column . ' = ' . $this->db->var2str($value)
                 . ' WHERE ' . $where . ';'
             );
-
-            return true;
         }
 
-        $this->db->exec(
+        return (bool) $this->db->exec(
             'INSERT INTO ' . $this->table
             . ' (' . $this->recordColumn . ', ' . $this->localeColumn . ', ' . $column . ') VALUES ('
             . $this->db->var2str($this->recordKey) . ', '
             . $this->db->var2str($locale) . ', '
             . $this->db->var2str($value) . ');'
         );
-
-        return true;
     }
 
     private function rowExists(string $locale): bool

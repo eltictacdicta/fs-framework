@@ -35,6 +35,9 @@ final class FakeRowStoreDb
     /** @var array<string, bool> */
     public array $tablesSeen = [];
 
+    /** @var bool when true, every exec() is reported as a failed statement */
+    public bool $failExec = false;
+
     /**
      * @param array<string, list<array{record: string, locale: string, columns: array<string, ?string>}>> $seed
      */
@@ -177,6 +180,10 @@ final class FakeRowStoreDb
     {
         $sql = trim((string) $sql);
         $this->executed[] = $sql;
+
+        if ($this->failExec) {
+            return false;
+        }
 
         // UPDATE <table> SET <column> = NULL WHERE <c1> = '<v1>' AND <c2> = '<v2>';
         if (preg_match('/^UPDATE (\w+) SET (\w+) = NULL WHERE \w+ = \'([^\']*)\' AND \w+ = \'([^\']*)\';?$/i', $sql, $m)) {
