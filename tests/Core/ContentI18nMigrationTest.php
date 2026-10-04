@@ -37,6 +37,46 @@ final class ContentI18nMigrationTest extends TestCase
     ];
 
     /**
+     * Regression: `adoptTable()` must not read the protected `fs_model` property
+     * `$table_name` directly — a fatal "Cannot access protected property" was
+     * swallowed by the bootstrap `try/catch`, so the migration never completed.
+     * It must use the model's public `tableName()`/`table_name()` accessor or the
+     * migration's own `tableName()`.
+     */
+    public function test_adopt_table_does_not_read_protected_fs_model_property(): void
+    {
+        $source = php_strip_whitespace(FS_FOLDER . '/src/Core/Schema/ContentI18nMigration.php');
+
+        $this->assertStringNotContainsString(
+            '->table_name',
+            $source,
+            'adoptTable() must not access the protected fs_model::$table_name property directly'
+        );
+    }
+
+    /**
+     * Behavioural regression: calling the real `adoptTable()` must not raise the
+     * protected-property fatal. The sub-class exposes the real step and injects
+     * an in-memory schema double so the assertion is DB-free.
+     */
+    public function test_real_adopt_table_step_does_not_throw_protected_property_fatal(): void
+    {
+        $migration = new class() extends ContentI18nMigration {
+            public function callAdoptTable(): bool
+            {
+                return $this->adoptTable();
+            }
+
+            protected function tableName(): string
+            {
+                return 'idiomas';
+            }
+        };
+
+        $this->assertIsBool($migration->callAdoptTable());
+    }
+
+    /**
      * @param array{applied?: bool, throwOn?: string|null, failOn?: string|null, table?: string} $options
      */
     private function recorder(array $options = [])

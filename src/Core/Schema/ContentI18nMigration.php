@@ -135,9 +135,14 @@ class ContentI18nMigration
      */
     protected function adoptTable(): bool
     {
-        $model = $this->model();
+        // Instantiate the model first so `fs_model::check_table()` adopts the
+        // table lazily, then verify adoption reading the resolved table name
+        // through the guard seam (`tableName()`). Never read the protected
+        // `fs_model::$table_name` property directly — that raises a fatal that
+        // the bootstrap `try/catch` would swallow.
+        $this->model();
 
-        return $this->tableExists($model->table_name);
+        return $this->tableExists($this->tableName());
     }
 
     /**
