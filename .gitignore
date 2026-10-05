@@ -19,6 +19,10 @@
 /node_modules/
 # vendor/ se versiona a propósito: actualizaciones del núcleo y ZIPs de plugins
 # (p. ej. OidcProvider) deben incluir dependencias sin composer install en destino.
+# Excepción: dev-tools es toolchain solo-para-desarrollo. Se instala cuando se
+# necesita (composer install --working-dir=dev-tools) y no se versiona. El
+# empaquetado de producción ya lo excluye.
+/vendor/dev-tools/
 
 # Temporary and cache files
 /tmp/*
