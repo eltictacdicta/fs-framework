@@ -38,11 +38,12 @@ final class ContentI18nHookTest extends TestCase
      */
     public static function entryPoints(): array
     {
-        return [
-            'index.php' => ['index.php'],
-            'api.php' => ['api.php'],
-            'cron.php' => ['cron.php'],
-        ];
+        $cases = [];
+        foreach (self::ENTRY_POINTS as $file) {
+            $cases[$file] = [$file];
+        }
+
+        return $cases;
     }
 
     #[Test]

@@ -72,7 +72,7 @@ function reduce_candidates(string $locale, bool $prefixFallback): array
     }
 
     $prefix = substr($locale, 0, 2);
-    if ($prefix !== '' && $prefix !== $locale) {
+    if ($prefix !== $locale) {
         $codes[] = $prefix;
     }
 

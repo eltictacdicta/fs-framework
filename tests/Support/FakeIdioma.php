@@ -43,6 +43,7 @@ final class FakeIdioma extends \idioma
 
     public function useFakeDb(IdiomaModelFakeDb $db): self
     {
+        // @phpstan-ignore assign.propertyType (in-memory fs_db2 double; idioma only calls table_exists/select/exec on it)
         $this->db = $db;
 
         return $this;
