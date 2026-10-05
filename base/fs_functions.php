@@ -454,6 +454,7 @@ function fs_file_get_contents($url, $timeout = 10)
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         if (ini_get('open_basedir') === NULL) {
@@ -495,7 +496,18 @@ function fs_file_get_contents($url, $timeout = 10)
         return 'ERROR';
     }
 
-    return file_get_contents($url);
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => $timeout,
+            'ignore_errors' => true,
+        ],
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ],
+    ]);
+
+    return @file_get_contents($url, false, $context);
 }
 
 function fs_filter_input_post($name, $default = false)
