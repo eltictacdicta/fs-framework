@@ -175,6 +175,140 @@ final class FsLoginPasswordVerificationTest extends TestCase
         $this->assertSame([LoginThrottle::GENERIC_ERROR], $result['logger']->errors);
     }
 
+    public function testLogInUserMigratesLegacySha1WithoutPlugin(): void
+    {
+        $user = new class() {
+            public string $nick = 'demo';
+            public string $email = 'demo@example.com';
+            public bool $enabled = true;
+            public bool $admin = false;
+            public string $log_key = 'logkey';
+            public bool $logged_on = false;
+            public string $password;
+            public int $setPasswordCalls = 0;
+            public int $saveCalls = 0;
+
+            public function __construct()
+            {
+                $this->password = sha1('Secret123');
+            }
+
+            public function set_password($password): bool
+            {
+                $this->setPasswordCalls++;
+                $this->password = password_hash($password, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+                return true;
+            }
+
+            public function new_logkey(): void
+            {
+                $this->logged_on = true;
+                $this->log_key = 'rotated';
+            }
+
+            public function save(): bool
+            {
+                $this->saveCalls++;
+                return true;
+            }
+        };
+
+        $result = $this->invokeLogInUser($user, 'Secret123');
+
+        $this->assertTrue($result['result']);
+        $this->assertSame(1, $user->setPasswordCalls);
+        $this->assertStringStartsWith('$argon2id$', $user->password);
+    }
+
+    public function testLogInUserMigratesLegacyMd5WithoutPlugin(): void
+    {
+        $user = new class() {
+            public string $nick = 'demo';
+            public string $email = 'demo@example.com';
+            public bool $enabled = true;
+            public bool $admin = false;
+            public string $log_key = 'logkey';
+            public bool $logged_on = false;
+            public string $password;
+            public int $setPasswordCalls = 0;
+            public int $saveCalls = 0;
+
+            public function __construct()
+            {
+                $this->password = md5('Secret123');
+            }
+
+            public function set_password($password): bool
+            {
+                $this->setPasswordCalls++;
+                $this->password = password_hash($password, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+                return true;
+            }
+
+            public function new_logkey(): void
+            {
+                $this->logged_on = true;
+                $this->log_key = 'rotated';
+            }
+
+            public function save(): bool
+            {
+                $this->saveCalls++;
+                return true;
+            }
+        };
+
+        $result = $this->invokeLogInUser($user, 'Secret123');
+
+        $this->assertTrue($result['result']);
+        $this->assertSame(1, $user->setPasswordCalls);
+        $this->assertStringStartsWith('$argon2id$', $user->password);
+    }
+
+    public function testLogInUserRejectsWrongLegacySha1WithoutMigration(): void
+    {
+        $user = new class() {
+            public string $nick = 'demo';
+            public string $email = 'demo@example.com';
+            public bool $enabled = true;
+            public bool $admin = false;
+            public string $log_key = 'logkey';
+            public bool $logged_on = false;
+            public string $password;
+            public int $setPasswordCalls = 0;
+            public int $saveCalls = 0;
+
+            public function __construct()
+            {
+                $this->password = sha1('Secret123');
+            }
+
+            public function set_password($password): bool
+            {
+                $this->setPasswordCalls++;
+                return true;
+            }
+
+            public function new_logkey(): void
+            {
+                $this->logged_on = true;
+                $this->log_key = 'rotated';
+            }
+
+            public function save(): bool
+            {
+                $this->saveCalls++;
+                return true;
+            }
+        };
+
+        $result = $this->invokeLogInUser($user, 'WrongSecret');
+
+        $this->assertFalse($result['result']);
+        $this->assertSame(0, $user->setPasswordCalls);
+        $this->assertSame([LoginThrottle::GENERIC_ERROR], $result['logger']->errors);
+    }
+
     private function invokeLogInUser(?object $user, string $password, string $nick = 'demo'): array
     {
         $login = new \fs_login();

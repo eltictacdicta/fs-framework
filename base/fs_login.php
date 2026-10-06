@@ -370,19 +370,8 @@ class fs_login
     {
         $password_verified = $this->verify_modern_password($user, $password);
 
-        if (!$password_verified && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
-            $password_verified = \FSFramework\Plugins\legacy_support\LegacyCompatibility::verifyAndUpgradeLegacyPassword(
-                $user,
-                $password
-            );
-        } elseif (!$password_verified && method_exists($user, 'is_legacy_sha1_password') && $user->is_legacy_sha1_password()) {
-            $this->core_log->new_error('No se puede migrar la contraseña legacy de este usuario sin activar el plugin legacy_support.');
-            $this->core_log->save(
-                'Login bloqueado para ' . $nick . ': se requiere legacy_support para migrar contraseñas SHA1 legacy.',
-                'login',
-                TRUE
-            );
-            return FALSE;
+        if (!$password_verified) {
+            $password_verified = $this->verify_legacy_password($user, $password);
         }
 
         if ($password_verified) {
@@ -461,6 +450,58 @@ class fs_login
         }
 
         return true;
+    }
+
+    /**
+     * Verifica una contraseña legacy (SHA1/MD5) y la migra a Argon2id.
+     *
+     * Si el plugin legacy_support está instalado se delega primero en él para
+     * conservar su telemetría de componentes deprecados; si no está, la
+     * verificación y la migración se resuelven íntegramente en el core, de modo
+     * que el usuario puede entrar y su hash se actualiza sin intervención manual.
+     *
+     * @param fs_user $user
+     * @param string  $password
+     *
+     * @return bool
+     */
+    private function verify_legacy_password($user, $password): bool
+    {
+        if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
+            if (\FSFramework\Plugins\legacy_support\LegacyCompatibility::verifyAndUpgradeLegacyPassword($user, $password)) {
+                return true;
+            }
+        }
+
+        $hasher = new \FSFramework\Security\PasswordHasherService();
+        if (!$hasher->verifyLegacyHash((string) ($user->password ?? ''), (string) $password)) {
+            return false;
+        }
+
+        $this->migrate_legacy_password($user, $password);
+
+        return true;
+    }
+
+    /**
+     * Rehashea a Argon2id una contraseña legacy ya verificada.
+     *
+     * Respeta los límites de longitud de fs_user::set_password(); si la clave no
+     * los cumple, el login es válido pero el hash no se puede migrar (no hay
+     * forma de rehashear SHA1 sin la clave en claro). Nunca registra la clave.
+     *
+     * @param fs_user $user
+     * @param string  $password
+     */
+    private function migrate_legacy_password($user, $password): void
+    {
+        if (mb_strlen($password) < 8 || mb_strlen($password) > 32 || !method_exists($user, 'set_password')) {
+            return;
+        }
+
+        if ($user->set_password($password) !== false && method_exists($user, 'save')) {
+            $user->save();
+        }
     }
 
     /**

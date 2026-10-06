@@ -146,7 +146,7 @@
 │   ├── clientes_catalogo/    # Client-catalog bridge
 │   ├── clientes_facturacion/ # Client billing (minimal: model/ only)
 │   ├── legacy_support/       # Legacy compatibility layer
-│   │   ├── LegacyCompatibility.php # SHA1/MD5 password verification (NEW owner in v0.10.8)
+│   │   ├── LegacyCompatibility.php # Optional legacy password delegation/telemetry (core owns SHA1/MD5 verification)
 │   │   ├── LegacyTelemetry.php
 │   │   ├── LegacyUsageTracker.php
 │   │   ├── VersionValidator.php
@@ -302,10 +302,10 @@
 - `/src/Core/CssSanitizer.php`: CSS sanitization (246 lines, NEW in v0.10.8)
 
 **Security:**
-- `/src/Security/PasswordHasherService.php`: Modern password hashing (argon2id, no SHA1/MD5)
+- `/src/Security/PasswordHasherService.php`: Modern password hashing (argon2id/bcrypt) + legacy SHA1/MD5 verification for migration
 - `/src/Security/CsrfManager.php`: CSRF token management
 - `/src/Security/SessionManager.php`: Secure session handling
-- `/plugins/legacy_support/LegacyCompatibility.php`: All legacy password verification
+- `/plugins/legacy_support/LegacyCompatibility.php`: optional legacy password delegation (core verifies SHA1/MD5 in `src/Security/PasswordHasherService.php`)
 
 **Testing:**
 - `/tests/bootstrap.php`: Test environment setup

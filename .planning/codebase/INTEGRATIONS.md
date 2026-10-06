@@ -70,7 +70,7 @@
 **Auth Provider:**
 - Custom (built-in legacy system + Symfony CSRF)
   - Implementation: `base/fs_login.php` handles login verification, `src/Security/PasswordHasherService.php` for hashing (argon2id/bcrypt), `src/Security/LegacyAuthBridge.php` bridges legacy sessions
-  - Legacy password fallback: `plugins/legacy_support/LegacyCompatibility.php` owns all SHA1/MD5 verification (moved from core in v0.10.8)
+  - Legacy password fallback: `src/Security/PasswordHasherService.php::verifyLegacyHash` owns SHA1/MD5 verification and migrates to Argon2id on login; `plugins/legacy_support/LegacyCompatibility.php` is an optional delegation/telemetry layer (moved out in v0.10.8, re-integrated into core)
   - CSRF: `src/Security/CsrfManager.php` using Symfony Security CSRF
   - Session management: `src/Security/SessionManager.php`, `base/fs_session_manager.php`
   - Cookie signing: `src/Security/CookieSigner.php`

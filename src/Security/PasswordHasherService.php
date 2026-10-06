@@ -151,16 +151,12 @@ class PasswordHasherService
         string $plainPassword,
         ?string $legacySalt = null
     ): bool {
-        if ($this->isLowercasedLegacySha1Bypass($storedHash, $plainPassword, $legacySalt)) {
-            return false;
-        }
-
         // Intentar verificar con el hasher moderno primero
         if ($this->isModernHash($storedHash)) {
             return $this->verify($storedHash, $plainPassword);
         }
 
-        // Delegar la compatibilidad legacy en legacy_support cuando esté disponible.
+        // Verificar hashes legacy en el core (no requiere legacy_support).
         return $this->verifyLegacyHash($storedHash, $plainPassword, $legacySalt);
     }
 
@@ -179,10 +175,6 @@ class PasswordHasherService
         ?string $legacySalt = null,
         ?callable $saveCallback = null
     ): bool {
-        if ($this->isLowercasedLegacySha1Bypass($storedHash, $plainPassword, $legacySalt)) {
-            return false;
-        }
-
         // Si ya es hash moderno
         if ($this->isModernHash($storedHash)) {
             $valid = $this->verify($storedHash, $plainPassword);
@@ -198,7 +190,7 @@ class PasswordHasherService
             return $valid;
         }
 
-        // Delegar la verificación legacy en legacy_support cuando esté disponible.
+        // Verificar el hash legacy en el core (no requiere legacy_support).
         if (!$this->verifyLegacyHash($storedHash, $plainPassword, $legacySalt)) {
             return false;
         }
@@ -226,56 +218,29 @@ class PasswordHasherService
     }
 
     /**
-     * Verifica hashes legacy delegando en legacy_support cuando el plugin está presente.
-     * Sin el plugin no se aceptan hashes legacy: el flujo devuelve false y el usuario
-     * queda forzado a un reset de contraseña (política segura, nunca un bypass).
+     * Verifica un hash legacy sin depender del plugin legacy_support.
+     *
+     * Acepta los formatos que producía FacturaScripts 2017: SHA1 simple, SHA1 con
+     * salt (sha1($salt . $password)), SHA1 de la contraseña en minúsculas y MD5.
+     * Se usa para que el usuario pueda entrar y su hash se migre a Argon2id en el
+     * login aunque el plugin no esté instalado.
+     *
+     * La comparación es de tiempo constante (hash_equals) y nunca acepta un valor
+     * que no coincida exactamente. La debilidad de SHA1/MD5 en reposo es previa y
+     * no la introduce este método; aquí solo se verifica para poder migrar.
      */
-    private function verifyLegacyHash(
+    public function verifyLegacyHash(
         string $storedHash,
         string $plainPassword,
         ?string $legacySalt = null
     ): bool {
-        if (class_exists('FSFramework\\Plugins\\legacy_support\\LegacyCompatibility')) {
-            return \FSFramework\Plugins\legacy_support\LegacyCompatibility::verifyLegacyPassword(
-                $storedHash,
-                $plainPassword,
-                $legacySalt
-            );
+        if ($legacySalt !== null && hash_equals($storedHash, sha1($legacySalt . $plainPassword))) {
+            return true;
         }
 
-        return false;
-    }
-
-    private function isLowercasedLegacySha1Bypass(string $storedHash, string $plainPassword, ?string $legacySalt = null): bool
-    {
-        if ($legacySalt !== null || strlen($storedHash) !== 40 || !ctype_xdigit($storedHash)) {
-            return false;
-        }
-
-        // Some legacy installations stored SHA1 digests with inconsistent casing.
-        // We normalise before comparison so affected accounts are detected consistently
-        // and can be forced through a password reset flow instead of silently bypassing checks.
-        $normalizedStoredHash = strtolower($storedHash);
-
-        $exactSha1 = sha1($plainPassword);
-        if (hash_equals($normalizedStoredHash, $exactSha1)) {
-            return false;
-        }
-
-        $lowercasedSha1 = sha1(mb_strtolower($plainPassword, 'UTF8'));
-        $isBypassCandidate = hash_equals($normalizedStoredHash, $lowercasedSha1);
-        if ($isBypassCandidate) {
-            $this->logLowercasedLegacySha1Bypass();
-        }
-
-        return $isBypassCandidate;
-    }
-
-    private function logLowercasedLegacySha1Bypass(): void
-    {
-        error_log(
-            'PasswordHasherService: blocked a lowercased legacy SHA1 bypass candidate; mark the affected account for password reset.'
-        );
+        return hash_equals($storedHash, sha1($plainPassword))
+            || hash_equals($storedHash, sha1(mb_strtolower($plainPassword, 'UTF8')))
+            || hash_equals($storedHash, md5($plainPassword));
     }
 
     /**

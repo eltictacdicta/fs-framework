@@ -66,7 +66,7 @@
 | CssSanitizer | CSS sanitization via PHP CSS Parser; whitelist-based | `src/Core/CssSanitizer.php` |
 | PublicAccessGate | Stealth/public access interceptor (runs early in index.php) | `src/Core/PublicAccessGate.php` |
 | SessionManager | Secure session handling with CSRF token rotation | `src/Security/SessionManager.php` |
-| LegacyCompatibility | All legacy password verification (SHA1/MD5), migration | `plugins/legacy_support/LegacyCompatibility.php` |
+| LegacyCompatibility | Optional legacy password delegation/telemetry; core owns SHA1/MD5 verification + migration | `plugins/legacy_support/LegacyCompatibility.php` (core: `src/Security/PasswordHasherService.php`) |
 
 ## Pattern Overview
 

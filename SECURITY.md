@@ -11,7 +11,7 @@
 | SQL injection | `fs_model`, plugins | Prepared/`var2str()` patterns; static analysis in `tests/Security/SqlInjectionPreventionTest.php` |
 | XSS | Twig templates | Default auto-escape; `\|raw` only for trusted framework output |
 | Session fixation | Login flow | `SessionManager::regenerateId()` after authentication |
-| Weak passwords | Legacy installs | `PasswordHasherService` (argon2id/bcrypt); legacy SHA1/MD5 only in `legacy_support` with migration on login |
+| Weak passwords | Legacy installs | `PasswordHasherService` (argon2id/bcrypt); legacy SHA1/MD5 verified in core for automatic migration on login (`legacy_support` optional) |
 | Open redirect | Post-action redirects | `SafeRedirect::validate()` / `SafeRedirect::redirect()` |
 | API abuse | `api.php` / `api_base` | Bearer auth, rate limiting, CORS middleware |
 | Information disclosure | DebugBar, error handlers | DebugBar local-IP only; stack traces only when `FS_DEBUG=true` |
@@ -45,8 +45,9 @@
 
 ### Legacy Passwords
 
-- Core: `PasswordHasherService` — no MD5/SHA1 verification
-- Plugin: `legacy_support/LegacyCompatibility.php` — verifies legacy hashes, migrates to modern hash on successful login
+- Core: `PasswordHasherService::verifyLegacyHash` verifies SHA1 (plain, salted, lowercased) and MD5, and migrates the hash to Argon2id on successful login; no plugin required
+- Plugin: `legacy_support/LegacyCompatibility.php` remains as an optional delegation/telemetry layer; `fs_login` prefers it when present
+- The weak-at-rest SHA1/MD5 hash on legacy installs is unchanged by where verification lives; migration happens at first successful login
 - Offline remediation: `scripts/remediate-legacy-passwords.php`
 
 ## Milestone v0.12.0 Requirement Status
@@ -76,5 +77,5 @@ Report security issues privately to the project maintainer. Do not open public i
 ## Deferred Hardening (v2)
 
 - Remove CSP `unsafe-inline` after AdminLTE inline JS migration (SEC-02)
-- Drop SHA1/MD5 legacy password support with deadline (SEC-01)
+- Drop SHA1/MD5 legacy password support with deadline (SEC-01) — verification is now core-owned for automatic migration, so "drop" means forcing resets rather than removing an optional plugin
 - SonarQube gate in CI (SEC-03)

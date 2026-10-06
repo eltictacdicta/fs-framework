@@ -191,7 +191,7 @@ require_once 'base/fs_login.php';
 ## Anti-Patterns to Avoid
 
 - **Do not use `@` error suppression** in new code (being actively removed from base files)
-- **Do not add new SHA1/MD5 password hashing** — all legacy verification lives in `plugins/legacy_support/LegacyCompatibility.php`
+- **Do not add new SHA1/MD5 password hashing** — legacy SHA1/MD5 *verification for migration* lives in the core (`PasswordHasherService::verifyLegacyHash`), delegated to `legacy_support` when present
 - **Do not directly read `$_GET`, `$_POST`, `$_REQUEST`** — use Symfony Request helper or `fs_filter_input_req()`
 - **Do not concatenate user input into SQL** — use `$this->var2str()` or prepared statements
 - **Do not use `|raw` in Twig** with unsanitized user data

@@ -125,6 +125,8 @@ $hash = md5($password);
 $hash = sha1($password);
 ```
 
+> Nota: *verificar* hashes SHA1/MD5 legacy para migrarlos a Argon2id es válido y vive en el núcleo (`PasswordHasherService::verifyLegacyHash`). La prohibición es sobre **crear** hashes con algoritmos sin coste.
+
 ## 🟡 IMPORTANTE — Subida de Ficheros
 
 ```php

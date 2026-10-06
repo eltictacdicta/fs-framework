@@ -15,7 +15,7 @@ The following concerns from previous iterations have been resolved:
 | No reusable HTML sanitization | `src/Core/HtmlSanitizer.php` created with CDN-safe script allowlist, DOM-based filtering |
 | MySQL identifier normalization in `fs_mysql.php` | Extracted to `base/FsMysqlSchemaUtility.php` (81 lines of pure utility) |
 | `@` error suppression in base files | All `@` removed from base files that received strict_types; 5 remaining instances only in 2 files |
-| SHA1/MD5 password verification in `src/Security/PasswordHasherService.php` | Removed; all legacy password verification now lives exclusively in `plugins/legacy_support/LegacyCompatibility.php` |
+| SHA1/MD5 password verification in `src/Security/PasswordHasherService.php` | Re-integrated into core (`verifyLegacyHash`) for automatic migration on login; `plugins/legacy_support/LegacyCompatibility.php` remains optional delegation/telemetry |
 | `business_data` and `catalogo_core` had no tests | New tests added: `BusinessDataModelTest.php`, `ArticuloModelEncodingTest.php`, `FabricanteModelTest.php`, `FamiliaModelTest.php` |
 
 ---
@@ -93,10 +93,10 @@ The following concerns from previous iterations have been resolved:
 
 ### Legacy Password Hash Remains Functional
 
-- Risk: SHA1 and MD5 password verification still works via `plugins/legacy_support/LegacyCompatibility.php`. While the core `PasswordHasherService` no longer does legacy verification (fixed in v0.10.8), users with legacy hashes who don't log in won't get migrated.
-- Files: `plugins/legacy_support/LegacyCompatibility.php` (lines 94-107), `base/fs_login.php`
-- Current mitigation: Automatic migration to argon2id on successful login via `verifyAndUpgradeLegacyPassword()`. Telemetry tracks legacy usage.
-- Recommendations: Add a script to proactively rehash all passwords offline (partial: `scripts/remediate-legacy-passwords.php` exists). Consider adding a deadline for dropping legacy support.
+- Risk: SHA1 and MD5 password verification still works; it now lives in the core (`PasswordHasherService::verifyLegacyHash`) so users can log in and migrate to Argon2id even without `legacy_support`. Users with legacy hashes who never log in won't get migrated.
+- Files: `src/Security/PasswordHasherService.php`, `base/fs_login.php`
+- Current mitigation: Automatic migration to Argon2id on successful login (core-owned; optional `legacy_support` delegation for telemetry).
+- Recommendations: Add a script to proactively rehash all passwords offline (partial: `scripts/remediate-legacy-passwords.php` exists). Consider adding a deadline for dropping legacy support (SEC-01).
 
 ### Index.php Stale `@set_time_limit`
 
@@ -238,7 +238,7 @@ The following concerns from previous iterations have been resolved:
 ### Legacy Password Migration Path
 
 - What's not tested: Full migration flow from SHA1/MD5 → argon2id including save failure, timeout edge cases, concurrent login scenarios
-- Files: `plugins/legacy_support/LegacyCompatibility.php`
+- Files: `src/Security/PasswordHasherService.php`, `base/fs_login.php`
 - Risk: Users could get stuck on legacy hashes without migration
 - Priority: Medium
 

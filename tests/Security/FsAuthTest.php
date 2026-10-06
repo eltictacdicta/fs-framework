@@ -45,7 +45,7 @@ class FsAuthTest extends TestCase
         $this->assertStringStartsWith('$argon2id$', $user->password);
     }
 
-    public function testIsPasswordValidRejectsLowercasedLegacySha1Bypass(): void
+    public function testIsPasswordValidMigratesLowercasedLegacySha1Variant(): void
     {
         $user = new class() {
             public string $password;
@@ -73,10 +73,11 @@ class FsAuthTest extends TestCase
 
         $result = $this->invokeIsPasswordValid($user, 'Secret123');
 
-        $this->assertFalse($result);
-        $this->assertSame(0, $user->setPasswordCalls);
-        $this->assertSame(0, $user->saveCalls);
-        $this->assertSame(sha1('secret123'), $user->password);
+        // Alineado con legacy_support: la variante en minúsculas entra y migra a Argon2id.
+        $this->assertTrue($result);
+        $this->assertSame(1, $user->setPasswordCalls);
+        $this->assertSame(1, $user->saveCalls);
+        $this->assertStringStartsWith('$argon2id$', $user->password);
     }
 
     public function testIsPasswordValidDoesNotResaveAlignedArgon2idHash(): void

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The PHPUnit test harness must be deterministic and machine-independent. The test bootstrap defines every framework constant unconditionally and never loads the machine-local `config.php`; the test secret satisfies `SecretManager` validation; the Symfony PHPUnit bridge is installed, autoloaded, and actively enforcing deprecation reporting; plugin test discovery is bounded and lossless; and legacy plugin-dependent tests skip cleanly when their plugin is absent. A green, repeatable, non-lossy suite is the prerequisite for all later security remediation phases.
+The PHPUnit test harness must be deterministic and machine-independent. The test bootstrap defines every framework constant unconditionally and never loads the machine-local `config.php`; the test secret satisfies `SecretManager` validation; the Symfony PHPUnit bridge is installed, autoloaded, and actively enforcing deprecation reporting; plugin test discovery is bounded and lossless; and legacy password tests run against the core implementation while other plugin-dependent tests skip cleanly when their plugin is absent. A green, repeatable, non-lossy suite is the prerequisite for all later security remediation phases.
 
 ## Requirements
 
@@ -12,7 +12,7 @@ The PHPUnit test harness must be deterministic and machine-independent. The test
 | THD-02 | The bootstrap-defined `FS_SECRET_KEY` MUST be a string of at least 32 characters, so `SecretManager::getSecret()` yields a valid secret in tests | MUST |
 | THD-03 | `symfony/phpunit-bridge` MUST be installed as a Composer dev dependency (with `composer.json`, `composer.lock`, `vendor/` committed together), registered in the test bootstrap, and enforcing deprecation reporting (`SYMFONY_DEPRECATIONS_HELPER` honored) | MUST |
 | THD-04 | The `Plugins` testsuite MUST discover only `plugins/*/tests/**/*Test.php` (one level: `plugins/<name>/tests/`), excluding `plugins/*/vendor/` and `plugins/*_back/`; `--list-suites` MUST exit 0 | MUST |
-| THD-05 | Legacy SHA1/MD5 password tests MUST be skipped with an explicit message when the `legacy_support` plugin is not autoloadable, and MUST run and pass when it is | MUST |
+| THD-05 | Legacy SHA1/MD5 password tests MUST run and pass without the `legacy_support` plugin, because legacy verification and migration are owned by the core (`PasswordHasherService::verifyLegacyHash`), and MUST keep passing when the plugin is present | MUST |
 | THD-06 | The change MUST be verified by baseline capture, post-change run, repeat run, and a test-count comparison proving no silent test loss | MUST |
 
 ### Requirement: THD-01 — Test bootstrap defines constants unconditionally without loading config.php
@@ -95,22 +95,22 @@ The `Plugins` testsuite in `phpunit.xml` MUST discover only files matching `plug
 - **Then** those plugins contribute zero test files without errors
 - **And** per-plugin isolated suites (`-c plugins/<name>/phpunit.xml`) remain the documented fallback for plugins with tests outside `tests/`
 
-### Requirement: THD-05 — Legacy SHA1 password tests skip cleanly without legacy_support
+### Requirement: THD-05 — Legacy SHA1 password tests run without legacy_support
 
-Legacy SHA1/MD5 password tests in `tests/Security/PasswordHasherServiceTest.php` that exercise `verifyWithLegacySupport` behavior aligned with the `legacy_support` plugin delegation (`base/fs_login.php` delegates legacy verification to `FSFramework\Plugins\legacy_support\LegacyCompatibility` when the class exists) MUST be skipped with a clear, explicit skip message when the `legacy_support` plugin is not present/active, and MUST run when it is.
+Legacy SHA1/MD5 password tests in `tests/Security/PasswordHasherServiceTest.php` and `tests/Security/FsAuthTest.php` MUST run and pass whether or not the `legacy_support` plugin is autoloadable. Legacy hash verification and migration to Argon2id are owned by the core (`src/Security/PasswordHasherService.php` and `base/fs_login.php`); the plugin is an optional telemetry/delegation layer, no longer a prerequisite for these tests.
 
-#### Scenario: Legacy tests skip when legacy_support is absent
+#### Scenario: Legacy tests run without legacy_support
 
 - **Given** the `legacy_support` plugin is not installed/active (its `LegacyCompatibility` class is not autoloadable)
 - **When** the Security suite runs
-- **Then** the affected legacy SHA1/MD5 tests are reported as skipped (not failed, not errored)
-- **And** each skip message clearly states the `legacy_support` plugin is required
+- **Then** the affected legacy SHA1/MD5 tests execute and pass using the core implementation
+- **And** no skip is emitted for them
 
-#### Scenario: Legacy tests run when legacy_support is present
+#### Scenario: Legacy tests still pass with legacy_support present
 
 - **Given** the `legacy_support` plugin is installed and its composer bootstrap is loaded by the test bootstrap
 - **When** the Security suite runs
-- **Then** the legacy SHA1/MD5 tests execute and pass
+- **Then** the legacy SHA1/MD5 tests still execute and pass
 - **And** no skip is emitted for them
 
 ### Requirement: THD-06 — Verification procedure proves green, repeatable, and non-lossy suite
@@ -128,7 +128,7 @@ The change MUST be verified by: (1) a full suite run before the change capturing
 
 - **Given** the pre-change captured test counts and the post-change suite run
 - **When** the post-change suite run is compared against the baseline
-- **Then** the delta is exactly the documented one (excluded `system_updater_back` tests by design; legacy SHA1 tests move from failed/errored to skipped; any structural deviation from the original forecast is superseded only with documented evidence)
+- **Then** the delta is exactly the documented one (excluded `system_updater_back` tests by design; legacy SHA1 tests execute and pass against the core implementation; any structural deviation from the original forecast is superseded only with documented evidence)
 - **And** no other plugin or core test file is missing from discovery; any unexplained delta blocks approval
 
 ## Verification Commands
