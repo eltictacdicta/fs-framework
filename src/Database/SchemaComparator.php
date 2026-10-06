@@ -618,6 +618,16 @@ final class SchemaComparator
                 continue;
             }
 
+            // Los XML declaran índices como "CREATE INDEX ... ON ...", que no es
+            // válido dentro de un CREATE TABLE. Se traduce a un índice inline.
+            if (stripos($consulta, 'CREATE ') === 0 && stripos($consulta, 'INDEX') !== false) {
+                $inlineIndex = $this->indexConstraintAsInline($consulta, (string) ($c['nombre'] ?? ''));
+                if ($inlineIndex !== '') {
+                    $sql .= ', ' . $inlineIndex;
+                }
+                continue;
+            }
+
             if ($constraintType === self::CONSTRAINT_PRIMARY_KEY || $this->hasExplicitConstraintName($consulta) || empty($c['nombre'])) {
                 $sql .= ', ' . $consulta;
                 continue;
@@ -627,6 +637,31 @@ final class SchemaComparator
         }
 
         return $sql;
+    }
+
+    /**
+     * Convierte "CREATE [UNIQUE] INDEX nombre ON tabla (cols)" en una cláusula
+     * de índice válida dentro de un CREATE TABLE (MySQL):
+     * "[UNIQUE] INDEX `nombre` (cols)".
+     */
+    private function indexConstraintAsInline(string $consulta, string $fallbackName): string
+    {
+        if (preg_match('/CREATE\s+(UNIQUE\s+)?INDEX\s+([^\s(]+)\s+ON\s+[^\s(]+\s*\(([^)]*)\)/i', $consulta, $m) !== 1) {
+            return '';
+        }
+
+        $unique = !empty(trim($m[1])) ? 'UNIQUE ' : '';
+        $name = trim($m[2]);
+        if ($name === '') {
+            $name = $fallbackName;
+        }
+
+        $columns = trim($m[3]);
+        if ($name === '' || $columns === '') {
+            return '';
+        }
+
+        return $unique . 'INDEX ' . $this->quoteIdentifier($name) . ' (' . $columns . ')';
     }
 
     private function fixPostgresql(string $sql): string
