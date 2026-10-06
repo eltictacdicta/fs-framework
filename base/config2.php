@@ -89,7 +89,8 @@ $GLOBALS['config2'] = array(
     'libros_contables' => 1,
     'foreign_keys' => 1,
     'new_codigo' => 'new',
-    'db_integer' => 'INTEGER'
+    'db_integer' => 'INTEGER',
+    'disable_remote_plugin_catalog' => 0
 );
 
 if (file_exists(FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'config2.ini')) {

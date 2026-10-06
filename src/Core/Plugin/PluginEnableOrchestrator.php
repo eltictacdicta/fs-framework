@@ -294,6 +294,11 @@ final class PluginEnableOrchestrator
 
     private function isPluginListedInRemoteCatalog(string $pluginName): bool
     {
+        // Servidores sin salida a Internet: no consultar el catálogo remoto.
+        if (defined('FS_DISABLE_REMOTE_PLUGIN_CATALOG') && FS_DISABLE_REMOTE_PLUGIN_CATALOG) {
+            return false;
+        }
+
         $context = stream_context_create([
             'http' => [
                 'timeout' => 5,

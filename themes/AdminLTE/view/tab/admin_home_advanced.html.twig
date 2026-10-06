@@ -206,6 +206,21 @@
                     <p class="help-block">Los admninistradores pueden acceder desde cualquier IP.</p>
                 </div>
             </div>
+            <div class="col-md-4 col-sm-4">
+                <div class="form-group">
+                    Catálogo remoto de plugins de la comunidad:
+                    <select name="disable_remote_plugin_catalog" class="form-control">
+                        {% if config2.disable_remote_plugin_catalog == 1 %}
+                        <option value="0">Activo (consultar GitHub)</option>
+                        <option value="1" selected=''>Desactivado (servidor sin Internet)</option>
+                        {% else %}
+                        <option value="0" selected=''>Activo (consultar GitHub)</option>
+                        <option value="1">Desactivado (servidor sin Internet)</option>
+                        {% endif %}
+                    </select>
+                    <p class="help-block">Desactivalo en servidores sin salida a Internet: el core no intentará descargar el catálogo remoto de plugins ni generará errores de conexión.</p>
+                </div>
+            </div>
         </div>
         <div class="row bg-warning">
             <div class="col-md-3 col-sm-3">
