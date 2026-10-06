@@ -405,6 +405,14 @@ class fs_plugin_manager
             $this->cache->delete('download_list');
         }
 
+        // Servidores sin salida a Internet: no consultar el catálogo remoto.
+        // La pestaña "Públicos" del dashboard queda vacía en vez de fallar y
+        // ensuciar el log con un error de conexión en cada carga.
+        if (defined('FS_DISABLE_REMOTE_PLUGIN_CATALOG') && FS_DISABLE_REMOTE_PLUGIN_CATALOG) {
+            $this->download_list = [];
+            return $this->download_list;
+        }
+
         /// lista de plugins de la comunidad, se descarga de Internet.
         $json = @fs_file_get_contents('https://raw.githubusercontent.com/eltictacdicta/fs-cusmtom-plugins/main/custom_plugins.json', 10);
         if ($json && $json != 'ERROR') {
@@ -448,7 +456,7 @@ class fs_plugin_manager
             return $this->download_list;
         }
 
-        $this->core_log->new_error('Error al descargar la lista de plugins.');
+        $this->core_log->new_advice('No se pudo descargar la lista de plugins de la comunidad (sin conexión con GitHub).');
         $this->download_list = [
             [
                 'id' => 87,
