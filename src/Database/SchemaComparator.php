@@ -155,7 +155,13 @@ final class SchemaComparator
                 }
 
                 if ($col['defecto'] !== null) {
-                    $sql .= " DEFAULT " . TypeNormalizer::normalizeDefault($col['defecto'], $xmlType);
+                    $normalizedDefault = TypeNormalizer::normalizeDefault($col['defecto'], $xmlType);
+                    // A NOT NULL column cannot carry DEFAULT NULL (errno 1067);
+                    // omit the clause and let the server apply its implicit
+                    // default.
+                    if ($normalizedDefault !== 'NULL' || $col['nulo'] !== 'NO') {
+                        $sql .= " DEFAULT " . $normalizedDefault;
+                    }
                 }
             }
         }
@@ -214,6 +220,12 @@ final class SchemaComparator
 
     private function buildDefaultChangeSql(string $quotedTable, array $xmlCol, string $xmlType, string $xmlDefault, array $dbCol): string
     {
+        // A SERIAL/AUTO_INCREMENT column has no meaningful user default: the
+        // server owns it. Comparing/ALTERing it never converges.
+        if (($dbCol['extra'] ?? '') === 'auto_increment') {
+            return '';
+        }
+
         if (strtolower(substr($xmlDefault, 0, 9)) == "nextval('") {
             if (($dbCol['extra'] ?? '') == 'auto_increment') {
                 return '';
@@ -227,6 +239,14 @@ final class SchemaComparator
         }
 
         if ($xmlDefault === 'NULL') {
+            // "No explicit default" is already satisfied when the database
+            // reports no default (SQL NULL) or an explicit DEFAULT NULL. Without
+            // this, a blank temporal default would re-emit DROP DEFAULT on every
+            // sync and never converge.
+            if ($dbCol['default'] === null || $dbCol['default'] === 'NULL') {
+                return '';
+            }
+
             return self::SQL_ALTER_TABLE . $quotedTable . ' ALTER `' . $xmlCol['nombre'] . '` DROP DEFAULT;';
         }
 
@@ -259,6 +279,21 @@ final class SchemaComparator
             return true;
         }
 
+        // MariaDB/MySQL report CURRENT_TIMESTAMP defaults as `current_timestamp()`
+        // (older versions as `CURRENT_TIMESTAMP`). Normalise both spellings so the
+        // sync converges instead of re-emitting the same ALTER on every run.
+        if ($this->isSameTemporalDefault($dbDefault, $xmlDefault)) {
+            return true;
+        }
+
+        // XML string defaults are SQL literals ("'x'"); SHOW COLUMNS reports the
+        // raw value, so `DEFAULT ''` and "'" . "''" must compare equal or the
+        // ALTER churns forever.
+        $unquoted = self::unquoteSqlLiteral($xmlDefault);
+        if ($unquoted !== null && $unquoted === $dbDefault) {
+            return true;
+        }
+
         if (in_array($dbDefault, ['0', 'false', 'FALSE'])) {
             return in_array($xmlDefault, ['0', 'false', 'FALSE']);
         }
@@ -272,6 +307,32 @@ final class SchemaComparator
         }
 
         return false;
+    }
+
+    private function isSameTemporalDefault(string $dbDefault, string $xmlDefault): bool
+    {
+        $temporal = [
+            'current_timestamp',
+            'current_timestamp()',
+            'now()',
+            'now',
+            'current_date',
+            'current_date()',
+            'current_time',
+            'current_time()',
+        ];
+
+        return in_array(strtolower(trim($dbDefault)), $temporal, true)
+            && in_array(strtolower(trim($xmlDefault)), $temporal, true);
+    }
+
+    private static function unquoteSqlLiteral(string $value): ?string
+    {
+        if (preg_match("/^'(.*)'$/s", $value, $matches) === 1) {
+            return str_replace("''", "'", $matches[1]);
+        }
+
+        return null;
     }
 
     private function constraintHasEquivalentXmlDefinition(array $dbConstraint, array $dbSignatures, array $xmlSignatures): bool

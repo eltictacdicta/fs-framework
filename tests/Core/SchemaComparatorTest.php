@@ -48,6 +48,111 @@ class SchemaComparatorTest extends TestCase
         );
     }
 
+    public function testGenerateTableOmitsNullDefaultForNotNullTemporalColumn(): void
+    {
+        // Regression: an empty <defecto></defecto> on a NOT NULL timestamp used
+        // to emit "DEFAULT ''" / "DEFAULT NULL", both invalid in MariaDB
+        // (errno 1067) and fatal for plugin activation.
+        $comparator = new SchemaComparator($this->createSchemaDb());
+        $sql = $comparator->generateTable(
+            'api_user_tokens',
+            [
+                ['nombre' => 'token_expires_at', 'tipo' => 'timestamp', 'nulo' => 'NO', 'defecto' => ''],
+            ],
+            []
+        );
+
+        $this->assertStringContainsString('`token_expires_at` TIMESTAMP NOT NULL', $sql);
+        $this->assertStringNotContainsString("DEFAULT ''", $sql);
+        $this->assertStringNotContainsString('DEFAULT NULL', $sql);
+    }
+
+    public function testCompareColumnsConvergesBlankTemporalDefaultWithoutInvalidAlter(): void
+    {
+        $comparator = new SchemaComparator($this->createSchemaDb());
+        $sql = $comparator->compareColumns(
+            'api_user_tokens',
+            [
+                ['nombre' => 'token_expires_at', 'tipo' => 'timestamp', 'nulo' => 'NO', 'defecto' => ''],
+            ],
+            [
+                ['name' => 'token_expires_at', 'type' => 'timestamp', 'default' => null, 'is_nullable' => 'NO', 'extra' => ''],
+            ]
+        );
+
+        $this->assertStringNotContainsString("SET DEFAULT ''", $sql);
+        $this->assertSame('', $sql);
+    }
+
+    public function testCompareColumnsStillAlignsTemporalFunctionDefault(): void
+    {
+        $comparator = new SchemaComparator($this->createSchemaDb());
+        $sql = $comparator->compareColumns(
+            'api_user_tokens',
+            [
+                ['nombre' => 'created_at', 'tipo' => 'timestamp', 'nulo' => 'NO', 'defecto' => 'CURRENT_TIMESTAMP'],
+            ],
+            [
+                ['name' => 'created_at', 'type' => 'timestamp', 'default' => '2026-02-20 23:00:00', 'is_nullable' => 'NO', 'extra' => ''],
+            ]
+        );
+
+        $this->assertStringContainsString('SET DEFAULT CURRENT_TIMESTAMP', $sql);
+    }
+
+    public function testCompareColumnsConvergesCurrentTimestampAcrossSpellings(): void
+    {
+        // MariaDB reports `current_timestamp()` while the XML says
+        // CURRENT_TIMESTAMP; without normalisation the sync re-emits the ALTER
+        // on every activation.
+        $comparator = new SchemaComparator($this->createSchemaDb());
+        $sql = $comparator->compareColumns(
+            'api_logs',
+            [
+                ['nombre' => 'createdAt', 'tipo' => 'timestamp', 'nulo' => 'NO', 'defecto' => 'CURRENT_TIMESTAMP'],
+            ],
+            [
+                ['name' => 'createdAt', 'type' => 'timestamp', 'default' => 'current_timestamp()', 'is_nullable' => 'NO', 'extra' => ''],
+            ]
+        );
+
+        $this->assertSame('', $sql);
+    }
+
+    public function testCompareColumnsConvergesEmptyStringDefault(): void
+    {
+        $comparator = new SchemaComparator($this->createSchemaDb());
+        $sql = $comparator->compareColumns(
+            'api_user_tokens',
+            [
+                ['nombre' => 'nick_usuario', 'tipo' => 'character varying(50)', 'nulo' => 'NO', 'defecto' => "''"],
+            ],
+            [
+                ['name' => 'nick_usuario', 'type' => 'varchar(50)', 'default' => '', 'is_nullable' => 'NO', 'extra' => ''],
+            ]
+        );
+
+        $this->assertSame('', $sql);
+    }
+
+    public function testCompareColumnsSkipsDefaultForAutoIncrementColumn(): void
+    {
+        // An AUTO_INCREMENT column has no user-owned default; comparing it made
+        // the sync emit `SET DEFAULT 0` forever.
+        $comparator = new SchemaComparator($this->createSchemaDb());
+        $sql = $comparator->compareColumns(
+            'api_user_tokens',
+            [
+                ['nombre' => 'id', 'tipo' => 'serial', 'nulo' => 'NO', 'defecto' => ''],
+            ],
+            [
+                ['name' => 'id', 'type' => FS_DB_INTEGER, 'default' => null, 'is_nullable' => 'NO', 'extra' => 'auto_increment'],
+            ]
+        );
+
+        $this->assertSame('', $sql);
+    }
+
     public function testNormalizeXmlConstraintSignatureHandlesForeignKeyWithoutTail(): void
     {
         $comparator = new SchemaComparator(new class() {

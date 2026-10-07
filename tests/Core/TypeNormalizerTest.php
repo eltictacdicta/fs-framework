@@ -55,6 +55,22 @@ class TypeNormalizerTest extends TestCase
         $this->assertSame('NULL', TypeNormalizer::normalizeDefault('NULL', 'VARCHAR(50)'));
     }
 
+    public function testNormalizeDefaultTreatsBlankTemporalDefaultAsNoDefault(): void
+    {
+        // Regression: an empty <defecto></defecto> on a temporal column produced
+        // DEFAULT '' and aborted the schema sync with MySQL errno 1067
+        // ("Invalid default value"). Empty means "no explicit default".
+        $this->assertSame('NULL', TypeNormalizer::normalizeDefault('', 'TIMESTAMP'));
+        $this->assertSame('NULL', TypeNormalizer::normalizeDefault('', 'DATETIME'));
+        $this->assertSame('NULL', TypeNormalizer::normalizeDefault('', 'DATE'));
+        $this->assertSame('NULL', TypeNormalizer::normalizeDefault('   ', 'TIMESTAMP'));
+        $this->assertSame('NULL', TypeNormalizer::normalizeDefault('', 'timestamp(6)'));
+
+        // Text columns must keep the empty-string default.
+        $this->assertSame("''", TypeNormalizer::normalizeDefault('', 'VARCHAR(50)'));
+        $this->assertSame("''", TypeNormalizer::normalizeDefault('', 'TEXT'));
+    }
+
     public function testConvertPostgresTypeMapsVarcharWithLength(): void
     {
         $this->assertSame('VARCHAR(255)', TypeNormalizer::convertPostgresType('character varying(255)'));
