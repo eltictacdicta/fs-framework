@@ -73,11 +73,13 @@
          <form name="f_login" action="{{ fsc.loginActionUrl() }}" method="post">
             {{ csrf_field() }}
             <div class="form-group has-feedback">
-               <input type="text" name="user" class="form-control" placeholder="Usuario" required="" autocomplete="off"/>
+               <label for="login_user" class="sr-only">Usuario</label>
+               <input type="text" id="login_user" name="user" class="form-control" placeholder="Usuario" required="" autocomplete="off"/>
                <span class="fa fa-user form-control-feedback"></span>
             </div>
             <div class="form-group has-feedback">
-               <input type="password" name="password" class="form-control" maxlength="32" required="" placeholder="Contraseña"/>
+               <label for="login_password" class="sr-only">Contraseña</label>
+               <input type="password" id="login_password" name="password" class="form-control" maxlength="32" required="" placeholder="Contraseña"/>
                <span class="fa fa-lock form-control-feedback"></span>
             </div>
 

@@ -79,8 +79,9 @@
             {% set search_columns = fsc.get_current_tab('search_columns') %}
             {% if search_columns|length > 0 %}
             <div class="col-sm-2">
+                <label for="list_query" class="sr-only">Buscar</label>
                 <div class="input-group">
-                    <input class="form-control" type="text" name="query" value="{{ fsc.query }}" autocomplete="off" autofocus="" placeholder="Buscar"/>
+                    <input class="form-control" type="text" id="list_query" name="query" value="{{ fsc.query }}" autocomplete="off" placeholder="Buscar"/>
                     <span class="input-group-btn hidden-sm">
                         <button class="btn btn-primary" type="submit">
                             <i class="fa fa-search" aria-hidden="true"></i>
@@ -99,11 +100,12 @@
             {% set sort_options = fsc.get_current_tab('sort_options') %}
             {% if sort_options|length > 0 %}
             <div class="col-sm-2">
+                <label for="list_sort" class="sr-only">Ordenar</label>
                 <div class="input-group">
                     <div class="input-group-addon">
                         <i class="fa fa-sort-amount-asc" aria-hidden="true"></i>
                     </div>
-                    <select name="sort" class="form-control" onchange="this.form.submit();">
+                    <select id="list_sort" name="sort" class="form-control" onchange="this.form.submit();">
                         {% for key, value in sort_options %}
                         {% if key == fsc.sort_option %}
                         <option value="{{ key }}" selected="">{{ value }}</option>
