@@ -148,7 +148,6 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
             'Symfony\\Component\\Form\\' => 23,
             'Symfony\\Component\\Filesystem\\' => 29,
             'Symfony\\Component\\EventDispatcher\\' => 34,
-            'Symfony\\Component\\Dotenv\\' => 25,
             'Symfony\\Component\\DependencyInjection\\' => 38,
             'Symfony\\Component\\Config\\' => 25,
             'Symfony\\Component\\Cache\\' => 24,
@@ -314,10 +313,6 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
         'Symfony\\Component\\EventDispatcher\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/event-dispatcher',
-        ),
-        'Symfony\\Component\\Dotenv\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/symfony/dotenv',
         ),
         'Symfony\\Component\\DependencyInjection\\' =>
         array (

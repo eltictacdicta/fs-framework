@@ -38,7 +38,6 @@ return array(
     'Symfony\\Component\\Form\\' => array($vendorDir . '/symfony/form'),
     'Symfony\\Component\\Filesystem\\' => array($vendorDir . '/symfony/filesystem'),
     'Symfony\\Component\\EventDispatcher\\' => array($vendorDir . '/symfony/event-dispatcher'),
-    'Symfony\\Component\\Dotenv\\' => array($vendorDir . '/symfony/dotenv'),
     'Symfony\\Component\\DependencyInjection\\' => array($vendorDir . '/symfony/dependency-injection'),
     'Symfony\\Component\\Config\\' => array($vendorDir . '/symfony/config'),
     'Symfony\\Component\\Cache\\' => array($vendorDir . '/symfony/cache'),
