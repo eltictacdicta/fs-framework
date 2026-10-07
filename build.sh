@@ -7,7 +7,8 @@ composer install
 # assets estáticos, no necesita dichos scripts.
 npm ci --ignore-scripts
 cp node_modules/@alpinejs/csp/dist/cdn.min.js view/js/alpine-csp.min.js
-cp node_modules/bootbox/dist/bootbox.min.js view/js/
+# bootbox removed: replaced at runtime by view/js/fs-dialogs.js. The legacy
+# view/js/bootbox.min.js stays committed on disk for rollback only.
 cp node_modules/bootstrap/dist/css/bootstrap.min.css view/css/
 cp node_modules/bootstrap/dist/fonts/* view/fonts/
 cp node_modules/bootstrap/dist/js/bootstrap.min.js view/js/
