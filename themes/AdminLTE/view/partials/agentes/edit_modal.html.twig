@@ -27,99 +27,99 @@
                <input type="hidden" name="codagente" value="{{ fsc.editing_agente.codagente }}"/>
                <div class="modal-body">
                   <div class="form-group">
-                     <label class="control-label">Nombre:</label>
-                     <input class="form-control" type="text" name="nombre" maxlength="50" value="{{ fsc.editing_agente.nombre }}" required/>
+                     <label class="control-label" for="age_nombre">Nombre:</label>
+                     <input class="form-control" type="text" id="age_nombre" name="nombre" maxlength="50" value="{{ fsc.editing_agente.nombre }}" required/>
                   </div>
                   <div class="form-group">
-                     <label class="control-label">Apellidos:</label>
-                     <input class="form-control" type="text" name="apellidos" maxlength="100" value="{{ fsc.editing_agente.apellidos }}" required/>
+                     <label class="control-label" for="age_apellidos">Apellidos:</label>
+                     <input class="form-control" type="text" id="age_apellidos" name="apellidos" maxlength="100" value="{{ fsc.editing_agente.apellidos }}" required/>
                   </div>
                   <div class="row">
                      <div class="col-sm-6">
                         <div class="form-group">
-                           <label class="control-label">DNI/CIF:</label>
-                           <input class="form-control" type="text" name="dnicif" maxlength="20" value="{{ fsc.editing_agente.dnicif }}"/>
+                           <label class="control-label" for="age_dnicif">DNI/CIF:</label>
+                           <input class="form-control" type="text" id="age_dnicif" name="dnicif" maxlength="20" value="{{ fsc.editing_agente.dnicif }}"/>
                         </div>
                      </div>
                      <div class="col-sm-6">
                         <div class="form-group">
-                           <label class="control-label">Teléfono:</label>
-                           <input class="form-control" type="tel" name="telefono" maxlength="20" value="{{ fsc.editing_agente.telefono }}"/>
+                           <label class="control-label" for="age_telefono">Teléfono:</label>
+                           <input class="form-control" type="tel" id="age_telefono" name="telefono" maxlength="20" value="{{ fsc.editing_agente.telefono }}"/>
                         </div>
                      </div>
                   </div>
                   <div class="form-group">
-                     <label class="control-label">Email:</label>
+                     <label class="control-label" for="age_email">Email:</label>
                      <div class="input-group">
                         <span class="input-group-addon"><span class="glyphicon glyphicon-envelope"></span></span>
-                        <input class="form-control" type="email" name="email" value="{{ fsc.editing_agente.email }}"/>
+                        <input class="form-control" type="email" id="age_email" name="email" value="{{ fsc.editing_agente.email }}"/>
                      </div>
                   </div>
                   <div class="form-group">
-                     <label class="control-label">Cargo:</label>
-                     <input class="form-control" type="text" name="cargo" maxlength="50" value="{{ fsc.editing_agente.cargo }}"/>
+                     <label class="control-label" for="age_cargo">Cargo:</label>
+                     <input class="form-control" type="text" id="age_cargo" name="cargo" maxlength="50" value="{{ fsc.editing_agente.cargo }}"/>
                   </div>
                   <div class="form-group">
-                     <label class="control-label">Dirección:</label>
-                     <textarea class="form-control" name="direccion" rows="2">{{ fsc.editing_agente.direccion }}</textarea>
+                     <label class="control-label" for="age_direccion">Dirección:</label>
+                     <textarea class="form-control" id="age_direccion" name="direccion" rows="2">{{ fsc.editing_agente.direccion }}</textarea>
                   </div>
                   <div class="row">
                      <div class="col-sm-4">
                         <div class="form-group">
-                           <label class="control-label">Código Postal:</label>
-                           <input class="form-control" type="text" name="codpostal" maxlength="10" value="{{ fsc.editing_agente.codpostal }}"/>
+                           <label class="control-label" for="age_codpostal">Código Postal:</label>
+                           <input class="form-control" type="text" id="age_codpostal" name="codpostal" maxlength="10" value="{{ fsc.editing_agente.codpostal }}"/>
                         </div>
                      </div>
                      <div class="col-sm-4">
                         <div class="form-group">
-                           <label class="control-label">Provincia:</label>
-                           <input class="form-control" type="text" name="provincia" maxlength="50" value="{{ fsc.editing_agente.provincia }}"/>
+                           <label class="control-label" for="age_provincia">Provincia:</label>
+                           <input class="form-control" type="text" id="age_provincia" name="provincia" maxlength="50" value="{{ fsc.editing_agente.provincia }}"/>
                         </div>
                      </div>
                      <div class="col-sm-4">
                         <div class="form-group">
-                           <label class="control-label">Ciudad:</label>
-                           <input class="form-control" type="text" name="ciudad" maxlength="50" value="{{ fsc.editing_agente.ciudad }}"/>
+                           <label class="control-label" for="age_ciudad">Ciudad:</label>
+                           <input class="form-control" type="text" id="age_ciudad" name="ciudad" maxlength="50" value="{{ fsc.editing_agente.ciudad }}"/>
                         </div>
                      </div>
                   </div>
                   <div class="row">
                      <div class="col-sm-4">
                         <div class="form-group">
-                           <label class="control-label">Fecha de nacimiento:</label>
-                           <input class="form-control" type="date" name="f_nacimiento" value="{{ fsc.editing_agente.f_nacimiento|date_iso }}"/>
+                           <label class="control-label" for="age_f_nacimiento">Fecha de nacimiento:</label>
+                           <input class="form-control" type="date" id="age_f_nacimiento" name="f_nacimiento" value="{{ fsc.editing_agente.f_nacimiento|date_iso }}"/>
                         </div>
                      </div>
                      <div class="col-sm-4">
                         <div class="form-group">
-                           <label class="control-label">Fecha de alta:</label>
-                           <input class="form-control" type="date" name="f_alta" value="{{ fsc.editing_agente.f_alta|date_iso }}"/>
+                           <label class="control-label" for="age_f_alta">Fecha de alta:</label>
+                           <input class="form-control" type="date" id="age_f_alta" name="f_alta" value="{{ fsc.editing_agente.f_alta|date_iso }}"/>
                         </div>
                      </div>
                      <div class="col-sm-4">
                         <div class="form-group">
-                           <label class="control-label">Fecha de baja:</label>
-                           <input class="form-control" type="date" name="f_baja" value="{{ fsc.editing_agente.f_baja|date_iso }}"/>
+                           <label class="control-label" for="age_f_baja">Fecha de baja:</label>
+                           <input class="form-control" type="date" id="age_f_baja" name="f_baja" value="{{ fsc.editing_agente.f_baja|date_iso }}"/>
                         </div>
                      </div>
                   </div>
                   <div class="row">
                      <div class="col-sm-6">
                         <div class="form-group">
-                           <label class="control-label">% Comisión:</label>
-                           <input class="form-control" type="number" step="0.01" name="porcomision" value="{{ fsc.editing_agente.porcomision }}"/>
+                           <label class="control-label" for="age_porcomision">% Comisión:</label>
+                           <input class="form-control" type="number" step="0.01" id="age_porcomision" name="porcomision" value="{{ fsc.editing_agente.porcomision }}"/>
                         </div>
                      </div>
                      <div class="col-sm-6">
                         <div class="form-group">
-                           <label class="control-label">Nº Seguridad Social:</label>
-                           <input class="form-control" type="text" name="seg_social" maxlength="20" value="{{ fsc.editing_agente.seg_social }}"/>
+                           <label class="control-label" for="age_seg_social">Nº Seguridad Social:</label>
+                           <input class="form-control" type="text" id="age_seg_social" name="seg_social" maxlength="20" value="{{ fsc.editing_agente.seg_social }}"/>
                         </div>
                      </div>
                   </div>
                   <div class="form-group">
-                     <label class="control-label">Cuenta bancaria:</label>
-                     <input class="form-control" type="text" name="banco" maxlength="50" value="{{ fsc.editing_agente.banco }}"/>
+                     <label class="control-label" for="age_banco">Cuenta bancaria:</label>
+                     <input class="form-control" type="text" id="age_banco" name="banco" maxlength="50" value="{{ fsc.editing_agente.banco }}"/>
                   </div>
                </div>
                <div class="modal-footer">
