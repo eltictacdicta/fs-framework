@@ -483,7 +483,12 @@ class StealthMode
             $name = session_name();
             $id = session_id();
             $browserCookie = $_COOKIE[$name] ?? '(none)';
-            error_log(sprintf('[StealthMode] cookie sync | browser=%s | session=%s | match=%s', $browserCookie, $id, $browserCookie === $id ? 'yes' : 'NO'));
+            // El valor del cookie viene del cliente: hay que neutralizar caracteres
+            // de control (\r, \n) y acotar el largo para que no pueda inyectar
+            // líneas falsas en el log (CWE-117). El id de sesión es generado por
+            // el servidor, por eso se registra tal cual.
+            $browserCookieForLog = mb_substr(preg_replace('/[^\x20-\x7E]/', '', (string) $browserCookie) ?? '', 0, 128);
+            error_log(sprintf('[StealthMode] cookie sync | browser=%s | session=%s | match=%s', $browserCookieForLog, $id, $browserCookie === $id ? 'yes' : 'NO'));
             if (!isset($_COOKIE[$name]) || $_COOKIE[$name] !== $id) {
                 setcookie($name, $id, [
                     'expires' => 0,

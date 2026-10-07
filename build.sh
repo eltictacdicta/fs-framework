@@ -1,7 +1,11 @@
 #!/bin/bash
 
 composer install
-npm install
+# npm ci usa el package-lock.json versionado (build reproducible) y
+# --ignore-scripts evita ejecutar lifecycle scripts de dependencias de
+# terceros durante la instalación (Sonar S6505). build.sh solo copia
+# assets estáticos, no necesita dichos scripts.
+npm ci --ignore-scripts
 cp node_modules/@alpinejs/csp/dist/cdn.min.js view/js/alpine-csp.min.js
 cp node_modules/bootbox/dist/bootbox.min.js view/js/
 cp node_modules/bootstrap/dist/css/bootstrap.min.css view/css/
@@ -22,4 +26,4 @@ cp node_modules/font-awesome/fonts/* view/fonts/
 cp node_modules/htmx.org/dist/htmx.min.js view/js/
 cp node_modules/jquery/dist/jquery.min.js view/js/
 cp node_modules/sortablejs/Sortable.min.js view/js/
-rm -rf node_modules package-lock.json
+rm -rf node_modules

@@ -14,7 +14,7 @@
 .opencode/tmp/
 # Documentation (generated)
 /doc/
-
+/apk/
 # Dependencies (installed via composer/npm)
 /node_modules/
 # vendor/ se versiona a propósito: actualizaciones del núcleo y ZIPs de plugins
@@ -34,7 +34,6 @@
 # Configuration (contains credentials)
 config.php
 config.php.bak*
-package-lock.json
 
 # =============================================================================
 # PLUGINS (exclude all except core)

@@ -97,7 +97,7 @@ PHP;
 
         exec($command, $output, $exitCode);
 
-        chmod($tempDir, 0755);
+        chmod($tempDir, 0750);
         @rmdir($tempDir);
 
         $this->assertSame(42, $exitCode, 'Expected MissingSecretKeyException. Output: ' . implode("\n", $output));
