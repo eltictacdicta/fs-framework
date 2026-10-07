@@ -107,6 +107,15 @@ final class TypeNormalizer
             return 'NULL';
         }
 
+        // An empty <defecto></defecto> on a temporal column is not a valid
+        // default: MySQL/MariaDB reject DEFAULT '' for DATE/DATETIME/TIMESTAMP/
+        // TIME with errno 1067 ("Invalid default value"). Treat it as "no
+        // explicit default" so the column keeps the server default instead of
+        // aborting the whole schema sync.
+        if ($default === '' && self::isTemporalType($upperType)) {
+            return 'NULL';
+        }
+
         if (self::supportsTemporalFunctionDefault($upperType)
             && in_array($upperDefault, ['CURRENT_TIMESTAMP', 'NOW()', 'CURRENT_TIMESTAMP()'], true)
         ) {
@@ -228,6 +237,13 @@ final class TypeNormalizer
 
     private static function supportsTemporalFunctionDefault(string $upperType): bool
     {
+        return self::isTemporalType($upperType);
+    }
+
+    public static function isTemporalType(string $type): bool
+    {
+        $upperType = strtoupper(trim($type));
+
         return $upperType === 'DATE'
             || preg_match('/^TIME(?:\(\d+\))?$/', $upperType) === 1
             || strpos($upperType, 'TIMESTAMP') !== false
