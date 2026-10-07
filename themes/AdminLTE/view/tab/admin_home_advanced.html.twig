@@ -5,7 +5,8 @@
             <div class="col-md-3 col-sm-4">
                 <div class="form-group">
                     Zona horaria:
-                    <select class="form-control" name="zona_horaria">
+                    <label for="adv_zona_horaria" class="sr-only">Zona horaria:</label>
+                    <select class="form-control" id="adv_zona_horaria" name="zona_horaria">
                         {% for value in fsc.settings.get_timezone_list() %}
                         {% if value.zone == config2.zona_horaria %}
                         <option value="{{ value.zone }}" selected="">{{ value.diff_from_GMT }} - {{ value.zone }}</option>
@@ -19,7 +20,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Portada:
-                    <select name="homepage" class="form-control">
+                    <label for="adv_homepage" class="sr-only">Portada:</label>
+                    <select id="adv_homepage" name="homepage" class="form-control">
                         {% for value in fsc.paginas %}
                         {% if value.name == config2.homepage %}
                         <option value="{{ value.name }}" selected="">{{ value.name }}</option>
@@ -33,7 +35,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Decimales de los totales:
-                    <select name="nf0" class="form-control">
+                    <label for="adv_nf0" class="sr-only">Decimales de los totales:</label>
+                    <select id="adv_nf0" name="nf0" class="form-control">
                         {% for value in fsc.settings.nf0() %}
                         {% if value == config2.nf0 %}
                         <option value="{{ value }}" selected="">{{ value }}</option>
@@ -47,7 +50,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Decimales de los precios:
-                    <select name="nf0_art" class="form-control">
+                    <label for="adv_nf0_art" class="sr-only">Decimales de los precios:</label>
+                    <select id="adv_nf0_art" name="nf0_art" class="form-control">
                         {% for value in fsc.settings.nf0() %}
                         {% if value == config2.nf0_art %}
                         <option value="{{ value }}" selected="">{{ value }}</option>
@@ -61,7 +65,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Separador para los Decimales:
-                    <select name="nf1" class="form-control">
+                    <label for="adv_nf1" class="sr-only">Separador para los Decimales:</label>
+                    <select id="adv_nf1" name="nf1" class="form-control">
                         {% for key, value in fsc.settings.nf1() %}
                         {% if key == config2.nf1 %}
                         <option value="{{ key }}" selected="">{{ value }}</option>
@@ -75,7 +80,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Separador para los Millares:
-                    <select name="nf2" class="form-control">
+                    <label for="adv_nf2" class="sr-only">Separador para los Millares:</label>
+                    <select id="adv_nf2" name="nf2" class="form-control">
                         <option value="">(Ninguno)</option>
                         {% for key, value in fsc.settings.nf1() %}
                         {% if key == config2.nf2 %}
@@ -90,7 +96,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Símbolo Divisa:
-                    <select name="pos_divisa" class="form-control">
+                    <label for="adv_pos_divisa" class="sr-only">Símbolo Divisa:</label>
+                    <select id="adv_pos_divisa" name="pos_divisa" class="form-control">
                         {% if config2.pos_divisa == 'right' %}
                         <option value="right" selected="">123 {{ empresa_simbolo|default('€') }}</option>
                         <option value="left">{{ empresa_simbolo|default('€') }}123</option>
@@ -129,8 +136,8 @@
             {% for value in fsc.settings.traducciones() %}
             <div class="col-md-2 col-sm-3">
                 <div class="form-group">
-                    <span class="text-uppercase">{{ value.nombre }}:</span>
-                    <input class="form-control" type="text" name="{{ value.nombre }}" value="{{ value.valor }}" autocomplete="off"/>
+                    <label class="text-uppercase" for="tr_{{ value.nombre|replace({' ': '_'}) }}">{{ value.nombre }}:</label>
+                    <input class="form-control" type="text" id="tr_{{ value.nombre|replace({' ': '_'}) }}" name="{{ value.nombre }}" value="{{ value.valor }}" autocomplete="off"/>
                 </div>
             </div>
             {% endfor %}
@@ -152,7 +159,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Comprobaciones en la base de datos:
-                    <select name="check_db_types" class="form-control">
+                    <label for="adv_check_db_types" class="sr-only">Comprobaciones en la base de datos:</label>
+                    <select id="adv_check_db_types" name="check_db_types" class="form-control">
                         {% if config2.check_db_types == 1 %}
                         <option value="1" selected=''>Comprobar los tipos de las columnas de las tablas</option>
                         <option value="0">No comprobar los tipos</option>
@@ -170,7 +178,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Tipo entero:
-                    <input class="form-control" type="text" name="db_integer" value="{{ config2.db_integer }}"/>
+                    <label for="adv_db_integer" class="sr-only">Tipo entero:</label>
+                    <input class="form-control" type="text" id="adv_db_integer" name="db_integer" value="{{ config2.db_integer }}"/>
                     <p class="help-block">Tipo a usar en la base de datos (MySQL).</p>
                 </div>
             </div>
@@ -181,7 +190,8 @@
                 {% endif %}
                 <div class="form-group{{ form_class }}">
                     Comprobar claves ajenas:
-                    <select name="foreign_keys" class="form-control">
+                    <label for="adv_foreign_keys" class="sr-only">Comprobar claves ajenas:</label>
+                    <select id="adv_foreign_keys" name="foreign_keys" class="form-control">
                         {% if config2.foreign_keys == 1 %}
                         <option value="1" selected=''>Si</option>
                         <option value="0">No</option>
@@ -202,14 +212,16 @@
             <div class="col-md-4 col-sm-4">
                 <div class="form-group">
                     Permitir acceso desde estas IPs:
-                    <input class="form-control" type="text" name="ip_whitelist" value="{{ config2.ip_whitelist }}"/>
+                    <label for="adv_ip_whitelist" class="sr-only">Permitir acceso desde estas IPs:</label>
+                    <input class="form-control" type="text" id="adv_ip_whitelist" name="ip_whitelist" value="{{ config2.ip_whitelist }}"/>
                     <p class="help-block">Los admninistradores pueden acceder desde cualquier IP.</p>
                 </div>
             </div>
             <div class="col-md-4 col-sm-4">
                 <div class="form-group">
                     Catálogo remoto de plugins de la comunidad:
-                    <select name="disable_remote_plugin_catalog" class="form-control">
+                    <label for="adv_disable_remote_plugin_catalog" class="sr-only">Catálogo remoto de plugins de la comunidad:</label>
+                    <select id="adv_disable_remote_plugin_catalog" name="disable_remote_plugin_catalog" class="form-control">
                         {% if config2.disable_remote_plugin_catalog == 1 %}
                         <option value="0">Activo (consultar GitHub)</option>
                         <option value="1" selected=''>Desactivado (servidor sin Internet)</option>
@@ -226,7 +238,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Generar los libros contables:
-                    <select name="libros_contables" class="form-control">
+                    <label for="adv_libros_contables" class="sr-only">Generar los libros contables:</label>
+                    <select id="adv_libros_contables" name="libros_contables" class="form-control">
                         {% if config2.libros_contables == 1 %}
                         <option value="1" selected=''>Si</option>
                         <option value="0">No</option>
@@ -240,7 +253,8 @@
             <div class="col-md-3 col-sm-3">
                 <div class="form-group">
                     Algoritmo de nuevo código:
-                    <select name="new_codigo" class="form-control">
+                    <label for="adv_new_codigo" class="sr-only">Algoritmo de nuevo código:</label>
+                    <select id="adv_new_codigo" name="new_codigo" class="form-control">
                         {% for key, value in fsc.settings.new_codigo_options() %}
                         {% if config2.new_codigo == key %}
                         <option value="{{ key }}" selected=''>{{ value }}</option>

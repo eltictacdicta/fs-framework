@@ -6,7 +6,7 @@
             <thead>
                 <tr>
                     <th class="text-center" width="40">
-                        <input id="marcar_todo_enabled" type="checkbox" name="c_enabled" value=""/>
+                        <input id="marcar_todo_enabled" type="checkbox" name="c_enabled" value="" aria-label="Marcar/desmarcar todas las páginas"/>
                     </th>
                     <th class="text-left">Página</th>
                     <th class="text-left">Menú</th>
@@ -17,9 +17,9 @@
             <tr{% if not value.exists %} class="danger"{% endif %}>
                 <td class="text-center">
                     {% if value.enabled %}
-                    <input class="checkbox-inline" type="checkbox" name="enabled[]" value="{{ value.name }}" checked=""/>
+                    <input class="checkbox-inline" type="checkbox" id="enabled_{{ value.name }}" name="enabled[]" value="{{ value.name }}" aria-label="{{ value.name }}" checked=""/>
                     {% else %}
-                    <input class="checkbox-inline" type="checkbox" name="enabled[]" value="{{ value.name }}"/>
+                    <input class="checkbox-inline" type="checkbox" id="enabled_{{ value.name }}" name="enabled[]" value="{{ value.name }}" aria-label="{{ value.name }}"/>
                     {% endif %}
                 </td>
                 <td>

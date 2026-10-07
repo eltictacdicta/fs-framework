@@ -112,7 +112,7 @@
                                 </div>
                                 <div class="box-body">
                                     <div class="form-group">
-                                        <label>Activar modo stealth</label>
+                                        <span>Activar modo stealth</span>
                                         <div>
                                             <label class="radio-inline">
                                                 <input type="radio" name="stealth_enabled" value="1"
@@ -172,7 +172,7 @@
                                 </span>
                             </div>
                             <div class="box-body">
-                                <label>URL de acceso al panel:</label>
+                                <span>URL de acceso al panel:</span>
                                 <div class="stealth-url-box" id="access_url_box">
                                     <span id="access_url_text">{{ fsc.stealth_access_url }}</span>
                                     <button type="button" class="btn btn-xs btn-default btn-copy"
@@ -187,7 +187,7 @@
                                 </p>
 
                                 <div class="form-group">
-                                    <label>Token actual:</label>
+                                    <label for="token_display">Token actual:</label>
                                     <div class="input-group">
                                         <input type="text" class="form-control" readonly
                                                value="{{ fsc.stealth_param_value }}" id="token_display"/>
@@ -227,6 +227,7 @@
                             </div>
                         </div>
                         <div class="box-body" style="padding: 0;">
+                            <label for="homepage_editor" class="sr-only">Homepage pública</label>
                             <textarea id="homepage_editor" name="stealth_homepage_html">{{ fsc.stealth_homepage_html|e('html_attr') }}</textarea>
                         </div>
                         <div class="box-footer">
@@ -254,6 +255,7 @@
                                 La homepage pública ya incluye <strong>Bootstrap 5</strong> y la fuente <strong>Inter</strong>.
                                 Aquí puedes añadir estilos CSS adicionales. Se inyectan dentro de <code>&lt;style&gt;</code> en el <code>&lt;head&gt;</code>.
                             </p>
+                            <label for="custom_css_editor" class="sr-only">CSS personalizado</label>
                             <textarea id="custom_css_editor" name="stealth_custom_css"
                                       class="form-control" rows="8"
                                       style="font-family: monospace; font-size: 13px;"
