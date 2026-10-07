@@ -4,9 +4,17 @@
 # Apache 2.4+ required
 # =============================================================================
 
-# Disable directory listing
-Options -Indexes -ExecCGI -Includes
-Options +FollowSymLinks
+# Directory listing and symlinks.
+# NOTE: 'Options' directives are rejected by some hosts (Plesk/Apache with
+# AllowOverride excluding Options) with HTTP 500 "Option FollowSymLinks not
+# allowed here". They cannot be guarded with <IfModule> because the rejection
+# comes from host permissions. Configure them at the virtual-host level:
+#     Options -Indexes +FollowSymLinks
+# If your host forbids them, leave them out here; the vhost already applies them.
+#
+# Uncomment ONLY if your host allows Options in .htaccess:
+# Options -Indexes -ExecCGI -Includes
+# Options +FollowSymLinks
 
 # Disable server signature
 ServerSignature Off

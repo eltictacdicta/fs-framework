@@ -3,11 +3,13 @@
 # Apache 2.4+ required
 # =============================================================================
 
-# Disable directory listing and enable symlinks
-<IfModule mod_autoindex.c>
-    Options -Indexes
-</IfModule>
-Options +FollowSymLinks -ExecCGI
+# NOTE: 'Options' directives are NOT allowed in .htaccess on every host.
+# Plesk/Apache setups whose AllowOverride excludes Options reject them with
+# "Option FollowSymLinks not allowed here" and return HTTP 500 for the whole
+# app. Since the rejection comes from host permissions (not a module), it
+# cannot be guarded with <IfModule>. Configure these at the virtual-host level:
+#     Options -Indexes +FollowSymLinks
+# Directory listing and symlink following are handled by the vhost config.
 
 # =============================================================================
 # SECURITY HEADERS

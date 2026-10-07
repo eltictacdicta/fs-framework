@@ -20,7 +20,9 @@
 </FilesMatch>
 
 # Prevenir listado de directorios
-Options -Indexes
+# NOTA: la directiva Options no está permitida en .htaccess en todos los hosts
+# (Plesk devuelve HTTP 500 si AllowOverride no la autoriza). Se configura a
+# nivel de virtual-host: Options -Indexes
 
 # Configurar tipos MIME correctamente
 <IfModule mod_mime.c>
