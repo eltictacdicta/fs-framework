@@ -283,15 +283,16 @@
          <form name="f_nuevo_usuario" class="form" role="form" action="{{ fsc.url() }}" method="post">
             {{ csrf_field() }}
             <div class="modal-header">
-               <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+               <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">&times;</button>
                <h4 class="modal-title">
                   <i class="fa fa-user" aria-hidden="true"></i>&nbsp; Nuevo usuario
                </h4>
             </div>
             <div class="modal-body">
-               <div class="form-group">
-                  Nick:
-                  <input class="form-control" type="text" name="nnick" maxlength="12" autocomplete="off" required=""/>
+                <div class="form-group">
+                   <label for="nu_nick" class="sr-only">Nick</label>
+                   Nick:
+                   <input class="form-control" type="text" id="nu_nick" name="nnick" maxlength="12" autocomplete="off" required=""/>
                   <label class="checkbox-inline">
                      <input type="checkbox" name="nadmin" value="TRUE"/>
                      Administrador
@@ -303,23 +304,26 @@
                   </label>
                   {% endfor %}
                </div>
-               <div class="form-group">
-                  Contraseña:
-                  <input class="form-control" type="password" name="npassword" maxlength="32"/>
+                <div class="form-group">
+                   <label for="nu_password" class="sr-only">Contraseña</label>
+                   Contraseña:
+                   <input class="form-control" type="password" id="nu_password" name="npassword" maxlength="32"/>
                </div>
-               <div class="form-group">
-                  Email:
-                  <div class="input-group">
-                     <span class="input-group-addon">
-                        <span class="glyphicon glyphicon-envelope"></span>
-                     </span>
-                     <input class="form-control" type="text" name="nemail" autocomplete="off"/>
-                  </div>
-               </div>
+                <div class="form-group">
+                   <label for="nu_email" class="sr-only">Email</label>
+                   Email:
+                   <div class="input-group">
+                      <span class="input-group-addon">
+                         <span class="glyphicon glyphicon-envelope"></span>
+                      </span>
+                      <input class="form-control" type="text" id="nu_email" name="nemail" autocomplete="off"/>
+                   </div>
+                </div>
                {% if fsc.agente is not null %}
-               <div class="form-group">
-                  <a target="_blank" href="{{ fsc.agente.url() }}">Empleado</a>:
-                  <select name="ncodagente" class="form-control">
+                <div class="form-group">
+                   <label for="nu_codagente" class="sr-only">Empleado</label>
+                   <a target="_blank" href="{{ fsc.agente.url() }}">Empleado</a>:
+                   <select id="nu_codagente" name="ncodagente" class="form-control">
                      <option value="">Ninguno</option>
                      <option value="">------</option>
                      {% for value in fsc.agente.all() %}
@@ -349,20 +353,22 @@
          <form name="f_nuevo_rol" class="form" role="form" action="{{ fsc.url() }}" method="post">
             {{ csrf_field() }}
             <div class="modal-header">
-               <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+               <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">&times;</button>
                <h4 class="modal-title">
                   <i class="fa fa-address-card-o" aria-hidden="true"></i>&nbsp; Nuevo rol
                </h4>
             </div>
             <div class="modal-body">
-               <div class="form-group">
-                  Código:
-                  <input type="text" name="nrol" class="form-control" maxlength="20" autocomplete="off" required=""/>
-               </div>
-               <div class="form-group">
-                  Descripcion:
-                  <input type="text" name="descripcion" class="form-control" autocomplete="off" required=""/>
-               </div>
+                <div class="form-group">
+                   <label for="nr_codigo" class="sr-only">Código</label>
+                   Código:
+                   <input type="text" id="nr_codigo" name="nrol" class="form-control" maxlength="20" autocomplete="off" required=""/>
+                </div>
+                <div class="form-group">
+                   <label for="nr_descripcion" class="sr-only">Descripción</label>
+                   Descripcion:
+                   <input type="text" id="nr_descripcion" name="descripcion" class="form-control" autocomplete="off" required=""/>
+                </div>
             </div>
             <div class="modal-footer">
                <button class="btn btn-sm btn-primary" type="submit">

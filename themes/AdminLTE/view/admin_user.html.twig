@@ -101,8 +101,9 @@
       <div class="row">
          <div class="col-sm-2">
             <div class="form-group">
+               <label for="suser_nick" class="sr-only">Nick</label>
                Nick:
-               <input class="form-control" type="text" name="snick" value="{{ fsc.suser.nick }}" disabled="disabled"/>
+               <input class="form-control" type="text" id="suser_nick" name="snick" value="{{ fsc.suser.nick }}" disabled="disabled"/>
                {% if fsc.user.admin and fsc.suser.nick != fsc.user.nick %}
                <div class="checkbox">
                   <label>
@@ -119,22 +120,26 @@
          </div>
          <div class="col-sm-2">
             <div class="form-group">
+               <label for="suser_password" class="sr-only">Contraseña</label>
                Contraseña:
-               <input class="form-control" type="password" name="spassword" maxlength="32" placeholder="nueva contraseña" autocomplete="new-password"/>
-               <input class="form-control" type="password" name="spassword2" maxlength="32" placeholder="repite la contraseña" autocomplete="new-password"/>
+               <input class="form-control" type="password" id="suser_password" name="spassword" maxlength="32" placeholder="nueva contraseña" autocomplete="new-password"/>
+               <label for="suser_password2" class="sr-only">Repite la contraseña</label>
+               <input class="form-control" type="password" id="suser_password2" name="spassword2" maxlength="32" placeholder="repite la contraseña" autocomplete="new-password"/>
             </div>
          </div>
          <div class="col-sm-2">
             <div class="form-group">
+               <label for="suser_email" class="sr-only">Email</label>
                Email:
-               <input type="text" name="email" value="{{ fsc.suser.email }}" class="form-control" autocomplete="off"/>
+               <input type="text" id="suser_email" name="email" value="{{ fsc.suser.email }}" class="form-control" autocomplete="off"/>
             </div>
          </div>
          {% if fsc.agente is not null %}
          <div class="col-sm-2">
             <div class="form-group">
+               <label for="suser_codagente" class="sr-only">Empleado</label>
                <a href="{{ fsc.agente.url() }}">Empleado</a>:
-               <select name="scodagente" class="form-control">
+               <select id="suser_codagente" name="scodagente" class="form-control">
                {% if fsc.user.admin %}
                   <option value="">Ninguno</option>
                   <option value="">------</option>
@@ -163,15 +168,16 @@
          {% else %}
          <div class="col-sm-2">
             <div class="form-group">
-               <label>Empleado:</label>
+               <span>Empleado:</span>
                <p class="form-control-static">Funcionalidad movida a plugin</p>
             </div>
          </div>
          {% endif %}
          <div class="col-sm-3">
             <div class="form-group">
+               <label for="suser_udpage" class="sr-only">{{ 'home_page'|trans }}</label>
                {{ 'home_page'|trans }}:
-               <select name="udpage" class="form-control">
+               <select id="suser_udpage" name="udpage" class="form-control">
                   <option value="">{{ 'default_homepage_option'|trans }}</option>
                {% for value in fsc.suser.get_menu() %}
                   {% if value.name == fsc.suser.fs_page %}
@@ -244,7 +250,7 @@
                      {% for value in fsc.rol.all() %}
                      <tr>
                         <td class="text-center">
-                           <input type="checkbox" name="roles[]" value="{{ value.codrol }}"
+                           <input type="checkbox" name="roles[]" value="{{ value.codrol }}" aria-label="{{ value.codrol }} - {{ value.descripcion }}"
                               {% for ur in fsc.user_roles %}
                                  {% if ur.codrol == value.codrol %} checked=""{% endif %}
                               {% endfor %}
@@ -422,7 +428,7 @@
       <div class="modal-dialog">
          <div class="modal-content">
             <div class="modal-header">
-               <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+               <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">&times;</button>
                <h4 class="modal-title">
                   <span class="glyphicon glyphicon-user"></span> &nbsp; Nuevo empleado
                </h4>
@@ -432,31 +438,31 @@
                <div class="form-group">
                   <label for="nnombre" class="col-sm-2 control-label">Nombre</label>
                   <div class="col-sm-10">
-                     <input class="form-control" type="text" name="nnombre" autocomplete="off" required=""/>
+                     <input class="form-control" type="text" id="nnombre" name="nnombre" autocomplete="off" required=""/>
                   </div>
                </div>
                <div class="form-group">
                   <label for="napellidos" class="col-sm-2 control-label">Apellidos</label>
                   <div class="col-sm-10">
-                     <input class="form-control" type="text" name="napellidos" autocomplete="off"/>
+                     <input class="form-control" type="text" id="napellidos" name="napellidos" autocomplete="off"/>
                   </div>
                </div>
                <div class="form-group">
                   <label for="ndnicif" class="col-sm-2 control-label">{{ constant('FS_CIFNIF') }}</label>
                   <div class="col-sm-10">
-                     <input class="form-control" type="text" name="ndnicif" autocomplete="off"/>
+                     <input class="form-control" type="text" id="ndnicif" name="ndnicif" autocomplete="off"/>
                   </div>
                </div>
                <div class="form-group">
                   <label for="ntelefono" class="col-sm-2 control-label">Teléfono</label>
                   <div class="col-sm-10">
-                     <input class="form-control" type="text" name="ntelefono" autocomplete="off"/>
+                     <input class="form-control" type="text" id="ntelefono" name="ntelefono" autocomplete="off"/>
                   </div>
                </div>
                <div class="form-group">
                   <label for="nemail" class="col-sm-2 control-label">Email</label>
                   <div class="col-sm-10">
-                     <input class="form-control" type="text" name="nemail" autocomplete="off"/>
+                     <input class="form-control" type="text" id="nemail" name="nemail" autocomplete="off"/>
                   </div>
                </div>
             </div>

@@ -94,7 +94,8 @@
                </p>
             </div>
             <div class="form-group">
-               <input type="text" name="descripcion" value="{{ fsc.rol.descripcion }}" class="form-control" autocomplete="off"/>
+               <label for="rol_descripcion" class="sr-only">Descripción</label>
+               <input type="text" id="rol_descripcion" name="descripcion" value="{{ fsc.rol.descripcion }}" class="form-control" autocomplete="off"/>
             </div>
          </div>
       </div>
@@ -128,10 +129,10 @@
                <tr class="warning">
                   <td colspan="2"></td>
                   <td class="text-center" title="Marcar/desmarcar todos">
-                     <input id="marcar_todo_ver" type="checkbox" name="p_ver_modificar" value=""/>
+                     <input id="marcar_todo_ver" type="checkbox" name="p_ver_modificar" value="" aria-label="Marcar/desmarcar todos: Ver / Modificar"/>
                   </td>
                   <td class="text-center" title="Marcar/desmarcar todos">
-                     <input id="marcar_todo_eliminar" type="checkbox" name="p_eliminar" value=""/>
+                     <input id="marcar_todo_eliminar" type="checkbox" name="p_eliminar" value="" aria-label="Marcar/desmarcar todos: Eliminar"/>
                   </td>
                </tr>
                {% for key, value in fsc.all_pages() %}
