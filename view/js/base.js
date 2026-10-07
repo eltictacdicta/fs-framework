@@ -16,8 +16,8 @@ function number_format(number, decimals, dec_point, thousands_sep) {
     dec_point = dec_point || '.';
     thousands_sep = thousands_sep || ',';
     
-    number = parseFloat(number);
-    if (isNaN(number)) {
+    number = Number.parseFloat(number);
+    if (Number.isNaN(number)) {
         return '0';
     }
     
@@ -56,7 +56,7 @@ function parse_number(str, dec_point, thousands_sep) {
         str = str.replace(dec_point, '.');
     }
     
-    return parseFloat(str) || 0;
+    return Number.parseFloat(str) || 0;
 }
 
 /**
