@@ -1070,7 +1070,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                             <span class="input-group-addon">
                                                                 <i class="fa fa-user fa-fw"></i>
                                                             </span>
-                                                            <input class="form-control" type="text" name="admin_nick"
+                                                            <label for="admin_nick" class="sr-only">Usuario</label>
+                                                            <input class="form-control" type="text" id="admin_nick" name="admin_nick"
                                                                 value="<?php echo htmlspecialchars($admin_nick, ENT_QUOTES, 'UTF-8'); ?>"
                                                                 autocomplete="username" />
                                                         </div>
@@ -1083,7 +1084,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                             <span class="input-group-addon">
                                                                 <i class="fa fa-lock fa-fw"></i>
                                                             </span>
-                                                            <input class="form-control" type="password" name="admin_password"
+                                                            <label for="admin_password" class="sr-only">Contraseña</label>
+                                                            <input class="form-control" type="password" id="admin_password" name="admin_password"
                                                                 autocomplete="new-password" />
                                                         </div>
                                                     </div>
@@ -1095,7 +1097,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                         <div class="col-sm-4">
                                             <div class="form-group">
                                                 Tipo de servidor SQL:
-                                                <select name="db_type" class="form-control" onchange="change_db_type()">
+                                                <label for="db_type" class="sr-only">Tipo de servidor SQL</label>
+                                                <select id="db_type" name="db_type" class="form-control" onchange="change_db_type()">
                                                     <option value="MYSQL" <?php echo ($db_type == 'MYSQL') ? ' selected=""' : ''; ?>>MySQL</option>
                                                     <option value="POSTGRESQL" <?php echo ($db_type == 'POSTGRESQL') ? ' selected=""' : ''; ?>>PostgreSQL</option>
                                                 </select>
@@ -1104,7 +1107,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                         <div class="col-sm-4">
                                             <div class="form-group">
                                                 Servidor:
-                                                <input class="form-control" type="text" name="db_host"
+                                                <label for="db_host" class="sr-only">Servidor</label>
+                                                <input class="form-control" type="text" id="db_host" name="db_host"
                                                     value="<?php echo htmlspecialchars($db_host, ENT_QUOTES, 'UTF-8'); ?>"
                                                     autocomplete="off" />
                                             </div>
@@ -1112,7 +1116,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                         <div class="col-sm-4">
                                             <div class="form-group">
                                                 Puerto:
-                                                <input class="form-control" type="number" name="db_port"
+                                                <label for="db_port" class="sr-only">Puerto</label>
+                                                <input class="form-control" type="number" id="db_port" name="db_port"
                                                     value="<?php echo htmlspecialchars($db_port, ENT_QUOTES, 'UTF-8'); ?>"
                                                     autocomplete="off" />
                                             </div>
@@ -1126,7 +1131,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                     <span class="input-group-addon">
                                                         <i class="fa fa-database fa-fw"></i>
                                                     </span>
-                                                    <input class="form-control" type="text" name="db_name"
+                                                    <label for="db_name" class="sr-only">Nombre base de datos</label>
+                                                    <input class="form-control" type="text" id="db_name" name="db_name"
                                                         value="<?php echo htmlspecialchars($db_name, ENT_QUOTES, 'UTF-8'); ?>"
                                                         autocomplete="off" />
                                                 </div>
@@ -1139,7 +1145,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                     <span class="input-group-addon">
                                                         <i class="fa fa-user fa-fw"></i>
                                                     </span>
-                                                    <input class="form-control" type="text" name="db_user"
+                                                    <label for="db_user" class="sr-only">Usuario</label>
+                                                    <input class="form-control" type="text" id="db_user" name="db_user"
                                                         value="<?php echo htmlspecialchars($db_user, ENT_QUOTES, 'UTF-8'); ?>"
                                                         autocomplete="off" />
                                                 </div>
@@ -1152,7 +1159,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                     <span class="input-group-addon">
                                                         <i class="fa fa-key fa-fw"></i>
                                                     </span>
-                                                    <input class="form-control" type="password" name="db_pass" value=""
+                                                    <label for="db_pass" class="sr-only">Contraseña</label>
+                                                    <input class="form-control" type="password" id="db_pass" name="db_pass" value=""
                                                         autocomplete="off" />
                                                 </div>
                                             </div>
@@ -1162,7 +1170,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                         <div class="col-sm-4">
                                             <div id="mysql_socket" class="form-group">
                                                 Socket:
-                                                <input class="form-control" type="text" name="mysql_socket" value=""
+                                                <label for="mysql_socket" class="sr-only">Socket</label>
+                                                <input class="form-control" type="text" id="mysql_socket" name="mysql_socket" value=""
                                                     placeholder="opcional" autocomplete="off" />
                                                 <p class="help-block">
                                                     Solamente en algunos hostings es necesario especificar el socket de
@@ -1191,24 +1200,27 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                         <div class="col-sm-4">
                                                             <div class="form-group">
                                                                 Servidor:
+                                                                <label for="cache_host" class="sr-only">Servidor</label>
                                                                 <input class="form-control" type="text"
-                                                                    name="cache_host" value="localhost"
+                                                                    id="cache_host" name="cache_host" value="localhost"
                                                                     autocomplete="off" />
                                                             </div>
                                                         </div>
                                                         <div class="col-sm-4">
                                                             <div class="form-group">
                                                                 Puerto:
+                                                                <label for="cache_port" class="sr-only">Puerto</label>
                                                                 <input class="form-control" type="number"
-                                                                    name="cache_port" value="11211"
+                                                                    id="cache_port" name="cache_port" value="11211"
                                                                     autocomplete="off" />
                                                             </div>
                                                         </div>
                                                         <div class="col-sm-4">
                                                             <div class="form-group">
                                                                 Prefijo:
+                                                                <label for="cache_prefix" class="sr-only">Prefijo</label>
                                                                 <input class="form-control" type="text"
-                                                                    name="cache_prefix"
+                                                                    id="cache_prefix" name="cache_prefix"
                                                                     value="<?php echo random_string(8); ?>_"
                                                                     autocomplete="off" />
                                                             </div>
@@ -1225,7 +1237,8 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                         <div class="col-sm-4">
                                                             <div class="form-group">
                                                                 Tipo de Proxy:
-                                                                <select class='form-control' name="proxy_type">
+                                                                <label for="proxy_type" class="sr-only">Tipo de Proxy</label>
+                                                                <select class='form-control' id="proxy_type" name="proxy_type">
                                                                     <option value="">Sin proxy</option>
                                                                     <option value="">------</option>
                                                                     <option value="HTTP">HTTP</option>
@@ -1237,16 +1250,18 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                         <div class="col-sm-4">
                                                             <div class="form-group">
                                                                 Servidor:
+                                                                <label for="proxy_host" class="sr-only">Servidor</label>
                                                                 <input class="form-control" type="text"
-                                                                    name="proxy_host" placeholder="192.168.1.1"
+                                                                    id="proxy_host" name="proxy_host" placeholder="192.168.1.1"
                                                                     autocomplete="off" />
                                                             </div>
                                                         </div>
                                                         <div class="col-sm-4">
                                                             <div class="form-group">
                                                                 Puerto:
+                                                                <label for="proxy_port" class="sr-only">Puerto</label>
                                                                 <input class="form-control" type="number"
-                                                                    name="proxy_port" placeholder="8080"
+                                                                    id="proxy_port" name="proxy_port" placeholder="8080"
                                                                     autocomplete="off" />
                                                             </div>
                                                         </div>
