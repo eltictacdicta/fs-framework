@@ -63,11 +63,11 @@ Análisis estático de fuente (mismo patrón que `AdminApkUploadPathsTest` / `Ad
 - La vista contiene `action=assign_unassigned`, `value="sin_evento"` y `fsc.orphan_count`.
 
 ## Checklist
-- [ ] T1: controlador — filtro `sin_evento` (stats + load_contacts_sin_evento).
-- [ ] T2: controlador — `load_orphan_stats`, `load_assignable_eventos`, props.
-- [ ] T3: controlador — acción `assign_unassigned` + `assign_unassigned_to_event` + handle_action.
-- [ ] T4: vista — opción de filtro + aviso con asignación masiva.
-- [ ] T5: test de invariantes + `php -l` + phpunit verde.
+- [x] T1: controlador — filtro `sin_evento` (stats + load_contacts_sin_evento).
+- [x] T2: controlador — `load_orphan_stats`, `load_assignable_eventos`, props.
+- [x] T3: controlador — acción `assign_unassigned` + `assign_unassigned_to_event` + handle_action.
+- [x] T4: vista — opción de filtro + aviso con asignación masiva.
+- [x] T5: test de invariantes + `php -l` + phpunit verde.
 
 ## Acceptance criteria
 - El usuario ve un aviso con el conteo de sus contactos sin evento.
@@ -78,3 +78,5 @@ Análisis estático de fuente (mismo patrón que `AdminApkUploadPathsTest` / `Ad
 
 ## Progress
 - 2026-10-10: doc creado; rama feat/user-unassigned-contacts.
+- 2026-10-10: T1–T5 implementados. Verificación: `ddev exec php -l plugins/api_auth/controller/user_infrico_contacts.php` → sin errores; `ddev exec php vendor/bin/phpunit -c phpunit.xml --testsuite Plugins --filter UserContactsUnassignedAssign` → OK (7 tests, 26 assertions). Commit `79a82bc` en `feat/user-unassigned-contacts` del repo anidado `plugins/api_auth`.
+- Pendiente/no cubierto: CSRF del POST (el plugin no usa token CSRF en ningún formulario; gap preexistente). Los enlaces de exportación tratan `sin_evento` como filtro genérico (exporta todos).
