@@ -30,15 +30,11 @@ require_once FS_FOLDER . '/controller/admin_system_branding.php';
 require_once FS_FOLDER . '/controller/admin_stealth.php';
 require_once FS_FOLDER . '/controller/admin_orden_menu.php';
 require_once FS_FOLDER . '/controller/admin_agentes.php';
-require_once FS_FOLDER . '/controller/admin_group.php';
-require_once FS_FOLDER . '/controller/admin_groups.php';
 require_once FS_FOLDER . '/controller/admin_home.php';
 
 /**
- * PA-07: the scoped core pages declare `#[AdminOnly]`; `admin_home` stays
- * accessible. The scoped set is the nine core pages plus the two user-groups
- * pages (`admin_group`, `admin_groups`) introduced by the `user-groups` change
- * (UG-06), for eleven in total.
+ * PA-07: exactly the nine scoped core pages declare `#[AdminOnly]`; `admin_home`
+ * stays accessible.
  */
 final class AdminOnlyScopeTest extends TestCase
 {
@@ -59,8 +55,6 @@ final class AdminOnlyScopeTest extends TestCase
             'admin_stealth' => ['admin_stealth'],
             'admin_orden_menu' => ['admin_orden_menu'],
             'admin_agentes' => ['admin_agentes'],
-            'admin_group' => ['admin_group'],
-            'admin_groups' => ['admin_groups'],
         ];
     }
 
@@ -79,8 +73,6 @@ final class AdminOnlyScopeTest extends TestCase
             'admin_stealth',
             'admin_orden_menu',
             'admin_agentes',
-            'admin_group',
-            'admin_groups',
         ];
     }
 

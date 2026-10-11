@@ -253,19 +253,40 @@ final class TableCharsetSchemaTest extends TestCase
         };
 
         $ref = new \ReflectionClass(\fs_model::class);
-        $this->setProperty($ref, 'base_dir', null, ['fs_groups_users' => '']);
-        $this->setProperty($ref, 'table_name', $model, 'fs_groups_users');
-        $this->setProperty($ref, 'db', $model, $fakeDb);
 
-        $method = $ref->getMethod('check_table');
-        $method->setAccessible(true);
-        $method->invoke($model, 'fs_groups_users');
+        // Fixture self-contained: fs_model resuelve el XML relativo a FS_FOLDER,
+        // así que escribimos un XML temporal en lugar de depender de una tabla
+        // core que declare charset (evita acoplar el test a un modelo concreto).
+        $fixtureDir = 'tmp/table_charset_fixture';
+        $fixtureXml = FS_FOLDER . '/' . $fixtureDir . '/model/table/fs_groups_users.xml';
+        if (!is_dir(dirname($fixtureXml))) {
+            mkdir(dirname($fixtureXml), 0777, true);
+        }
+        file_put_contents(
+            $fixtureXml,
+            '<tabla><charset>utf8mb3</charset><collation>utf8mb3_bin</collation>'
+            . '<columna><nombre>id</nombre><tipo>serial</tipo><nulo>NO</nulo></columna>'
+            . '<restriccion><nombre>fs_groups_users_pkey</nombre><consulta>PRIMARY KEY (id)</consulta></restriccion>'
+            . '</tabla>'
+        );
 
-        $this->assertCount(1, $fakeDb->generated);
-        [$table, $options] = $fakeDb->generated[0];
-        $this->assertSame('fs_groups_users', $table);
-        $this->assertSame('utf8mb3', $options['charset'] ?? null);
-        $this->assertSame('utf8mb3_bin', $options['collation'] ?? null);
+        try {
+            $this->setProperty($ref, 'base_dir', null, ['fs_groups_users' => $fixtureDir . '/']);
+            $this->setProperty($ref, 'table_name', $model, 'fs_groups_users');
+            $this->setProperty($ref, 'db', $model, $fakeDb);
+
+            $method = $ref->getMethod('check_table');
+            $method->setAccessible(true);
+            $method->invoke($model, 'fs_groups_users');
+
+            $this->assertCount(1, $fakeDb->generated);
+            [$table, $options] = $fakeDb->generated[0];
+            $this->assertSame('fs_groups_users', $table);
+            $this->assertSame('utf8mb3', $options['charset'] ?? null);
+            $this->assertSame('utf8mb3_bin', $options['collation'] ?? null);
+        } finally {
+            @unlink($fixtureXml);
+        }
     }
 
     private function setProperty(\ReflectionClass $ref, string $name, ?object $instance, $value): void
