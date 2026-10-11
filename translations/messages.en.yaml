@@ -455,3 +455,19 @@ preview-description: "This is how the logo will look in different system context
 login-preview: "Login Preview"
 header-preview: "Header Preview"
 login-welcome-text: "Sign in to access the system"
+
+# ==========================================
+# User groups (admin)
+# ==========================================
+group: "Group"
+groups: "Groups"
+new-group: "New group"
+group-code: "Code"
+group-description: "Description"
+delete-group: "Delete group"
+no-groups: "No groups"
+manager: "Manager"
+function: "Function"
+member: "Member"
+edit-group: "Edit group"
+attention: "Attention"

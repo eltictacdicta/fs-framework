@@ -1,0 +1,119 @@
+{{ include('header.html.twig') }}
+
+{% if fsc.group %}
+<script type="text/javascript">
+   function toggle_group_funcion(counter)
+   {
+      if ($("#member_" + counter).is(':checked')) {
+         $("#funcion_" + counter).show();
+      } else {
+         $("#funcion_" + counter).hide();
+      }
+   }
+   $(document).ready(function() {
+      $("#b_eliminar_grupo").click(function(event) {
+         event.preventDefault();
+         bootbox.confirm({
+            message: '{{ trans('delete-group')|e('js') }}?',
+            title: '<b>{{ trans('attention')|e('js') }}</b>',
+            callback: function(result) {
+               if (result) {
+                  window.location.href = "index.php?page=admin_groups&delete_grupo=" + encodeURIComponent("{{ fsc.group.codgrupo|e('js') }}");
+               }
+            }
+         });
+      });
+   });
+</script>
+
+<form action="{{ fsc.group.url() }}" method="post" class="form">
+   {{ csrf_field() }}
+   {# Marcador de sección: un POST parcial que omita las pertenencias no debe
+      leerse como "ninguna casilla marcada", lo que borraría todos los miembros. #}
+   <input type="hidden" name="members_form_present" value="1"/>
+   <div class="container-fluid">
+      <div class="row">
+         <div class="col-sm-6">
+            <div class="btn-group">
+               <a class="btn btn-sm btn-default" href="index.php?page=admin_groups" title="{{ trans('groups') }}">
+                  <span class="glyphicon glyphicon-arrow-left"></span>
+                  <span class="hidden-xs">&nbsp; {{ trans('groups') }}</span>
+               </a>
+               <a class="btn btn-sm btn-default" href="{{ fsc.group.url() }}" title="Recargar la página">
+                  <span class="glyphicon glyphicon-refresh"></span>
+               </a>
+            </div>
+         </div>
+         <div class="col-sm-6 text-right">
+            <div class="btn-group">
+               {% if fsc.allow_delete %}
+               <a href="#" id="b_eliminar_grupo" class="btn btn-sm btn-danger">
+                  <span class="glyphicon glyphicon-trash"></span>
+                  <span class="hidden-xs hidden-sm">&nbsp; {{ trans('delete-group') }}</span>
+               </a>
+               {% endif %}
+               <button class="btn btn-sm btn-primary" type="submit" data-submit-once="true">
+                  <span class="glyphicon glyphicon-floppy-disk"></span>
+                  <span class="hidden-xs">&nbsp; {{ trans('save') }}</span>
+               </button>
+            </div>
+         </div>
+      </div>
+      <div class="row">
+         <div class="col-sm-12">
+            <div class="page-header">
+               <h1>
+                  <i class="fa fa-users" aria-hidden="true"></i>
+                  {{ trans('edit-group') }} <small>{{ fsc.group.codgrupo }}</small>
+               </h1>
+               <p class="help-block">
+                  <i class="fa fa-info-circle" aria-hidden="true"></i>&nbsp;
+                  Los grupos son organizativos: no conceden permisos.
+               </p>
+            </div>
+            <div class="form-group">
+               <label for="group_descripcion" class="sr-only">{{ trans('group-description') }}</label>
+               <input type="text" id="group_descripcion" name="descripcion" value="{{ fsc.group.descripcion }}" class="form-control" maxlength="200" autocomplete="off"/>
+            </div>
+         </div>
+      </div>
+   </div>
+   <div class="table-responsive">
+      <table class="table table-hover">
+         <thead>
+            <tr>
+               <th width="40" class="text-center">{{ trans('member') }}</th>
+               <th class="text-left">{{ trans('nick') }}</th>
+               <th class="text-left">{{ trans('email') }}</th>
+               <th class="text-left">{{ trans('function') }}</th>
+            </tr>
+         </thead>
+         {% for key, value in fsc.all_users() %}
+         <tr{% if value.included %} class="success"{% endif %}>
+            <td class="text-center">
+               <input type="checkbox" id="member_{{ key }}" name="member[]" value="{{ value.nick }}" onclick="toggle_group_funcion('{{ key }}')" onkeypress="if(event.keyCode==13){this.click();}"{% if value.included %} checked=""{% endif %}/>
+            </td>
+            <td>
+               {{ value.nick }}
+               {% if value.admin %}&nbsp; <span class="label label-warning">{{ trans('administrator') }}</span>{% endif %}
+            </td>
+            <td>{{ value.email }}</td>
+            <td>
+               <select id="funcion_{{ key }}" name="funcion[{{ value.nick }}]" class="form-control" style="{% if not value.included %}display: none;{% endif %}">
+                  {% for funcion in fsc.funciones %}
+                  <option value="{{ funcion }}"{% if funcion == value.funcion %} selected=""{% endif %}>{% if funcion == 'responsable' %}{{ trans('manager') }}{% else %}{{ trans('member') }}{% endif %}</option>
+                  {% endfor %}
+               </select>
+            </td>
+         </tr>
+         {% endfor %}
+      </table>
+   </div>
+</form>
+{% else %}
+<div class="thumbnail">
+   <img src="{{ constant('FS_PATH') }}view/img/fuuu_face.png" alt="fuuuuu"/>
+</div>
+{% endif %}
+
+{{ include('footer.html.twig') }}

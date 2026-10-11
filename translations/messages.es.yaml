@@ -455,3 +455,19 @@ preview-description: "Así se verá el logo en diferentes contextos del sistema.
 login-preview: "Vista previa en Login"
 header-preview: "Vista previa en Encabezado"
 login-welcome-text: "Inicia sesión para acceder al sistema"
+
+# ==========================================
+# Grupos de usuarios (admin)
+# ==========================================
+group: "Grupo"
+groups: "Grupos"
+new-group: "Nuevo grupo"
+group-code: "Código"
+group-description: "Descripción"
+delete-group: "Eliminar grupo"
+no-groups: "No hay grupos"
+manager: "Responsable"
+function: "Función"
+member: "Miembro"
+edit-group: "Editar grupo"
+attention: "Atención"
