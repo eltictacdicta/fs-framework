@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Document   : fs_groups_users.xml
+    Author     : FSFramework
+    Description:
+        Estructura de la tabla fs_groups_users. Pertenencia de un usuario a
+        un grupo, con una única función (miembro / responsable).
+        La pertenencia no concede permisos.
+-->
+<tabla>
+    <charset>utf8mb3</charset>
+    <collation>utf8mb3_bin</collation>
+    <columna>
+        <nombre>codgrupo</nombre>
+        <tipo>character varying(20)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>fs_user</nombre>
+        <tipo>character varying(12)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>funcion</nombre>
+        <tipo>character varying(20)</tipo>
+        <defecto>miembro</defecto>
+        <nulo>NO</nulo>
+    </columna>
+    <restriccion>
+        <nombre>fs_groups_users_pkey</nombre>
+        <consulta>PRIMARY KEY (codgrupo,fs_user)</consulta>
+    </restriccion>
+    <restriccion>
+        <nombre>fs_groups_users_group</nombre>
+        <consulta>FOREIGN KEY (codgrupo) REFERENCES fs_groups (codgrupo) ON DELETE CASCADE ON UPDATE CASCADE</consulta>
+    </restriccion>
+    <restriccion>
+        <nombre>fs_groups_users_user</nombre>
+        <consulta>FOREIGN KEY (fs_user) REFERENCES fs_users (nick) ON DELETE CASCADE ON UPDATE CASCADE</consulta>
+    </restriccion>
+</tabla>
