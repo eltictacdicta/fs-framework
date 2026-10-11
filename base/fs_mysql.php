@@ -658,11 +658,12 @@ class fs_mysql extends fs_db_engine
      * @param string $table_name
      * @param array $xml_cols
      * @param array $xml_cons
+     * @param array{charset?: ?string, collation?: ?string} $table_options
      * @return string
      */
-    public function generate_table($table_name, $xml_cols, $xml_cons)
+    public function generate_table($table_name, $xml_cols, $xml_cons, array $table_options = [])
     {
-        return (new \FSFramework\Database\SchemaComparator($this))->generateTable($table_name, $xml_cols, $xml_cons);
+        return (new \FSFramework\Database\SchemaComparator($this))->generateTable($table_name, $xml_cols, $xml_cons, $table_options);
     }
 
     /**

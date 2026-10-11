@@ -150,7 +150,7 @@ class fs_schema
         if (empty($columns)) {
             return false;
         }
-        $sql = self::buildCreateTableSql($tableName, $columns, $constraints, $isMySQL);
+        $sql = self::buildCreateTableSql($tableName, $columns, $constraints, $isMySQL, self::declaredTableCharset($xml));
 
         try {
             $db = self::getDb();
@@ -221,14 +221,17 @@ class fs_schema
     /**
      * Resolves the local FK column info from the XML (never from
      * information_schema: the local table does not exist yet in the CREATE
-     * path). The local charset/collation are left null on purpose: they cannot
-     * be resolved here, so the validator treats an unknown local
-     * charset/collation as compatible instead of assuming the database default.
+     * path).
+     *
+     * When the table XML declares an optional `<charset>`/`<collation>`, the
+     * local column inherits it and the validator performs a REAL
+     * charset/collation comparison against the referenced column. When nothing
+     * is declared, both stay null (unknown = compatible) exactly as before.
      *
      * @param SimpleXMLElement $xml Definición XML
      * @param bool $isMySQL Si es MySQL
      * @param string $query Consulta de la constraint
-     * @return array{name?: string, type?: string, charset?: null, collation?: null}
+     * @return array{name?: string, type?: string, charset?: ?string, collation?: ?string}
      */
     private static function resolveLocalFkColumnInfo($xml, $isMySQL, $query)
     {
@@ -247,18 +250,39 @@ class fs_schema
                 return [];
             }
 
+            $declared = \FSFramework\Database\TableCharsetOptions::fromArray(self::declaredTableCharset($xml));
+
             return [
                 'name' => $parts['localColumn'],
                 'type' => self::convertType($type, $isMySQL),
-                'charset' => null,
-                'collation' => null,
+                'charset' => $declared['charset'],
+                'collation' => $declared['collation'],
             ];
         }
 
         return [];
     }
 
-    private static function buildCreateTableSql($tableName, array $columns, array $constraints, $isMySQL)
+    /**
+     * Lee los elementos opcionales `<charset>`/`<collation>` de la tabla. La
+     * validación de identificador vive en TableCharsetOptions (se aplica al
+     * construir la cláusula y al resolver la compatibilidad de FK).
+     *
+     * @param SimpleXMLElement $xml Definición XML
+     * @return array{charset: ?string, collation: ?string}
+     */
+    private static function declaredTableCharset($xml): array
+    {
+        return [
+            'charset' => isset($xml->charset) ? (string) $xml->charset : null,
+            'collation' => isset($xml->collation) ? (string) $xml->collation : null,
+        ];
+    }
+
+    /**
+     * @param array{charset?: ?string, collation?: ?string} $tableOptions
+     */
+    private static function buildCreateTableSql($tableName, array $columns, array $constraints, $isMySQL, array $tableOptions = [])
     {
         $quote = $isMySQL ? '`' : '"';
         $sql = "CREATE TABLE IF NOT EXISTS {$quote}{$tableName}{$quote} (\n";
@@ -269,20 +293,23 @@ class fs_schema
         $sql .= "\n)";
 
         if ($isMySQL) {
-            $sql .= self::getMysqlTableOptions();
+            $sql .= self::getMysqlTableOptions($tableOptions);
         }
 
         return $sql;
     }
 
     /**
-     * Devuelve las opciones ENGINE/CHARSET/COLLATE para MySQL,
-     * usando la configuración real de la base de datos para mantener
-     * consistencia con las tablas creadas por fs_mysql::generate_table().
+     * Devuelve las opciones ENGINE/CHARSET/COLLATE para MySQL.
      *
+     * El charset/collation declarados en el XML tienen prioridad; si la tabla no
+     * declara nada, se usa la configuración real de la base de datos para
+     * mantener consistencia con las tablas creadas por fs_mysql::generate_table().
+     *
+     * @param array{charset?: ?string, collation?: ?string} $tableOptions
      * @return string
      */
-    private static function getMysqlTableOptions()
+    private static function getMysqlTableOptions(array $tableOptions = [])
     {
         $charset = 'utf8mb4';
         $collation = 'utf8mb4_unicode_ci';
@@ -305,7 +332,9 @@ class fs_schema
             // fallback to defaults
         }
 
-        return " ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}";
+        $declared = \FSFramework\Database\TableCharsetOptions::fromArray($tableOptions);
+
+        return ' ' . \FSFramework\Database\TableCharsetOptions::mysqlClause($declared, $charset, $collation);
     }
 
     /**
@@ -1023,7 +1052,7 @@ class fs_schema
         $columns = self::collectColumns($xml, $isMySQL);
         $constraints = self::collectConstraints($xml, $isMySQL, $validateFks);
 
-        return self::buildCreateTableSql($tableName, $columns, $constraints, $isMySQL);
+        return self::buildCreateTableSql($tableName, $columns, $constraints, $isMySQL, self::declaredTableCharset($xml));
     }
 
     /**

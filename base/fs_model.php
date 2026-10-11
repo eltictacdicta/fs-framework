@@ -90,6 +90,14 @@ abstract class fs_model
     private $xml_columns = [];
 
     /**
+     * Charset/collation opcionales declarados por tabla en el XML
+     * (`<charset>`/`<collation>`), memorizados por get_xml_table() para que
+     * check_table() los pase al generador del CREATE. Ausentes = default de la BD.
+     * @var array<string, array{charset: ?string, collation: ?string}>
+     */
+    private $xml_table_options = [];
+
+    /**
      * Esta función sirve para eliminar los datos del objeto de la base de datos
      */
     abstract public function delete();
@@ -309,7 +317,12 @@ abstract class fs_model
             return FALSE;
         }
 
-        $createSql = $this->db->generate_table($table_name, $xml_cols, $xml_cons);
+        $createSql = $this->db->generate_table(
+            $table_name,
+            $xml_cols,
+            $xml_cons,
+            $this->xml_table_options[$table_name] ?? []
+        );
         if ($createSql === false || $createSql === '') {
             $this->new_error_msg('Error al generar la tabla ' . $table_name . '.');
 
@@ -536,6 +549,15 @@ abstract class fs_model
         if (!$xml) {
             $this->new_error_msg('Error al leer el archivo ' . $filename);
             return FALSE;
+        }
+
+        $charset = isset($xml->charset) ? trim((string) $xml->charset) : '';
+        $collation = isset($xml->collation) ? trim((string) $xml->collation) : '';
+        if ($charset !== '' || $collation !== '') {
+            $this->xml_table_options[$table_name] = [
+                'charset' => $charset !== '' ? $charset : null,
+                'collation' => $collation !== '' ? $collation : null,
+            ];
         }
 
         $return = FALSE;

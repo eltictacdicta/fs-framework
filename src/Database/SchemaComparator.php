@@ -122,7 +122,10 @@ final class SchemaComparator
         return $this->fixPostgresql($sql);
     }
 
-    public function generateTable(string $tableName, array $xmlCols, array $xmlCons): string
+    /**
+     * @param array{charset?: ?string, collation?: ?string} $tableOptions
+     */
+    public function generateTable(string $tableName, array $xmlCols, array $xmlCons, array $tableOptions = []): string
     {
         $tableName = $this->quoteIdentifier($tableName);
 
@@ -166,9 +169,9 @@ final class SchemaComparator
             }
         }
 
-        $validatedCons = $this->validateFkConstraints($xmlCons, $xmlCols);
+        $validatedCons = $this->validateFkConstraints($xmlCons, $xmlCols, $tableOptions);
         $sql .= ' ' . $this->generateTableConstraints($validatedCons) . ' )';
-        $sql .= ' ' . $this->tableCharsetCollationSql() . ';';
+        $sql .= ' ' . $this->tableCharsetCollationSql($tableOptions) . ';';
 
         return $this->fixPostgresql($sql);
     }
@@ -475,7 +478,7 @@ final class SchemaComparator
         );
     }
 
-    private function validateFkConstraints(array $xmlCons, array $xmlCols): array
+    private function validateFkConstraints(array $xmlCons, array $xmlCols, array $tableOptions = []): array
     {
         if (empty($xmlCons)) {
             return $xmlCons;
@@ -484,7 +487,7 @@ final class SchemaComparator
         $tableNames = $this->collectKnownTableNamesLowercase();
         $validated = [];
         foreach ($xmlCons as $con) {
-            if ($this->shouldKeepFkConstraint($con, $tableNames, $xmlCols)) {
+            if ($this->shouldKeepFkConstraint($con, $tableNames, $xmlCols, $tableOptions)) {
                 $validated[] = $con;
             }
         }
@@ -514,8 +517,9 @@ final class SchemaComparator
      * @param array<string, mixed> $con
      * @param list<string> $tableNames
      * @param array<int, array<string, mixed>> $xmlCols
+     * @param array{charset?: ?string, collation?: ?string} $tableOptions
      */
-    private function shouldKeepFkConstraint(array $con, array $tableNames, array $xmlCols): bool
+    private function shouldKeepFkConstraint(array $con, array $tableNames, array $xmlCols, array $tableOptions = []): bool
     {
         if (stripos((string) ($con['consulta'] ?? ''), 'FOREIGN KEY') === false) {
             return true;
@@ -533,7 +537,7 @@ final class SchemaComparator
             return false;
         }
 
-        $localColInfo = $this->resolveLocalFkColumnInfo($con['consulta'], $xmlCols);
+        $localColInfo = $this->resolveLocalFkColumnInfo($con['consulta'], $xmlCols, $tableOptions);
         if ($localColInfo === null) {
             return true;
         }
@@ -606,15 +610,20 @@ final class SchemaComparator
     /**
      * Resolves the local FK column info from the XML (never from
      * information_schema: the local table does not exist yet in the CREATE
-     * path). The local charset/collation are left null on purpose: they cannot
-     * be resolved here, so the validator treats an unknown local
-     * charset/collation as compatible instead of assuming the database default.
+     * path).
+     *
+     * When the table declares an optional charset/collation (via the XML
+     * `<charset>`/`<collation>` elements, threaded as $tableOptions), the local
+     * column inherits it and the validator performs a REAL comparison against
+     * the referenced column. When nothing is declared, both stay null (unknown =
+     * compatible) exactly as before.
      *
      * @param array<int, array<string, mixed>> $xmlCols
+     * @param array{charset?: ?string, collation?: ?string} $tableOptions
      *
-     * @return array{name: string, type: string, charset: null, collation: null}|null
+     * @return array{name: string, type: string, charset: ?string, collation: ?string}|null
      */
-    private function resolveLocalFkColumnInfo(string $consulta, array $xmlCols): ?array
+    private function resolveLocalFkColumnInfo(string $consulta, array $xmlCols, array $tableOptions = []): ?array
     {
         $parts = FkCompatibilityValidator::parseFkParts($consulta);
         if ($parts === null) {
@@ -632,11 +641,13 @@ final class SchemaComparator
             return null;
         }
 
+        $declared = TableCharsetOptions::fromArray($tableOptions);
+
         return [
             'name' => $localColumn,
             'type' => TypeNormalizer::convertPostgresType($type),
-            'charset' => null,
-            'collation' => null,
+            'charset' => $declared['charset'],
+            'collation' => $declared['collation'],
         ];
     }
 
@@ -740,7 +751,10 @@ final class SchemaComparator
         return (string) preg_replace('/ENGINE=InnoDB DEFAULT CHARSET=[a-z0-9_]+ COLLATE=[a-z0-9_]+/i', '', $sql);
     }
 
-    private function tableCharsetCollationSql(): string
+    /**
+     * @param array{charset?: ?string, collation?: ?string} $tableOptions
+     */
+    private function tableCharsetCollationSql(array $tableOptions = []): string
     {
         if (defined('FS_DB_TYPE') && FS_DB_TYPE !== 'MYSQL') {
             return '';
@@ -763,7 +777,9 @@ final class SchemaComparator
             }
         }
 
-        return 'ENGINE=InnoDB DEFAULT CHARSET=' . $charset . ' COLLATE=' . $collation;
+        $declared = TableCharsetOptions::fromArray($tableOptions);
+
+        return TableCharsetOptions::mysqlClause($declared, $charset, $collation);
     }
 
     private function searchInArray(array $array, string $key, string $value): ?array

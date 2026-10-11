@@ -282,9 +282,11 @@ class fs_postgresql extends fs_db_engine
      * @param string $table_name
      * @param array $xml_cols
      * @param array $xml_cons
+     * @param array{charset?: ?string, collation?: ?string} $table_options ignorado: PostgreSQL no
+     *        permite charset/collation por tabla (se resuelve por base de datos).
      * @return string
      */
-    public function generate_table($table_name, $xml_cols, $xml_cons)
+    public function generate_table($table_name, $xml_cols, $xml_cons, array $table_options = [])
     {
         $sql = 'CREATE TABLE IF NOT EXISTS ' . $this->quote_identifier($table_name) . ' (';
 

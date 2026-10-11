@@ -72,7 +72,7 @@ abstract class fs_db_engine
 
     abstract public function exec($sql, $transaction = TRUE, $params = [], $batch = FALSE);
 
-    abstract public function generate_table($table_name, $xml_cols, $xml_cons);
+    abstract public function generate_table($table_name, $xml_cols, $xml_cons, array $table_options = []);
 
     abstract public function get_columns($table_name);
 
