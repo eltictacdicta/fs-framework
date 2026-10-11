@@ -48,7 +48,7 @@ class admin_groups extends fs_controller
 
         if (filter_input(INPUT_POST, 'ncodgrupo')) {
             $this->add_group($fs_group);
-        } elseif (filter_input(INPUT_GET, 'delete_grupo')) {
+        } elseif (filter_input(INPUT_POST, 'delete_grupo')) {
             $this->delete_group($fs_group);
         }
 
@@ -69,8 +69,20 @@ class admin_groups extends fs_controller
 
         $codgrupo = filter_input(INPUT_POST, 'ncodgrupo');
 
-        // El código lo introduce el humano: antes de crear comprobamos que no
-        // exista para poder informar en lugar de sobrescribir en silencio.
+        // El código lo introduce el humano: lo validamos antes de tocar la BD.
+        // fs_groups.codgrupo es varchar(20) y se usa como identificador plano.
+        if (
+            !is_string($codgrupo)
+            || $codgrupo === ''
+            || mb_strlen($codgrupo) > 20
+            || !preg_match('/^[a-zA-Z0-9_-]+$/', $codgrupo)
+        ) {
+            $this->new_error_msg('El código del grupo debe ser una cadena de 1 a 20 caracteres (letras, números, guiones y guiones bajos).');
+            return;
+        }
+
+        // Antes de crear comprobamos que no exista para poder informar en lugar
+        // de sobrescribir en silencio.
         $existing = $fs_group->get($codgrupo);
         if ($existing) {
             $this->new_error_msg('El grupo <b>' . $this->no_html($codgrupo) . '</b> ya existe.');
@@ -98,12 +110,18 @@ class admin_groups extends fs_controller
      */
     private function delete_group($fs_group)
     {
+        // Borrado destructivo (ON DELETE CASCADE): exigimos un token CSRF válido
+        // aunque FS_CSRF_SOFT esté activo, para que nunca se ejecute sin él.
+        if (!$this->requireCsrf()) {
+            return;
+        }
+
         if (!$this->user->admin) {
             $this->new_error_msg('Solamente un administrador puede eliminar grupos.', 'login', TRUE, TRUE);
             return;
         }
 
-        $group = $fs_group->get(filter_input(INPUT_GET, 'delete_grupo'));
+        $group = $fs_group->get(filter_input(INPUT_POST, 'delete_grupo'));
         if ($group) {
             if ($group->delete()) {
                 $this->new_message('Grupo eliminado correctamente.');

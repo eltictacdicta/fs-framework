@@ -18,13 +18,20 @@
             title: '<b>{{ trans('attention')|e('js') }}</b>',
             callback: function(result) {
                if (result) {
-                  window.location.href = "index.php?page=admin_groups&delete_grupo=" + encodeURIComponent("{{ fsc.group.codgrupo|e('js') }}");
+                  $("#form_eliminar_grupo").submit();
                }
             }
          });
       });
    });
 </script>
+
+{# Borrado por POST: formulario independiente fuera del formulario de
+   pertenencias (un POST anidado sería HTML inválido). #}
+<form id="form_eliminar_grupo" action="index.php?page=admin_groups" method="post" style="display: none;">
+   {{ csrf_field() }}
+   <input type="hidden" name="delete_grupo" value="{{ fsc.group.codgrupo }}"/>
+</form>
 
 <form action="{{ fsc.group.url() }}" method="post" class="form">
    {{ csrf_field() }}
