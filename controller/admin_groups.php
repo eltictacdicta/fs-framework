@@ -62,6 +62,12 @@ class admin_groups extends fs_controller
      */
     private function add_group($fs_group)
     {
+        // Crear un grupo se hace por POST: exigimos un token CSRF válido
+        // incluso en modo soft, igual que el borrado.
+        if (!$this->requireCsrf()) {
+            return;
+        }
+
         if (!$this->user->admin) {
             $this->new_error_msg('Solamente un administrador puede crear grupos.', 'login', TRUE, TRUE);
             return;
