@@ -16,6 +16,12 @@
         <tipo>character varying(12)</tipo>
         <nulo>NO</nulo>
     </columna>
+    <columna>
+        <nombre>responsable</nombre>
+        <tipo>boolean</tipo>
+        <nulo>NO</nulo>
+        <defecto>false</defecto>
+    </columna>
     <restriccion>
         <nombre>fs_roles_users_pkey</nombre>
         <consulta>PRIMARY KEY (codrol,fs_user)</consulta>

@@ -25,6 +25,15 @@
             document.f_nuevo_agente.nnombre.focus();
          });
       }
+      // La marca de responsable solo tiene sentido si el rol está asignado.
+      function syncRoleResponsableSelects() {
+         $(".role-checkbox").each(function() {
+            var $cb = $(this);
+            $cb.closest('tr').find(".role-responsable-select").prop('disabled', !$cb.prop('checked'));
+         });
+      }
+      $(".role-checkbox").on('change', syncRoleResponsableSelects);
+      syncRoleResponsableSelects();
    });
 </script>
 
@@ -244,13 +253,14 @@
                            <th class="text-center" style="width: 50px;">Asignar</th>
                            <th class="text-left">Código</th>
                            <th class="text-left">Descripción</th>
+                           <th class="text-left">{{ 'responsable'|trans }}</th>
                            <th class="text-center">Páginas</th>
                         </tr>
                      </thead>
                      {% for value in fsc.rol.all() %}
                      <tr>
                         <td class="text-center">
-                           <input type="checkbox" name="roles[]" value="{{ value.codrol }}" aria-label="{{ value.codrol }} - {{ value.descripcion }}"
+                           <input type="checkbox" name="roles[]" value="{{ value.codrol }}" class="role-checkbox" aria-label="{{ value.codrol }} - {{ value.descripcion }}"
                               {% for ur in fsc.user_roles %}
                                  {% if ur.codrol == value.codrol %} checked=""{% endif %}
                               {% endfor %}
@@ -260,13 +270,24 @@
                            <a href="{{ value.url() }}">{{ value.codrol }}</a>
                         </td>
                         <td>{{ value.descripcion }}</td>
+                        <td>
+                           <select name="responsable[{{ value.codrol }}]" class="form-control input-sm role-responsable-select" aria-label="{{ 'responsable'|trans }} - {{ value.codrol }}">
+                              {% if fsc.user_role_responsable[value.codrol] is defined and fsc.user_role_responsable[value.codrol] %}
+                              <option value="member">{{ 'member'|trans }}</option>
+                              <option value="responsable" selected="">{{ 'responsable'|trans }}</option>
+                              {% else %}
+                              <option value="member" selected="">{{ 'member'|trans }}</option>
+                              <option value="responsable">{{ 'responsable'|trans }}</option>
+                              {% endif %}
+                           </select>
+                        </td>
                         <td class="text-center">
                            <span class="badge">{{ value.get_accesses()|length }}</span>
                         </td>
                      </tr>
                      {% else %}
                      <tr class="warning">
-                        <td colspan="4">
+                        <td colspan="5">
                            No hay roles definidos. Puedes crear roles desde
                            <a href="index.php?page=admin_users#roles">Admin &gt; Usuarios &gt; Roles</a>.
                         </td>

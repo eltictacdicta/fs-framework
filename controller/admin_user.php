@@ -34,6 +34,13 @@ class admin_user extends fs_controller
     public $rol;
     public $user_roles;
 
+    /**
+     * Mapa codrol => (bool) responsable de las pertenencias de este usuario.
+     * Solo es un marcador para la vista; NO concede permisos.
+     * @var array<string, bool>
+     */
+    public $user_role_responsable = [];
+
     public function __construct()
     {
         parent::__construct(__CLASS__, 'Usuario', 'admin', TRUE, FALSE);
@@ -86,6 +93,14 @@ class admin_user extends fs_controller
                 }
             } else if (fs_filter_input_req('senabled')) {
                 $this->desactivar_usuario();
+            }
+
+            /// Mapa codrol => responsable de las pertenencias del usuario, para
+            /// preseleccionar la marca en la pestaña Roles.
+            $this->user_role_responsable = [];
+            $fru = new fs_rol_user();
+            foreach ($fru->all_from_user($this->suser->nick) as $membership) {
+                $this->user_role_responsable[$membership->codrol] = (bool) $membership->responsable;
             }
 
             /// ¿Estamos modificando nuestro usuario?
@@ -312,6 +327,11 @@ class admin_user extends fs_controller
 
         /// Ahora asignamos los roles seleccionados
         $roles_seleccionados = $this->request->request->all('roles');
+        $responsables = $this->request->request->all('responsable');
+        if (!is_array($responsables)) {
+            $responsables = [];
+        }
+
         if ($roles_seleccionados) {
             foreach ($roles_seleccionados as $codrol) {
                 $rol = $this->rol->get($codrol);
@@ -319,13 +339,19 @@ class admin_user extends fs_controller
                     $nuevo_fru = new fs_rol_user();
                     $nuevo_fru->codrol = $codrol;
                     $nuevo_fru->fs_user = $this->suser->nick;
+                    $nuevo_fru->responsable = (($responsables[$codrol] ?? 'member') === 'responsable');
                     $nuevo_fru->save();
                 }
             }
         }
 
-        /// Recargamos los roles del usuario
+        /// Recargamos los roles y las marcas de responsable del usuario
         $this->user_roles = $this->rol->all_for_user($this->suser->nick);
+        $this->user_role_responsable = [];
+        $fru = new fs_rol_user();
+        foreach ($fru->all_from_user($this->suser->nick) as $membership) {
+            $this->user_role_responsable[$membership->codrol] = (bool) $membership->responsable;
+        }
         $this->new_message('Roles actualizados correctamente.');
     }
 }
