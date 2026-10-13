@@ -642,6 +642,29 @@ class fs_user extends \fs_model
             }
         }
 
+        // Un agente solo puede estar ligado a un único usuario no-admin. La única
+        // combinación de dos usuarios admitida es {1 admin + 1 usuario normal}.
+        if (!empty($this->codagente)) {
+            $sql = "SELECT nick, admin FROM " . $this->table_name
+                . " WHERE codagente = " . $this->var2str($this->codagente)
+                . " AND nick != " . $this->var2str($this->nick) . ";";
+            $otros = $this->db->select($sql) ?: [];
+
+            if (count($otros) >= 2) {
+                $this->new_error_msg('Este agente ya está asignado a dos usuarios. Solo se admite un administrador y un usuario normal.');
+                return FALSE;
+            }
+
+            if (empty($this->admin)) {
+                foreach ($otros as $otro) {
+                    if (empty($otro['admin'])) {
+                        $this->new_error_msg('Este agente ya está asignado a otro usuario normal.');
+                        return FALSE;
+                    }
+                }
+            }
+        }
+
         return TRUE;
     }
 

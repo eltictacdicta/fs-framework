@@ -212,12 +212,21 @@
                               <small>{{ fsc.user.last_login }}</small>
                            </p>
                         </li>
-                        <li class="user-footer">
-                           <div class="pull-left">
-                              <a href="{{ fsc.user.url() }}" class="btn btn-default btn-flat">
-                                 <i class="fa fa-user"></i> {{ 'profile'|trans }}
-                              </a>
-                           </div>
+                         <li class="user-footer">
+                            <div class="pull-left">
+                               {% if fsc.user.admin %}
+                               <a href="{{ fsc.user.url() }}" class="btn btn-default btn-flat">
+                                  <i class="fa fa-user"></i> {{ 'profile'|trans }}
+                               </a>
+                               {% else %}
+                               {# Usuarios no-admin: no tienen perfil en el ERP (admin_user es
+                                  solo-administrador), así que van al panel central del proveedor
+                                  OIDC (ruta pública del plugin api_auth -> issuer configurado). #}
+                               <a href="oidc-central" class="btn btn-default btn-flat">
+                                  <i class="fa fa-th-large"></i> {{ 'central-panel'|trans }}
+                               </a>
+                               {% endif %}
+                            </div>
                            <div class="pull-right">
                               <a href="{{ fsc.logoutUrl()|raw }}" class="btn btn-default btn-flat">
                                  <i class="fa fa-sign-out"></i> {{ 'logout'|trans }}

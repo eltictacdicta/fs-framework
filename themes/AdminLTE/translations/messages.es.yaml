@@ -2,6 +2,7 @@
 # Theme: AdminLTE
 
 # Common
+central-panel: 'Panel central'
 save: 'Guardar'
 cancel: 'Cancelar'
 delete: 'Eliminar'

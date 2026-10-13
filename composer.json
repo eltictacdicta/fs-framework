@@ -32,7 +32,8 @@
         "symfony/dependency-injection": "^7.4",
         "symfony/form": "^7.4",
         "sabberworm/php-css-parser": "^9.0",
-        "symfony/http-client": "^7.4"
+        "symfony/http-client": "^7.4",
+        "mrd/oidc-core": "0.2.5"
     },
     "suggest": {
         "monolog/monolog": "^3.0 - Para logging avanzado con múltiples handlers"

@@ -12,8 +12,8 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
         '0e6d7bf4a5811bfa5cf40c5ccd6fae6a' => __DIR__ . '/..' . '/symfony/polyfill-mbstring/bootstrap.php',
         '8825ede83f2f289127722d4e842cf7e8' => __DIR__ . '/..' . '/symfony/polyfill-intl-grapheme/bootstrap.php',
         'e69f7f6ee287b969198c3c9d6777bd38' => __DIR__ . '/..' . '/symfony/polyfill-intl-normalizer/bootstrap.php',
-        'b6b991a57620e2fb6b2f66f03fe9ddc2' => __DIR__ . '/..' . '/symfony/string/Resources/functions.php',
         '662a729f963d39afe703c9d9b7ab4a8c' => __DIR__ . '/..' . '/symfony/polyfill-php83/bootstrap.php',
+        'b6b991a57620e2fb6b2f66f03fe9ddc2' => __DIR__ . '/..' . '/symfony/string/Resources/functions.php',
         '6124b4c8570aa390c21fafd04a26c69f' => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy/deep_copy.php',
         '6a47392539ca2329373e0d33e1dba053' => __DIR__ . '/..' . '/symfony/polyfill-intl-icu/bootstrap.php',
         '72243e5536b63e298acb6476f01f1aff' => __DIR__ . '/..' . '/thecodingmachine/safe/lib/special_cases.php',
@@ -164,6 +164,10 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
             'PhpParser\\' => 10,
             'PhpOffice\\PhpSpreadsheet\\' => 25,
             'PHPMailer\\PHPMailer\\' => 20,
+        ),
+        'O' =>
+        array (
+            'OneLogin\\OidcCore\\' => 18,
         ),
         'M' =>
         array (
@@ -365,6 +369,10 @@ class ComposerStaticInited8be931a3a7743a7904d6d90f56d5df
         'PHPMailer\\PHPMailer\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
+        ),
+        'OneLogin\\OidcCore\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/mrd/oidc-core/src',
         ),
         'Matrix\\' =>
         array (
