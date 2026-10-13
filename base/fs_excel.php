@@ -48,19 +48,32 @@ class fs_excel
     private static $autoloader_loaded = false;
     
     /**
-     * Carga el autoloader de PhpSpreadsheet si no está cargado.
-     * 
+     * Carga el autoloader de Composer si no está cargado.
+     *
+     * La ruta se arma desde FS_FOLDER, que es la ruta real en disco. Nunca
+     * desde FS_PATH: ese es el prefijo web que se calcula de
+     * $_SERVER['SCRIPT_NAME'] para construir URLs, y como ruta de disco rompe
+     * en cuanto la aplicación se sirve desde un subdirectorio (armaría algo
+     * como /subdirectorio/vendor/autoload.php, que no existe).
+     *
      * @return void
      */
     public static function load_autoloader()
     {
         if (!self::$autoloader_loaded) {
-            $autoload_path = FS_PATH . 'vendor/autoload.php';
+            // Si el bootstrap todavía no definió FS_FOLDER, se deduce de la
+            // ubicación de este archivo, que vive en base/.
+            $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__);
+            $autoload_path = rtrim((string) $root, '/\\') . '/vendor/autoload.php';
+
             if (file_exists($autoload_path)) {
                 require_once $autoload_path;
                 self::$autoloader_loaded = true;
             } else {
-                throw new Exception('PhpSpreadsheet no está instalado. Ejecuta: composer install');
+                throw new Exception(
+                    'PhpSpreadsheet no está instalado. No se encontró ' . $autoload_path
+                    . '. Ejecuta: composer install'
+                );
             }
         }
     }
