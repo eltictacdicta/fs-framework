@@ -198,6 +198,11 @@
                   </li>
                   {% endif %}
 
+                  {# Área de usuario de la barra superior. Los plugins pueden
+                     reemplazarla desde su propia vista con
+                     {% embed 'header.html.twig' %}{% block user_menu %}...{% endblock %}{% endembed %}
+                     y este markup queda como valor por defecto. #}
+                  {% block user_menu %}
                   <li class="dropdown user user-menu">
                      <a href="#" class="dropdown-toggle" data-toggle="dropdown">
                         <img src='{{ get_gravatar(fsc.user.email) }}' class="user-image" alt="User Image" />
@@ -235,12 +240,16 @@
                         </li>
                      </ul>
                   </li>
+                  {% endblock %}
                </ul>
             </div>
          </nav>
       </header>
       <aside class="main-sidebar">
          <section class="sidebar">
+            {# Panel de usuario de la barra lateral. Mismo contrato que
+               user_menu: el plugin puede reemplazarlo con {% embed %}. #}
+            {% block user_panel %}
             <div class="user-panel">
                <div class="pull-left image">
                   <img src='{{ get_gravatar(fsc.user.email) }}' class='img-circle' alt='{{ fsc.user.nick }}' />
@@ -250,6 +259,7 @@
                   <a href="#"><i class="fa fa-circle text-success"></i> {{ fsc.user.nick }}</a>
                </div>
             </div>
+            {% endblock %}
             {% set has_search_form = false %}
             {# Search form removed - will be customized per installation #}
             <ul class="sidebar-menu" data-widget="tree">
