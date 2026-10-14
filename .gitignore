@@ -14,7 +14,13 @@
 .opencode/tmp/
 # Documentation (generated)
 /doc/
-/apk/
+# NOTA: /apk/ NO se ignora como directorio completo. Los binarios APK se
+# excluyen desde apk/.gitignore (*.apk), de modo que la configuración del
+# directorio (apk/.htaccess, apk/.gitignore) queda versionada y el deploy
+# (archivo fuente de GitHub = solo archivos trackeados) puede crearla o
+# corregirla. Ignorar /apk/ entero dejaba los .htaccess antiguos en producción
+# indefinidamente, porque git nunca borra archivos no trackeados en un
+# directorio ignorado.
 # Dependencies (installed via composer/npm)
 /node_modules/
 # vendor/ se versiona a propósito: actualizaciones del núcleo y ZIPs de plugins
@@ -118,7 +124,9 @@ id_ed25519*
 # =============================================================================
 # SECURITY: HTACCESS
 # =============================================================================
-# Rules are centralized in /.htaccess (root). Optional: apk/, imgs/ for MIME/cache.
+# Reglas raíz: /.htaccess. Los directorios apk/ e imgs/ mantienen su propio
+# .htaccess VERSIONADO (MIME/cache/descarga); ambos directorios albergan
+# binarios ignorados, pero su .htaccess sí se versiona.
 .scannerwork/report-task.txt
 .scannerwork/.sonar_lock
 .sonar-token.example

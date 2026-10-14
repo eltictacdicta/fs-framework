@@ -1,0 +1,53 @@
+# =============================================================================
+# Descarga de APKs (aplicación Android infrico-catcher)
+# =============================================================================
+# Este archivo SE VERSIONA aunque los .apk de /apk/ estén ignorados: el deploy
+# descarga el archivo fuente de GitHub, que contiene exactamente los archivos
+# trackeados, así que cualquier cambio aquí llega a producción.
+#
+# PORTABILIDAD: NO agregar las siguientes directivas. En Plesk / Apache con
+# PHP-FPM devuelven HTTP 500 para TODO el directorio, incluidas las descargas:
+#   - Options ...        -> 500 si AllowOverride no autoriza Options
+#                           (se configura en el virtual-host, no aquí)
+#   - php_flag/php_value -> 500 con PHP-FPM/FastCGI: solo existen con mod_php
+#   - RemoveHandler      -> innecesario y frágil
+#   - Header ...         -> siempre dentro de <IfModule mod_headers.c>
+# Un .htaccess inválido no rompe un fichero: rompe todo el directorio y sus
+# subdirectorios. Así se cayó apk/update/ en producción: HTTP 500 en cada APK.
+#
+# Subdirectorios: la configuración se hereda. apk/update/ NO necesita su propio
+# .htaccess; no volver a crear uno.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine Off
+</IfModule>
+
+<FilesMatch "(?i)\.apk$">
+    <IfModule mod_mime.c>
+        AddType application/vnd.android.package-archive .apk
+    </IfModule>
+
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+
+    <IfModule mod_headers.c>
+        Header set Content-Disposition "attachment"
+        Header set Cache-Control "max-age=3600, public"
+    </IfModule>
+</FilesMatch>
+
+# Este directorio contiene datos, nunca código.
+<FilesMatch "(?i)\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>

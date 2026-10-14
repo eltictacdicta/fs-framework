@@ -1,0 +1,8 @@
+# Los APK son artefactos de runtime generados por el panel (admin_api_apk):
+# nunca se versionan.
+*.apk
+*.APK
+
+# Configuración versionada del directorio: NO ignorar.
+!.htaccess
+!.gitignore
