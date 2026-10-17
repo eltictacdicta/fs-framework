@@ -19,7 +19,7 @@
 
 // Inicio del SSO web (OIDC) Authorization Code + PKCE. Shim: sólo hace el
 // bootstrap fuera del Kernel y delega en el flujo del plugin
-// (oidc_web_sso_flow::start), que genera state + code_verifier, los guarda en
+// (oidc_web_sso::startAuthorizeUrl), que genera state + code_verifier, los guarda en
 // la sesión y devuelve la URL del proveedor.
 
 define('FS_FOLDER', dirname(__DIR__));
@@ -105,9 +105,11 @@ $flow = new oidc_web_sso(new oidc_login_service($db));
 
 try {
     $authorizeUrl = $flow->startAuthorizeUrl($_SERVER, defined('FS_PATH') ? (string) FS_PATH : '');
-} catch (\RuntimeException $exception) {
+} catch (\Throwable $exception) {
+    // El detalle va al log del servidor, no al browser de un anónimo.
+    error_log('SSO web: no se pudo armar la autorización: ' . $exception->getMessage());
     $db->close();
-    infrico_sso_fail($exception->getMessage(), 500);
+    infrico_sso_fail('El SSO web no está disponible. Revise la configuración del proveedor OIDC.', 500);
 }
 
 $db->close();

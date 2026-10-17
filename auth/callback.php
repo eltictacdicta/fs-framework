@@ -18,7 +18,7 @@
  */
 
 // Fin del SSO web (OIDC). Shim: sólo hace el bootstrap fuera del Kernel y
-// delega el flujo al plugin (oidc_web_sso_flow), que valida el state, canjea el
+// delega el flujo al plugin (oidc_web_sso), que valida el state, canjea el
 // code, valida el id_token y emite el handoff de un solo uso. El núcleo no
 // contiene lógica de cliente OIDC.
 
@@ -104,12 +104,26 @@ if (!$db->connected()) {
 }
 
 $flow = new oidc_web_sso(new oidc_login_service($db));
-$result = $flow->complete($_GET, $_SERVER, defined('FS_PATH') ? (string) FS_PATH : '');
+
+try {
+    $result = $flow->complete($_GET, $_SERVER, defined('FS_PATH') ? (string) FS_PATH : '');
+} catch (\Throwable $exception) {
+    error_log('SSO web: falló la vuelta del proveedor: ' . $exception->getMessage());
+    $db->close();
+    infrico_sso_fail('No se pudo completar el inicio de sesión. Intente nuevamente.', 500);
+}
 
 $db->close();
 
 if (empty($result['ok'])) {
-    infrico_sso_fail((string) $result['message'], (int) $result['status']);
+    $message = (string) ($result['message'] ?? '');
+    $status = (int) ($result['status'] ?? 500);
+
+    infrico_sso_fail($message !== '' ? $message : 'No se pudo iniciar sesión.', $status > 0 ? $status : 500);
+}
+
+if (empty($result['location'])) {
+    infrico_sso_fail('No se pudo iniciar sesión.', 500);
 }
 
 // Sin registrar el token en ningún log; redirección inmediata para que no

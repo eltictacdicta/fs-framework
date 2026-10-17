@@ -51,7 +51,6 @@ return array(
     'PhpParser\\' => array($vendorDir . '/nikic/php-parser/lib/PhpParser'),
     'PhpOffice\\PhpSpreadsheet\\' => array($vendorDir . '/phpoffice/phpspreadsheet/src/PhpSpreadsheet'),
     'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
-    'OneLogin\\OidcCore\\' => array($vendorDir . '/mrd/oidc-core/src'),
     'Matrix\\' => array($vendorDir . '/markbaker/matrix/classes/src'),
     'FSFramework\\Plugins\\' => array($baseDir . '/plugins'),
     'FSFramework\\' => array($baseDir . '/src'),
