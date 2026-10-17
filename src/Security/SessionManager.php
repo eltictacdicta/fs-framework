@@ -221,6 +221,8 @@ class SessionManager
             return [];
         }
 
+        $appSessionName = self::resolveSessionName();
+
         // Abrir sesión legacy PHPSESSID
         session_name('PHPSESSID');
         session_id($legacySessionId);
@@ -231,12 +233,87 @@ class SessionManager
             session_write_close();
         }
 
-        // Expirar cookie PHPSESSID en el cliente
-        $secure = SecureRequestDetector::isSecure();
-        setcookie('PHPSESSID', '', time() - 3600, self::resolveCookiePath(), '', $secure, true);
+        // Devolverle el mando a la sesión propia: el ID legacy NUNCA puede quedar
+        // activo. Sólo se reutiliza el ID de la propia cookie (o ninguno, para que
+        // PHP lo resuelva al arrancar la sesión). Si el ID legacy quedara activo,
+        // la sesión FSSESS_* arrancaría con el ID ajeno, la aplicación ignoraría
+        // su propia cookie y cada petición crearía una sesión nueva — que es lo
+        // que vaciaba el `oidc_sso_state` entre init-sso.php y callback.php.
+        session_name($appSessionName);
+        session_id(self::resolveOwnSessionId($_COOKIE, $appSessionName));
+
+        self::clearLegacyPhpSessionCookie();
         unset($_COOKIE['PHPSESSID']);
 
         return $legacyData;
+    }
+
+    /**
+     * ID con el que debe arrancar la sesión propia, tomado únicamente de su
+     * propia cookie. Devuelve '' cuando no hay una cookie válida, para que PHP
+     * resuelva el ID (o genere uno nuevo) al arrancar la sesión.
+     *
+     * @param array<string, mixed> $cookies
+     *
+     * @internal Expuesto para las pruebas de la migración legacy.
+     */
+    public static function resolveOwnSessionId(array $cookies, string $sessionName): string
+    {
+        $ownId = trim((string) ($cookies[$sessionName] ?? ''));
+
+        // Mismo patrón con el que Symfony valida un ID de sesión recibido.
+        return preg_match('/^[a-zA-Z0-9,-]{22,250}$/', $ownId) === 1 ? $ownId : '';
+    }
+
+    /**
+     * Rutas con las que hay que expirar la cookie PHPSESSID legacy.
+     *
+     * Sólo se emite borrado para las rutas que pueden ser de ESTA instalación:
+     *
+     * - Instalación en la raíz: la PHPSESSID de la raíz es la que usaban las
+     *   versiones anteriores de esta propia aplicación, así que se borra.
+     * - Instalación en subdirectorio: se borran las dos variantes del path
+     *   propio (con y sin barra final, porque el cliente puede haberla creado
+     *   con cualquiera de las dos) y NO se toca la de la raíz: una PHPSESSID
+     *   con path '/' puede pertenecer a otra aplicación del mismo host y
+     *   borrarla cerraría la sesión de esa otra aplicación. La sesión propia ya
+     *   no depende de esa cookie (ver migrateLegacyPhpSession).
+     *
+     * @return list<string>
+     *
+     * @internal Expuesto para las pruebas de la migración legacy.
+     */
+    public static function legacyPhpSessionCookiePaths(string $appPath): array
+    {
+        $appPath = self::normalizeCookiePathValue($appPath);
+
+        if ($appPath === '/') {
+            return ['/'];
+        }
+
+        return [$appPath, rtrim($appPath, '/')];
+    }
+
+    /**
+     * Expira la cookie PHPSESSID legacy en el cliente, en todas las rutas donde
+     * puede estar viva.
+     */
+    private static function clearLegacyPhpSessionCookie(): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+
+        $secure = SecureRequestDetector::isSecure();
+
+        foreach (self::legacyPhpSessionCookiePaths(self::resolveCookiePath()) as $path) {
+            setcookie('PHPSESSID', '', [
+                'expires' => time() - 3600,
+                'path' => $path,
+                'secure' => $secure,
+                'httponly' => true,
+            ]);
+        }
     }
 
     public static function resolveSessionName(): string

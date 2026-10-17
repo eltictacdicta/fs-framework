@@ -118,14 +118,18 @@ if (!$service->isWebConfigured()) {
 $session = \FSFramework\Security\SessionManager::getInstance();
 $expectedState = (string) ($session->get('oidc_sso_state') ?? '');
 $codeVerifier = (string) ($session->get('oidc_sso_code_verifier') ?? '');
-$session->remove('oidc_sso_state');
-$session->remove('oidc_sso_code_verifier');
-$session->getSymfonySession()->save();
 
+// El state se consume SOLO cuando valida. Cualquier hit espurio al callback
+// (prefetch, escáner, reintento o una segunda navegación del proveedor) no debe
+// quemar el state y dejar sin login al hit legítimo.
 if (!$service->isValidState($expectedState, $state)) {
     $db->close();
     infrico_sso_fail('Token de seguridad inválido. Inicie sesión de nuevo.', 403);
 }
+
+$session->remove('oidc_sso_state');
+$session->remove('oidc_sso_code_verifier');
+$session->getSymfonySession()->save();
 
 $callbackUrl = $service->getCallbackUrl($_SERVER, defined('FS_PATH') ? (string) FS_PATH : '');
 $result = $service->completeWebLogin($code, $state, $expectedState, $callbackUrl, $codeVerifier);
