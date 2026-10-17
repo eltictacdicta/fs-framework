@@ -63,7 +63,7 @@ class SessionNamePerInstallTest extends TestCase
     }
 
     #[Test]
-    public function defaultSessionNameComesFromTheInstallRoot(): void
+    public function defaultSessionNameComesFromThePerInstallSecret(): void
     {
         if (defined('FS_SESSION_NAME')) {
             self::assertSame(trim((string) FS_SESSION_NAME), SessionManager::resolveSessionName());
@@ -71,10 +71,22 @@ class SessionNamePerInstallTest extends TestCase
             return;
         }
 
+        self::assertStringStartsWith('session:', SessionManager::installSeed());
         self::assertSame(
-            SessionManager::defaultSessionNameFor(FS_FOLDER),
+            SessionManager::defaultSessionNameFor(SessionManager::installSeed()),
             SessionManager::resolveSessionName(),
-            'El nombre por defecto es el que corresponde a la raíz de esta instalación'
+            'El nombre por defecto sale de la semilla de la instalación (secreto persistido), no de la ruta'
+        );
+    }
+
+    #[Test]
+    public function installSignatureIsDerivedFromTheSameSeed(): void
+    {
+        self::assertSame(sha1(SessionManager::installSeed()), SessionManager::installSignature());
+        self::assertNotSame(
+            SessionManager::installSignatureFor('/var/www/html/fsf'),
+            SessionManager::installSignature(),
+            'La firma de OTRA instalación (otra semilla) no puede coincidir con la propia'
         );
     }
 
@@ -125,7 +137,7 @@ class SessionNamePerInstallTest extends TestCase
         self::assertNull($session->get('user_nick'), 'El login de la app ajena no puede quedar en la sesión');
         self::assertNotSame($foreignId, $session->getId(), 'Debe arrancar con un id nuevo, no reutilizar el ajeno');
         self::assertSame(
-            SessionManager::installSignatureFor(FS_FOLDER),
+            SessionManager::installSignature(),
             $session->get('_fs_install_signature'),
             'La sesión limpia queda firmada por esta instalación'
         );
@@ -138,7 +150,7 @@ class SessionNamePerInstallTest extends TestCase
     public function ownSessionKeepsItsData(): void
     {
         $session = $this->sessionWith([
-            '_fs_install_signature' => SessionManager::installSignatureFor(FS_FOLDER),
+            '_fs_install_signature' => SessionManager::installSignature(),
             'oidc_sso_state' => 'state-propio',
         ]);
         $ownId = $session->getId();
@@ -163,7 +175,31 @@ class SessionNamePerInstallTest extends TestCase
 
         self::assertSame('admin', $session->get('user_nick'), 'Una sesión sin firma es válida: no cierra el login');
         self::assertSame($id, $session->getId(), 'No se regenera una sesión legítima');
-        self::assertSame(SessionManager::installSignatureFor(FS_FOLDER), $session->get('_fs_install_signature'));
+        self::assertSame(SessionManager::installSignature(), $session->get('_fs_install_signature'));
+    }
+
+    /**
+     * Sesión firmada con la FIRMA ANTERIOR (seed = raíz, previo al secreto): se
+     * adopta y se re-sella, para que el cambio de seed no desloguee a nadie.
+     */
+    #[Test]
+    public function legacySignatureSessionIsAdoptedAndRestamped(): void
+    {
+        $session = $this->sessionWith([
+            '_fs_install_signature' => SessionManager::legacyInstallSignature(),
+            'user_nick' => 'admin',
+        ]);
+        $id = $session->getId();
+
+        $this->runOwnershipCheck($session);
+
+        self::assertSame('admin', $session->get('user_nick'), 'La sesión previa se conserva');
+        self::assertSame($id, $session->getId(), 'No se regenera: se reutiliza la sesión existente');
+        self::assertSame(
+            SessionManager::installSignature(),
+            $session->get('_fs_install_signature'),
+            'La firma antigua se re-sella con la nueva'
+        );
     }
 
     /**
@@ -210,7 +246,7 @@ class SessionNamePerInstallTest extends TestCase
             'Sin rotación no se limpia nada: la sesión ajena queda intacta'
         );
         self::assertNotSame(
-            SessionManager::installSignatureFor(FS_FOLDER),
+            SessionManager::installSignature(),
             $session->get('_fs_install_signature'),
             'Una sesión que no se pudo rotar no queda adoptada'
         );

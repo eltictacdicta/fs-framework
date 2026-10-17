@@ -184,7 +184,7 @@ class SessionManager
             return;
         }
 
-        $ownId = $_COOKIE[self::resolveSessionName()] ?? '';
+        $ownId = $_COOKIE[self::resolveSessionName()] ?? $_COOKIE[self::legacySessionName()] ?? '';
         $ownId = is_string($ownId) ? trim($ownId) : '';
 
         // Mismo patrón con el que Symfony valida un id de sesión recibido.
@@ -269,7 +269,26 @@ class SessionManager
             return trim((string) FS_SESSION_NAME);
         }
 
-        return self::defaultSessionNameFor(self::installRoot());
+        return self::defaultSessionNameFor(self::installSeed());
+    }
+
+    /**
+     * Semilla de identidad de ESTA instalación.
+     *
+     * Es el secreto por instalación que ya persiste el SecretManager (único y
+     * estable entre deploys): así dos instalaciones no comparten nombre de
+     * sesión y mover la app de carpeta no lo cambia. Si el secreto no está
+     * disponible, se degrada a la raíz de la instalación.
+     *
+     * @internal Expuesto para las pruebas.
+     */
+    public static function installSeed(): string
+    {
+        try {
+            return 'session:' . SecretManager::getSecret();
+        } catch (\Throwable) {
+            return self::installRoot();
+        }
     }
 
     /**
@@ -312,7 +331,32 @@ class SessionManager
         return sha1(str_replace('\\', '/', trim($installRoot)));
     }
 
-    private function installSignature(): string
+    /**
+     * Firma de pertenencia de ESTA instalación (semilla = secreto por
+     * instalación, como el nombre de sesión).
+     *
+     * @internal Expuesto para las pruebas.
+     */
+    public static function installSignature(): string
+    {
+        return sha1(self::installSeed());
+    }
+
+    /**
+     * Nombre de sesión previo (seed = raíz de la instalación) y su firma: se
+     * usan para migrar sin desloguear a quienes venían de esa versión.
+     *
+     * @internal Expuesto para las pruebas.
+     */
+    public static function legacySessionName(): string
+    {
+        return self::defaultSessionNameFor(self::installRoot());
+    }
+
+    /**
+     * @internal Expuesto para las pruebas.
+     */
+    public static function legacyInstallSignature(): string
     {
         return self::installSignatureFor(self::installRoot());
     }
@@ -336,7 +380,7 @@ class SessionManager
             return;
         }
 
-        $expected = $this->installSignature();
+        $expected = self::installSignature();
         $current = $this->session->get(self::INSTALL_SIGNATURE_KEY);
 
         if ($current === null) {
@@ -345,7 +389,14 @@ class SessionManager
             return;
         }
 
-        if (is_string($current) && hash_equals($expected, $current)) {
+        if (is_string($current) && (hash_equals($expected, $current) || hash_equals(self::legacyInstallSignature(), $current))) {
+            // Re-sella con la firma nueva cuando venía la anterior (migración del
+            // seed de la ruta al secreto por instalación): así el siguiente
+            // request ya no vuelve a pasar por la rama legacy.
+            if (!hash_equals($expected, $current)) {
+                $this->session->set(self::INSTALL_SIGNATURE_KEY, $expected);
+            }
+
             return;
         }
 

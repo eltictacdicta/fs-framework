@@ -606,13 +606,16 @@ final class fs_maintenance_mode
 
     private static function resolveSessionName(): string
     {
+        // Fuente única: el SessionManager moderno. El fallback local sólo
+        // aplica cuando la clase moderna no está autoloadable (bootstrap legacy).
+        if (class_exists('FSFramework\\Security\\SessionManager')) {
+            return \FSFramework\Security\SessionManager::resolveSessionName();
+        }
+
         if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
             return trim((string) FS_SESSION_NAME);
         }
 
-        // Raíz de ESTA instalación (nunca RUTA/raíz del vhost: la comparten
-        // todas las instalaciones del mismo host, y SCRIPT_FILENAME además
-        // cambia según el entrypoint por el que llegue la petición).
         $seed = defined('FS_FOLDER') && trim((string) FS_FOLDER) !== ''
             ? (string) FS_FOLDER
             : dirname(__DIR__);

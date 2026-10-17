@@ -139,12 +139,16 @@ class fs_session_manager
 
     private static function resolveSessionName(): string
     {
+        // Fuente única: el SessionManager moderno. El fallback local sólo
+        // aplica cuando la clase moderna no está autoloadable (bootstrap legacy).
+        if (class_exists('FSFramework\\Security\\SessionManager')) {
+            return \FSFramework\Security\SessionManager::resolveSessionName();
+        }
+
         if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
             return trim((string) FS_SESSION_NAME);
         }
 
-        // Raíz de ESTA instalación (nunca $_SERVER['DOCUMENT_ROOT']: es la raíz
-        // del vhost y la comparten todas las instalaciones del mismo host).
         $seed = defined('FS_FOLDER') && trim((string) FS_FOLDER) !== ''
             ? (string) FS_FOLDER
             : dirname(__DIR__);
