@@ -610,7 +610,12 @@ final class fs_maintenance_mode
             return trim((string) FS_SESSION_NAME);
         }
 
-        $seed = defined('FS_FOLDER') ? (string) FS_FOLDER : (string) ($_SERVER['SCRIPT_FILENAME'] ?? __DIR__);
+        // Raíz de ESTA instalación (nunca RUTA/raíz del vhost: la comparten
+        // todas las instalaciones del mismo host, y SCRIPT_FILENAME además
+        // cambia según el entrypoint por el que llegue la petición).
+        $seed = defined('FS_FOLDER') && trim((string) FS_FOLDER) !== ''
+            ? (string) FS_FOLDER
+            : dirname(__DIR__);
         $seed = str_replace('\\', '/', $seed);
 
         return 'FSSESS_' . substr(sha1($seed), 0, 12);

@@ -42,6 +42,11 @@ use Symfony\Component\HttpFoundation\Session\Flash\FlashBag;
  */
 class SessionManager
 {
+    /**
+     * Clave de sesión con la firma de la instalación dueña de la sesión.
+     */
+    private const INSTALL_SIGNATURE_KEY = '_fs_install_signature';
+
     private static ?SessionManager $instance = null;
     private Session $session;
     private bool $initialized = false;
@@ -95,6 +100,7 @@ class SessionManager
         if (session_status() === PHP_SESSION_ACTIVE && session_name() === self::resolveSessionName()) {
             $this->session = new Session(new PhpBridgeSessionStorage(), new AttributeBag(), new FlashBag());
             $this->session->start();
+            $this->enforceInstallSessionOwnership();
             $this->initialized = true;
             return;
         }
@@ -189,6 +195,10 @@ class SessionManager
 
         $this->session = new Session($storage, new AttributeBag(), new FlashBag());
         $this->session->start();
+
+        // Control de pertenencia ANTES de mezclar datos legacy: si la sesión
+        // cargada es de otra instalación, se descarta y se arranca limpia.
+        $this->enforceInstallSessionOwnership();
 
         // Merge de datos legacy migrados via $session->set() (puebla los bags correctamente)
         foreach ($legacyData as $key => $value) {
@@ -322,10 +332,119 @@ class SessionManager
             return trim((string) FS_SESSION_NAME);
         }
 
-        $seed = defined('FS_FOLDER') ? (string) FS_FOLDER : trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? __DIR__));
-        $seed = str_replace('\\', '/', $seed);
+        return self::defaultSessionNameFor(self::installRoot());
+    }
+
+    /**
+     * Raíz de ESTA instalación.
+     *
+     * Nunca se usa $_SERVER['DOCUMENT_ROOT']: esa es la raíz del vhost y la
+     * comparten todas las instalaciones del mismo host (una en la raíz, otra en
+     * /fsf/, otra en /staging/), así que derivar de ahí les da el MISMO nombre
+     * de sesión y terminan leyendo o pisando la sesión del vecino.
+     */
+    private static function installRoot(): string
+    {
+        if (defined('FS_FOLDER') && trim((string) FS_FOLDER) !== '') {
+            return (string) FS_FOLDER;
+        }
+
+        // Este archivo vive en <raíz-de-la-instalación>/src/Security/.
+        return dirname(__DIR__, 2);
+    }
+
+    /**
+     * Nombre de sesión que le corresponde a una ruta de instalación.
+     *
+     * @internal Expuesto para las pruebas de unicidad por instalación.
+     */
+    public static function defaultSessionNameFor(string $installRoot): string
+    {
+        $seed = str_replace('\\', '/', trim($installRoot));
 
         return 'FSSESS_' . substr(sha1($seed), 0, 12);
+    }
+
+    /**
+     * Firma que identifica a ESTA instalación dentro de la sesión.
+     *
+     * @internal Expuesto para las pruebas del control de pertenencia.
+     */
+    public static function installSignatureFor(string $installRoot): string
+    {
+        return sha1(str_replace('\\', '/', trim($installRoot)));
+    }
+
+    private function installSignature(): string
+    {
+        return self::installSignatureFor(self::installRoot());
+    }
+
+    /**
+     * Falla cerrado si la sesión cargada no es de esta instalación.
+     *
+     * El nombre de la cookie identifica a la instalación, pero dos
+     * instalaciones del mismo host pueden compartirlo (por ejemplo un
+     * FS_SESSION_NAME copiado entre configs). En ese caso la sesión almacenada
+     * puede pertenecer a la OTRA aplicación, y leerla mezcla estados: el token
+     * CSRF, el `state` del SSO o el propio login.
+     *
+     * Se detecta con una firma de la instalación. Si no coincide, se arranca
+     * una sesión limpia SIN destruir la ajena: su archivo queda intacto para su
+     * dueño y el browser recibe un id nuevo.
+     */
+    private function enforceInstallSessionOwnership(): void
+    {
+        if (!$this->session->isStarted()) {
+            return;
+        }
+
+        $expected = $this->installSignature();
+        $current = $this->session->get(self::INSTALL_SIGNATURE_KEY);
+
+        if ($current === null) {
+            $this->session->set(self::INSTALL_SIGNATURE_KEY, $expected);
+
+            return;
+        }
+
+        if (is_string($current) && hash_equals($expected, $current)) {
+            return;
+        }
+
+        error_log(
+            '[FSFramework] SessionManager: la sesión cargada pertenece a otra instalación'
+            . ' (firma distinta); se arranca una sesión limpia y no se toca la ajena.'
+        );
+
+        // Regenerar el id ANTES de limpiar. `session_regenerate_id(false)` guarda
+        // el $_SESSION actual en el ID viejo antes de cambiar, así que este orden
+        // deja intacta la sesión de la otra instalación y la limpieza afecta sólo
+        // al id nuevo. Al revés, los bags ya vaciados se escribirían en el id
+        // ajeno y le borrarían el login, el token CSRF y el `state` del SSO.
+        if (!$this->session->migrate(false)) {
+            // Sin rotación no hay separación posible: se descarta lo cargado sin
+            // escribir nada, para no pisar la sesión ajena con datos vacíos.
+            $this->discardLoadedSession();
+
+            return;
+        }
+
+        $this->session->clear();
+        $this->session->set(self::INSTALL_SIGNATURE_KEY, $expected);
+    }
+
+    /**
+     * Descarta la sesión cargada sin persistir cambios.
+     *
+     * Se usa cuando el id no se puede rotar: `session_abort()` cierra la sesión
+     * sin escribir, así que la otra instalación conserva su archivo tal cual.
+     */
+    private function discardLoadedSession(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_abort();
+        }
     }
 
     private static function resolveCookiePath(): string

@@ -143,7 +143,11 @@ class fs_session_manager
             return trim((string) FS_SESSION_NAME);
         }
 
-        $seed = defined('FS_FOLDER') ? (string) FS_FOLDER : trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? __DIR__));
+        // Raíz de ESTA instalación (nunca $_SERVER['DOCUMENT_ROOT']: es la raíz
+        // del vhost y la comparten todas las instalaciones del mismo host).
+        $seed = defined('FS_FOLDER') && trim((string) FS_FOLDER) !== ''
+            ? (string) FS_FOLDER
+            : dirname(__DIR__);
         $seed = str_replace('\\', '/', $seed);
 
         return 'FSSESS_' . substr(sha1($seed), 0, 12);
