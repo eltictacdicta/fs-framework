@@ -17,9 +17,10 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Inicio del SSO web (OIDC Authorization Code + PKCE): genera el state y el
-// code_verifier, los guarda en la sesión y redirige al provider. El usuario
-// autenticado en el provider entra al backend por /auth/callback.php.
+// Inicio del SSO web (OIDC) Authorization Code + PKCE. Shim: sólo hace el
+// bootstrap fuera del Kernel y delega en el flujo del plugin
+// (oidc_web_sso_flow::start), que genera state + code_verifier, los guarda en
+// la sesión y devuelve la URL del proveedor.
 
 define('FS_FOLDER', dirname(__DIR__));
 
@@ -61,10 +62,6 @@ require_once 'base/fs_functions.php';
 require_once 'model/fs_user.php';
 require_once 'model/agente.php';
 
-require_once 'plugins/api_auth/model/api_security_setting.php';
-require_once 'plugins/api_auth/model/oidc_user_correlator.php';
-require_once 'plugins/api_auth/model/oidc_login_service.php';
-
 if (!function_exists('infrico_sso_fail')) {
     /**
      * Muestra un error claro y termina la petición sin crear sesión.
@@ -86,6 +83,17 @@ if (!function_exists('infrico_sso_fail')) {
     }
 }
 
+// El flujo del SSO web lo implementa el plugin: acá sólo se delega.
+$ssoFile = __DIR__ . '/../plugins/api_auth/model/oidc_web_sso.php';
+
+if (!is_file($ssoFile)) {
+    infrico_sso_fail('El plugin api_auth no está instalado: el SSO web no está disponible.', 503);
+}
+
+require_once __DIR__ . '/../plugins/api_auth/composer_autoload.php';
+require_once __DIR__ . '/../plugins/api_auth/model/oidc_login_service.php';
+require_once $ssoFile;
+
 $db = new fs_db2();
 $db->connect();
 
@@ -93,23 +101,14 @@ if (!$db->connected()) {
     infrico_sso_fail('No se pudo conectar con la base de datos.');
 }
 
-$service = new oidc_login_service($db);
+$flow = new oidc_web_sso(new oidc_login_service($db));
 
-if (!$service->isWebConfigured()) {
+try {
+    $authorizeUrl = $flow->startAuthorizeUrl($_SERVER, defined('FS_PATH') ? (string) FS_PATH : '');
+} catch (\RuntimeException $exception) {
     $db->close();
-    infrico_sso_fail('El proveedor OIDC no está configurado para el SSO web.');
+    infrico_sso_fail($exception->getMessage(), 500);
 }
-
-$state = oidc_login_service::generateState();
-$codeVerifier = oidc_login_service::generatePkceVerifier();
-
-$session = \FSFramework\Security\SessionManager::getInstance();
-$session->set('oidc_sso_state', $state);
-$session->set('oidc_sso_code_verifier', $codeVerifier);
-$session->getSymfonySession()->save();
-
-$callbackUrl = $service->getCallbackUrl($_SERVER, defined('FS_PATH') ? (string) FS_PATH : '');
-$authorizeUrl = $service->buildAuthorizeUrl($callbackUrl, $state, $codeVerifier);
 
 $db->close();
 

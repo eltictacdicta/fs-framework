@@ -17,9 +17,10 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Fin del SSO web (OIDC): valida el state, canjea el code, valida el id_token y
-// correlaciona el email del proveedor con un usuario no-admin del agente. Si
-// todo va bien, crea la sesión web y redirige al inicio del backend.
+// Fin del SSO web (OIDC). Shim: sólo hace el bootstrap fuera del Kernel y
+// delega el flujo al plugin (oidc_web_sso_flow), que valida el state, canjea el
+// code, valida el id_token y emite el handoff de un solo uso. El núcleo no
+// contiene lógica de cliente OIDC.
 
 define('FS_FOLDER', dirname(__DIR__));
 
@@ -57,11 +58,6 @@ require_once 'base/fs_functions.php';
 require_once 'model/fs_user.php';
 require_once 'model/agente.php';
 
-require_once 'plugins/api_auth/model/api_security_setting.php';
-require_once 'plugins/api_auth/model/oidc_user_correlator.php';
-require_once 'plugins/api_auth/model/oidc_login_service.php';
-require_once 'plugins/api_auth/model/oidc_sso_handoff.php';
-
 if (!function_exists('infrico_sso_fail')) {
     /**
      * Muestra un error claro y termina la petición sin crear sesión.
@@ -83,22 +79,21 @@ if (!function_exists('infrico_sso_fail')) {
     }
 }
 
-// El provider puede devolver un error explícito (login_required, etc.).
-$providerError = trim((string) ($_GET['error'] ?? ''));
-if ($providerError !== '') {
-    $description = trim((string) ($_GET['error_description'] ?? ''));
-    infrico_sso_fail(
-        'El proveedor rechazó la autenticación: ' . $providerError
-        . ($description !== '' ? ' (' . $description . ')' : ''),
-        403
-    );
+// El flujo del SSO web lo implementa el plugin: acá sólo se delega.
+$ssoFile = __DIR__ . '/../plugins/api_auth/model/oidc_web_sso.php';
+
+if (!is_file($ssoFile)) {
+    infrico_sso_fail('El plugin api_auth no está instalado: el SSO web no está disponible.', 503);
 }
 
-$code = trim((string) ($_GET['code'] ?? ''));
-$state = trim((string) ($_GET['state'] ?? ''));
+require_once __DIR__ . '/../plugins/api_auth/composer_autoload.php';
+require_once __DIR__ . '/../plugins/api_auth/model/oidc_login_service.php';
+require_once $ssoFile;
 
-if ($code === '') {
-    infrico_sso_fail('Falta el parámetro code.', 400);
+// El proveedor puede devolver un error explícito (login_required, etc.).
+$providerError = oidc_web_sso::providerErrorMessage($_GET);
+if ($providerError !== null) {
+    infrico_sso_fail($providerError, 403);
 }
 
 $db = new fs_db2();
@@ -108,48 +103,16 @@ if (!$db->connected()) {
     infrico_sso_fail('No se pudo conectar con la base de datos.');
 }
 
-$service = new oidc_login_service($db);
-
-if (!$service->isWebConfigured()) {
-    $db->close();
-    infrico_sso_fail('El proveedor OIDC no está configurado para el SSO web.');
-}
-
-$session = \FSFramework\Security\SessionManager::getInstance();
-$expectedState = (string) ($session->get('oidc_sso_state') ?? '');
-$codeVerifier = (string) ($session->get('oidc_sso_code_verifier') ?? '');
-
-// El state se consume SOLO cuando valida. Cualquier hit espurio al callback
-// (prefetch, escáner, reintento o una segunda navegación del proveedor) no debe
-// quemar el state y dejar sin login al hit legítimo.
-if (!$service->isValidState($expectedState, $state)) {
-    $db->close();
-    infrico_sso_fail('Token de seguridad inválido. Inicie sesión de nuevo.', 403);
-}
-
-$session->remove('oidc_sso_state');
-$session->remove('oidc_sso_code_verifier');
-$session->getSymfonySession()->save();
-
-$callbackUrl = $service->getCallbackUrl($_SERVER, defined('FS_PATH') ? (string) FS_PATH : '');
-$result = $service->completeWebLogin($code, $state, $expectedState, $callbackUrl, $codeVerifier);
-
-if (empty($result['success']) || empty($result['user'])) {
-    $db->close();
-    infrico_sso_fail('No se pudo iniciar sesión: ' . (string) ($result['error'] ?? 'error desconocido'), 403);
-}
-
-$user = $result['user'];
-
-// Handoff de un solo uso: NO se crea aquí la sesión. Se emite un token opaco
-// (solo se persiste su hash) y el controlador público del plugin, ya dentro
-// del Kernel, lo consume y crea la sesión. Así /index.php reconoce el login.
-$token = (new oidc_sso_handoff())->issue((string) $user->nick);
+$flow = new oidc_web_sso(new oidc_login_service($db));
+$result = $flow->complete($_GET, $_SERVER, defined('FS_PATH') ? (string) FS_PATH : '');
 
 $db->close();
 
+if (empty($result['ok'])) {
+    infrico_sso_fail((string) $result['message'], (int) $result['status']);
+}
+
 // Sin registrar el token en ningún log; redirección inmediata para que no
 // quede en el historial salvo la entrada de la URL de un solo uso.
-$base = (defined('FS_PATH') && trim((string) FS_PATH) !== '') ? rtrim((string) FS_PATH, '/') : '';
-header('Location: ' . $base . '/oidc-sso/login?t=' . rawurlencode($token), true, 302);
+header('Location: ' . $result['location'], true, 302);
 exit;
