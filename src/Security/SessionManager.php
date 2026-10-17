@@ -90,10 +90,12 @@ class SessionManager
             return;
         }
 
-        // Migrar sesión legacy PHPSESSID si existe
-        $legacyData = [];
-        if (!empty($_COOKIE['PHPSESSID']) && session_status() === PHP_SESSION_NONE) {
-            $legacyData = $this->migrateLegacyPhpSession();
+        // La cookie PHPSESSID de otra aplicación del host sólo se limpia: NUNCA
+        // se abre esa sesión ni se copian sus datos (ver discardLegacyPhpSession).
+        // Salvo que el nombre de sesión propio SEA PHPSESSID (FS_SESSION_NAME):
+        // ahí esa cookie es la propia y no se toca.
+        if (!empty($_COOKIE['PHPSESSID']) && self::resolveSessionName() !== 'PHPSESSID') {
+            $this->discardLegacyPhpSession();
         }
 
         // Si ya hay una sesión PHP activa con el nombre correcto, usarla
@@ -105,63 +107,17 @@ class SessionManager
             return;
         }
 
-        // Si hay sesión activa con nombre incorrecto (típicamente PHPSESSID tras migración legacy),
-        // envolver con PhpBridgeSessionStorage en lugar de intentar iniciar una nueva.
-        // NativeSessionStorage::start() lanzaría "already started by PHP" porque session_status()
-        // sigue siendo PHP_SESSION_ACTIVE después de session_write_close().
-        if (session_status() === PHP_SESSION_ACTIVE && session_name() !== self::resolveSessionName()) {
-            $oldName = session_name();
-            $newName = self::resolveSessionName();
-
-            trigger_error(
-                '[FSFramework] SessionManager: sesión activa con nombre distinto (' . $oldName
-                . '), envolviendo con PhpBridgeSessionStorage y migrando a ' . $newName,
-                E_USER_WARNING
-            );
-
-            $this->session = new Session(new PhpBridgeSessionStorage(), new AttributeBag(), new FlashBag());
-            $this->session->start();
-
-            // Merge de datos legacy migrados
-            foreach ($legacyData as $key => $value) {
-                $this->session->set($key, $value);
-            }
-            if (!empty($legacyData)) {
-                $this->session->set('_migrated_from_phpsessid', true);
-            }
-
-            // Establecer cookie con el nombre correcto para futuros requests.
-            // El ID de sesión se reutiliza — el almacenamiento (archivos) usa el ID, no el nombre.
-            if (!headers_sent()) {
-                $idleTimeout = SessionPolicy::getIdleTimeout();
-                $secure = SecureRequestDetector::isSecure();
-                $cookiePath = self::resolveCookiePath();
-                $currentId = session_id();
-
-                // Expirar la cookie antigua (si migrateLegacyPhpSession no la expiró)
-                // para evitar dos cookies de sesión activas que confligirían con session_id()
-                if ($oldName !== $newName) {
-                    setcookie($oldName, '', [
-                        'expires' => time() - 3600,
-                        'path' => $cookiePath,
-                        'secure' => $secure,
-                        'httponly' => true,
-                        'samesite' => 'Lax',
-                    ]);
-                }
-
-                setcookie($newName, $currentId, [
-                    'expires' => time() + $idleTimeout,
-                    'path' => $cookiePath,
-                    'secure' => $secure,
-                    'httponly' => true,
-                    'samesite' => 'Lax',
-                ]);
-            }
-
-            $this->maybeRegenerateId();
-            $this->initialized = true;
-            return;
+        // Si hay una sesión activa con OTRO nombre (session.auto_start, código
+        // legacy o un plugin), NO se reutiliza ni se envuelve: sus datos son de
+        // otra sesión, y adoptarlos dejaba inyectar un login porque isValid()
+        // sólo valida `user_nick` + `login_time` + `last_activity`. Se aborta sin
+        // escribir nada y se sigue por la vía nativa, que arranca la sesión
+        // propia (y aplica el control de pertenencia). session_abort() deja el
+        // estado en PHP_SESSION_NONE, así que NativeSessionStorage::start() no
+        // lanza el "already started by PHP" que motivaba la rama anterior.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_abort();
+            session_id('');
         }
 
         if (headers_sent()) {
@@ -193,20 +149,17 @@ class SessionManager
 
         $storage = new NativeSessionStorage($options, $handler);
 
+        // El id con el que arranca la sesión propia sale SIEMPRE de su propia
+        // cookie: un id residual (de una sesión cerrada por otro componente)
+        // ganaría sobre la cookie y haría leer la sesión de otro.
+        self::selectOwnSessionId();
+
         $this->session = new Session($storage, new AttributeBag(), new FlashBag());
         $this->session->start();
 
-        // Control de pertenencia ANTES de mezclar datos legacy: si la sesión
-        // cargada es de otra instalación, se descarta y se arranca limpia.
+        // Control de pertenencia: si la sesión cargada es de otra instalación,
+        // se descarta y se arranca una limpia antes de usar nada de ella.
         $this->enforceInstallSessionOwnership();
-
-        // Merge de datos legacy migrados via $session->set() (puebla los bags correctamente)
-        foreach ($legacyData as $key => $value) {
-            $this->session->set($key, $value);
-        }
-        if (!empty($legacyData)) {
-            $this->session->set('_migrated_from_phpsessid', true);
-        }
 
         // Regenerar ID periódicamente
         $this->maybeRegenerateId();
@@ -215,64 +168,48 @@ class SessionManager
     }
 
     /**
-     * Migra datos de sesión desde una cookie PHPSESSID legacy.
+     * Deja como id activo el de la propia cookie de sesión (o ninguno).
      *
-     * Detecta si existe la cookie PHPSESSID, abre la sesión legacy,
-     * copia $_SESSION, cierra la sesión antigua, expira la cookie
-     * y devuelve los datos para que initialize() los mezcle via $session->set().
-     *
-     * @return array<string, mixed>
+     * PHP reutiliza un `session_id()` ya fijado antes de `session_start()` y en
+     * ese caso NO lee la cookie: un id residual (de una sesión PHPSESSID que
+     * abrió y cerró otro componente) haría que la sesión propia se abra con el
+     * archivo de otro (`sess_<id>` en el `save_path` compartido) y herede su
+     * `user_nick`, su `login_time` y su `last_activity` — justo lo que valida
+     * {@see isValid()}. Por eso el id se resuelve acá, siempre desde la cookie
+     * propia, y se limpia si no hay una válida para que PHP la lea.
      */
-    private function migrateLegacyPhpSession(): array
+    private static function selectOwnSessionId(): void
     {
-        $legacySessionId = $_COOKIE['PHPSESSID'] ?? '';
-
-        if ($legacySessionId === '') {
-            return [];
+        if (session_status() !== PHP_SESSION_NONE || headers_sent()) {
+            return;
         }
 
-        $appSessionName = self::resolveSessionName();
+        $ownId = $_COOKIE[self::resolveSessionName()] ?? '';
+        $ownId = is_string($ownId) ? trim($ownId) : '';
 
-        // Abrir sesión legacy PHPSESSID
-        session_name('PHPSESSID');
-        session_id($legacySessionId);
-
-        $legacyData = [];
-        if (@session_start()) {
-            $legacyData = $_SESSION;
-            session_write_close();
-        }
-
-        // Devolverle el mando a la sesión propia: el ID legacy NUNCA puede quedar
-        // activo. Sólo se reutiliza el ID de la propia cookie (o ninguno, para que
-        // PHP lo resuelva al arrancar la sesión). Si el ID legacy quedara activo,
-        // la sesión FSSESS_* arrancaría con el ID ajeno, la aplicación ignoraría
-        // su propia cookie y cada petición crearía una sesión nueva — que es lo
-        // que vaciaba el `oidc_sso_state` entre init-sso.php y callback.php.
-        session_name($appSessionName);
-        session_id(self::resolveOwnSessionId($_COOKIE, $appSessionName));
-
-        self::clearLegacyPhpSessionCookie();
-        unset($_COOKIE['PHPSESSID']);
-
-        return $legacyData;
+        // Mismo patrón con el que Symfony valida un id de sesión recibido.
+        session_id(preg_match('/^[a-zA-Z0-9,-]{22,250}$/', $ownId) === 1 ? $ownId : '');
     }
 
     /**
-     * ID con el que debe arrancar la sesión propia, tomado únicamente de su
-     * propia cookie. Devuelve '' cuando no hay una cookie válida, para que PHP
-     * resuelva el ID (o genere uno nuevo) al arrancar la sesión.
+     * Descarta la cookie de sesión legacy (PHPSESSID) sin leer la sesión ajena.
      *
-     * @param array<string, mixed> $cookies
+     * Antes esta ruta abría la sesión PHPSESSID y copiaba sus claves dentro de
+     * la nuestra ("migración legacy"). Eso permitía inyectar un login: un
+     * `user_nick` ajeno con `login_time` y `last_activity` no expirados es
+     * exactamente lo único que valida {@see isValid()}, así que cualquier otra
+     * aplicación del mismo host con el `session.save_path` compartido (o
+     * cualquier primitiva de escritura de sesión) alcanzaba para entrar.
      *
-     * @internal Expuesto para las pruebas de la migración legacy.
+     * La continuidad después del renombrado de la cookie sigue cubierta por las
+     * cookies firmadas `user`/`logkey`/`auth_sig`, que sí se validan contra la
+     * base de datos antes de reconstruir la sesión.
      */
-    public static function resolveOwnSessionId(array $cookies, string $sessionName): string
+    private function discardLegacyPhpSession(): void
     {
-        $ownId = trim((string) ($cookies[$sessionName] ?? ''));
+        self::clearLegacyPhpSessionCookie();
 
-        // Mismo patrón con el que Symfony valida un ID de sesión recibido.
-        return preg_match('/^[a-zA-Z0-9,-]{22,250}$/', $ownId) === 1 ? $ownId : '';
+        unset($_COOKIE['PHPSESSID']);
     }
 
     /**
@@ -287,11 +224,11 @@ class SessionManager
      *   con cualquiera de las dos) y NO se toca la de la raíz: una PHPSESSID
      *   con path '/' puede pertenecer a otra aplicación del mismo host y
      *   borrarla cerraría la sesión de esa otra aplicación. La sesión propia ya
-     *   no depende de esa cookie (ver migrateLegacyPhpSession).
+     *   no depende de esa cookie (ver discardLegacyPhpSession).
      *
      * @return list<string>
      *
-     * @internal Expuesto para las pruebas de la migración legacy.
+     * @internal Expuesto para las pruebas de la limpieza legacy.
      */
     public static function legacyPhpSessionCookiePaths(string $appPath): array
     {

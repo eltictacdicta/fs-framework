@@ -20,21 +20,26 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Regresión: la cookie PHPSESSID de OTRA aplicación del mismo host no puede
- * quedarse con la sesión de esta instalación.
+ * La cookie PHPSESSID de OTRA aplicación del mismo host sólo se limpia: nunca
+ * se abre esa sesión, nunca se copian sus datos y nunca aporta el id de sesión.
  *
- * Cuando eso pasaba, la sesión propia (FSSESS_*) arrancaba con el ID ajeno, la
- * aplicación ignoraba su propia cookie y cada petición creaba una sesión nueva.
- * Consecuencia real en producción: el `oidc_sso_state` que guarda
- * `auth/init-sso.php` no existía cuando volvía `auth/callback.php`, y el SSO web
- * respondía "Token de seguridad inválido. Inicie sesión de nuevo." (HTTP 403).
+ * Abrirla y copiar sus claves permitía inyectar un login: `isValid()` sólo
+ * valida `user_nick` + `login_time` + `last_activity`, así que una sesión ajena
+ * con esas claves (otra app del host con el `session.save_path` compartido)
+ * alcanzaba para entrar.
  */
 #[CoversClass(SessionManager::class)]
 class SessionLegacyPhpSessionMigrationTest extends TestCase
 {
+    private string $sessionNameBefore = '';
+    private string $sessionIdBefore = '';
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->sessionNameBefore = session_name();
+        $this->sessionIdBefore = session_id();
 
         SessionManager::reset();
         $this->closeActiveSession();
@@ -46,6 +51,9 @@ class SessionLegacyPhpSessionMigrationTest extends TestCase
     {
         $this->closeActiveSession();
 
+        session_name($this->sessionNameBefore);
+        session_id($this->sessionIdBefore);
+
         SessionManager::reset();
         $_COOKIE = [];
         $_SESSION = [];
@@ -54,14 +62,15 @@ class SessionLegacyPhpSessionMigrationTest extends TestCase
     }
 
     /**
-     * Las dos cookies del caso real: la PHPSESSID de otra app del host (path=/)
-     * y la propia de esta instalación (path=/fsf/).
+     * La limpieza no toca la identidad de la sesión propia: ni el nombre ni el
+     * id de sesión cambian, y la cookie legacy deja de estar disponible.
      *
-     * Tras la migración, lo que queda activo tiene que ser SIEMPRE la sesión
-     * propia: es la que guarda el `oidc_sso_state` que después lee callback.php.
+     * En proceso aparte para poder fijar nombre/id de sesión (con salida ya
+     * enviada esas llamadas no tendrían efecto y el test pasaría de casualidad).
      */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
     #[Test]
-    public function legacyPhpSessionCookieDoesNotHijackOwnSession(): void
+    public function legacyCookieIsOnlyDiscarded(): void
     {
         $sessionName = SessionManager::resolveSessionName();
         $ownSessionId = '3vjhh21l048tv1b56pp7ugo25q';
@@ -70,20 +79,25 @@ class SessionLegacyPhpSessionMigrationTest extends TestCase
             $sessionName => $ownSessionId,
             'PHPSESSID' => 'legacyid000000000000000000',
         ];
+        session_name($sessionName);
+        session_id($ownSessionId);
 
-        $legacyData = $this->runLegacyMigration();
+        // Sanidad: el seteo tiene que haber surtido efecto en este entorno.
+        self::assertSame($sessionName, session_name());
+        self::assertSame($ownSessionId, session_id());
+
+        $this->runLegacyDiscard();
 
         self::assertSame(
             $sessionName,
             session_name(),
-            'La migración legacy debe devolverle el nombre de sesión a esta instalación'
+            'La limpieza legacy no puede cambiar el nombre de la sesión propia'
         );
         self::assertSame(
             $ownSessionId,
             session_id(),
-            'La migración legacy no puede dejar activo el ID de la cookie ajena'
+            'La limpieza legacy no puede reemplazar el id de la sesión propia'
         );
-        self::assertSame([], $legacyData);
         self::assertArrayNotHasKey(
             'PHPSESSID',
             $_COOKIE,
@@ -92,58 +106,48 @@ class SessionLegacyPhpSessionMigrationTest extends TestCase
     }
 
     /**
-     * Sin cookie propia, la migración legacy no aporta ningún ID: la sesión
-     * propia se resuelve después (o se crea nueva).
+     * Sin cookie propia, la limpieza tampoco aporta ningún id: no se adopta el
+     * de la sesión ajena.
      */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
     #[Test]
-    public function legacyMigrationLeavesNoSessionIdWhenThereIsNoOwnCookie(): void
+    public function legacyCookieNeverProvidesTheSessionId(): void
     {
         $_COOKIE = ['PHPSESSID' => 'legacyid000000000000000000'];
+        session_name(SessionManager::resolveSessionName());
+        session_id('');
 
-        $this->runLegacyMigration();
+        $this->runLegacyDiscard();
 
-        self::assertSame(
-            SessionManager::resolveSessionName(),
-            session_name(),
-            'Aun sin cookie propia, el nombre de sesión vuelve a ser el de esta instalación'
-        );
         self::assertSame(
             '',
             session_id(),
-            'Sin cookie propia no se reutiliza el ID legacy: PHP resolvió más tarde'
+            'El id de la sesión ajena no puede quedar activo'
         );
     }
 
     /**
-     * El ID legacy nunca se reutiliza, ni siquiera cuando el mensaje de sesión
-     * propia no existe.
+     * El merge de datos de la sesión ajena no puede volver: vivía dentro de
+     * `initialize()` y no es observable sin arrancar sesiones reales (en CLI ya
+     * hay salida enviada, así que la sesión no arranca). Se guarda el marcador
+     * que dejaba ese merge como centinela del código.
      */
     #[Test]
-    public function ownSessionIdIsNeverTakenFromTheLegacyCookie(): void
+    public function foreignSessionDataIsNeverMerged(): void
     {
-        self::assertSame(
-            '',
-            SessionManager::resolveOwnSessionId(['PHPSESSID' => 'legacyid000000000000000000'], 'FSSESS_app'),
-            'Sin cookie propia no hay ID propio: se deja que PHP lo resuelva'
+        $codeOnly = $this->stripComments(
+            (string) file_get_contents(FS_FOLDER . '/src/Security/SessionManager.php')
         );
 
-        self::assertSame(
-            '',
-            SessionManager::resolveOwnSessionId(
-                ['PHPSESSID' => 'legacyid000000000000000000', 'FSSESS_app' => 'corta'],
-                'FSSESS_app'
-            ),
-            'Un valor con formato inválido no se usa como ID de sesión'
+        self::assertStringNotContainsString(
+            '_migrated_from_phpsessid',
+            $codeOnly,
+            'No puede volver el merge de datos de la sesión PHPSESSID ajena'
         );
-
-        $ownId = 'kh3f9ab12c4d5e6f7a8b9c0d';
-        self::assertSame(
-            $ownId,
-            SessionManager::resolveOwnSessionId(
-                ['PHPSESSID' => 'legacyid000000000000000000', 'FSSESS_app' => $ownId],
-                'FSSESS_app'
-            ),
-            'Sólo la cookie propia aporta el ID de la sesión propia'
+        self::assertStringNotContainsString(
+            'legacyData',
+            $codeOnly,
+            'No puede volver la lectura de datos de la sesión PHPSESSID ajena'
         );
     }
 
@@ -167,20 +171,25 @@ class SessionLegacyPhpSessionMigrationTest extends TestCase
     }
 
     /**
-     * Ejecuta la migración legacy privada sin arrancar una sesión real: lo que
-     * se verifica es la identidad de sesión que queda activa después.
-     *
-     * @return array<string, mixed>
+     * Ejecuta la limpieza legacy privada sin arrancar una sesión real: lo que se
+     * verifica es que no toca la identidad de sesión ni deja datos.
      */
-    private function runLegacyMigration(): array
+    private function runLegacyDiscard(): void
     {
         $manager = (new \ReflectionClass(SessionManager::class))->newInstanceWithoutConstructor();
-        $method = new \ReflectionMethod(SessionManager::class, 'migrateLegacyPhpSession');
+        $method = new \ReflectionMethod(SessionManager::class, 'discardLegacyPhpSession');
         $method->setAccessible(true);
+        $method->invoke($manager);
+    }
 
-        $result = $method->invoke($manager);
+    /**
+     * Deja sólo código: sin comentarios de línea ni de bloque.
+     */
+    private function stripComments(string $source): string
+    {
+        $withoutBlocks = (string) preg_replace('#/\*.*?\*/#s', '', $source);
 
-        return is_array($result) ? $result : [];
+        return (string) preg_replace('#^\s*(//|\*).*$#m', '', $withoutBlocks);
     }
 
     /**

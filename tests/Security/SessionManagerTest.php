@@ -305,14 +305,15 @@ class SessionManagerTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
-    public function testMigrateLegacyPhpSessionTransfersData(): void
+    public function testLegacyPhpSessionDataIsNotTransferred(): void
     {
-        // Step 1: Create a legacy PHPSESSID session with test data
+        // Step 1: Create a legacy PHPSESSID session with a login-like payload
         session_name('PHPSESSID');
         session_id('legacy-phpsessid-test-' . uniqid());
         session_start();
         $_SESSION['legacy_key'] = 'legacy_value';
         $_SESSION['legacy_count'] = 42;
+        $_SESSION['user_nick'] = 'ajeno';
         $legacySessionId = session_id();
         session_write_close();
 
@@ -320,15 +321,19 @@ class SessionManagerTest extends TestCase
         $_COOKIE['PHPSESSID'] = $legacySessionId;
         $_SESSION = [];
 
-        // Step 3: Trigger migration via SessionManager init
+        // Step 3: Trigger SessionManager init
         SessionManager::reset();
         $manager = SessionManager::getInstance();
 
-        // Step 4: Assert legacy data was transferred to the unified session
-        $this->assertSame('legacy_value', $manager->get('legacy_key'));
-        $this->assertSame(42, $manager->get('legacy_count'));
+        // Step 4: NADA de la sesión ajena puede entrar en la nuestra. Copiar sus
+        // claves permitía inyectar un login: isValid() sólo valida user_nick +
+        // login_time + last_activity.
+        $this->assertNull($manager->get('legacy_key'), 'La sesión ajena no puede aportar datos');
+        $this->assertNull($manager->get('legacy_count'), 'La sesión ajena no puede aportar datos');
+        $this->assertNull($manager->get('user_nick'), 'La sesión ajena no puede aportar un login');
 
-        // Step 5: Assert the session is now under FSSESS_xxx, not PHPSESSID
+        // Step 5: ni su id se adopta; la sesión es la propia (FSSESS_xxx)
+        $this->assertNotSame($legacySessionId, session_id(), 'El id de la sesión ajena no se adopta');
         $this->assertNotSame('PHPSESSID', session_name());
         $this->assertStringStartsWith('FSSESS_', session_name());
     }
