@@ -2,6 +2,12 @@
 /**
  * Minimal maintenance mode guard that can run before Composer or the kernel.
  */
+
+// Dependency-free session identity resolver: this guard runs before the
+// Composer autoloader, so the modern SessionManager is not available yet and
+// duplicating its formula here would desynchronize the session name.
+require_once __DIR__ . '/fs_session_identity.php';
+
 final class fs_maintenance_mode
 {
     private const DEFAULT_LOCK_FILE = 'maintenance.json';
@@ -606,22 +612,14 @@ final class fs_maintenance_mode
 
     private static function resolveSessionName(): string
     {
-        // Fuente única: el SessionManager moderno. El fallback local sólo
-        // aplica cuando la clase moderna no está autoloadable (bootstrap legacy).
+        // Single source: the modern SessionManager (secret authority). The
+        // dependency-free resolver applies the SAME formula and is only used
+        // when the modern class is not autoloadable (legacy bootstrap).
         if (class_exists('FSFramework\\Security\\SessionManager')) {
             return \FSFramework\Security\SessionManager::resolveSessionName();
         }
 
-        if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
-            return trim((string) FS_SESSION_NAME);
-        }
-
-        $seed = defined('FS_FOLDER') && trim((string) FS_FOLDER) !== ''
-            ? (string) FS_FOLDER
-            : dirname(__DIR__);
-        $seed = str_replace('\\', '/', $seed);
-
-        return 'FSSESS_' . substr(sha1($seed), 0, 12);
+        return fs_session_identity_name();
     }
 
     /**

@@ -1,4 +1,20 @@
 <?php
+/**
+ * This file is part of FSFramework originally based on Facturascript 2017
+ * Copyright (C) 2025 Javier Trujillo <mistertekcom@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ */
+
+// The installer runs before the Composer autoloader (install.php requires this
+// file first), so it resolves the session identity through the dependency-free
+// resolver. Its own FSINSTALL_ prefix is applied on top of the SAME seed used
+// by the application session name, which keeps the installer session separate
+// from the application session without inventing a second seed.
+require_once __DIR__ . '/fs_session_identity.php';
 
 function fs_install_start_session(): void
 {
@@ -49,14 +65,10 @@ function fs_install_is_valid_database_name(?string $name): bool
 
 function fs_install_resolve_session_name(): string
 {
-    if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
-        return trim((string) FS_SESSION_NAME);
-    }
-
-    $seed = defined('FS_FOLDER') ? (string) FS_FOLDER : dirname(__DIR__);
-    $seed = str_replace('\\', '/', $seed);
-
-    return 'FSINSTALL_' . substr(sha1($seed), 0, 12);
+    // Same seed as the application session name, different prefix: the
+    // installer must never share a cookie (and therefore a session) with the
+    // application, but it must not re-implement the seed either.
+    return fs_session_identity_installer_name();
 }
 
 function fs_install_resolve_cookie_path(): string

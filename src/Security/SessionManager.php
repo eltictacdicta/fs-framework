@@ -18,6 +18,13 @@ use Symfony\Component\HttpFoundation\Session\Storage\Handler\NativeFileSessionHa
 use Symfony\Component\HttpFoundation\Session\Attribute\AttributeBag;
 use Symfony\Component\HttpFoundation\Session\Flash\FlashBag;
 
+// The session name and install signature formula lives in exactly one place:
+// base/fs_session_identity.php, the dependency-free resolver that the
+// pre-Composer bootstraps (legacy fs_session_manager, maintenance guard,
+// installer) also use. This class stays the authority on the SECRET (it may
+// auto-generate one) but must not keep a second copy of the formula.
+require_once dirname(__DIR__, 2) . '/base/fs_session_identity.php';
+
 /**
  * Gestor de sesiones moderno usando Symfony HttpFoundation
  *
@@ -265,11 +272,12 @@ class SessionManager
 
     public static function resolveSessionName(): string
     {
-        if (defined('FS_SESSION_NAME') && trim((string) FS_SESSION_NAME) !== '') {
-            return trim((string) FS_SESSION_NAME);
+        $override = fs_session_identity_override_name();
+        if ($override !== '') {
+            return $override;
         }
 
-        return self::defaultSessionNameFor(self::installSeed());
+        return fs_session_identity_name_from_seed(self::installSeed());
     }
 
     /**
@@ -294,19 +302,15 @@ class SessionManager
     /**
      * Raíz de ESTA instalación.
      *
-     * Nunca se usa $_SERVER['DOCUMENT_ROOT']: esa es la raíz del vhost y la
-     * comparten todas las instalaciones del mismo host (una en la raíz, otra en
-     * /fsf/, otra en /staging/), así que derivar de ahí les da el MISMO nombre
-     * de sesión y terminan leyendo o pisando la sesión del vecino.
+     * Delega en el resolver sin dependencias para que la raíz se calcule una
+     * sola vez. Nunca se usa $_SERVER['DOCUMENT_ROOT']: esa es la raíz del
+     * vhost y la comparten todas las instalaciones del mismo host (una en la
+     * raíz, otra en /fsf/, otra en /staging/), así que derivar de ahí les da el
+     * MISMO nombre de sesión y terminan leyendo o pisando la sesión del vecino.
      */
     private static function installRoot(): string
     {
-        if (defined('FS_FOLDER') && trim((string) FS_FOLDER) !== '') {
-            return (string) FS_FOLDER;
-        }
-
-        // Este archivo vive en <raíz-de-la-instalación>/src/Security/.
-        return dirname(__DIR__, 2);
+        return fs_session_identity_install_root();
     }
 
     /**
@@ -316,9 +320,7 @@ class SessionManager
      */
     public static function defaultSessionNameFor(string $installRoot): string
     {
-        $seed = str_replace('\\', '/', trim($installRoot));
-
-        return 'FSSESS_' . substr(sha1($seed), 0, 12);
+        return fs_session_identity_name_from_seed($installRoot);
     }
 
     /**
@@ -328,7 +330,7 @@ class SessionManager
      */
     public static function installSignatureFor(string $installRoot): string
     {
-        return sha1(str_replace('\\', '/', trim($installRoot)));
+        return fs_session_identity_signature_from_seed($installRoot);
     }
 
     /**
@@ -339,7 +341,9 @@ class SessionManager
      */
     public static function installSignature(): string
     {
-        return sha1(self::installSeed());
+        // The shared helper keeps the RAW seed hash, byte-identical to the
+        // signature this method used to compute inline.
+        return fs_session_identity_install_signature();
     }
 
     /**
@@ -350,7 +354,7 @@ class SessionManager
      */
     public static function legacySessionName(): string
     {
-        return self::defaultSessionNameFor(self::installRoot());
+        return fs_session_identity_legacy_name();
     }
 
     /**
@@ -358,7 +362,7 @@ class SessionManager
      */
     public static function legacyInstallSignature(): string
     {
-        return self::installSignatureFor(self::installRoot());
+        return fs_session_identity_legacy_install_signature();
     }
 
     /**
