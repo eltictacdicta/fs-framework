@@ -74,6 +74,7 @@ final class FsUserAgentAssignmentTest extends TestCase
 
             public function __construct(FsUserAgentAssignmentDbStub $db)
             {
+                // @phpstan-ignore assign.propertyType (anonymous stub exposes only the fs_db2 methods fs_user::test() calls)
                 $this->db = $db;
                 $this->table_name = 'fs_users';
             }

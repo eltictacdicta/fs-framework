@@ -22,6 +22,36 @@ use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 
 /**
+ * Sesión espía que registra el orden de las llamadas a `migrate()`/`clear()`.
+ *
+ * Es una clase concreta (no un anónimo con forma de objeto) para que PHPStan
+ * vea `$calls` como una propiedad escribible.
+ */
+final class SessionCallRecorder extends Session
+{
+    /** @var list<string> */
+    public array $calls = [];
+
+    public function __construct(private bool $rotationSucceeds = true)
+    {
+        parent::__construct(new MockArraySessionStorage());
+    }
+
+    public function migrate(bool $destroy = false, ?int $lifetime = null): bool
+    {
+        $this->calls[] = 'migrate';
+
+        return $this->rotationSucceeds ? parent::migrate($destroy, $lifetime) : false;
+    }
+
+    public function clear(): void
+    {
+        $this->calls[] = 'clear';
+        parent::clear();
+    }
+}
+
+/**
  * El nombre de sesión tiene que ser único por INSTALACIÓN.
  *
  * Antes se derivaba de `$_SERVER['DOCUMENT_ROOT']` cuando no había
@@ -255,30 +285,9 @@ class SessionNamePerInstallTest extends TestCase
     /**
      * Sesión espía que registra el orden de regenerate/clear.
      */
-    private function recordingSession(bool $rotationSucceeds = true): Session
+    private function recordingSession(bool $rotationSucceeds = true): SessionCallRecorder
     {
-        $session = new class(new MockArraySessionStorage(), $rotationSucceeds) extends Session {
-            public array $calls = [];
-
-            public function __construct(private MockArraySessionStorage $mockStorage, private bool $rotationSucceeds)
-            {
-                parent::__construct($mockStorage);
-            }
-
-            public function migrate(bool $destroy = false, ?int $lifetime = null): bool
-            {
-                $this->calls[] = 'migrate';
-
-                return $this->rotationSucceeds ? parent::migrate($destroy, $lifetime) : false;
-            }
-
-            public function clear(): void
-            {
-                $this->calls[] = 'clear';
-                parent::clear();
-            }
-        };
-
+        $session = new SessionCallRecorder($rotationSucceeds);
         $session->start();
 
         return $session;
