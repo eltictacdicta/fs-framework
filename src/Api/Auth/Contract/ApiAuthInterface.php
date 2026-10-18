@@ -29,12 +29,6 @@ use FSFramework\model\fs_user;
 interface ApiAuthInterface
 {
     /**
-     * Autentica un usuario con nick y contraseña
-     * @return array{success: bool, token?: string, refresh_token?: string, user?: array, expires_in?: int, error?: string}
-     */
-    public function authenticate(string $nick, string $password): array;
-
-    /**
      * Cierra la sesión de un usuario
      * @return array{success: bool, message?: string, error?: string}
      */
