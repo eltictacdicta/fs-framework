@@ -236,8 +236,15 @@ class fs_controller extends fs_app
             }
 
             if ($this->request->query->has('logout')) {
-                $this->template = 'login/default';
+                // Tras cerrar sesión se vuelve al inicio, nunca al formulario
+                // local: el visitante ya es anónimo y, en modo stealth, el
+                // formulario del framework no debe quedar expuesto. El destino
+                // final lo decide PublicAccessGate en la petición siguiente,
+                // que es quien conoce el modo stealth y los redirects de login
+                // público que registren los plugins.
                 $this->login_tools->log_out();
+                header('Location: index.php');
+                exit();
             } else if (!$this->log_in()) {
                 $this->template = 'login/default';
                 $this->public_core();
