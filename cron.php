@@ -17,16 +17,16 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-// Deny direct web access. Only CLI (cron) and loopback callers may run this
-// operator script; .htaccess is inert on nginx, so the guard lives in code.
-if (PHP_SAPI !== 'cli') {
-    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
-    if (!in_array($remoteAddr, ['127.0.0.1', '::1'], true)) {
-        http_response_code(404);
-        exit;
-    }
-}
-echo 'Iniciando cron de FSFramework...';
+// Deny direct web access unless the caller proves it is trusted.
+//
+// La autorización se resuelve más abajo, después de cargar config.php, porque
+// necesita FS_CRON_TOKEN y porque el chequeo por REMOTE_ADDR solo no alcanza
+// detrás de un reverse proxy. Ver base/fs_cron_guard.php.
+//
+// Para invocarlo por HTTP (p. ej. desde un cron externo) definí en config.php:
+//   define('FS_CRON_TOKEN', 'un-secreto-largo-y-aleatorio');
+// y llamá con el header `X-Cron-Token`, que es preferible a `?token=` porque
+// no queda en logs de acceso ni en referrers.
 
 /// establecemos el límite de ejecución de PHP en 50 minutos
 @set_time_limit(3000);
@@ -37,6 +37,20 @@ define('FS_FOLDER', __DIR__);
 
 /// cargamos las constantes de configuración
 require_once 'config.php';
+
+// Autorización de la ejecución por HTTP. El guard vive después de config.php
+// porque necesita FS_CRON_TOKEN, y antes de cualquier efecto (secret migrator,
+// conexión, migraciones). CLI (cron del sistema) pasa sin token.
+require_once 'base/fs_cron_guard.php';
+
+$cronToken = defined('FS_CRON_TOKEN') ? (string) FS_CRON_TOKEN : null;
+if (!fs_cron_authorize(PHP_SAPI, $_SERVER, $_REQUEST, $cronToken)) {
+    http_response_code(404);
+    exit;
+}
+
+echo 'Iniciando cron de FSFramework...';
+
 require_once 'base/fs_secret_migrator.php';
 fs_secret_migrator::ensure();
 require_once 'base/config2.php';
