@@ -398,7 +398,8 @@ abstract class fs_list_controller extends fs_controller
         $this->decoration = new fs_list_decoration();
         $this->template = 'master/list_controller';
         $request = \FSFramework\Core\Kernel::request();
-        $this->offset = $request->get('offset', 0);
+        $offset = $request->get('offset', 0);
+        $this->offset = is_numeric($offset) ? max(0, (int) $offset) : 0;
         $this->create_tabs();
         $this->set_active_tab();
         $this->set_filter_values();

@@ -217,7 +217,17 @@ class fs_postgresql extends fs_db_engine
      */
     public function escape_string($str)
     {
-        return self::$link ? pg_escape_string(self::$link, $str) : $str;
+        $str = (string) $str;
+
+        if (self::$link) {
+            return pg_escape_string(self::$link, $str);
+        }
+
+        // Sin conexión no hay escape nativo, pero devolver el valor crudo era
+        // el agujero: fs_query_builder::toSql() escapa antes de conectar.
+        // Postgres usa standard_conforming_strings, así que duplicar la
+        // comilla es el escape correcto (addslashes NO lo sería).
+        return str_replace("'", "''", $str);
     }
 
     /**
@@ -228,6 +238,22 @@ class fs_postgresql extends fs_db_engine
     private function quote_identifier(string $identifier): string
     {
         return '"' . str_replace('"', '""', $identifier) . '"';
+    }
+
+    /**
+     * Rechaza identificadores fuera del conjunto permitido.
+     *
+     * Los nombres llegan de ficheros XML de plugins y de constantes del modelo,
+     * pero se interpolan en SQL como literales: validarlos acá cierra la vía
+     * de inyección por nombre de tabla o secuencia con comillas.
+     */
+    private function requireIdentifier(string $identifier, string $kind = 'identifier'): string
+    {
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $identifier)) {
+            throw new \InvalidArgumentException('Invalid SQL ' . $kind . ': ' . $identifier);
+        }
+
+        return $identifier;
     }
 
     /**
@@ -320,6 +346,7 @@ class fs_postgresql extends fs_db_engine
      */
     public function get_columns($table_name)
     {
+        $table_name = $this->requireIdentifier($table_name, 'table name');
         $columns = [];
         $sql = "SELECT column_name as name, data_type as type, character_maximum_length, column_default as default, is_nullable"
             . " FROM information_schema.columns WHERE table_catalog = '" . FS_DB_NAME
@@ -351,6 +378,7 @@ class fs_postgresql extends fs_db_engine
      */
     public function get_constraints($table_name)
     {
+        $table_name = $this->requireIdentifier($table_name, 'table name');
         $constraints = [];
         $sql = "SELECT tc.constraint_name as name, tc.constraint_type as type"
             . " FROM information_schema.table_constraints AS tc"
@@ -374,6 +402,7 @@ class fs_postgresql extends fs_db_engine
      */
     public function get_constraints_extended($table_name)
     {
+        $table_name = $this->requireIdentifier($table_name, 'table name');
         $constraints = [];
         $sql = "SELECT tc.constraint_name as name,
             tc.constraint_type as type,
@@ -416,6 +445,7 @@ class fs_postgresql extends fs_db_engine
      */
     public function get_indexes($table_name)
     {
+        $table_name = $this->requireIdentifier($table_name, 'table name');
         $indexes = [];
 
         $aux = $this->select("SELECT indexname FROM pg_indexes WHERE tablename = '" . $table_name . "';");
@@ -530,8 +560,11 @@ class fs_postgresql extends fs_db_engine
      */
     public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0, $params = [])
     {
-        /// añadimos limit y offset a la consulta sql
-        $sql .= ' LIMIT ' . $limit . ' OFFSET ' . $offset . ';';
+        /// añadimos limit y offset a la consulta sql.
+        /// Se castean a entero porque ambos llegan desde paginación y pueden
+        /// venir como string del request: concatenarlos sin cast permitía
+        /// inyectar SQL en el LIMIT/OFFSET.
+        $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . (int) $offset . ';';
         return $this->select($sql, $params);
     }
 
@@ -575,6 +608,8 @@ class fs_postgresql extends fs_db_engine
      */
     private function sequence_exists($seq_name)
     {
+        $seq_name = $this->requireIdentifier($seq_name, 'sequence name');
+
         return (bool) $this->select("SELECT * FROM pg_class where relname = '" . $seq_name . "';");
     }
 

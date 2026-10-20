@@ -511,7 +511,17 @@ class fs_mysql extends fs_db_engine
      */
     public function escape_string($str)
     {
-        return self::$link ? self::$link->escape_string($str) : $str;
+        $str = (string) $str;
+
+        if (self::$link) {
+            return self::$link->escape_string($str);
+        }
+
+        // Sin conexión no hay escape nativo, pero devolver el valor crudo era
+        // el agujero: fs_query_builder::toSql() escapa antes de conectar.
+        // addslashes cubre \ ' " y NUL, que es lo que este fallback necesita
+        // (ningún statement puede ejecutarse sin conexión).
+        return addslashes($str);
     }
 
     /**
@@ -1086,8 +1096,11 @@ class fs_mysql extends fs_db_engine
      */
     public function select_limit($sql, $limit = FS_ITEM_LIMIT, $offset = 0, $params = [])
     {
-        /// añadimos limit y offset a la consulta sql
-        $sql .= ' LIMIT ' . $limit . ' OFFSET ' . $offset . ';';
+        /// añadimos limit y offset a la consulta sql.
+        /// Se castean a entero porque ambos llegan desde paginación y pueden
+        /// venir como string del request: concatenarlos sin cast permitía
+        /// inyectar SQL en el LIMIT/OFFSET.
+        $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . (int) $offset . ';';
         return $this->select($sql, $params);
     }
 

@@ -61,4 +61,32 @@ class FsPostgresqlIdentifierQuotingTest extends TestCase
 
         $this->assertSame('"a""b"', $method->invoke($this->pg, 'a"b'));
     }
+
+    public function testGetColumnsRejectsInjectedTableName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->pg->get_columns("fs_users'; DROP TABLE fs_users; --");
+    }
+
+    public function testGetConstraintsRejectsInjectedTableName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->pg->get_constraints("fs_users' OR '1'='1");
+    }
+
+    public function testGetIndexesRejectsInjectedTableName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->pg->get_indexes('tabla con espacios');
+    }
+
+    public function testGetConstraintsExtendedRejectsInjectedTableName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->pg->get_constraints_extended("fs_users''; --");
+    }
 }
