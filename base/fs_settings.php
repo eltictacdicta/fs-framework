@@ -29,9 +29,18 @@ class fs_settings
     private const SYSTEM_LOGO_PATH = 'images/system_logo';
 
     /**
-     * Allowed logo extensions
+     * Allowed logo extensions.
+     *
+     * SVG no está permitido: es un documento XML que puede llevar <script> y
+     * handlers, y se sirve same-origin, así que abrir el archivo directo
+     * ejecuta código en el origen de la aplicación.
      */
-    private const ALLOWED_LOGO_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg'];
+    private const ALLOWED_LOGO_EXTENSIONS = ['png', 'jpg', 'jpeg'];
+
+    /**
+     * MIME types aceptados para el logo del sistema.
+     */
+    private const ALLOWED_LOGO_MIMES = ['image/png', 'image/jpeg'];
 
     /**
      * Get a setting value from config2
@@ -148,8 +157,7 @@ class fs_settings
         }
 
         $mimeType = mime_content_type($uploadedFile['tmp_name']);
-        $allowedMimes = ['image/png', 'image/jpeg', 'image/svg+xml'];
-        if (!in_array($mimeType, $allowedMimes, true)) {
+        if (!self::isValidSystemLogoType($extension, (string) $mimeType)) {
             return ['success' => false, 'error' => 'Tipo de archivo no permitido'];
         }
 
@@ -172,6 +180,18 @@ class fs_settings
         $this->save();
 
         return ['success' => true, 'path' => $targetPath];
+    }
+
+    /**
+     * TRUE si la extensión y el MIME detectado son un logo aceptable.
+     *
+     * Se exigen ambos: la extensión sola no alcanza y el MIME solo tampoco.
+     * SVG queda fuera de las dos listas a propósito.
+     */
+    public static function isValidSystemLogoType(string $extension, string $mimeType): bool
+    {
+        return in_array(strtolower($extension), self::ALLOWED_LOGO_EXTENSIONS, true)
+            && in_array(strtolower($mimeType), self::ALLOWED_LOGO_MIMES, true);
     }
 
     /**
