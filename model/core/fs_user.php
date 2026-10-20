@@ -213,7 +213,9 @@ class fs_user extends \fs_model
         if (defined('FS_INSTALL_ADMIN_PASSWORD_HASH')) {
             $adminHash = (string) FS_INSTALL_ADMIN_PASSWORD_HASH;
         } else {
-            $adminHash = password_hash('admin', PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+            // No installer-provided hash: seed an unusable random credential.
+            // The operator must reset it with reset_admin_password.php before first login.
+            $adminHash = password_hash(bin2hex(random_bytes(32)), PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
         }
 
         if (!self::cleanupLegacyInstallArtifacts()) {

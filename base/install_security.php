@@ -132,9 +132,14 @@ function fs_install_normalize_admin_nick(?string $nick): string
 
 function fs_install_normalize_admin_password(?string $password): string
 {
-    $password = trim((string) $password);
+    return trim((string) $password);
+}
 
-    return $password === '' ? 'admin' : $password;
+function fs_install_is_valid_admin_password(string $password): bool
+{
+    $length = mb_strlen($password);
+
+    return $length >= 12 && $length <= 32;
 }
 
 function fs_install_is_valid_admin_nick(string $nick): bool

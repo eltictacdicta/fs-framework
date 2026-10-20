@@ -31,7 +31,7 @@ $db_port = '3306';
 $db_name = 'fsframework';
 $db_user = '';
 $admin_nick = 'admin';
-$admin_password = 'admin';
+$admin_password = '';
 
 function fs_install_validate_admin_fields(array &$errors, array &$errors2): bool
 {
@@ -45,9 +45,16 @@ function fs_install_validate_admin_fields(array &$errors, array &$errors2): bool
         return false;
     }
 
-    if (mb_strlen($password) > 32) {
+    if ($password === '') {
         $errors[] = 'admin_user';
-        $errors2[] = 'La contraseña del administrador no puede superar 32 caracteres.';
+        $errors2[] = 'La contraseña del administrador es obligatoria.';
+
+        return false;
+    }
+
+    if (!fs_install_is_valid_admin_password($password)) {
+        $errors[] = 'admin_user';
+        $errors2[] = 'La contraseña del administrador debe tener entre 12 y 32 caracteres.';
 
         return false;
     }

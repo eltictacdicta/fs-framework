@@ -84,10 +84,31 @@ class InstallSecurityTest extends TestCase
         $this->assertSame(22, strlen($sessionName));
     }
 
-    public function testAdminCredentialsDefaultToAdminWhenEmpty(): void
+    public function testAdminNickDefaultsToAdminWhenEmpty(): void
     {
         $this->assertSame('admin', fs_install_normalize_admin_nick(''));
-        $this->assertSame('admin', fs_install_normalize_admin_password(null));
+    }
+
+    /**
+     * The installer must never substitute a well-known password: an empty
+     * value stays empty so validation can reject it.
+     */
+    public function testAdminPasswordIsNeverSubstitutedWithADefault(): void
+    {
+        $this->assertSame('', fs_install_normalize_admin_password(null));
+        $this->assertSame('', fs_install_normalize_admin_password(''));
+        $this->assertSame('', fs_install_normalize_admin_password('   '));
+        $this->assertSame('Secret123456', fs_install_normalize_admin_password('  Secret123456  '));
+    }
+
+    public function testAdminPasswordValidatorRequiresTwelveToThirtyTwoCharacters(): void
+    {
+        $this->assertFalse(fs_install_is_valid_admin_password(''));
+        $this->assertFalse(fs_install_is_valid_admin_password('short'));
+        $this->assertFalse(fs_install_is_valid_admin_password('abcdefghijk'));
+        $this->assertTrue(fs_install_is_valid_admin_password('abcdefghijkl'));
+        $this->assertTrue(fs_install_is_valid_admin_password(str_repeat('a', 32)));
+        $this->assertFalse(fs_install_is_valid_admin_password(str_repeat('a', 33)));
     }
 
     public function testAdminNickValidatorRequiresThreeToTwelveCharacters(): void
