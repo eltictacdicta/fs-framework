@@ -24,8 +24,12 @@ use FSFramework\Cache\CacheManager;
 /**
  * Protección anti fuerza bruta para intentos de login.
  *
- * Cuenta los intentos fallidos por IP + nombre de usuario y bloquea
- * temporalmente cuando se supera el umbral configurado.
+ * Cuenta los intentos fallidos por IP + nombre de usuario y, además, por cuenta
+ * sola: la clave nick+IP sola permite fuerza bruta rotando IP contra un mismo
+ * usuario. Bloquea temporalmente al superar cualquiera de los dos umbrales.
+ *
+ * Si la caché no está disponible el throttle no bloquea y lo registra en el
+ * log (fail-open a propósito: una caché caída no debe dejar a todos afuera).
  *
  * Inspirado en FacturaScripts 2025 Core/Controller/Login.php
  *
@@ -49,18 +53,31 @@ class LoginThrottle
     const CACHE_PREFIX = 'login_throttle_';
     const MAX_ATTEMPTS = 6;
     const THROTTLE_WINDOW = 600; // 10 minutos
+
+    /**
+     * Umbral por cuenta, independiente de la IP.
+     *
+     * El contador nick+IP solo permite fuerza bruta rotando IP contra una misma
+     * cuenta. Este segundo contador acota ese caso. Es más alto y más largo que
+     * el de nick+IP para no bloquear cuentas por errores legítimos.
+     */
+    const ACCOUNT_MAX_ATTEMPTS = 20;
+    const ACCOUNT_WINDOW = 900; // 15 minutos
+
     const GENERIC_ERROR = 'Usuario o contraseña incorrectos.';
 
     /**
-     * Verifica si un usuario+IP está bloqueado por exceso de intentos.
+     * Verifica si un usuario está bloqueado, por IP+usuario o por cuenta.
      */
     public static function isThrottled(string $nick): bool
     {
         $ip = self::getClientIp();
-        $key = self::cacheKey($nick, $ip);
-        $attempts = self::getAttempts($key);
 
-        return $attempts >= self::MAX_ATTEMPTS;
+        if (self::getAttempts(self::cacheKey($nick, $ip)) >= self::MAX_ATTEMPTS) {
+            return true;
+        }
+
+        return self::getAttempts(self::accountCacheKey($nick)) >= self::ACCOUNT_MAX_ATTEMPTS;
     }
 
     /**
@@ -69,17 +86,9 @@ class LoginThrottle
     public static function recordFailure(string $nick): void
     {
         $ip = self::getClientIp();
-        $key = self::cacheKey($nick, $ip);
-        $attempts = self::getAttempts($key);
-        $attempts++;
 
-        try {
-            $cache = CacheManager::getInstance();
-            $cache->set($key, $attempts, self::THROTTLE_WINDOW);
-        } catch (\Throwable $e) {
-            error_log(self::LOG_PREFIX . $e->getMessage());
-            // Si la caché no está disponible, no bloqueamos
-        }
+        self::increment(self::cacheKey($nick, $ip), self::THROTTLE_WINDOW);
+        self::increment(self::accountCacheKey($nick), self::ACCOUNT_WINDOW);
     }
 
     /**
@@ -88,14 +97,9 @@ class LoginThrottle
     public static function clear(string $nick): void
     {
         $ip = self::getClientIp();
-        $key = self::cacheKey($nick, $ip);
 
-        try {
-            $cache = CacheManager::getInstance();
-            $cache->delete($key);
-        } catch (\Throwable $e) {
-            error_log(self::LOG_PREFIX . $e->getMessage());
-        }
+        self::forget(self::cacheKey($nick, $ip));
+        self::forget(self::accountCacheKey($nick));
     }
 
     /**
@@ -138,9 +142,43 @@ class LoginThrottle
         }
     }
 
+    private static function increment(string $key, int $ttl): void
+    {
+        $attempts = self::getAttempts($key) + 1;
+
+        try {
+            CacheManager::getInstance()->set($key, $attempts, $ttl);
+        } catch (\Throwable $e) {
+            error_log(self::LOG_PREFIX . $e->getMessage());
+            // Si la caché no está disponible, no bloqueamos
+        }
+    }
+
+    private static function forget(string $key): void
+    {
+        try {
+            CacheManager::getInstance()->delete($key);
+        } catch (\Throwable $e) {
+            error_log(self::LOG_PREFIX . $e->getMessage());
+        }
+    }
+
     private static function cacheKey(string $nick, string $ip): string
     {
         return self::CACHE_PREFIX . md5(strtolower($nick) . '|' . $ip);
+    }
+
+    private static function accountCacheKey(string $nick): string
+    {
+        return self::CACHE_PREFIX . 'account_' . md5(strtolower($nick));
+    }
+
+    /**
+     * Intentos fallidos acumulados por cuenta, sin importar la IP.
+     */
+    public static function getAccountAttemptCount(string $nick): int
+    {
+        return self::getAttempts(self::accountCacheKey($nick));
     }
 
     private static function getClientIp(): string
