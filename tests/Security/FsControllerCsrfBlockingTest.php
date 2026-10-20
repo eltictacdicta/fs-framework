@@ -105,6 +105,68 @@ final class FsControllerCsrfBlockingTest extends TestCase
         $this->assertTrue($require->invoke($controller));
     }
 
+    /**
+     * `requireCsrf()` used to defer to `isCsrfValid()`, whose backing flag
+     * starts at TRUE: a POST handler that ran before any validation (public_core,
+     * an AJAX endpoint) skipped CSRF entirely. Without prior validation the
+     * guard must validate now.
+     */
+    public function testRequireCsrfFailsClosedWithoutPriorValidation(): void
+    {
+        $controller = (new \ReflectionClass(\fs_controller::class))->newInstanceWithoutConstructor();
+        $this->setProperty($controller, 'request', Request::create('/', 'POST', [
+            CsrfManager::FIELD_NAME => 'invalid-token-value',
+        ]));
+        $this->setProperty($controller, 'core_log', new \fs_core_log('test'));
+        $this->setProperty($controller, 'class_name', 'test');
+
+        $require = new \ReflectionMethod(\fs_controller::class, 'requireCsrf');
+        $require->setAccessible(true);
+
+        $this->assertFalse($require->invoke($controller));
+        $this->assertFalse($controller->isCsrfValid());
+    }
+
+    public function testRequireCsrfAcceptsValidTokenWithoutPriorValidation(): void
+    {
+        $token = CsrfManager::generateToken();
+
+        $controller = (new \ReflectionClass(\fs_controller::class))->newInstanceWithoutConstructor();
+        $this->setProperty($controller, 'request', Request::create('/', 'POST', [
+            CsrfManager::FIELD_NAME => $token,
+        ]));
+        $this->setProperty($controller, 'core_log', new \fs_core_log('test'));
+        $this->setProperty($controller, 'class_name', 'test');
+
+        $require = new \ReflectionMethod(\fs_controller::class, 'requireCsrf');
+        $require->setAccessible(true);
+
+        $this->assertTrue($require->invoke($controller));
+        $this->assertTrue($controller->isCsrfValid());
+    }
+
+    /**
+     * Login-CSRF: a credential POST with an invalid token must not reach the
+     * login machinery. `login_tools` is intentionally left null here, so any
+     * execution past the CSRF guard raises an Error instead of returning false.
+     */
+    public function testLoginPostWithInvalidTokenDoesNotRunLogin(): void
+    {
+        $controller = (new \ReflectionClass(\fs_controller::class))->newInstanceWithoutConstructor();
+        $this->setProperty($controller, 'request', Request::create('/', 'POST', [
+            'user' => 'admin',
+            'password' => 'secret',
+            CsrfManager::FIELD_NAME => 'invalid-token-value',
+        ]));
+        $this->setProperty($controller, 'core_log', new \fs_core_log('test'));
+        $this->setProperty($controller, 'class_name', 'test');
+
+        $logIn = new \ReflectionMethod(\fs_controller::class, 'log_in');
+        $logIn->setAccessible(true);
+
+        $this->assertFalse($logIn->invoke($controller));
+    }
+
     private function setProperty(object $instance, string $propertyName, mixed $value): void
     {
         $property = new \ReflectionProperty($instance, $propertyName);

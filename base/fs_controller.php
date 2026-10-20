@@ -82,6 +82,16 @@ class fs_controller extends fs_app
     protected $csrf_valid = true;
 
     /**
+     * Indica si validateCsrf() ya evaluó la petición actual.
+     *
+     * Distingue "todavía no se validó" de "se validó y pasó". Sin esta marca,
+     * requireCsrf() devolvía TRUE sin validar nada cuando nadie había llamado
+     * a validateCsrf() todavía (por ejemplo desde public_core o un endpoint AJAX).
+     * @var bool
+     */
+    protected $csrf_checked = false;
+
+    /**
      * Indica si es una petición AJAX.
      * @var bool
      */
@@ -380,8 +390,8 @@ class fs_controller extends fs_app
      * Valida el token CSRF para peticiones POST.
      *
      * Usa la validación estándar de Symfony CsrfTokenManager (token por sesión).
-     * En modo soft (FS_CSRF_SOFT=true) registra el fallo pero permite continuar.
-     * En modo estricto (por defecto o FS_CSRF_STRICT=true) bloquea la petición.
+     * El token es obligatorio: todo POST sin token válido se bloquea.
+     * FS_CSRF_SOFT se conserva sólo como aviso: ya NO permite continuar.
      *
      * @param string|null $tokenId ID del token (por defecto 'fs_form')
      * @return bool True si la validación pasa
@@ -392,8 +402,14 @@ class fs_controller extends fs_app
             return true;
         }
 
-        $strict = defined('FS_CSRF_STRICT') && FS_CSRF_STRICT;
-        $soft = !$strict && defined('FS_CSRF_SOFT') && FS_CSRF_SOFT;
+        $this->csrf_checked = true;
+
+        // FS_CSRF_SOFT ya NO desactiva la validación. Antes un solo define en
+        // config.php devolvía TRUE con token ausente o inválido, y desactivaba
+        // CSRF en toda la aplicación. Se conserva el nombre sólo para avisar.
+        if (defined('FS_CSRF_SOFT') && FS_CSRF_SOFT) {
+            error_log('FSFramework: FS_CSRF_SOFT ya no desactiva la validación CSRF. Corregí los formularios y quitá el define.');
+        }
 
         $token = $this->request->request->get(\FSFramework\Security\CsrfManager::FIELD_NAME);
         if (empty($token)) {
@@ -407,10 +423,6 @@ class fs_controller extends fs_app
             error_log("CSRF: Token ausente en formulario POST ({$this->class_name})");
             $this->csrf_valid = false;
 
-            if ($soft) {
-                return true;
-            }
-
             $this->new_error_msg('Sesión expirada o token de seguridad faltante. Por favor, recarga la página.');
             return false;
         }
@@ -418,10 +430,6 @@ class fs_controller extends fs_app
         if (!\FSFramework\Security\CsrfManager::isValid($token, $tokenId)) {
             error_log("CSRF: Token inválido en ({$this->class_name})");
             $this->csrf_valid = false;
-
-            if ($soft) {
-                return true;
-            }
 
             $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
             return false;
@@ -459,16 +467,23 @@ class fs_controller extends fs_app
             return true;
         }
 
-        // pre_private_core() already validated the token; avoid double consumption.
-        if ($this->isCsrfValid()) {
-            return true;
+        // Un fallo de validación ya registrado nunca se convierte en éxito por
+        // volver a llamar al guard.
+        if ($this->csrf_valid === false) {
+            if (empty($this->get_errors())) {
+                $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
+            }
+
+            return false;
         }
 
-        if (empty($this->get_errors())) {
-            $this->new_error_msg('Token de seguridad inválido. Por favor, recarga la página.');
+        // Si nadie validó todavía, validamos acá, porque `$csrf_valid` arranca
+        // en TRUE y devolverlo a secas era fail-open.
+        if (!$this->csrf_checked) {
+            return $this->validateCsrf($tokenId);
         }
 
-        return false;
+        return true;
     }
 
     /**
@@ -942,6 +957,16 @@ class fs_controller extends fs_app
      */
     private function log_in()
     {
+        // Un POST con credenciales es el formulario de login, que ya envía el
+        // token. Validarlo acá cierra el login-CSRF: sin esto un tercero puede
+        // autenticar la sesión de la víctima contra su propia cuenta.
+        // El guard vive en este wrapper y no en fs_login::log_in(), porque ese
+        // método también lo usan el upload chunked y los controllers modernos,
+        // que no envían token.
+        if ($this->request->isMethod('POST') && $this->requestHasCredentials() && !$this->validateCsrf()) {
+            return false;
+        }
+
         $this->login_tools->log_in($this->user);
         if ($this->user->logged_on) {
             $this->core_log->set_user_nick($this->user->nick);
@@ -949,6 +974,17 @@ class fs_controller extends fs_app
         }
 
         return $this->user->logged_on;
+    }
+
+    /**
+     * TRUE si el POST trae un par usuario/contraseña, que es la firma del
+     * formulario de login: fs_login lee 'user' (o 'nick') más 'password'.
+     */
+    private function requestHasCredentials(): bool
+    {
+        $post = $this->request->request;
+
+        return $post->has('password') && ($post->has('user') || $post->has('nick'));
     }
 
     /**
@@ -1048,7 +1084,9 @@ class fs_controller extends fs_app
     protected function setPreferenceCookie(string $name, string $value): void
     {
         $expire = time() + FS_COOKIES_EXPIRE;
-        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        // Proxy-aware: detrás de un TLS terminado en proxy, $_SERVER['HTTPS']
+        // no está seteado y la cookie de preferencia viajaba sin Secure.
+        $secure = \FSFramework\Security\SecureRequestDetector::isSecure();
 
         if (PHP_VERSION_ID >= 70300) {
             setcookie($name, $value, [
