@@ -256,8 +256,11 @@ class password_reset extends fs_controller
             $from_name = $this->empresa->nombre;
         }
 
-        // Construir URL de reset usando dominio de confianza
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        // Construir URL de reset usando dominio de confianza.
+        // Proxy-aware: con TLS terminado en proxy, $_SERVER['HTTPS'] no está
+        // seteado y el link del mail salía en http://, exponiendo el token de
+        // reset en tránsito.
+        $protocol = \FSFramework\Security\SecureRequestDetector::isSecure() ? 'https' : 'http';
         $base_url = $protocol . '://' . $domain;
         $path = str_replace('/index.php', '', $_SERVER['SCRIPT_NAME'] ?? '');
         $reset_url = $base_url . $path . '/index.php?page=password_reset'

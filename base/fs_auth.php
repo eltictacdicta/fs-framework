@@ -175,17 +175,21 @@ class fs_auth
         }
 
         if ($storedHash !== (string) $user->password) {
-            // Solo migrar el hash si la contraseña cumple requisitos de longitud
-            if (mb_strlen($password) >= 8 && mb_strlen($password) <= 32) {
-                if (method_exists($user, 'set_password')) {
-                    if ($user->set_password($password) !== false) {
-                        $user->save();
-                    }
-                } else {
-                    $user->password = $storedHash;
-                    $user->save();
+            // Dentro de la política: set_password() es el único setter y además
+            // rota el log_key. Fuera de ella: rehash directo, porque el rango
+            // 8-32 es una regla para ELEGIR clave, no para migrar el algoritmo
+            // de una existente. Antes esas cuentas conservaban SHA1/MD5 forever.
+            $length = mb_strlen($password);
+
+            if ($length >= 8 && $length <= 32 && method_exists($user, 'set_password')) {
+                if ($user->set_password($password) === false) {
+                    return true;
                 }
+            } else {
+                $user->password = $hasher->hash($password);
             }
+
+            $user->save();
         }
 
         return true;
@@ -471,7 +475,9 @@ class fs_auth
         $expire = class_exists('FSFramework\\Security\\SessionPolicy')
             ? \FSFramework\Security\SessionPolicy::cookieExpireFor($rememberMe)
             : time() + (defined('FS_COOKIES_EXPIRE') ? FS_COOKIES_EXPIRE : 31536000);
-        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        // Proxy-aware: detrás de un TLS terminado en proxy, $_SERVER['HTTPS']
+        // no está seteado y la cookie viajaba sin Secure.
+        $secure = \FSFramework\Security\SecureRequestDetector::isSecure();
         $signature = \FSFramework\Security\CookieSigner::signRememberMe((string) $user->nick, $logKey);
         setcookie('user', $user->nick, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
         setcookie('logkey', $logKey, $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
@@ -492,7 +498,9 @@ class fs_auth
         }
 
         $expire = time() - 3600;
-        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        // Proxy-aware: detrás de un TLS terminado en proxy, $_SERVER['HTTPS']
+        // no está seteado y la cookie viajaba sin Secure.
+        $secure = \FSFramework\Security\SecureRequestDetector::isSecure();
         setcookie('user', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
         setcookie('logkey', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);
         setcookie('auth_sig', '', $expire, self::LEGACY_SAMESITE_PATH, '', $secure, true);

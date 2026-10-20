@@ -387,18 +387,19 @@ class StealthMode
     /**
      * Validates legacy authentication cookies.
      *
-     * This method checks:
-     * 1. If there's an auth_sig cookie, verify it with CookieSigner (HMAC validation)
-     * 2. If no auth_sig, verify the logkey exists in the database for the user
+     * The HMAC signature cookie (auth_sig) is mandatory: a request carrying
+     * only `user` + `logkey` is rejected. After the signature is verified, the
+     * logkey must still exist in the database for an enabled user.
      */
     private function validateLegacyCookies(string $user, string $logkey, string $authSig): bool
     {
-        if ($user === '' || $logkey === '') {
+        if ($user === '' || $logkey === '' || $authSig === '') {
             return false;
         }
 
-        if ($authSig !== '' && class_exists('\FSFramework\Security\CookieSigner')) {
-            return \FSFramework\Security\CookieSigner::verifyRememberMe($user, $logkey, $authSig);
+        if (!class_exists('\FSFramework\Security\CookieSigner')
+            || !\FSFramework\Security\CookieSigner::verifyRememberMe($user, $logkey, $authSig)) {
+            return false;
         }
 
         if (!$this->db->connected() && !$this->db->connect()) {

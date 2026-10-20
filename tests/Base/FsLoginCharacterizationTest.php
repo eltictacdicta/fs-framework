@@ -12,7 +12,9 @@ declare(strict_types=1);
  * the established pattern in tests/Base/LoginSuperglobalsTest.php and
  * tests/Security/FsLogin*Test.php.
  *
- * These tests pin CURRENT behaviour only; nothing here is a fix.
+ * These tests pin CURRENT behaviour only; nothing here is a fix. The single
+ * exception is the remember-me signature contract (`auth_sig` is mandatory),
+ * which is a security requirement and is asserted as such.
  */
 
 namespace Tests\Base;
@@ -193,7 +195,7 @@ class FsLoginCharacterizationTest extends TestCase
         $result = $this->callPrivate($login, 'applyValidCookieLogin', [
             $user,
             'wrong-logkey',
-            '',
+            \FSFramework\Security\CookieSigner::signRememberMe($user->nick, 'wrong-logkey'),
             &$controllerUser,
         ]);
 
@@ -202,8 +204,13 @@ class FsLoginCharacterizationTest extends TestCase
         $this->assertFalse($this->session->has('user_nick'));
     }
 
+    /**
+     * The HMAC signature is mandatory: a matching log_key alone must not
+     * authenticate, otherwise dropping the `auth_sig` cookie would bypass the
+     * remember-me signature check entirely.
+     */
     #[Test]
-    public function cookieLoginSucceedsWhenLogKeyMatches(): void
+    public function cookieLoginFailsWhenSignatureIsMissing(): void
     {
         $user = $this->makeCookieUser('matching-logkey');
         $logger = $this->makeLogger();
@@ -214,6 +221,46 @@ class FsLoginCharacterizationTest extends TestCase
             $user,
             'matching-logkey',
             '',
+            &$controllerUser,
+        ]);
+
+        $this->assertFalse($result);
+        $this->assertFalse($user->logged_on);
+        $this->assertFalse($this->session->has('user_nick'));
+        $this->assertFalse($this->session->has('user_logkey'));
+    }
+
+    #[Test]
+    public function cookieLoginFailsWhenSignatureIsForged(): void
+    {
+        $user = $this->makeCookieUser('matching-logkey');
+        $logger = $this->makeLogger();
+        $login = $this->makeLogin($user, $logger);
+        $controllerUser = (object) ['logged_on' => false];
+
+        $result = $this->callPrivate($login, 'applyValidCookieLogin', [
+            $user,
+            'matching-logkey',
+            'forged-signature',
+            &$controllerUser,
+        ]);
+
+        $this->assertFalse($result);
+        $this->assertFalse($user->logged_on);
+    }
+
+    #[Test]
+    public function cookieLoginSucceedsWhenLogKeyAndSignatureMatch(): void
+    {
+        $user = $this->makeCookieUser('matching-logkey');
+        $logger = $this->makeLogger();
+        $login = $this->makeLogin($user, $logger);
+        $controllerUser = (object) ['logged_on' => false];
+
+        $result = $this->callPrivate($login, 'applyValidCookieLogin', [
+            $user,
+            'matching-logkey',
+            \FSFramework\Security\CookieSigner::signRememberMe($user->nick, 'matching-logkey'),
             &$controllerUser,
         ]);
 

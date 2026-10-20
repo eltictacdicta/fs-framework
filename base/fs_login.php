@@ -262,7 +262,7 @@ class fs_login
             return false;
         }
 
-        if (!empty($authSig) && !\FSFramework\Security\CookieSigner::verifyRememberMe($user->nick, (string) $logkey, (string) $authSig)) {
+        if ($authSig === '' || !\FSFramework\Security\CookieSigner::verifyRememberMe($user->nick, (string) $logkey, (string) $authSig)) {
             return false;
         }
 
@@ -438,18 +438,38 @@ class fs_login
             return false;
         }
 
-        if ($storedHash !== (string) $user->password && mb_strlen($password) >= 8 && mb_strlen($password) <= 32) {
-            if (method_exists($user, 'set_password')) {
-                if ($user->set_password($password) !== false) {
-                    $user->save();
-                }
-            } else {
-                $user->password = $storedHash;
-                $user->save();
-            }
+        if ($storedHash !== (string) $user->password) {
+            $this->persist_migrated_hash($user, (string) $password, $hasher);
         }
 
         return true;
+    }
+
+    /**
+     * Persiste un hash migrado.
+     *
+     * Dentro de la política de longitud usa set_password(), que es el único
+     * setter y además rota el log_key. Fuera de ella rehashea directamente:
+     * el rango 8-32 es una regla para elegir una contraseña nueva, no para
+     * migrar el algoritmo de una ya existente.
+     */
+    private function persist_migrated_hash($user, string $password, \FSFramework\Security\PasswordHasherService $hasher): void
+    {
+        $length = mb_strlen($password);
+
+        if ($length >= 8 && $length <= 32 && method_exists($user, 'set_password')) {
+            if ($user->set_password($password) !== false && method_exists($user, 'save')) {
+                $user->save();
+            }
+
+            return;
+        }
+
+        $user->password = $hasher->hash($password);
+
+        if (method_exists($user, 'save')) {
+            $user->save();
+        }
     }
 
     /**
@@ -486,22 +506,26 @@ class fs_login
     /**
      * Rehashea a Argon2id una contraseña legacy ya verificada.
      *
-     * Respeta los límites de longitud de fs_user::set_password(); si la clave no
-     * los cumple, el login es válido pero el hash no se puede migrar (no hay
-     * forma de rehashear SHA1 sin la clave en claro). Nunca registra la clave.
+     * Dentro de la política de longitud delega en set_password(); fuera de ella
+     * rehashea directamente, porque el rango 8-32 es una regla para elegir una
+     * contraseña nueva, no para migrar el algoritmo de una ya existente. Antes
+     * las cuentas con claves fuera de ese rango conservaban SHA1/MD5
+     * indefinidamente. Nunca registra la clave.
      *
      * @param fs_user $user
      * @param string  $password
      */
     private function migrate_legacy_password($user, $password): void
     {
-        if (mb_strlen($password) < 8 || mb_strlen($password) > 32 || !method_exists($user, 'set_password')) {
+        if (!method_exists($user, 'save')) {
             return;
         }
 
-        if ($user->set_password($password) !== false && method_exists($user, 'save')) {
-            $user->save();
-        }
+        $this->persist_migrated_hash(
+            $user,
+            (string) $password,
+            new \FSFramework\Security\PasswordHasherService()
+        );
     }
 
     /**
@@ -646,7 +670,9 @@ class fs_login
 
     private function setLegacyCookie(string $name, string $value, int $expire, string $path = '/'): void
     {
-        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        // Proxy-aware: detrás de un TLS terminado en proxy, $_SERVER['HTTPS']
+        // no está seteado y la cookie viajaba sin Secure.
+        $secure = \FSFramework\Security\SecureRequestDetector::isSecure();
 
         if (PHP_VERSION_ID >= 70300) {
             setcookie($name, $value, [

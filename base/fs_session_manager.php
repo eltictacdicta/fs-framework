@@ -107,7 +107,9 @@ class fs_session_manager
         $gcLifetime = class_exists($sessionPolicyClass)
             ? $sessionPolicyClass::getAbsoluteTimeout()
             : $idleTimeout;
-        $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+        // Proxy-aware: detrás de un TLS terminado en proxy, $_SERVER['HTTPS']
+        // no está seteado y la cookie de sesión viajaba sin Secure.
+        $secure = \FSFramework\Security\SecureRequestDetector::isSecure();
 
         $cookieParams = [
             'lifetime' => $idleTimeout,
@@ -382,7 +384,9 @@ class fs_session_manager
 
         $sessionName = session_name();
         if (isset($_COOKIE[$sessionName])) {
-            $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+            // Proxy-aware: detrás de un TLS terminado en proxy, $_SERVER['HTTPS']
+        // no está seteado y la cookie de sesión viajaba sin Secure.
+        $secure = \FSFramework\Security\SecureRequestDetector::isSecure();
 
             setcookie($sessionName, '', [
                 'expires' => time() - 3600,
@@ -644,8 +648,8 @@ final class FsSessionLegacyFallback
 
     private static function isRememberMeSignatureValid(string $nick, string $logkey, string $cookieSig): bool
     {
-        return $cookieSig === ''
-            || \FSFramework\Security\CookieSigner::verifyRememberMe($nick, $logkey, $cookieSig);
+        return $cookieSig !== ''
+            && \FSFramework\Security\CookieSigner::verifyRememberMe($nick, $logkey, $cookieSig);
     }
 
     /**
