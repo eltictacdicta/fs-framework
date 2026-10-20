@@ -98,6 +98,44 @@ function bround($dVal, $iDec = 2)
 }
 
 /**
+ * Renderiza un error fatal sin filtrar rutas ni detalles internos al visitante.
+ *
+ * El detalle completo va siempre al error_log con una referencia corta, para
+ * poder correlacionar lo que reporta el usuario con la entrada del log.
+ * Los detalles sólo se muestran en pantalla cuando FS_DEBUG está activo.
+ */
+function fs_render_fatal_error(string $context, string $message, string $file = '', int $line = 0, string $class = ''): string
+{
+    $ref = substr(sha1($context . '|' . $message . '|' . $file . '|' . $line . '|' . microtime(true) . '|' . mt_rand()), 0, 12);
+
+    error_log(sprintf(
+        '[FSFramework] fatal ref=%s context=%s class=%s message=%s file=%s:%d',
+        $ref,
+        $context,
+        $class,
+        $message,
+        $file,
+        $line
+    ));
+
+    if (defined('FS_DEBUG') && FS_DEBUG) {
+        $rows = '';
+        if ($class !== '') {
+            $rows .= '<li><b>Clase:</b> ' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . '</li>';
+        }
+        $rows .= '<li><b>Mensaje:</b> ' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</li>';
+        if ($file !== '') {
+            $rows .= '<li><b>Archivo:</b> ' . htmlspecialchars($file . ':' . $line, ENT_QUOTES, 'UTF-8') . '</li>';
+        }
+
+        return '<h1>Error fatal (' . htmlspecialchars($context, ENT_QUOTES, 'UTF-8') . ')</h1><ul>' . $rows . '</ul>';
+    }
+
+    return '<h1>Error interno</h1><p>El incidente quedó registrado. Referencia: <code>'
+        . htmlspecialchars($ref, ENT_QUOTES, 'UTF-8') . '</code></p>';
+}
+
+/**
  * Muestra un mensaje de error en caso de error fatal, aunque php tenga
  * desactivados los errores.
  */
@@ -105,13 +143,12 @@ function fatal_handler()
 {
     $error = error_get_last();
     if (isset($error) && in_array($error["type"], [1, 64])) {
-        echo "<h1>Error fatal</h1>"
-            . "<ul>"
-            . "<li><b>Tipo:</b> " . $error["type"] . "</li>"
-            . "<li><b>Archivo:</b> " . $error["file"] . "</li>"
-            . "<li><b>Línea:</b> " . $error["line"] . "</li>"
-            . "<li><b>Mensaje:</b> " . $error["message"] . "</li>"
-            . "</ul>";
+        echo fs_render_fatal_error(
+            'fatal',
+            (string) $error["message"],
+            (string) $error["file"],
+            (int) $error["line"]
+        );
     }
 }
 

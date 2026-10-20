@@ -312,13 +312,13 @@ if ($pagename == '') {
                 exit;
             }
         } catch (\Throwable $exc) {
-            echo "<h1>Error fatal (FS2025)</h1>"
-                . "<ul>"
-                . "<li><b>Clase:</b> " . $modernController['class'] . "</li>"
-                . "<li><b>Código:</b> " . $exc->getCode() . "</li>"
-                . "<li><b>Mensaje:</b> " . $exc->getMessage() . "</li>"
-                . "<li><b>Archivo:</b> " . $exc->getFile() . ":" . $exc->getLine() . "</li>"
-                . "</ul>";
+            echo fs_render_fatal_error(
+                'FS2025',
+                $exc->getMessage(),
+                $exc->getFile(),
+                $exc->getLine(),
+                get_class($exc)
+            );
             $fsc_error = TRUE;
         }
     } else {
@@ -340,11 +340,7 @@ if ($pagename == '') {
                 $fsc = new $legacyControllerClass();
             }
         } catch (Exception $exc) {
-            echo "<h1>Error fatal</h1>"
-                . "<ul>"
-                . "<li><b>Código:</b> " . $exc->getCode() . "</li>"
-                . "<li><b>Mensaje:</b> " . $exc->getMessage() . "</li>"
-                . "</ul>";
+            echo fs_render_fatal_error('legacy', $exc->getMessage(), $exc->getFile(), $exc->getLine(), get_class($exc));
             $fsc_error = TRUE;
         }
     }
