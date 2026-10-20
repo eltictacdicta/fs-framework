@@ -207,8 +207,12 @@ class admin_home extends fs_controller
         // Inicializar información del actualizador
         $this->init_updater_info();
 
-        // Auto-actualizar cacert.pem si tiene más de 90 días
-        $this->check_ca_bundle_update();
+        // Auto-actualizar cacert.pem si tiene más de 90 días. Sólo administradores:
+        // escribe base/cacert.pem y hace una petición saliente, así que no debe
+        // dispararse desde la sesión de un usuario normal.
+        if ($this->user->admin) {
+            $this->check_ca_bundle_update();
+        }
 
         $this->exec_actions();
 
@@ -265,6 +269,15 @@ class admin_home extends fs_controller
 
     private function exec_actions()
     {
+        // Toda acción de esta página es administrativa. El guard va PRIMERO:
+        // antes vivía después del bloque `updated`, así que un usuario normal
+        // podía borrar `updates`, invertir check_db_types y limpiar la cache
+        // con un simple GET sin token.
+        if (!$this->user->admin) {
+            $this->new_error_msg('Sólo un administrador puede hacer cambios en esta página.');
+            return;
+        }
+
         if (filter_input(INPUT_GET, 'check4updates')) {
             $this->template = FALSE;
             if ($this->check_for_updates2()) {
@@ -280,13 +293,6 @@ class admin_home extends fs_controller
             $this->fs_var->simple_delete('updates');
             $this->activar_comprobacion_columnas();
             $this->clean_cache();
-            return;
-        }
-
-
-
-        if (!$this->user->admin) {
-            $this->new_error_msg('Sólo un administrador puede hacer cambios en esta página.');
             return;
         }
 

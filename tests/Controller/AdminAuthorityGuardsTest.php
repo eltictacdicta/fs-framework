@@ -62,6 +62,8 @@ final class AdminAuthorityGuardsTest extends TestCase
             'admin_user::aplicar_roles' => ['/controller/admin_user.php', 'aplicar_roles'],
             // Global, shared-state mutation.
             'admin_orden_menu::guardar_orden' => ['/controller/admin_orden_menu.php', 'guardar_orden'],
+            // Default landing page: every logged-in user reaches this one.
+            'admin_home::exec_actions' => ['/controller/admin_home.php', 'exec_actions'],
         ];
     }
 
@@ -82,6 +84,67 @@ final class AdminAuthorityGuardsTest extends TestCase
                 basename($relativePath),
                 $method
             )
+        );
+    }
+
+    /**
+     * `admin_home` is the default landing page, so it is reachable by every
+     * logged-in user. `exec_actions()` used to check the admin flag *after*
+     * the `updated` branch, letting a normal user delete the `updates` var,
+     * flip `check_db_types` and flush the cache with a plain GET.
+     *
+     * Presence of the guard is not enough: it has to come first.
+     */
+    #[Test]
+    public function adminHomeActionsAreGuardedBeforeAnyMutation(): void
+    {
+        $path = dirname(__DIR__, 2) . '/controller/admin_home.php';
+        $this->assertFileExists($path);
+
+        $body = $this->methodBody((string) file_get_contents($path), 'exec_actions');
+
+        $guard = strpos($body, '$this->user->admin');
+        $updatedBranch = strpos($body, "filter_input(INPUT_GET, 'updated')");
+        $mutation = strpos($body, 'activar_comprobacion_columnas');
+
+        $this->assertNotFalse($guard, 'exec_actions() must check $this->user->admin.');
+        $this->assertNotFalse($updatedBranch, 'The `updated` branch must still exist.');
+        $this->assertNotFalse($mutation, 'The `updated` branch must still mutate state.');
+
+        $this->assertLessThan(
+            $updatedBranch,
+            $guard,
+            'The admin guard must run before the `updated` branch.'
+        );
+        $this->assertLessThan(
+            $mutation,
+            $guard,
+            'The admin guard must run before activar_comprobacion_columnas().'
+        );
+    }
+
+    /**
+     * `check_ca_bundle_update()` writes base/cacert.pem and performs an
+     * outbound request. It must not be reachable from a non-admin session.
+     */
+    #[Test]
+    public function adminHomeCaBundleUpdateIsAdminOnly(): void
+    {
+        $path = dirname(__DIR__, 2) . '/controller/admin_home.php';
+        $this->assertFileExists($path);
+
+        $body = $this->methodBody((string) file_get_contents($path), 'private_core');
+
+        $guard = strpos($body, '$this->user->admin');
+        $call = strpos($body, 'check_ca_bundle_update()');
+
+        $this->assertNotFalse($guard, 'private_core() must gate the CA bundle update on admin.');
+        $this->assertNotFalse($call, 'private_core() must still call check_ca_bundle_update().');
+
+        $this->assertLessThan(
+            $call,
+            $guard,
+            'The admin guard must run before check_ca_bundle_update().'
         );
     }
 }
