@@ -15,7 +15,7 @@ Cada plugin vive en su **propio repositorio** (`https://github.com/eltictacdicta
 
 El **system_updater** NO compara tags: compara la **`version` del `fsframework.ini` remoto** con la local.
 
-1. El catálogo remoto `eltictacdicta/fs-cusmtom-plugins@main/custom_plugins.json` lista cada plugin (`nombre`, `link`, `zip_link`; opcional `version`).
+1. El catálogo vive **dentro del plugin**: `plugins/system_updater/data/custom_plugins.json` lista cada plugin (`nombre`, `link`, `zip_link`; opcional `version`). No hay repositorio de catálogo separado.
 2. `plugin_downloader` lee el `fsframework.ini` remoto del repo y toma `version`.
 3. `plugin_compatibility_checker` compara esa versión con la del `fsframework.ini` instalado.
 
@@ -60,7 +60,7 @@ git push origin vX.Y.Z
 2. **Branch**: pushear al branch que el catálogo referencia (`main`). Si el trabajo está en una feature branch, **mergear a `main`** (fast-forward si es posible) ANTES de taggear; un tag en una feature branch sin mergear no es un release válido.
 3. **`vendor/` se commitea**: los plugins versionan su `vendor/` junto con `composer.json`/`composer.lock` (ver AGENTS.md).
 4. **`version` y tag alineados** y acordes a la magnitud (patch vs minor).
-5. **Catálogo**: si el plugin es nuevo o cambió de repo/`zip_link`, actualizar `custom_plugins.json` en `eltictacdicta/fs-cusmtom-plugins` (repo separado).
+5. **Catálogo**: si el plugin es nuevo o cambió de repo/`zip_link`, actualizar `plugins/system_updater/data/custom_plugins.json`, que se versiona junto con el plugin.
 
 ## Verificación
 

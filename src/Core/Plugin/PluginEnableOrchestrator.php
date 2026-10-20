@@ -289,44 +289,11 @@ final class PluginEnableOrchestrator
             return system_updater_catalog_lists_plugin($pluginName);
         }
 
-        return $this->isPluginListedInRemoteCatalog($pluginName);
-    }
-
-    private function isPluginListedInRemoteCatalog(string $pluginName): bool
-    {
-        // Servidores sin salida a Internet: no consultar el catálogo remoto.
-        if (defined('FS_DISABLE_REMOTE_PLUGIN_CATALOG') && FS_DISABLE_REMOTE_PLUGIN_CATALOG) {
-            return false;
-        }
-
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 5,
-                'header' => "User-Agent: FSFramework-CatalogLookup/1.0\r\n",
-            ],
-        ]);
-
-        foreach ([
-            'https://raw.githubusercontent.com/eltictacdicta/fs-cusmtom-plugins/main/custom_plugins.json',
-            'https://raw.githubusercontent.com/eltictacdicta/fs-cusmtom-plugins/master/custom_plugins.json',
-        ] as $url) {
-            $json = @file_get_contents($url, false, $context);
-            if ($json === false) {
-                continue;
-            }
-
-            $entries = json_decode($json, true);
-            if (!is_array($entries)) {
-                continue;
-            }
-
-            foreach ($entries as $entry) {
-                if (is_array($entry) && isset($entry['nombre']) && (string) $entry['nombre'] === $pluginName) {
-                    return true;
-                }
-            }
-        }
-
+        // Sin system_updater instalado no hay catálogo que consultar: el
+        // catálogo vive dentro del plugin (plugins/system_updater/data/
+        // custom_plugins.json). Antes se consultaba además un repositorio
+        // remoto que ya no existe; mantener la URL sólo dejaba una petición
+        // condenada a 404 en cada intento de alta.
         return false;
     }
 
