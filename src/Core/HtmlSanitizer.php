@@ -48,6 +48,9 @@ class HtmlSanitizer
     ];
 
     private const BLOCKED_HTML_TAGS = [
+        // SMIL: `<set>` y `<animate>` pueden asignar `href="javascript:..."`
+        // en tiempo de ejecución a un <a>, esquivando el filtro de atributos.
+        'animate',
         'base',
         'embed',
         'form',
@@ -56,6 +59,7 @@ class HtmlSanitizer
         'link',
         'meta',
         'object',
+        'set',
         'textarea',
     ];
 
@@ -65,6 +69,9 @@ class HtmlSanitizer
         'href',
         'poster',
         'src',
+        // Atributo de SVG: sin él, `<svg><a xlink:href="javascript:...">`
+        // sobrevive al sanitizador y queda como click-XSS.
+        'xlink:href',
     ];
 
     /**

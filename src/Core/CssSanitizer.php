@@ -64,7 +64,18 @@ class CssSanitizer
             return null;
         }
 
-        return trim($document->render(OutputFormat::createCompact()));
+        $rendered = trim($document->render(OutputFormat::createCompact()));
+
+        // Defensa independiente del parser: `containsUnsafeCssToken()` sólo ve
+        // valores de declaración, pero un cierre de <style> puede venir de un
+        // selector o de los argumentos de una @rule. Se busca el terminador
+        // real (`</style`, case-insensitive) y no cualquier `<`: `content:"<"`
+        // es CSS legítimo y no cierra nada.
+        if (stripos($rendered, '</style') !== false) {
+            return null;
+        }
+
+        return $rendered;
     }
 
     private function sanitizeCssList(CSSList $list): bool
@@ -240,7 +251,10 @@ class CssSanitizer
             || str_contains($normalized, 'expression(')
             || str_contains($normalized, 'javascript:')
             || str_contains($normalized, 'vbscript:')
-            || str_contains($normalized, 'data:');
+            || str_contains($normalized, 'data:')
+            // Un valor CSS no cierra el elemento <style>. Se busca el
+            // terminador real, no cualquier `<`: `content:"<"` es legítimo.
+            || str_contains($normalized, '</style');
     }
 
     private function isSafeCssUrl(string $url): bool
