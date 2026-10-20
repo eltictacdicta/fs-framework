@@ -12,6 +12,14 @@
 
 const UPDATER_CONFIG_FILE = __DIR__ . '/config.php';
 
+/**
+ * Vida máxima del manifiesto de self-update, en segundos.
+ *
+ * El plugin lo genera justo antes de invocar este endpoint, así que un
+ * manifiesto viejo sólo puede ser un replay de un token filtrado.
+ */
+const UPDATER_MANIFEST_MAX_AGE = 900;
+
 function updater_redirect($url)
 {
     header('Location: ' . $url);
@@ -51,6 +59,12 @@ function updater_restore_backup($backupPath, $pluginPath)
 function updater_read_self_update_manifest($manifestPath)
 {
     if (!file_exists($manifestPath)) {
+        return null;
+    }
+
+    $modifiedAt = @filemtime($manifestPath);
+    if ($modifiedAt === false || (time() - $modifiedAt) > UPDATER_MANIFEST_MAX_AGE) {
+        @unlink($manifestPath);
         return null;
     }
 
@@ -157,6 +171,10 @@ function updater_finalize_self_update()
     if (!hash_equals((string) $manifest['token'], $token)) {
         updater_self_update_redirect(false, 'Token no coincide');
     }
+
+    // Single-use: se consume antes de desplegar. Un token filtrado no sirve
+    // para un segundo intento ni permite repetir el despliegue por replay.
+    @unlink($manifestPath);
 
     $stagedPath = $manifest['staged_path'];
     $stagingRoot = $manifest['staging_root'] ?? dirname($stagedPath);
