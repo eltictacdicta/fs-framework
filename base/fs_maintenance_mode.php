@@ -588,6 +588,14 @@ final class fs_maintenance_mode
             return [];
         }
 
+        // El id llega de una cookie y se pasa a session_id(): validar forma y
+        // charset antes evita fijar un id arbitrario. `use_strict_mode` sólo lo
+        // activa SessionManager, que en este punto todavía no corrió.
+        // Mismo patrón con el que SessionManager valida un id recibido.
+        if (preg_match('/^[a-zA-Z0-9,-]{22,250}$/', $sessionId) !== 1) {
+            return [];
+        }
+
         if (defined('FS_SESSION_SAVE_PATH') && trim((string) FS_SESSION_SAVE_PATH) !== '') {
             session_save_path(trim((string) FS_SESSION_SAVE_PATH));
         }
