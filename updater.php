@@ -77,6 +77,42 @@ function updater_read_self_update_manifest($manifestPath)
     return $manifest;
 }
 
+/**
+ * Comprueba que el pedido venga de la misma sesión de framework que preparó la
+ * actualización.
+ *
+ * updater.php corre fuera del bootstrap y no puede abrir la sesión del admin,
+ * así que el plugin escribe en el manifiesto el nombre de la cookie y un HMAC
+ * del id de sesión. Un token filtrado desde tmp/ no alcanza sin el id real, que
+ * sólo vive en la cookie del navegador que inició la actualización.
+ *
+ * Devuelve TRUE cuando el manifiesto no trae binding: lo generó un plugin
+ * anterior al contrato, y rechazarlo rompería la autoactualización desde una
+ * versión vieja. Queda registrado en el log.
+ */
+function updater_session_binding_matches(array $manifest, array $cookies, string $secret): bool
+{
+    $fingerprint = (string) ($manifest['session_fingerprint'] ?? '');
+    $sessionName = (string) ($manifest['session_name'] ?? '');
+
+    if ($fingerprint === '' || $sessionName === '') {
+        error_log('system_updater: manifiesto sin binding de sesión (plugin anterior); se acepta por compatibilidad.');
+        return true;
+    }
+
+    if ($secret === '') {
+        error_log('system_updater: no hay secreto de aplicación; no se puede validar el binding de sesión.');
+        return false;
+    }
+
+    $sessionId = isset($cookies[$sessionName]) ? trim((string) $cookies[$sessionName]) : '';
+    if ($sessionId === '') {
+        return false;
+    }
+
+    return hash_equals($fingerprint, hash_hmac('sha256', $sessionId, $secret));
+}
+
 function updater_path_is_within(string $realPath, string $realBaseDir): bool
 {
     $normalizedPath = rtrim(str_replace('\\', '/', $realPath), '/');
@@ -170,6 +206,20 @@ function updater_finalize_self_update()
 
     if (!hash_equals((string) $manifest['token'], $token)) {
         updater_self_update_redirect(false, 'Token no coincide');
+    }
+
+    // El token solo no alcanza: se exige además la sesión que preparó el update.
+    $composerAutoload = __DIR__ . '/vendor/autoload.php';
+    if (!class_exists(\FSFramework\Security\SecretManager::class) && is_file($composerAutoload)) {
+        require_once $composerAutoload;
+    }
+
+    $secret = class_exists(\FSFramework\Security\SecretManager::class)
+        ? (string) \FSFramework\Security\SecretManager::getSecret()
+        : '';
+
+    if (!updater_session_binding_matches($manifest, $_COOKIE, $secret)) {
+        updater_self_update_redirect(false, 'El pedido no proviene de la sesión que preparó la actualización');
     }
 
     // Single-use: se consume antes de desplegar. Un token filtrado no sirve

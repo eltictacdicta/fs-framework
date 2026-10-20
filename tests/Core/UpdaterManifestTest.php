@@ -77,6 +77,72 @@ final class UpdaterManifestTest extends TestCase
         $this->assertFileDoesNotExist($path);
     }
 
+    public function testSessionBindingAcceptsThePreparingSession(): void
+    {
+        $secret = 'test-secret';
+
+        $this->assertTrue(updater_session_binding_matches(
+            $this->manifestWithBinding('sid-123', $secret),
+            ['sess' => 'sid-123'],
+            $secret
+        ));
+    }
+
+    public function testSessionBindingRejectsAnotherSession(): void
+    {
+        $secret = 'test-secret';
+
+        $this->assertFalse(updater_session_binding_matches(
+            $this->manifestWithBinding('sid-123', $secret),
+            ['sess' => 'sid-from-another-browser'],
+            $secret
+        ));
+    }
+
+    public function testSessionBindingRejectsAMissingCookie(): void
+    {
+        $this->assertFalse(updater_session_binding_matches(
+            $this->manifestWithBinding('sid-123', 'test-secret'),
+            [],
+            'test-secret'
+        ));
+    }
+
+    public function testSessionBindingRejectsWhenNoSecretIsAvailable(): void
+    {
+        $this->assertFalse(updater_session_binding_matches(
+            $this->manifestWithBinding('sid-123', 'test-secret'),
+            ['sess' => 'sid-123'],
+            ''
+        ));
+    }
+
+    /**
+     * A manifest written by a plugin predating the binding must still finalize,
+     * otherwise the updater could not upgrade itself from an old version.
+     */
+    public function testManifestWithoutBindingIsAcceptedForBackwardCompatibility(): void
+    {
+        $this->assertTrue(updater_session_binding_matches(
+            ['token' => 'abc123', 'staged_path' => '/tmp/staged'],
+            [],
+            'test-secret'
+        ));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function manifestWithBinding(string $sessionId, string $secret): array
+    {
+        return [
+            'token' => 'abc123',
+            'staged_path' => '/tmp/staged',
+            'session_name' => 'sess',
+            'session_fingerprint' => hash_hmac('sha256', $sessionId, $secret),
+        ];
+    }
+
     private function writeManifest(array $data): string
     {
         $path = $this->temporaryPath();
