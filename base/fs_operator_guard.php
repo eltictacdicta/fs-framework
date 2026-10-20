@@ -20,23 +20,25 @@
 declare(strict_types=1);
 
 /**
- * Autorización de cron.php por HTTP.
+ * Autorización de scripts de operador (cron.php, install helpers, scripts de
+ * emergencia) cuando se invocan por HTTP.
  *
  * El guard original confiaba en `REMOTE_ADDR` loopback. Detrás de un reverse
  * proxy esa dirección es la del proxy, así que TODOS los clientes parecen
- * locales y cron.php quedaba público: cualquiera podía disparar los crons de
- * los plugins, el self-heal de tablas y las migraciones.
+ * locales y el script quedaba público: en el caso de cron.php eso permitía
+ * disparar los crons de los plugins, el self-heal de tablas y las migraciones.
  *
  * Reglas:
- *  - CLI (cron del sistema) siempre autorizado.
- *  - Con `FS_CRON_TOKEN` definido, hace falta el token (header o parámetro).
+ *  - CLI (cron del sistema, operador con shell) siempre autorizado.
+ *  - Si el script pasa un token configurado, hace falta ese token (header
+ *    `X-Cron-Token` / `X-Operator-Token` o parámetro `token`).
  *  - Sin token configurado se acepta sólo un llamador realmente local: loopback
  *    y sin cabeceras de forwarding. Un proxy siempre agrega alguna.
  *
  * La función es pura (recibe `$_SERVER` y `$_REQUEST`) para poder testearla sin
- * levantar el cron completo.
+ * ejecutar el script que la usa.
  */
-function fs_cron_authorize(string $sapi, array $server, array $params, ?string $configuredToken): bool
+function fs_operator_authorize(string $sapi, array $server, array $params, ?string $configuredToken): bool
 {
     if ($sapi === 'cli') {
         return true;
@@ -47,7 +49,7 @@ function fs_cron_authorize(string $sapi, array $server, array $params, ?string $
     if ($token !== '') {
         $provided = '';
 
-        foreach (['HTTP_X_CRON_TOKEN', 'HTTP_X_CRON_SECRET'] as $header) {
+        foreach (['HTTP_X_OPERATOR_TOKEN', 'HTTP_X_CRON_TOKEN', 'HTTP_X_CRON_SECRET'] as $header) {
             if (!empty($server[$header]) && is_string($server[$header])) {
                 $provided = trim($server[$header]);
                 break;

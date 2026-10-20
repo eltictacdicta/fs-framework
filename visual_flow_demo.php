@@ -6,14 +6,11 @@
  * durante y después de la instalación.
  */
 
-// Deny direct web access. Only CLI (cron) and loopback callers may run this
-// operator script; .htaccess is inert on nginx, so the guard lives in code.
+// Herramienta de demostración exclusivamente CLI. No tiene caso de uso real por
+// web, así que se cierra por completo en vez de confiar en REMOTE_ADDR.
 if (PHP_SAPI !== 'cli') {
-    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
-    if (!in_array($remoteAddr, ['127.0.0.1', '::1'], true)) {
-        http_response_code(404);
-        exit;
-    }
+    http_response_code(404);
+    exit;
 }
 
 const DEMO_CONFIG2_PATH = 'base/config2.php';

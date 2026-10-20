@@ -1,12 +1,10 @@
 <?php
-// Deny direct web access. Only CLI (cron) and loopback callers may run this
-// operator script; .htaccess is inert on nginx, so the guard lives in code.
+// Herramienta de diagnóstico exclusivamente CLI. No tiene caso de uso por web
+// (sólo imprime rutas y resultados de carga), así que se cierra por completo en
+// vez de confiar en REMOTE_ADDR.
 if (PHP_SAPI !== 'cli') {
-    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
-    if (!in_array($remoteAddr, ['127.0.0.1', '::1'], true)) {
-        http_response_code(404);
-        exit;
-    }
+    http_response_code(404);
+    exit;
 }
 define('FS_FOLDER', getcwd());
 require_once 'vendor/autoload.php';

@@ -21,7 +21,7 @@
 //
 // La autorización se resuelve más abajo, después de cargar config.php, porque
 // necesita FS_CRON_TOKEN y porque el chequeo por REMOTE_ADDR solo no alcanza
-// detrás de un reverse proxy. Ver base/fs_cron_guard.php.
+// detrás de un reverse proxy. Ver base/fs_operator_guard.php.
 //
 // Para invocarlo por HTTP (p. ej. desde un cron externo) definí en config.php:
 //   define('FS_CRON_TOKEN', 'un-secreto-largo-y-aleatorio');
@@ -41,10 +41,10 @@ require_once 'config.php';
 // Autorización de la ejecución por HTTP. El guard vive después de config.php
 // porque necesita FS_CRON_TOKEN, y antes de cualquier efecto (secret migrator,
 // conexión, migraciones). CLI (cron del sistema) pasa sin token.
-require_once 'base/fs_cron_guard.php';
+require_once 'base/fs_operator_guard.php';
 
 $cronToken = defined('FS_CRON_TOKEN') ? (string) FS_CRON_TOKEN : null;
-if (!fs_cron_authorize(PHP_SAPI, $_SERVER, $_REQUEST, $cronToken)) {
+if (!fs_operator_authorize(PHP_SAPI, $_SERVER, $_REQUEST, $cronToken)) {
     http_response_code(404);
     exit;
 }
