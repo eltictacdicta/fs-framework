@@ -202,6 +202,13 @@ Script de remediación offline para instalaciones con hashes legacy:
 ddev exec php scripts/remediate-legacy-passwords.php
 ```
 
+Si perdiste el acceso de administrador, el procedimiento está en
+[`docs/ADMIN_RECOVERY.md`](docs/ADMIN_RECOVERY.md):
+
+```bash
+php scripts/reset-admin-password.php admin
+```
+
 ### Migración legacy planificada
 
 Roadmap de retirada progresiva de RainTPL, aliases API y rutas legacy hacia **v3.0**: [`docs/reviews/legacy-migration-roadmap.md`](docs/reviews/legacy-migration-roadmap.md).

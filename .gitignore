@@ -102,10 +102,6 @@ test_sql.php
 .env.*.local
 .fs_secret_key
 
-# Emergency scripts (upload manually, delete after use)
-emergency_admin_reset.php
-reset_admin_password.php
-
 # Composer auth tokens
 auth.json
 

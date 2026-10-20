@@ -126,11 +126,6 @@ final class OperatorAuthorizationTest extends TestCase
     }
 
     /**
-     * Only versioned operator scripts. reset_admin_password.php and
-     * emergency_admin_reset.php are gitignored on purpose ("upload manually,
-     * delete after use"), so they are checked separately when they happen to
-     * be present.
-     *
      * @return array<string, array{string, 'cli-only'|'guard'}>
      */
     public static function operatorScripts(): array
@@ -138,19 +133,7 @@ final class OperatorAuthorizationTest extends TestCase
         return [
             'debug_loader' => ['/debug_loader.php', 'cli-only'],
             'visual_flow_demo' => ['/visual_flow_demo.php', 'cli-only'],
-        ];
-    }
-
-    /**
-     * Local-only emergency scripts, not part of the repository.
-     *
-     * @return array<string, array{string}>
-     */
-    public static function ignoredOperatorScripts(): array
-    {
-        return [
-            'reset_admin_password' => ['/reset_admin_password.php'],
-            'emergency_admin_reset' => ['/emergency_admin_reset.php'],
+            'reset_admin_password' => ['/scripts/reset-admin-password.php', 'cli-only'],
         ];
     }
 
@@ -197,29 +180,5 @@ final class OperatorAuthorizationTest extends TestCase
         $this->assertFileExists($path);
 
         return (string) file_get_contents($path);
-    }
-
-    /**
-     * These files are uploaded by hand and must be deleted after use, so they
-     * are absent from a clean checkout. When present, they must follow the same
-     * rule as the versioned scripts.
-     */
-    #[DataProvider('ignoredOperatorScripts')]
-    public function testLocalOnlyScriptDoesNotTrustRemoteAddrAlone(string $relativePath): void
-    {
-        $path = dirname(__DIR__, 2) . $relativePath;
-
-        if (!is_file($path)) {
-            $this->markTestSkipped(basename($relativePath) . ' is not present (gitignored operator artifact).');
-        }
-
-        $source = (string) file_get_contents($path);
-
-        $this->assertStringNotContainsString('$remoteAddr', $source);
-        $this->assertTrue(
-            str_contains($source, 'fs_operator_authorize(PHP_SAPI')
-            || str_contains($source, "if (PHP_SAPI !== 'cli')"),
-            basename($relativePath) . ' must deny web access through the guard or be CLI-only.'
-        );
     }
 }
