@@ -74,6 +74,18 @@ require_once 'base/fs_secret_migrator.php';
 fs_secret_migrator::ensure();
 require_once 'base/config2.php';
 
+/// --- Crawler Gate (host-wide, web-server independent) ---
+/// Mirror of the index.php gate: this is a separate PHP entry point, so it must
+/// apply the same policy. Opt out with define('FS_BLOCK_AI_CRAWLERS', false).
+$_crawlerResponse = (new \FSFramework\Security\CrawlerUserAgentGate())->intercept(
+    \Symfony\Component\HttpFoundation\Request::createFromGlobals()
+);
+if ($_crawlerResponse) {
+    $_crawlerResponse->send();
+    exit;
+}
+unset($_crawlerResponse);
+
 /// Cargar la clase base legacy de controladores ANTES del boot: el Router se
 /// construye dentro de Kernel::boot() y refleja src/Controller/* y
 /// plugins/*/Controller/* para leer sus atributos de ruta; clases como

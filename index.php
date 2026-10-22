@@ -77,6 +77,21 @@ require_once 'base/fs_secret_migrator.php';
 fs_secret_migrator::ensure();
 require_once 'base/config2.php';
 
+/// --- Crawler Gate (host-wide, web-server independent) ---
+/// Runs before the boot, the self-heal and the migrations, so a blocked crawler
+/// costs almost nothing. It must not use Kernel::request(): the Kernel is not
+/// booted yet and getInstance() throws. `.htaccess` is inert on nginx and on
+/// Apache with AllowOverride None, so the policy cannot live only in server
+/// configuration. Opt out with define('FS_BLOCK_AI_CRAWLERS', false).
+$_crawlerResponse = (new \FSFramework\Security\CrawlerUserAgentGate())->intercept(
+    \Symfony\Component\HttpFoundation\Request::createFromGlobals()
+);
+if ($_crawlerResponse) {
+    $_crawlerResponse->send();
+    exit;
+}
+unset($_crawlerResponse);
+
 /// Self-heal: asegurar tablas core críticas en instalaciones incompletas
 require_once 'base/fs_core_log.php';
 require_once 'base/fs_db2.php';

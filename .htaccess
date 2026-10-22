@@ -123,7 +123,12 @@
 # =============================================================================
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    
+
+    # NOTE: AI/scraper crawler blocking is NOT done here. It lives in
+    # FSFramework\Security\CrawlerUserAgentGate, invoked from index.php and
+    # api.php, because a server rule cannot honour the FS_BLOCK_AI_CRAWLERS
+    # opt-out and does not exist at all on nginx. One policy, one switch.
+
     # --- PROTECT SENSITIVE DIRECTORIES ---
     # Block access to sensitive directories (return 403)
     # Note: apk/ and imgs/ have their own .htaccess with specific rules
