@@ -54,6 +54,7 @@
     "scripts": {
         "test": "php vendor/bin/phpunit -c phpunit.xml",
         "phpstan": "php vendor/dev-tools/bin/phpstan analyse --memory-limit=1G",
+        "phpstan:plugins": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-plugins.neon --memory-limit=1G",
         "phpstan:baseline": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-baseline-generate.neon --memory-limit=1G --generate-baseline=phpstan-baseline.neon --allow-empty-baseline",
         "phpstan:dead-code": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-dead-code.neon --memory-limit=1G",
         "phpstan:dead-code-context": "php vendor/dev-tools/bin/phpstan analyse -c phpstan-dead-code-context.neon --memory-limit=1G"

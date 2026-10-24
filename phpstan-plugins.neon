@@ -1,0 +1,58 @@
+# PHPStan — cobertura del código de plugins (change: phpstan-plugin-coverage)
+#
+# El `phpstan.neon` raíz analiza solo `src/` y `tests/` (código del core). Este
+# perfil extiende la cobertura a los plugins instalados sin obligarlos a tener su
+# propio toolchain: el binario y el bootstrap son del core.
+#
+# Uso:
+#   ddev exec composer phpstan:plugins
+#
+# Reglas del perfil:
+# - `scanDirectories` indexa core + plugins hermanos para resolver símbolos sin
+#   reportar errores en código ajeno al alcance.
+# - `universalObjectCratesClasses` modela `fs_controller`, cuyo contrato es
+#   publicar propiedades dinámicas para las vistas.
+# - Este perfil NO lleva baseline: si un cambio agrega errores, se corrige el
+#   código o el contrato de tipos, no se silencia.
+includes: []
+
+parameters:
+    level: 5
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+
+    universalObjectCratesClasses:
+        - fs_controller
+
+    scanDirectories:
+        - base
+        - src
+        - plugins/catalogo_core
+        - plugins/business_data
+        - plugins/clientes_core
+        - plugins/clientes_facturacion
+        - plugins/factura_pdf1
+
+    dynamicConstantNames:
+        - FS_DB_TYPE
+        - FS_FOREIGN_KEYS
+        - FS_CHECK_DB_TYPES
+        - FS_ITEM_LIMIT
+
+    paths:
+        - plugins/clientes_core/ClienteForm.php
+        - plugins/clientes_core/Init.php
+        - plugins/clientes_core/model
+        - plugins/tpvmod/lib
+        - plugins/tpvmod/Init.php
+
+    ignoreErrors:
+        # Los modelos de extensión comercial (`cliente_facturacion`) leen y
+        # escriben sus campos desde `cliente::COMMERCIAL_FIELDS` con acceso
+        # dinámico `$model->{$field}`. La lista es una constante de clase, pero
+        # el acceso por nombre de variable no es resoluble estáticamente sin
+        # duplicar el mapeo campo por campo. El patrón es deliberado y está
+        # cubierto por tests.
+        -
+            identifier: property.notFound
+            path: plugins/clientes_core/model/core/cliente.php

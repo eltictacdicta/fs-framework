@@ -92,7 +92,7 @@ abstract class fs_extended_model extends fs_model
      * @param string $code
      * @param string $col_name
      * 
-     * @return fs_extended_model|boolean
+     * @return fs_extended_model|false
      */
     public function get($code, $col_name = '')
     {

@@ -80,6 +80,29 @@ cp node_modules/jquery/dist/jquery.min.js view/js/
 - Configure database connection in `config.php`
 - Access via `index.php` in browser
 
+### Static Analysis (PHPStan)
+
+Two profiles, two scopes:
+
+```bash
+# Core scope: src/ and the root tests/
+ddev exec composer phpstan
+
+# Plugin scope: the plugins listed in phpstan-plugins.neon
+ddev exec composer phpstan:plugins
+```
+
+- The toolchain lives in `dev-tools/` and installs into `vendor/dev-tools/`
+  (gitignored). Run `ddev exec composer install --working-dir=dev-tools` once.
+- `phpstan-plugins.neon` is core-owned so plugins do not need their own
+  toolchain. Its `scanDirectories` index core plus sibling plugins; analysed
+  paths are explicit.
+- **No baselines.** A finding is closed by correcting the contract or the code.
+  `ignoreErrors` is reserved for patterns that are not statically resolvable by
+  design, and must carry a written reason.
+- Adding a plugin to the gate is a deliberate change: append its paths (and any
+  sibling it needs) to `phpstan-plugins.neon`, then fix the debt it surfaces.
+
 ### Testing
 
 This codebase uses **PHPUnit 11** with **symfony/phpunit-bridge** for unit testing.
