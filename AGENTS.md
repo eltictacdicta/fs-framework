@@ -95,13 +95,19 @@ ddev exec composer phpstan:plugins
 - The toolchain lives in `dev-tools/` and installs into `vendor/dev-tools/`
   (gitignored). Run `ddev exec composer install --working-dir=dev-tools` once.
 - `phpstan-plugins.neon` is core-owned so plugins do not need their own
-  toolchain. Its `scanDirectories` index core plus sibling plugins; analysed
-  paths are explicit.
+  toolchain. **Do not invoke it directly**: `tools/phpstan-plugins.php` resolves
+  the analysed paths and the scanned directories against what is actually
+  installed, because plugins are separate optional repositories and PHPStan
+  aborts when a `scanDirectories` entry does not exist.
 - **No baselines.** A finding is closed by correcting the contract or the code.
   `ignoreErrors` is reserved for patterns that are not statically resolvable by
-  design, and must carry a written reason.
+  design, and must carry a written reason. Prefer
+  `universalObjectCratesClasses` for classes that publish dynamic properties on
+  purpose (`fs_controller`, `fs_extended_model`): it models the real design
+  instead of hiding every `property.notFound` in a file.
 - Adding a plugin to the gate is a deliberate change: append its paths (and any
-  sibling it needs) to `phpstan-plugins.neon`, then fix the debt it surfaces.
+  sibling it needs) to the candidate lists in `tools/phpstan-plugins.php`, then
+  fix the debt it surfaces.
 
 ### Testing
 

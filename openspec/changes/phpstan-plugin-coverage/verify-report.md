@@ -2,16 +2,17 @@
 
 ## Verdict
 
-**PASS** — the gate is green with no baseline and one documented ignore.
+**PASS** — the gate is green with no baseline and no suppression.
 
 | Check | Result |
 |---|---|
-| `ddev exec composer phpstan:plugins` | `[OK] No errors` (from 47 after the profile was scoped, 279/278 before scoping) |
-| `plugins/clientes_core` | `OK (134 tests, 477 assertions)` |
+| `ddev exec composer phpstan:plugins` | `[OK] No errors` (18 files analysed) |
+| Gate with an optional plugin absent (`factura_pdf1` hidden) | `[OK] No errors` |
+| `plugins/clientes_core` | `OK (134 tests, 485 assertions)` |
 | `plugins/tpvmod` | `OK (192 tests, 1586 assertions)` |
 | `plugins/catalogo_core` | `OK (1378 tests, 5673 assertions)`, 2 warnings + 1 skipped pre-existing |
 | Root `composer phpstan` | 38 errors, unchanged (pre-existing, see WARNING-1) |
-| Baselines / `@phpstan-ignore` added | none |
+| Baselines / `@phpstan-ignore` / `ignoreErrors` added | none |
 
 ## What the gate proved
 
@@ -33,14 +34,19 @@ and one latent fatal.
 
 - **No baseline.** The profile must stay at zero by fixing contracts. A baseline
   would hide exactly the class of defect this gate exists to catch.
-- **One `ignoreErrors` entry**, scoped to `cliente.php`, for the
-  `$model->{$field}` loop over `cliente::COMMERCIAL_FIELDS`. The field list is a
-  class constant, but the access is by variable name; resolving it statically
-  would duplicate the mapping. The pattern is covered by tests.
-- **`universalObjectCratesClasses: [fs_controller]`** models the framework's
-  deliberate contract: controllers publish properties for their views.
-- **Explicit plugin list.** The profile names the analysed paths; widening is a
-  per-plugin decision, not an automatic scan.
+- **No `ignoreErrors` at all.** The one entry this change initially carried was
+  removed after review: `fs_model` and `fs_extended_model` declare
+  `#[\AllowDynamicProperties]` and derive their fields from the schema, so they
+  are modelled as `universalObjectCratesClasses` alongside `fs_controller`.
+  Modelling the real design beats suppressing every `property.notFound` in a
+  file.
+- **The profile is generated from what is installed.** `tools/phpstan-plugins.php`
+  resolves the analysed paths and the scanned directories against the checkout.
+  PHPStan aborts when a `scanDirectories` entry is missing, and plugins are
+  optional repositories, so a static list would make the gate unusable on a
+  partial install. Verified by hiding `plugins/factura_pdf1`: still zero errors.
+- **Explicit candidate lists.** Widening is a per-plugin decision, not an
+  automatic scan.
 
 ## WARNING-1 — The root `phpstan.neon` run is still red
 
@@ -79,3 +85,18 @@ plugin needs a suppression, that is a design discussion, not a default.
 - `plugins/tpvmod`: `6b91bd5` — remove dead defensive code from the tpv helpers.
 - `plugins/catalogo_core`: `8f856f03` — correct the `articulo::get()` return
   contract.
+
+## Review de CodeRabbit (post-verify)
+
+`coderabbit review --agent --dir . -t committed --base-commit c9428e7e` →
+2 findings `major`, ambos sobre `phpstan-plugins.neon`. Los dos se verificaron
+empíricamente antes de aceptarlos y ambos eran correctos:
+
+| Finding | Verificación | Resolución |
+|---|---|---|
+| Un `scanDirectories` inexistente aborta el análisis | Reproducido: `Scanned directory ... does not exist`, exit 1, sin analizar nada | `tools/phpstan-plugins.php` genera el perfil contra lo instalado. Probado ocultando `plugins/factura_pdf1`: `[OK] No errors` |
+| `identifier` + `path` ocultaba todo `property.notFound` del archivo | Confirmado en la semántica de `ignoreErrors` | Se eliminó la exclusión entera: `fs_extended_model` pasa a `universalObjectCratesClasses` (11 errores cubiertos por diseño, no por supresión) |
+
+Resultado neto del review: el perfil quedó **sin ninguna exclusión** y el gate
+sigue en cero. Un finding se cerró eliminando supresión, que es el mejor
+desenlace posible.

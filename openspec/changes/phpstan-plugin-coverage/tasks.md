@@ -46,8 +46,28 @@
 
 ## Definition of done
 
-1. `composer phpstan:plugins` exits 0 with no baseline and a single documented
-   ignore.
+1. `composer phpstan:plugins` exits 0 with no baseline and no suppression.
 2. Plugin suites still green.
 3. No `@phpstan-ignore` or new baseline in any touched repo.
 4. The widened-scope convention is written down for the next plugin.
+
+## T4 — Correcciones tras el review de CodeRabbit
+
+Dos hallazgos `major` sobre `phpstan-plugins.neon`, ambos verificados contra el
+binario antes de aceptarlos:
+
+- [x] **T4.1 — Un plugin opcional ausente abortaba el análisis.** Reproducido:
+      un `scanDirectories` inexistente hace que PHPStan 2.2 termine con
+      `Scanned directory ... does not exist` antes de analizar nada. Como los
+      plugins son repositorios opcionales, el gate era inutilizable en un
+      checkout parcial. Resuelto con `tools/phpstan-plugins.php`, que arma el
+      perfil contra lo que está instalado. Probado ocultando `plugins/factura_pdf1`:
+      el gate sigue en 0.
+- [x] **T4.2 — La exclusión por `identifier` + `path` era demasiado amplia.**
+      Ocultaba cualquier `property.notFound` en `cliente.php`, incluidos accesos
+      nuevos mal escritos. En vez de estrecharla con `message`, se eliminó la
+      exclusión: `fs_model` y `fs_extended_model` declaran
+      `#[\AllowDynamicProperties]` y derivan sus campos del esquema, así que se
+      modelan como `universalObjectCratesClasses` junto a `fs_controller`. El
+      perfil queda sin `ignoreErrors`.
+
