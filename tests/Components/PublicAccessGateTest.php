@@ -427,6 +427,45 @@ class PublicAccessGateTest extends TestCase
         $this->assertFalse(Plugins::shouldRespondNoContentForBrowserProbe(Request::create('/oauth/login', 'GET')));
     }
 
+    /**
+     * AAG-05: the 204 short-circuit must not swallow a request that names a
+     * controller page, because index.php dispatches on `page=`.
+     */
+    public function testPluginsRefuseTheBrowserProbeShortCircuitWhenTheRequestNamesAPage(): void
+    {
+        Plugins::resetRuntimeState();
+        $GLOBALS['plugins'] = [];
+
+        $this->assertFalse(Plugins::shouldRespondNoContentForBrowserProbe(
+            Request::create('/favicon.ico?page=password_reset', 'GET')
+        ));
+        $this->assertFalse(Plugins::shouldRespondNoContentForBrowserProbe(
+            Request::create('/favicon.ico', 'GET', ['page' => 'password_reset'])
+        ));
+
+        // Array page input names no canonical page, so the probe still applies
+        // and stays consistent with the gate.
+        $this->assertTrue(Plugins::shouldRespondNoContentForBrowserProbe(
+            Request::create('/favicon.ico?page[]=login', 'GET')
+        ));
+    }
+
+    public function testPluginsFrameworkExactPathHasOneDefinition(): void
+    {
+        Plugins::resetRuntimeState();
+        $GLOBALS['plugins'] = [];
+
+        $this->assertTrue(Plugins::isFrameworkExactPublicPath('/favicon.ico'));
+        $this->assertTrue(Plugins::isFrameworkExactPublicPath('/apple-touch-icon.png'));
+        $this->assertTrue(Plugins::isFrameworkExactPublicPath('/apple-touch-icon-precomposed.png'));
+        $this->assertFalse(Plugins::isFrameworkExactPublicPath('/oauth/login'));
+        $this->assertFalse(Plugins::isFrameworkExactPublicPath('/'));
+
+        // isPublicPath() resolves the framework exact paths through the same
+        // predicate, so the allowlist literal lives in one place.
+        $this->assertTrue(Plugins::isPublicPath('/favicon.ico'));
+    }
+
     public function testInterceptBlocksAnonymousRequestWithStealthEnabled(): void
     {
         $_GET['page'] = 'admin_home';

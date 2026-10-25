@@ -4,6 +4,11 @@ namespace FSFramework\Core;
 
 use Symfony\Component\HttpFoundation\Request;
 
+// The canonical requested page is defined once, in the dependency-free
+// base/fs_auth_request.php, so the browser-probe short-circuit and index.php's
+// dispatcher agree on which page a request names (AAG-05).
+require_once dirname(__DIR__, 2) . '/base/fs_auth_request.php';
+
 /**
  * Plugin management for FSFramework.
  */
@@ -165,13 +170,14 @@ class Plugins
             return false;
         }
 
-        $path = $request->getPathInfo();
-        $normalizedPath = $path === '/' ? '/' : rtrim($path, '/');
-        if ($normalizedPath === '') {
-            $normalizedPath = '/';
+        // A 204 short-circuit must not swallow a request that names a controller
+        // page: index.php dispatches on `page=`, so an allowlisted path carrying
+        // a private page has to fall through to the gate instead (AAG-05).
+        if (\fs_auth_request::requestedPage($request->query->all()) !== '') {
+            return false;
         }
 
-        return in_array($normalizedPath, self::FRAMEWORK_EXACT_PUBLIC_PATHS, true);
+        return self::isFrameworkExactPublicPath($request->getPathInfo());
     }
 
     public static function registerRouteConfigurator(string $pluginName, callable $configurator): void
