@@ -93,6 +93,47 @@ class StealthModeTest extends TestCase
         $this->assertFalse($stealth->hasAccess());
     }
 
+    public function testIsLegacyLoginRequestAcceptsOnlyTheCanonicalLoginPage(): void
+    {
+        $stealth = new StealthMode($this->createDbStub());
+
+        $_GET = ['page' => 'login'];
+        $this->assertTrue($stealth->isLegacyLoginRequest(), 'page=login is the login page');
+
+        $_GET = ['page' => 'login '];
+        $this->assertTrue($stealth->isLegacyLoginRequest(), 'page=login%20 resolves to login for the dispatcher');
+
+        $_GET = ['page' => 'LOGIN'];
+        $this->assertFalse($stealth->isLegacyLoginRequest(), 'uppercase LOGIN is not a canonical page');
+
+        $_GET = ['page' => 'admin_info'];
+        $this->assertFalse($stealth->isLegacyLoginRequest());
+
+        $_GET = [];
+        $this->assertFalse($stealth->isLegacyLoginRequest());
+
+        $_GET = ['page' => ['login']];
+        $this->assertFalse($stealth->isLegacyLoginRequest(), 'array input is never a login page');
+    }
+
+    public function testIsLegacyLoginSubmissionStaysReachableBehindAVerifiedStealthSecret(): void
+    {
+        $stealth = new StealthMode($this->createDbStub([
+            'stealth_param_name' => 'adminpanel',
+            'stealth_param_value' => 'secret-token',
+        ]));
+
+        $_GET = ['nlogin' => 'admin', 'adminpanel' => 'secret-token'];
+        $_POST = [];
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+
+        $this->assertTrue($stealth->isLegacyLoginSubmission());
+
+        // The predicate stays consumed by the stealth access path, not only by
+        // the gate exemption it was removed from.
+        $this->assertTrue($stealth->hasAccess());
+    }
+
     public function testAccessUrlPointsToHiddenLoginEntry(): void
     {
         if (!defined('FS_BASE_URL')) {

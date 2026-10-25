@@ -4,6 +4,11 @@ namespace FSFramework\Core;
 
 use Symfony\Component\HttpFoundation\Request;
 
+// The canonical requested page is defined once, in the dependency-free
+// base/fs_auth_request.php, so the browser-probe short-circuit and index.php's
+// dispatcher agree on which page a request names (AAG-05).
+require_once dirname(__DIR__, 2) . '/base/fs_auth_request.php';
+
 /**
  * Plugin management for FSFramework.
  */
@@ -99,14 +104,11 @@ class Plugins
 
     public static function isPublicPath(string $path): bool
     {
-        $normalizedPath = $path === '/' ? '/' : rtrim($path, '/');
-        if ($normalizedPath === '') {
-            $normalizedPath = '/';
-        }
-
-        if (in_array($normalizedPath, self::FRAMEWORK_EXACT_PUBLIC_PATHS, true)) {
+        if (self::isFrameworkExactPublicPath($path)) {
             return true;
         }
+
+        $normalizedPath = self::normalizePath($path);
 
         foreach (self::enabled() as $pluginName) {
             if (self::pathMatchesPluginPublicPrefixes($normalizedPath, self::$publicPathPrefixes[$pluginName] ?? [])) {
@@ -115,6 +117,26 @@ class Plugins
         }
 
         return false;
+    }
+
+    /**
+     * Whether the path is one of the framework's own exact public paths
+     * (/favicon.ico and the apple-touch-icon pair).
+     *
+     * Single definition of that test: isPublicPath() and
+     * shouldRespondNoContentForBrowserProbe() both consume it, so the allowlist
+     * literal is not duplicated at a second call site.
+     */
+    public static function isFrameworkExactPublicPath(string $path): bool
+    {
+        return in_array(self::normalizePath($path), self::FRAMEWORK_EXACT_PUBLIC_PATHS, true);
+    }
+
+    private static function normalizePath(string $path): string
+    {
+        $normalizedPath = $path === '/' ? '/' : rtrim($path, '/');
+
+        return $normalizedPath === '' ? '/' : $normalizedPath;
     }
 
     /**
@@ -148,13 +170,14 @@ class Plugins
             return false;
         }
 
-        $path = $request->getPathInfo();
-        $normalizedPath = $path === '/' ? '/' : rtrim($path, '/');
-        if ($normalizedPath === '') {
-            $normalizedPath = '/';
+        // A 204 short-circuit must not swallow a request that names a controller
+        // page: index.php dispatches on `page=`, so an allowlisted path carrying
+        // a private page has to fall through to the gate instead (AAG-05).
+        if (\fs_auth_request::requestedPage($request->query->all()) !== '') {
+            return false;
         }
 
-        return in_array($normalizedPath, self::FRAMEWORK_EXACT_PUBLIC_PATHS, true);
+        return self::isFrameworkExactPublicPath($request->getPathInfo());
     }
 
     public static function registerRouteConfigurator(string $pluginName, callable $configurator): void

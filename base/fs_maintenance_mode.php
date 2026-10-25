@@ -8,6 +8,11 @@
 // duplicating its formula here would desynchronize the session name.
 require_once __DIR__ . '/fs_session_identity.php';
 
+// Dependency-free definition of the request facts the auth boundary depends on.
+// The login-submission predicate used to be duplicated here and in
+// src/Core/StealthMode.php, and the two copies could drift apart (AAG-04).
+require_once __DIR__ . '/fs_auth_request.php';
+
 final class fs_maintenance_mode
 {
     private const DEFAULT_LOCK_FILE = 'maintenance.json';
@@ -554,15 +559,13 @@ final class fs_maintenance_mode
     }
     private static function isStealthLoginSubmission(array $server, array $query, array $post): bool
     {
-        if (strtoupper((string) ($server['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
-            return false;
-        }
-
-        if (isset($query['nlogin'])) {
-            return true;
-        }
-
-        return isset($post['user']) && (isset($post['password']) || isset($post['email']));
+        // Delegated so this guard and StealthMode can never disagree about what
+        // a login submission is; the semantics are unchanged (AAG-04).
+        return fs_auth_request::isStealthSubmission(
+            (string) ($server['REQUEST_METHOD'] ?? 'GET'),
+            $query,
+            $post
+        );
     }
 
     private static function readSessionSnapshot(): array
