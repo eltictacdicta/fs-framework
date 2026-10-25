@@ -156,6 +156,12 @@ class fs_login
     {
         $paths = $this->getLegacyCookiePaths();
 
+        // RMR-03: el registro de auditoría se atribuye a la sesión autenticada,
+        // nunca a un valor aportado por la petición. Se lee antes de invalidar
+        // la sesión, que vacía sus atributos.
+        $auditNick = $this->session->get('user_nick');
+        $auditNick = is_string($auditNick) && $auditNick !== '' ? $auditNick : null;
+
         $this->revokeCurrentRememberMeToken();
 
         // Limpiar sesión de Symfony
@@ -184,30 +190,26 @@ class fs_login
         }
 
         /// guardamos el evento en el log
-        $this->core_log->set_user_nick($user);
+        $this->core_log->set_user_nick($auditNick);
         $this->core_log->save('El usuario ha cerrado la sesión.', 'login');
     }
 
+    /**
+     * Revoca la credencial persistente (remember-me) de la cuenta nombrada por
+     * la sesión autenticada.
+     *
+     * RMR-01: la única copia de la regla vive en el puente. La resolución por
+     * cookie que había aquí era un segundo ejemplar del mismo fallback, y
+     * conservarlo —aunque fuese corrigiendo su `?:`— es lo que permitía que las
+     * dos copias divergieran otra vez.
+     *
+     * Compromiso registrado: en un árbol sin `SessionManager` un logout
+     * autenticado ya no rotaría `log_key`. Se pierde un endurecimiento, nunca se
+     * abre un agujero.
+     */
     private function revokeCurrentRememberMeToken(): void
     {
-        $legacyAuthBridge = $this->getLegacyAuthBridge();
-        if ($legacyAuthBridge !== null) {
-            $legacyAuthBridge->revokeCurrentLegacyLogin();
-            return;
-        }
-
-        $nick = $this->session->get('user_nick') ?: filter_input(INPUT_COOKIE, 'user');
-        if (!$nick) {
-            return;
-        }
-
-        $user = $this->user_model->get($nick);
-        if (!$user || !method_exists($user, 'rotate_logkey')) {
-            return;
-        }
-
-        $user->rotate_logkey();
-        $user->save();
+        $this->getLegacyAuthBridge()?->revokeCurrentLegacyLogin();
     }
 
     /**
@@ -285,26 +287,24 @@ class fs_login
         return true;
     }
 
+    /**
+     * Un fallo de verificación remember-me es un hecho sobre la PETICIÓN, no
+     * sobre la cuenta.
+     *
+     * RMR-02: se limpian las cookies y la sesión del propio llamante
+     * (`log_out(TRUE)` en todas las ramas) y no se muta la cuenta nombrada.
+     * RMR-04: el aviso es neutro y no interpola el `last_ip` almacenado ni
+     * ningún otro valor de la cuenta, que se renderizaría ante un llamante no
+     * autenticado.
+     */
     private function handleInvalidCookieSession($user)
     {
         if (is_null($user->log_key)) {
             return;
         }
 
-        $msg = '¡Sesión no válida! ';
-        if ($user->last_ip == fs_get_ip()) {
-            $this->log_out(TRUE);
-            return;
-        }
-
-        if (fs_is_local_ip($user->last_ip) && fs_is_local_ip(fs_get_ip())) {
-            $msg .= 'Acceso detectado desde otro equipo de la red local (' . $user->last_ip . ').';
-        } else {
-            $msg .= 'Alguien ha accedido a esta cuenta desde otra ubicación (IP: ' . $user->last_ip . ').';
-        }
-
-        $this->core_log->new_message($msg);
-        $this->log_out();
+        $this->core_log->new_message('Tu sesión ya no es válida. Inicia sesión de nuevo.');
+        $this->log_out(TRUE);
     }
 
     /**

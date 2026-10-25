@@ -33,6 +33,89 @@ final class FsLoginCookieAuthTest extends TestCase
         parent::tearDown();
     }
 
+    /**
+     * RMR-06: el contrato público no cambia.
+     *
+     * Los 20 ficheros que referencian `base/fs_login.php` deben seguir
+     * compilando: `log_out()` mantiene su firma pública, la revocación sigue
+     * siendo privada y la API pública del puente sigue expuesta igual.
+     */
+    public function testPublicSignatureContractIsUnchanged(): void
+    {
+        $logOut = new \ReflectionMethod(\fs_login::class, 'log_out');
+        $this->assertTrue($logOut->isPublic());
+        $this->assertSame(1, $logOut->getNumberOfParameters());
+        $this->assertTrue($logOut->getParameters()[0]->isOptional());
+
+        $revoke = new \ReflectionMethod(\fs_login::class, 'revokeCurrentRememberMeToken');
+        $this->assertTrue($revoke->isPrivate());
+        $this->assertSame(0, $revoke->getNumberOfParameters());
+
+        $bridge = new \ReflectionClass(\FSFramework\Security\LegacyAuthBridge::class);
+        foreach (['revokeCurrentLegacyLogin', 'clearLegacyCookies', 'issueLegacyCookies'] as $name) {
+            $this->assertTrue($bridge->getMethod($name)->isPublic(), $name . ' sigue siendo público');
+        }
+
+        $this->assertSame(0, $bridge->getMethod('revokeCurrentLegacyLogin')->getNumberOfParameters());
+    }
+
+    /**
+     * RMR-01: la regla de revocación tiene una sola copia, la del puente.
+     * `fs_login` no puede volver a resolver la cuenta por su cuenta: si lo
+     * hiciera, el `user_model` inyectado aquí se consultaría con el nick de la
+     * cookie sin firmar.
+     */
+    public function testLogoutDoesNotResolveTheAccountThroughItsOwnUserModel(): void
+    {
+        $_COOKIE['user'] = 'named-account';
+        $_COOKIE['logkey'] = 'named-account-key';
+
+        $login = new \fs_login();
+        $userModel = new class {
+            /** @var list<string> */
+            public array $lookups = [];
+
+            public function get(string $nick): mixed
+            {
+                $this->lookups[] = $nick;
+
+                return null;
+            }
+
+            public function clean_cache(bool $force = false): void
+            {
+            }
+        };
+
+        $this->setPrivateProperty($login, 'user_model', $userModel);
+        $this->setPrivateProperty($login, 'core_log', new class {
+            public function new_error(string $message): void
+            {
+            }
+
+            public function new_message(string $message): void
+            {
+            }
+
+            public function set_user_nick($user): void
+            {
+            }
+
+            public function save(string $message, string $channel = '', bool $important = false): void
+            {
+            }
+        });
+        $this->setPrivateProperty($login, 'cache', new class {
+            public function clean(): void
+            {
+            }
+        });
+
+        $login->log_out(TRUE);
+
+        $this->assertSame([], $userModel->lookups, 'La revocación no se resuelve con el modelo propio de fs_login');
+    }
+
     public function testDisabledRememberedUserReturnsFalseExplicitly(): void
     {
         $_COOKIE['user'] = 'disabled-user';

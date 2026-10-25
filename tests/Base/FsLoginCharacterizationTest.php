@@ -272,8 +272,89 @@ class FsLoginCharacterizationTest extends TestCase
     }
 
     // =====================================================================
+    // handleInvalidCookieSession(): RMR-02 / RMR-04
+    // =====================================================================
+
+    /**
+     * The handler returns early when the account has no stored key: there is
+     * nothing to invalidate, so it must neither speak nor write an audit row.
+     */
+    #[Test]
+    public function invalidCookieSessionWithoutAStoredKeyDoesNothing(): void
+    {
+        $logger = $this->makeLogger();
+        $login = $this->makeLogin(null, $logger);
+        $this->clearBridgedSession();
+
+        $this->callPrivate($login, 'handleInvalidCookieSession', [$this->makeAccountProbe(null)]);
+
+        $this->assertSame([], $logger->messages);
+        $this->assertSame([], $logger->saved, 'No se escribe ninguna fila de auditoría');
+    }
+
+    /**
+     * RMR-02: a failed remember-me verification clears the caller's own state
+     * (the audit row proves `log_out()` ran; the `log_out(TRUE)` flag itself is
+     * asserted in tests/Security/AnonymousLogoutRevocationTest.php).
+     *
+     * RMR-04: the notice is neutral and reads no stored per-account value. The
+     * probe records every undeclared property the handler touches, so `last_ip`
+     * (or any future per-account field) reappearing on this path fails the test.
+     */
+    #[Test]
+    public function invalidCookieSessionDisclosesNoAccountData(): void
+    {
+        $logger = $this->makeLogger();
+        $login = $this->makeLogin(null, $logger);
+        $this->clearBridgedSession();
+
+        $probe = $this->makeAccountProbe('stored-log-key');
+        $this->callPrivate($login, 'handleInvalidCookieSession', [$probe]);
+
+        $this->assertCount(1, $logger->messages);
+        $this->assertStringContainsString('Inicia sesión de nuevo', $logger->messages[0]);
+        $this->assertStringNotContainsString('203.0.113.7', $logger->messages[0], 'No se filtra el last_ip almacenado');
+        $this->assertSame([], $probe->readProperties, 'El camino del mensaje no lee ningún valor de la cuenta');
+        $this->assertSame(['El usuario ha cerrado la sesión.'], $logger->saved);
+    }
+
+    // =====================================================================
     // Helpers
     // =====================================================================
+
+    /**
+     * Account double whose undeclared properties are recorded when read. The
+     * stored IP lives only in the magic getter, so reading it leaves a trace.
+     */
+    private function makeAccountProbe(?string $logKey): object
+    {
+        return new class($logKey) {
+            public ?string $log_key;
+            /** @var list<string> */
+            public array $readProperties = [];
+
+            public function __construct(?string $logKey)
+            {
+                $this->log_key = $logKey;
+            }
+
+            public function __get(string $name): mixed
+            {
+                $this->readProperties[] = $name;
+
+                return $name === 'last_ip' ? '203.0.113.7' : null;
+            }
+        };
+    }
+
+    /**
+     * Leaves the bridged session empty so the revocation path cannot resolve a
+     * nickname from a previous test in the shared process.
+     */
+    private function clearBridgedSession(): void
+    {
+        \FSFramework\Security\SessionManager::getInstance()->getSymfonySession()->clear();
+    }
 
     private function makeCookieUser(string $logKey): object
     {
@@ -301,11 +382,23 @@ class FsLoginCharacterizationTest extends TestCase
     {
         return new class {
             public array $errors = [];
+            public array $messages = [];
             public array $saved = [];
+            public array $userNicks = [];
 
             public function new_error(string $message): void
             {
                 $this->errors[] = $message;
+            }
+
+            public function new_message(string $message): void
+            {
+                $this->messages[] = $message;
+            }
+
+            public function set_user_nick($user): void
+            {
+                $this->userNicks[] = $user;
             }
 
             public function save(string $message, string $channel = '', bool $important = false): void
