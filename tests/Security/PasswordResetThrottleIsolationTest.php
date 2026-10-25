@@ -120,10 +120,29 @@ final class PasswordResetThrottleIsolationTest extends TestCase
     /**
      * LTI-01 scenario 1: an anonymous reset burst must not lock out
      * authentication, i.e. the password comparison must still be reached.
+     *
+     * Both burst shapes are driven, because they fail for different reasons and
+     * both must leave the authentication bucket clean: the token-carrying one
+     * (the request is accepted, then discarded as a non-attempt by LTI-03) and
+     * the token-less one the pentest used (refused by LTI-04 before it can be
+     * counted).
      */
     #[Test]
     public function sixAnonymousEmptyResetPostsDoNotLockOutAuthentication(): void
     {
+        for ($i = 0; $i < 6; $i++) {
+            $this->driveResetRequest($this->resetRequest([
+                'nick_or_email' => '',
+                CsrfManager::FIELD_NAME => CsrfManager::generateToken(),
+            ]));
+        }
+
+        $this->assertSame(
+            0,
+            $this->attemptsIn($this->authenticationBucket()),
+            'six accepted empty reset submissions must not be counted at all'
+        );
+
         for ($i = 0; $i < 6; $i++) {
             $this->driveResetRequest($this->resetRequest(['nick_or_email' => '']));
         }
@@ -132,6 +151,11 @@ final class PasswordResetThrottleIsolationTest extends TestCase
             0,
             $this->attemptsIn($this->authenticationBucket()),
             'the authentication bucket must not be written by reset requests'
+        );
+        $this->assertSame(
+            0,
+            $this->attemptsIn($this->resetBucket()),
+            'a submission that is not an attempt is not counted in the reset bucket either'
         );
         $this->assertFalse(
             (new \fs_ip_filter())->is_banned(self::CLIENT_IP),
@@ -165,7 +189,10 @@ final class PasswordResetThrottleIsolationTest extends TestCase
     #[Test]
     public function theResetControllerOwnsItsBucket(): void
     {
-        $this->driveResetRequest($this->resetRequest(['nick_or_email' => 'nobody@example.test']));
+        $this->driveResetRequest($this->resetRequest([
+            'nick_or_email' => 'nobody@example.test',
+            CsrfManager::FIELD_NAME => CsrfManager::generateToken(),
+        ]));
 
         $this->assertSame(1, $this->attemptsIn($this->resetBucket()));
         $this->assertSame(0, $this->attemptsIn($this->authenticationBucket()));
@@ -239,7 +266,10 @@ final class PasswordResetThrottleIsolationTest extends TestCase
     #[Test]
     public function anEmptyResetSubmissionIncrementsNoCounter(): void
     {
-        $controller = $this->driveResetRequest($this->resetRequest(['nick_or_email' => '']));
+        $controller = $this->driveResetRequest($this->resetRequest([
+            'nick_or_email' => '',
+            CsrfManager::FIELD_NAME => CsrfManager::generateToken(),
+        ]));
 
         $this->assertSame(
             [FSTranslator::trans('password-reset-enter-nick-or-email')],
@@ -258,7 +288,10 @@ final class PasswordResetThrottleIsolationTest extends TestCase
     public function aRealResetAttemptCountsOnceInItsOwnBucket(): void
     {
         $controller = $this->driveResetRequest(
-            $this->resetRequest(['nick_or_email' => 'nobody@example.test'])
+            $this->resetRequest([
+                'nick_or_email' => 'nobody@example.test',
+                CsrfManager::FIELD_NAME => CsrfManager::generateToken(),
+            ])
         );
 
         $this->assertSame(1, $this->attemptsIn($this->resetBucket()), 'exactly one attempt, in the reset bucket');
@@ -592,7 +625,10 @@ final class PasswordResetThrottleIsolationTest extends TestCase
         $login = new \fs_login();
         $this->setPrivateProperty($login, 'core_log', $this->loginCoreLog);
 
-        $candidate = new \stdClass();
+        // Never used: the ban branch returns before it and, under the CLI SAPI,
+        // filter_input() yields null so the credential branch is not entered.
+        // A mock keeps this test off the real fs_users table.
+        $candidate = $this->createMock(\fs_user::class);
         $login->log_in($candidate);
 
         return array_values(array_filter(
@@ -628,9 +664,11 @@ final class PasswordResetThrottleIsolationTest extends TestCase
         $attempts = 0;
         foreach (file($bucket, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
             $fields = explode(';', $line);
-            if (($fields[0] ?? '') === self::CLIENT_IP) {
-                $attempts += (int) ($fields[1] ?? 0);
+            if ($fields[0] !== self::CLIENT_IP) {
+                continue;
             }
+
+            $attempts += (int) ($fields[1] ?? 0);
         }
 
         return $attempts;
