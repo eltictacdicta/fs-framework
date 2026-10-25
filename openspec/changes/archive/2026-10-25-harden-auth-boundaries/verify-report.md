@@ -444,3 +444,35 @@ not touch the code.**
 confirmed, and VULN-0007's header criteria remain unproven until O.3 and O.4 are run. The
 `archive-report.md` must say so explicitly, and the six unchecked `tasks.md` obligations (W-4) should
 be carried into it rather than ticked.
+
+---
+
+## Verify follow-up — corrections made after this report (appended at archive time)
+
+**Appended**: 2026-10-25, by the archive phase. The verdict and findings above are **not** rewritten,
+edited or deleted — they are the historical record of the independent verify run and stay legible as
+such. This section records only what changed after that run was written, and on what evidence the
+archive proceeded.
+
+The four requirements the report set as pre-merge conditions were corrected in the deltas and
+committed: `08471e79` — `docs(openspec): correct four delta statements found by the verify phase`
+(touching the four delta files and adding this report). Re-checked at archive time against that
+committed tree:
+
+| Finding | Required correction | Evidence checked at archive time | Status |
+|---|---|---|---|
+| **C-1** — AAG-01's body said "only when … is `login`" | Name the anonymously served page set | `specs/anonymous-access-gate/spec.md` AAG-01 now binds the exemption to "the publicly served page set defined by AAG-06 (`login` and `password_reset`, enumerated once in `fs_auth_request::PUBLIC_PAGES`)", keeps the page-not-shape rule, and carries an inline `*(Amended during verify.)*` note explaining why the noun was widened | **RESOLVED** |
+| **C-2** — AAG-02's scenario asserted `?page=login%20` → `302` | Split into `LOGIN` gated / `login%20` exempt | Same file now carries two scenarios: "A non-canonical page value is gated, not exempted" (`?page=LOGIN` → `302`, not treated as a login page) and "A value the dispatcher canonicalises is exempt" (`?page=login%20` → gate and dispatcher both resolve `login`; gate returns `null`), plus the correction note stating the old pair would have ratified a raw-comparison defect | **RESOLVED** |
+| **W-2** — DSH-01's definition had no `# nosecret` opt-out | Add the inline opt-out | `specs/deployment-surface-hygiene/spec.md` DSH-01 now states that a line carrying `# nosecret` / `// nosecret` (the marker DSH-03 authorises) is not a finding, names the three SHA-1-of-the-empty-string fixtures, confines the opt-out to a reviewed per-line exception and keeps the adjacency rule unrelaxed | **RESOLVED** |
+| **W-1** — SC-01 named "the `ensureSession()` branch" without disambiguating | Name `NativeSessionCsrfStorage::ensureSession()` and its condition | `specs/session-consolidation/spec.md` SC-01 and its Known-deviation replacement name the instance method, state that it applies `SessionManager::resolveSessionName()` whenever `SessionManager` is available, give the one shape that would start unnamed (a token operation after a mid-request session close with `SessionManager` absent), and require a one-line fix before that shape becomes reachable. `specs/session-transport-hardening/spec.md` STH-05 states the same condition | **RESOLVED** |
+
+**The archive proceeded on that basis.** The corrected deltas are what was merged into
+`openspec/specs/`; no implementation file and no test was touched, which is the remedy this report
+prescribed. Nothing this report recorded as OPEN is closed by the archive:
+
+- **VULN-0005 stays OPEN** until O.1 and O.2 are confirmed on the live server.
+- **VULN-0007's header criteria** remain unproven until O.3 and O.4 are run.
+- **AAG-06 remains a stealth-disabled-only fix.**
+- **Post-authentication object-level authorization** was never tested and is out of scope.
+- **The PR 4 live retest** proved reachability, not counter isolation.
+- The six unchecked `tasks.md` obligations (W-4) were carried into `archive-report.md`, not ticked.
