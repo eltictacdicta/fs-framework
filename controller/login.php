@@ -75,6 +75,17 @@ class login extends fs_controller
             $this->redirectToSafeUrl($defaultRedirectUrl);
         }
 
+        // LC-06: el veredicto CSRF de fs_controller::log_in() es autoritativo y
+        // la credencial se evalúa como máximo una vez por petición. Sin este
+        // guard el mismo POST se entregaba a fs_login dos veces y la segunda
+        // entrega no pasaba por ninguna validación de token (VULN-0003).
+        // Vive acá, después del redirect de login público de los plugins y
+        // antes de la rama de credenciales: un guard al comienzo de
+        // public_core() bloquearía ese redirect.
+        if ($this->shouldSkipCredentialLogin()) {
+            return;
+        }
+
         if ($this->handleCredentialLogin($defaultRedirectUrl)) {
             return;
         }
@@ -82,6 +93,24 @@ class login extends fs_controller
         if ($this->handleAutoLogin($defaultRedirectUrl)) {
             return;
         }
+    }
+
+    /**
+     * LC-06: un POST cuya credencial ya fue evaluada, o cuyo token CSRF no es
+     * válido, no vuelve a entrar en la rama de credenciales.
+     *
+     * El predicado lee isCsrfValid() y nunca requireCsrf(): `csrf_valid ===
+     * false` sólo lo fija un validateCsrf() que ya corrió, mientras que
+     * requireCsrf() validaría cuando nadie lo hizo todavía y rechazaría un POST
+     * a page=login que legítimamente no lleva token ni credenciales.
+     */
+    protected function shouldSkipCredentialLogin(): bool
+    {
+        if (!$this->request->isMethod('POST')) {
+            return false;
+        }
+
+        return !$this->isCsrfValid() || $this->credentialLoginEvaluated();
     }
 
     protected function resolveAnonymousPublicLoginRedirect(): ?string
