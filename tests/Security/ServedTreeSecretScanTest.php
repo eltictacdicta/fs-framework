@@ -270,7 +270,10 @@ final class ServedTreeSecretScanTest extends TestCase
         }
 
         $tokens = implode('|', array_map(static fn(string $token): string => preg_quote($token, '/'), self::ADJACENCY_TOKENS));
-        $pattern = '/(?:' . $tokens . ')["\']?[ \t]*[=:][ \t]*["\']?(?:[0-9a-fA-F]{64}|[0-9a-fA-F]{40})\b/';
+        // `=>` is included because PHP array literals (`'logkey' => '<hex>'`)
+        // are a realistic carrier for the same value; the hook uses this same
+        // rule, so the two must not diverge.
+        $pattern = '/(?:' . $tokens . ')["\']?[ \t]*(?:=>|[=:])[ \t]*["\']?(?:[0-9a-fA-F]{64}|[0-9a-fA-F]{40})\b/';
 
         if (preg_match($pattern, $line, $matches) !== 1) {
             return null;

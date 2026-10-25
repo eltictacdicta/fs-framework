@@ -105,6 +105,53 @@ final class PreCommitSecretScanTest extends TestCase
     }
 
     /**
+     * CodeRabbit review of PR 5: the hook listed paths from the index but grepped
+     * the file on disk, so a credential staged with `git add -p` and then deleted
+     * from the working tree still reached the commit.
+     */
+    #[Test]
+    public function testTheScanReadsTheStagedBlobNotTheWorkingTree(): void
+    {
+        $secret = str_repeat('ef', 32);
+        $fixture = $this->writeFixture('deleted-after-stage.md', "logkey=" . $secret . "\n");
+        $this->stage([$fixture]);
+
+        unlink($this->workDir . '/deleted-after-stage.md');
+        $this->assertFileDoesNotExist(FS_FOLDER . '/' . $fixture);
+
+        [$exitCode, $output] = $this->runHook();
+
+        $this->assertNotSame(
+            0,
+            $exitCode,
+            'A staged credential must block even when the working-tree file is gone: ' . $output
+        );
+        $this->assertStringContainsString($fixture . ':1', $output);
+        $this->assertStringNotContainsString($secret, $output);
+    }
+
+    /**
+     * CodeRabbit review of PR 5: PHP array literals separate with `=>`, which the
+     * rule did not accept, so `['logkey' => '<hex>']` passed the hook unnoticed.
+     */
+    #[Test]
+    public function testAPhpArrayAssignmentIsDetected(): void
+    {
+        $secret = str_repeat('ab', 32);
+        $fixture = $this->writeFixture(
+            'array-assignment.php',
+            "<?php \$config = ['logkey' => '" . $secret . "'];\n"
+        );
+        $this->stage([$fixture]);
+
+        [$exitCode, $output] = $this->runHook();
+
+        $this->assertNotSame(0, $exitCode, 'A PHP array assignment must not bypass the rule: ' . $output);
+        $this->assertStringContainsString($fixture . ':1', $output);
+        $this->assertStringNotContainsString($secret, $output);
+    }
+
+    /**
      * DSH-03 scenario "the opt-out marker works".
      */
     #[Test]
