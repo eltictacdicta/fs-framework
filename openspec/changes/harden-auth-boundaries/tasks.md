@@ -292,6 +292,26 @@ Merge order: **1 → 2 → 3 → 4 → 5 → 6**. PRs 2, 3 and 5 are code-indepe
   - Added: `phpstan.neon` lists `controller/password_reset.php` in `scanFiles`, so the class the new test extends is resolvable. Without it the gate reported six `class.notFound` / `property.notFound` findings from the new test file (46 total instead of 38). No `ignoreErrors` entry was added and the baseline did not grow.
   - Verify: `ddev exec php vendor/bin/phpunit tests/Security/PasswordResetThrottleIsolationTest.php` green (17 tests, 75 assertions).
 
+### Phase 3: The recovery page must be reachable (AAG-06, TDD)
+
+`themes/AdminLTE/view/login/default.html.twig:103` links anonymous visitors to
+`index.php?page=password_reset`, but the gate exempted `page=login` alone, so the link
+looped back to the login form and the whole recovery flow was unreachable. That predates
+PR 1, but PR 1's gate fix closed VULN-0006's denial of service *by making the handler
+unreachable* — collateral damage, not the fix. Phases 1 and 2 above are the real
+mitigation, and they are what make exposing the page safe.
+
+- [x] 3.1 **[TEST] [RED]** Correct the superseded `password_reset` gate assertions in `tests/Components/PublicAccessGateTest.php` and pin the public-page set in `tests/Base/FsAuthRequestTest.php`. Corrected first, in its own commit, and observed RED against the unmodified gate (5 failures, every one a `302` to `index.php?page=login`).
+- [x] 3.2 The anonymous exemption becomes the **public-page set** (`login`, `password_reset`) defined once next to the canonical page rule, instead of `isLegacyLoginRequest()` alone. Page-based, never shape-based.
+  - Applied deviation: `testInterceptGatesPublicPathCarryingAPrivatePage` now names `admin_info`, and `password_reset` left `provideNonLoginPageBypassShapes()` — otherwise those assertions would assert AAG-06 to be false. AAG-05's rule is unchanged and still asserted, plus live-probed.
+  - Verify: `tests/Components/PublicAccessGateTest.php` 52 tests green; `tests/Base/FsAuthRequestTest.php` 40 green; Security 313/0; live probe `GET ?page=password_reset` → `200` (was `302`), `GET ?page=admin_info` → `302`.
+- [x] 3.3 `openspec/changes/harden-auth-boundaries/specs/anonymous-access-gate/spec.md` — AAG-06 added to the table and as a requirement with five scenarios; AAG-01's superseded scenario marked superseded; AAG-05's two `/favicon.ico` scenarios re-pointed at a private page. *(Done by the orchestrator on `master`, not on this branch.)*
+
+**Known scope limit (AAG-06):** with `stealth_enabled = 1` the gate answers with the public
+homepage or the secret-entry redirect before reaching the exemption, so the recovery page
+is reachable only with the secret — exactly like `login`. AAG-06 is a stealth-disabled
+fix. Making recovery work under stealth is a separate decision, not taken here.
+
 ### PR 4 verification
 
 - [x] `ddev exec php vendor/bin/phpunit --testsuite Base` — 422 tests, 0 failures

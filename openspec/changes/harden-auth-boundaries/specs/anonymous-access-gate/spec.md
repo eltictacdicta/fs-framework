@@ -231,15 +231,19 @@ consumed by every site that needs it, not a duplicated `in_array(...)`.
 
 #### Scenario: A public path carrying a private page is gated (POST)
 
-- GIVEN an anonymous `POST /index.php/favicon.ico?page=password_reset`
+- GIVEN an anonymous `POST /index.php/favicon.ico?page=admin_info`
 - WHEN the gate evaluates the request
 - THEN the response is a `302` to `index.php?page=login` (previously `200`)
 
+*(Re-pointed during PR 4.)* This scenario originally used `page=password_reset` as the private page. AAG-06 makes `password_reset` public, so that combination is a legitimate exemption; the rule under test is unchanged and is now asserted against a genuinely private page.
+
 #### Scenario: A public path carrying a private page is gated (GET)
 
-- GIVEN an anonymous `GET /index.php/favicon.ico?page=password_reset`
+- GIVEN an anonymous `GET /index.php/favicon.ico?page=admin_info`
 - WHEN the gate and the browser-probe short-circuit are evaluated
 - THEN the response is a `302` to `index.php?page=login` (previously `204`)
+
+*(Re-pointed during PR 4, same reason as the POST scenario above.)*
 
 #### Scenario: A browser probe without a page keeps its 204
 
@@ -274,6 +278,11 @@ reset entry points (LTI-04).
 
 The exemption **MUST** remain page-based, never shape-based: an extra `nlogin` parameter
 on `page=password_reset` does not change the decision (AAG-01).
+
+A public page reached through a framework exact public path (`/favicon.ico`,
+`/apple-touch-icon*.png`) is likewise exempt, because AAG-05 resolves the *named page*
+and that page is public. The AAG-05 path rule itself is unchanged: a private page carried
+on a public path stays gated.
 
 #### Scenario: The password-reset form renders anonymously
 
