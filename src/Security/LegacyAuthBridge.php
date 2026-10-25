@@ -247,16 +247,21 @@ final class LegacyAuthBridge
         return str_ends_with($path, '/') ? $path : $path . '/';
     }
 
-    private function resolveLegacyLogoutNick(): ?string
+    /**
+     * Nick de la cuenta cuya credencial persistente se revoca.
+     *
+     * RMR-01: la única fuente de identidad válida es la sesión autenticada. La
+     * cookie `user` llega sin firmar en la petición, así que un GET anónimo que
+     * la incluya podría nombrar la cuenta de otra persona y rotarle el
+     * `log_key`. Sin nick de sesión no hay cuenta que revocar.
+     *
+     * @internal Expuesto para las pruebas.
+     */
+    protected function resolveLegacyLogoutNick(): ?string
     {
         $sessionNick = $this->session->get('user_nick');
         if (is_string($sessionNick) && $sessionNick !== '') {
             return $sessionNick;
-        }
-
-        $cookieUser = $_COOKIE['user'] ?? null;
-        if (is_string($cookieUser) && $cookieUser !== '') {
-            return $cookieUser;
         }
 
         return null;
