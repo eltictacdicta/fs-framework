@@ -99,14 +99,11 @@ class Plugins
 
     public static function isPublicPath(string $path): bool
     {
-        $normalizedPath = $path === '/' ? '/' : rtrim($path, '/');
-        if ($normalizedPath === '') {
-            $normalizedPath = '/';
-        }
-
-        if (in_array($normalizedPath, self::FRAMEWORK_EXACT_PUBLIC_PATHS, true)) {
+        if (self::isFrameworkExactPublicPath($path)) {
             return true;
         }
+
+        $normalizedPath = self::normalizePath($path);
 
         foreach (self::enabled() as $pluginName) {
             if (self::pathMatchesPluginPublicPrefixes($normalizedPath, self::$publicPathPrefixes[$pluginName] ?? [])) {
@@ -115,6 +112,26 @@ class Plugins
         }
 
         return false;
+    }
+
+    /**
+     * Whether the path is one of the framework's own exact public paths
+     * (/favicon.ico and the apple-touch-icon pair).
+     *
+     * Single definition of that test: isPublicPath() and
+     * shouldRespondNoContentForBrowserProbe() both consume it, so the allowlist
+     * literal is not duplicated at a second call site.
+     */
+    public static function isFrameworkExactPublicPath(string $path): bool
+    {
+        return in_array(self::normalizePath($path), self::FRAMEWORK_EXACT_PUBLIC_PATHS, true);
+    }
+
+    private static function normalizePath(string $path): string
+    {
+        $normalizedPath = $path === '/' ? '/' : rtrim($path, '/');
+
+        return $normalizedPath === '' ? '/' : $normalizedPath;
     }
 
     /**

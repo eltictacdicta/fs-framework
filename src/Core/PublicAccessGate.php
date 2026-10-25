@@ -27,6 +27,11 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+// The canonical requested page is defined once, in the dependency-free
+// base/fs_auth_request.php, so the gate and index.php's dispatcher cannot
+// disagree about which page a request names (AAG-02, AAG-05).
+require_once dirname(__DIR__, 2) . '/base/fs_auth_request.php';
+
 class PublicAccessGate
 {
     public function __construct(private readonly StealthMode $stealth)
@@ -35,8 +40,18 @@ class PublicAccessGate
 
     public function intercept(Request $request): ?Response
     {
-        if (Plugins::isPublicPath($request->getPathInfo())) {
-            return null;
+        $path = $request->getPathInfo();
+
+        if (Plugins::isPublicPath($path)) {
+            // A framework exact public path (/favicon.ico and friends) is exempt
+            // only for a request that names no controller page: index.php
+            // dispatches on `page=`, so presenting an allowlisted path while
+            // naming a private page must not skip the gate (AAG-05). A path
+            // registered as a plugin public prefix is opt-in by the plugin that
+            // owns the route and stays exempt unconditionally.
+            if (!Plugins::isFrameworkExactPublicPath($path) || \fs_auth_request::requestedPage($_GET) === '') {
+                return null;
+            }
         }
 
         if ($this->stealth->hasAuthenticatedSession()) {
@@ -56,7 +71,11 @@ class PublicAccessGate
             return $this->createStealthResponse();
         }
 
-        if ($this->stealth->isLegacyLoginRequest() || $this->stealth->isLegacyLoginSubmission()) {
+        // The exemption is the requested page alone. Consulting the request
+        // shape (isLegacyLoginSubmission) here let a credential POST to any page
+        // — e.g. page=password_reset&nlogin=1 — skip the gate and run the
+        // controller's anonymous path (VULN-0002, AAG-01).
+        if ($this->stealth->isLegacyLoginRequest()) {
             return $this->resolvePublicLoginRedirect();
         }
 
