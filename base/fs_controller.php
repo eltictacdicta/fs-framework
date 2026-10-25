@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 require_once 'base/fs_app.php';
+require_once 'base/fs_auth_request.php';
 require_once 'base/fs_db2.php';
 require_once 'base/fs_default_items.php';
 require_once 'base/fs_extended_model.php';
@@ -103,6 +104,17 @@ class fs_controller extends fs_app
      * @var bool
      */
     protected $multi_db = false;
+
+    /**
+     * Indica si log_in() ya entregó el POST de credenciales a fs_login::log_in().
+     *
+     * El veredicto CSRF es autoritativo y una submission de credenciales se
+     * evalúa como máximo una vez por petición: login::process_login_logic()
+     * consulta esta marca para no volver a evaluar el mismo POST (LC-06,
+     * VULN-0003).
+     * @var bool
+     */
+    protected $credentialLoginEvaluated = false;
 
     /**
      * Nombre del controlador (lo utilizamos en lugar de __CLASS__ porque __CLASS__
@@ -963,8 +975,17 @@ class fs_controller extends fs_app
         // El guard vive en este wrapper y no en fs_login::log_in(), porque ese
         // método también lo usan el upload chunked y los controllers modernos,
         // que no envían token.
-        if ($this->request->isMethod('POST') && $this->requestHasCredentials() && !$this->validateCsrf()) {
-            return false;
+        if ($this->request->isMethod('POST') && $this->requestHasCredentials()) {
+            if (!$this->validateCsrf()) {
+                // El false es definitivo: el veredicto no se reintenta y la
+                // credencial no se evalúa por ninguna ruta posterior de la
+                // misma petición (LC-06).
+                return false;
+            }
+
+            // Registro de la entrega: process_login_logic() lo consulta para no
+            // entregar el mismo POST a fs_login una segunda vez.
+            $this->credentialLoginEvaluated = true;
         }
 
         $this->login_tools->log_in($this->user);
@@ -979,12 +1000,25 @@ class fs_controller extends fs_app
     /**
      * TRUE si el POST trae un par usuario/contraseña, que es la firma del
      * formulario de login: fs_login lee 'user' (o 'nick') más 'password'.
+     *
+     * Delegado a fs_auth_request para que "submission con credenciales" tenga
+     * una sola definición, compartida con el guard de la ruta moderna
+     * (LC-06/LC-07).
      */
-    private function requestHasCredentials(): bool
+    protected function requestHasCredentials(): bool
     {
-        $post = $this->request->request;
+        return \fs_auth_request::hasCredentialSubmission(
+            $this->request->getMethod(),
+            $this->request->request->all()
+        );
+    }
 
-        return $post->has('password') && ($post->has('user') || $post->has('nick'));
+    /**
+     * TRUE cuando log_in() ya entregó el POST de credenciales a fs_login.
+     */
+    protected function credentialLoginEvaluated(): bool
+    {
+        return $this->credentialLoginEvaluated;
     }
 
     /**
