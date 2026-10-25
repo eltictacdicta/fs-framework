@@ -8,17 +8,36 @@ Sincronización del token CSRF tras regeneración de sesión. Invalidación de s
 
 | ID | Requirement | Strength |
 |----|-------------|----------|
-| SI-01 | El token CSRF **MUST** refrescarse después de `session->migrate(true)` en `save_session_data()` | MUST |
+| SI-01 | El token CSRF **MUST** seguir siendo válido después de `session->migrate(true)` en AMBOS backends de sesión (`NativeSessionStorage` y `PhpBridgeSessionStorage`) | MUST |
 | SI-02 | `fs_user::set_password()` **MUST** rotar `log_key` al cambiar la contraseña | MUST |
 | SI-03 | Las sesiones/cookies previas al cambio de contraseña **MUST** quedar inválidas | MUST |
 | SI-04 | `fs_auth::verifyCsrfRequest()` **MUST** leer CSRF tokens via Symfony Request, no superglobals | MUST |
 
-### Scenario: CSRF token refreshed after session regeneration
+### Requirement: SI-01 — Token CSRF tras la regeneración de sesión
 
-- **GIVEN** login exitoso donde `save_session_data()` regenera la sesión
-- **WHEN** la sesión obtiene un ID nuevo (datos preservados)
-- **THEN** el almacenamiento del token CSRF se sincroniza con la nueva sesión
-- **AND** formularios cargados post-redirect tienen token CSRF válido
+El token CSRF **MUST** seguir siendo válido después de `session->migrate(true)` en AMBOS backends de sesión: `NativeSessionStorage` (flujo normal) y `PhpBridgeSessionStorage` (flujo stealth). El almacenamiento CSRF (`NativeSessionCsrfStorage`) lee y escribe directamente la sesión PHP en `$_SESSION['_csrf']`, omitiendo deliberadamente los session bags de Symfony, y `session_regenerate_id(true)` preserva `$_SESSION`; el token sobrevive a la regeneración por construcción, no por resincronización. `CsrfManager::getManager()` **MUST** ejecutar una guarda de presencia de token una vez por petición, que obtiene el token por defecto mediante `getToken()` (que lo crea cuando no existe; la guarda nunca llama a `refreshToken()`), y el resultado de esa comprobación **MUST** quedar cacheado durante el resto de la petición.
+
+#### Scenario: El token CSRF sobrevive a la migración con NativeSessionStorage
+
+- **GIVEN** login exitoso donde `save_session_data()` regenera la sesión vía `NativeSessionStorage`
+- **WHEN** `session->migrate(true)` produce un ID de sesión nuevo
+- **THEN** el token almacenado en `$_SESSION['_csrf']` es legible tras la regeneración
+- **AND** los formularios cargados post-redirect tienen un token CSRF válido
+
+#### Scenario: El token CSRF sobrevive a la migración con PhpBridgeSessionStorage
+
+- **GIVEN** login vía modo stealth donde `PhpBridgeSessionStorage` envuelve la sesión
+- **WHEN** se llama a `session->migrate(true)` después del login
+- **THEN** `CsrfManager` obtiene el token por defecto mediante `getToken()`, que lo crea cuando no existe
+- **AND** el token se persiste directamente en `$_SESSION['_csrf']`
+- **AND** las llamadas posteriores a `validateCsrf()` coinciden con el token almacenado
+
+#### Scenario: La guarda de presencia de token se cachea por petición
+
+- **GIVEN** `CsrfManager::getManager()` ya se llamó en esta petición
+- **WHEN** se vuelve a llamar dentro del mismo ciclo de petición
+- **THEN** la comprobación de presencia del token NO se repite
+- **AND** se devuelve directamente el manager cacheado
 
 ### Scenario: Password change invalidates old sessions
 

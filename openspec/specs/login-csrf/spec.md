@@ -9,7 +9,7 @@ Routing del formulario de login al controlador correcto, validación CSRF en el 
 | ID | Requirement | Strength |
 |----|-------------|----------|
 | LC-01 | El POST del formulario de login **MUST** rutear a `controller/login.php` (no a `fs_controller` base) | MUST |
-| LC-02 | El flujo de login **MUST** validar token CSRF en el POST | MUST |
+| LC-02 | El flujo de login **MUST** validar el token CSRF en el POST bajo el nombre de sesión unificado (`FSSESS_xxx`), con lecturas consistentes en cualquier backend de sesión y sin desajuste de token por cookies `PHPSESSID` heredadas | MUST |
 | LC-03 | Los redirects post-login **MUST** detener ejecución con `exit()` | MUST |
 | LC-04 | Los errores de login **SHOULD** mostrarse en el formulario | SHOULD |
 | LC-05 | Todos los inputs HTTP en `controller/login.php` **MUST** leerse via `$this->request` (Symfony Request), no superglobals | MUST |
@@ -40,6 +40,33 @@ Routing del formulario de login al controlador correcto, validación CSRF en el 
 - **GIVEN** credenciales inválidas enviadas vía POST
 - **WHEN** `handleCredentialLogin()` falla
 - **THEN** el formulario de login se re-renderiza con `mensaje_login` visible
+
+### Requirement: LC-02 — Validación CSRF durante el login
+
+El flujo de login **MUST** validar el token CSRF en el POST bajo el nombre de sesión unificado (`FSSESS_xxx`). Las lecturas del token CSRF **MUST** ser consistentes independientemente de si el backend de sesión es `NativeSessionStorage` o `PhpBridgeSessionStorage`, porque el almacenamiento CSRF lee directamente la sesión PHP (`$_SESSION['_csrf']`) en lugar de un session bag de Symfony. Las cookies `PHPSESSID` heredadas **MUST NOT** provocar un desajuste de token después de que la cookie heredada sea descartada (SC-04).
+
+#### Scenario: CSRF validado bajo la sesión unificada
+
+- **GIVEN** POST al formulario de login desde acceso admin stealth (`?adminpanel=HASH`)
+- **WHEN** `pre_private_core()` llama a `validateCsrf()`
+- **THEN** el token se lee de la sesión `FSSESS_xxx` (no de `PHPSESSID`)
+- **AND** la validación coincide con el token embebido en el formulario
+
+#### Scenario: El CSRF sobrevive a la transición de stealth a normal
+
+- **GIVEN** el usuario accedió al panel vía enlace stealth (cookie `PHPSESSID`)
+- **WHEN** envía el formulario de login (POST con token CSRF)
+- **THEN** la petición se ejecuta sobre la sesión `FSSESS_xxx` abierta por `StealthMode`
+- **AND** cualquier `PHPSESSID` obsoleta se descarta sin ser leída
+- **AND** `validateCsrf()` retorna `true` para el token enviado
+- **AND** el usuario no ve el error "Token de seguridad inválido"
+
+#### Scenario: Desajuste de token con cookies duales
+
+- **GIVEN** la petición lleva ambas cookies, `PHPSESSID` (obsoleta) y `FSSESS_xxx`
+- **WHEN** `validateCsrf()` lee el token
+- **THEN** solo se usan los datos de sesión de `FSSESS_xxx`
+- **AND** `PHPSESSID` se expira en la respuesta
 
 ### Requirement: Symfony Request for All Input Access in login.php (H3)
 
