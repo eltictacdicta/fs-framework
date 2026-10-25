@@ -228,6 +228,9 @@ class PublicAccessGateTest extends TestCase
      */
     public static function provideNonLoginPageBypassShapes(): array
     {
+        // `password_reset` is deliberately absent: it is one of the two pages the
+        // application serves anonymously (AAG-06), so it belongs with `login` in
+        // the exempt set, not in this table of gated pages.
         $pages = [
             'admin_info',
             'admin_users',
@@ -236,7 +239,6 @@ class PublicAccessGateTest extends TestCase
             'admin_email',
             'admin_updater',
             'admin_plugin_store',
-            'password_reset',
             'ventas_clientes',
             'admin_oidc_customer_access',
         ];
@@ -250,24 +252,88 @@ class PublicAccessGateTest extends TestCase
         return $cases;
     }
 
-    public function testInterceptGatesAnonymousResetHandler(): void
+    /**
+     * AAG-06: the anonymous exemption is the public-page set, not a single page.
+     * Both the render (`GET`) and the submission (`POST`) of the password-recovery
+     * page must reach its controller, otherwise the "I forgot my password" link on
+     * the login form loops back to the login form and the recovery flow is
+     * unreachable for exactly the visitors who need it.
+     *
+     * This corrects the superseded assertion that gated `POST
+     * ?page=password_reset&nlogin=1`. That expectation was not VULN-0006's fix: it
+     * closed the denial of service by making the handler unreachable. PR 4 is the
+     * mitigation — isolated throttle bucket, validation before counting, CSRF
+     * required — and it is what makes reachability safe. AAG-01 still holds: the
+     * decision is the page, so an extra `nlogin` or a credential body changes
+     * nothing.
+     *
+     * @param array<string, mixed> $query
+     */
+    #[DataProvider('provideAnonymousResetRequestShapes')]
+    public function testInterceptAllowsTheAnonymousResetPageForRenderAndSubmission(string $method, array $query): void
     {
-        $_GET = ['page' => 'password_reset', 'nlogin' => '1'];
-        $_POST = [];
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_SERVER['REQUEST_URI'] = '/index.php?page=password_reset&nlogin=1';
+        $_GET = $query;
+        $_POST = $method === 'POST' ? ['user' => 'admin', 'password' => 'admin'] : [];
+        $_SERVER['REQUEST_METHOD'] = $method;
+        $_SERVER['REQUEST_URI'] = '/index.php?' . http_build_query($query);
 
         $gate = new PublicAccessGate(new StealthMode($this->createDbStub(['stealth_enabled' => '0'])));
 
-        $response = $gate->intercept(Request::create('/index.php?page=password_reset&nlogin=1', 'POST'));
+        $this->assertNull(
+            $gate->intercept(Request::create('/index.php?' . http_build_query($query), $method)),
+            sprintf('page=password_reset must be reachable anonymously (%s)', $method)
+        );
+    }
 
-        $this->assertNotNull($response);
-        $this->assertSame(302, $response->getStatusCode());
-        $this->assertSame('/index.php?page=login', $response->headers->get('Location'));
+    /**
+     * @return array<string, array{string, array<string, mixed>}>
+     */
+    public static function provideAnonymousResetRequestShapes(): array
+    {
+        return [
+            'GET render' => ['GET', ['page' => 'password_reset']],
+            'GET render with nlogin' => ['GET', ['page' => 'password_reset', 'nlogin' => '1']],
+            'POST with nlogin' => ['POST', ['page' => 'password_reset', 'nlogin' => '1']],
+            'POST with a credential body' => ['POST', ['page' => 'password_reset']],
+        ];
+    }
 
-        $body = (string) $response->getContent();
-        $this->assertStringNotContainsString('password-reset-enter-nick-or-email', $body);
-        $this->assertStringNotContainsString('password-reset-too-many-attempts', $body);
+    /**
+     * AAG-06 stays inside the existing contracts: the canonical page rule decides
+     * (AAG-02), a non-canonical or non-string page is fail-closed (AAG-03) and the
+     * presented path cannot rescue a private page (AAG-05).
+     */
+    public function testResetPageExemptionFollowsTheCanonicalPageAndNotThePath(): void
+    {
+        $gate = new PublicAccessGate(new StealthMode($this->createDbStub(['stealth_enabled' => '0'])));
+
+        // A trailing space canonicalises to `password_reset` for index.php, so the
+        // gate must resolve it the same way instead of gating a legitimate
+        // submission (AAG-02).
+        $_GET = ['page' => 'password_reset '];
+        $_POST = [];
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $_SERVER['REQUEST_URI'] = '/index.php?page=password_reset%20';
+        $this->assertNull($gate->intercept(Request::create('/index.php?page=password_reset%20', 'GET')));
+
+        // A framework exact public path that names the reset page is treated as a
+        // page request (AAG-05) and the page is public, so it is exempt too:
+        // nothing is gained by arriving through a public path at a page that is
+        // already anonymous.
+        $_GET = ['page' => 'password_reset'];
+        $_SERVER['REQUEST_URI'] = '/favicon.ico?page=password_reset';
+        $this->assertNull($gate->intercept(Request::create('/favicon.ico?page=password_reset', 'GET')));
+
+        // A non-string page names no page at all, so the request is gated even
+        // though its canonical form would have been public (AAG-03).
+        $_GET = ['page' => ['password_reset']];
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_SERVER['REQUEST_URI'] = '/index.php?page[]=password_reset';
+        $arrayResponse = $gate->intercept(Request::create('/index.php?page[]=password_reset', 'POST'));
+
+        $this->assertNotNull($arrayResponse);
+        $this->assertSame(302, $arrayResponse->getStatusCode());
+        $this->assertSame('/index.php?page=login', $arrayResponse->headers->get('Location'));
     }
 
     public function testInterceptAllowsLoginPageSubmission(): void
@@ -289,20 +355,24 @@ class PublicAccessGateTest extends TestCase
      * AAG-05: a framework exact public path is exempt only when the request does
      * not name a controller page, so the path the gate authorises on and the
      * parameter index.php dispatches on agree.
+     *
+     * The named page is a *private* one on purpose: since AAG-06 the reset page is
+     * itself public, so pairing it with the favicon path would no longer prove
+     * anything about the path rule.
      */
     #[DataProvider('provideRequestMethods')]
     public function testInterceptGatesPublicPathCarryingAPrivatePage(string $method): void
     {
-        $_GET = ['page' => 'password_reset'];
+        $_GET = ['page' => 'admin_info'];
         $_POST = $method === 'POST' ? ['user' => 'admin', 'password' => 'admin'] : [];
         $_SERVER['REQUEST_METHOD'] = $method;
-        $_SERVER['REQUEST_URI'] = '/favicon.ico?page=password_reset';
+        $_SERVER['REQUEST_URI'] = '/favicon.ico?page=admin_info';
 
         $gate = new PublicAccessGate(new StealthMode($this->createDbStub(['stealth_enabled' => '0'])));
 
         $response = $gate->intercept(Request::create('/favicon.ico', $method));
 
-        $this->assertNotNull($response, $method . ' /favicon.ico?page=password_reset must be gated');
+        $this->assertNotNull($response, $method . ' /favicon.ico?page=admin_info must be gated');
         $this->assertSame(302, $response->getStatusCode());
         $this->assertSame('/index.php?page=login', $response->headers->get('Location'));
     }
