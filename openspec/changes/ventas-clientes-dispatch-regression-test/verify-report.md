@@ -61,7 +61,7 @@ Tests: 563, Assertions: 1291, Failures: 1, PHPUnit Deprecations: 14, Skipped: 14
 
 Pre-existing failure confirmed by running the test in isolation on the same commit (`git stash` of untracked files did not change HEAD; the test still fails identically).
 
-Real-HTTP smoke against `https://panel-ab.ddev.site/index.php?page=ventas_clientes` with forged cookies (`user=admin`, `logkey=…`, `auth_sig=CookieSigner::signRememberMe('admin', logkey)`, `FSSESS_a8512aa711f7=vfya2a1f4634c8e26f1` from the prior session):
+Real-HTTP smoke against `https://panel-ab.ddev.site/index.php?page=ventas_clientes` with forged cookies (`user=admin`, `logkey=…`, `auth_sig=CookieSigner::signRememberMe('admin', logkey)`, `FSSESS_<redacted>=<redacted>` from the prior session):
 
 ```
 1. Empty codcliente (VCT-01.a):

@@ -70,7 +70,7 @@ final class CookieSecureAndPasswordMigrationTest extends TestCase
     public function testLegacyMigrationRehashesAPasswordShorterThanThePolicy(): void
     {
         $user = new class {
-            public string $password = 'da39a3ee5e6b4b0d3255bfef95601890afd80709';
+            public string $password = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'; // nosecret — SHA-1 of the empty string, a public legacy fixture, not a credential
             public int $saved = 0;
 
             public function save(): bool
@@ -93,7 +93,7 @@ final class CookieSecureAndPasswordMigrationTest extends TestCase
         $longPassword = str_repeat('x', 40);
 
         $user = new class {
-            public string $password = 'da39a3ee5e6b4b0d3255bfef95601890afd80709';
+            public string $password = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'; // nosecret — SHA-1 of the empty string, a public legacy fixture, not a credential
             public int $saved = 0;
 
             public function save(): bool
@@ -112,7 +112,7 @@ final class CookieSecureAndPasswordMigrationTest extends TestCase
     public function testLegacyMigrationStillWorksInsideThePolicy(): void
     {
         $user = new class {
-            public string $password = 'da39a3ee5e6b4b0d3255bfef95601890afd80709';
+            public string $password = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'; // nosecret — SHA-1 of the empty string, a public legacy fixture, not a credential
             public int $saved = 0;
 
             public function save(): bool
