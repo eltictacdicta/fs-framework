@@ -147,7 +147,8 @@ final class SecurityHeadersTest extends TestCase
         $source = (string) file_get_contents(dirname(__DIR__, 2) . '/src/Security/SecurityHeaders.php');
         $body = $this->methodBody($source, 'applyTransportHeaders');
 
-        $this->assertStringContainsString('hstsHeaderValue(', $body);
+        $this->assertStringContainsString('applyHstsHeader(', $body);
+        $this->assertStringNotContainsString('applyDefaultHeaders(', $body);
         $this->assertStringNotContainsString('contentSecurityPolicy(', $body);
         $this->assertStringNotContainsString('X-Content-Type-Options', $body);
         $this->assertStringNotContainsString('X-Frame-Options', $body);
