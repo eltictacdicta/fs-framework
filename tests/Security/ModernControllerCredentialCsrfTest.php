@@ -88,7 +88,7 @@ final class ModernControllerCredentialCsrfTest extends TestCase
             'a credential POST without a valid token must be rejected'
         );
 
-        $victim->controller->deliverSessionLogin();
+        $victim->controller->probeDeliverSessionLogin();
 
         $this->assertSame(
             0,
@@ -109,7 +109,7 @@ final class ModernControllerCredentialCsrfTest extends TestCase
 
         $this->assertTrue($victim->controller->probeShouldSkipCredentialLogin());
 
-        $victim->controller->deliverSessionLogin();
+        $victim->controller->probeDeliverSessionLogin();
 
         $this->assertSame(0, $victim->loginTools->logInCalls);
     }
@@ -130,7 +130,7 @@ final class ModernControllerCredentialCsrfTest extends TestCase
             'a valid token must not be rejected'
         );
 
-        $victim->controller->deliverSessionLogin();
+        $victim->controller->probeDeliverSessionLogin();
 
         $this->assertSame(1, $victim->loginTools->logInCalls, 'a valid token must still be delivered');
     }
@@ -147,7 +147,7 @@ final class ModernControllerCredentialCsrfTest extends TestCase
         );
 
         $this->assertFalse($controller->controller->probeShouldSkipCredentialLogin());
-        $controller->controller->deliverSessionLogin();
+        $controller->controller->probeDeliverSessionLogin();
         $this->assertSame(1, $controller->loginTools->logInCalls);
     }
 
@@ -170,7 +170,7 @@ final class ModernControllerCredentialCsrfTest extends TestCase
         $controller = new ModernControllerHarness(Request::create('/ventas-articulo', 'GET'));
 
         $this->assertFalse($controller->controller->probeShouldSkipCredentialLogin());
-        $controller->controller->deliverSessionLogin();
+        $controller->controller->probeDeliverSessionLogin();
         $this->assertSame(1, $controller->loginTools->logInCalls, 'the session restore path must keep working');
     }
 
@@ -287,9 +287,9 @@ final class ModernControllerHarness
                 return $this->shouldSkipCredentialLogin();
             }
 
-            public function deliverSessionLogin(): void
+            public function probeDeliverSessionLogin(): void
             {
-                $this->deliverSessionLogin();
+                parent::deliverSessionLogin();
             }
         };
     }

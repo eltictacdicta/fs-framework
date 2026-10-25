@@ -7,6 +7,13 @@ use FSFramework\Core\Plugins;
 use FSFramework\Security\CsrfManager;
 use FSFramework\Security\SafeRedirect;
 
+// The request facts this base controller authorises on (whether the POST is a
+// credential submission) live in exactly one place: base/fs_auth_request.php,
+// the dependency-free definition the legacy login wrapper and the anonymous
+// access gate also consume. Keeping a local copy here is what allowed the two
+// login doors to disagree about the same request (LC-06/LC-07).
+require_once dirname(__DIR__, 3) . '/base/fs_auth_request.php';
+
 /**
  * Modern Controller base class for FSFramework.
  * Bridge for FacturaScripts 2025 plugins to work with FSFramework.
@@ -132,7 +139,7 @@ class Controller
         $this->response = new \FSFramework\Core\Response();
         $this->permissions = new \FSFramework\Core\Base\ControllerPermissions();
 
-        $this->login_tools->log_in($this->user);
+        $this->deliverSessionLogin();
 
         if ($this->request->query->has('logout')) {
             $this->login_tools->log_out();
@@ -151,6 +158,53 @@ class Controller
 
         $this->enforcePageAccessOrExit();
         $this->loadSessionMenuAndEmpresa();
+    }
+
+    /**
+     * Hand the request to fs_login::log_in() — unless it must be rejected.
+     *
+     * LC-07: a POST that carries credentials (`password` plus `user` or `nick`)
+     * without a valid CSRF token must never reach fs_login::log_in(). Without
+     * this guard an AUTHENTICATED victim that posts the attacker's
+     * `user`/`password` to any FS2025 route switches its own session to the
+     * attacker's account with no token: the same login CSRF the legacy wrapper
+     * closes, on a second door. The anonymous shape is already gated, which is
+     * why no unauthenticated test could reach it.
+     *
+     * Extracted from initializeConnectedSession() as the test seam: the full
+     * path ends in exit() right after rendering the login form for a visitor
+     * that is not logged on, and exit() terminates the PHPUnit runner (see
+     * tests/Base/FsControllerLogoutRedirectTest.php for the same limitation).
+     */
+    protected function deliverSessionLogin(): void
+    {
+        if ($this->shouldSkipCredentialLogin()) {
+            return;
+        }
+
+        $this->login_tools->log_in($this->user);
+    }
+
+    /**
+     * LC-07: TRUE when the POST must not be handed to fs_login::log_in().
+     *
+     * Only a credential submission is guarded — any other POST keeps its
+     * current behaviour. The credential shape is the shared definition
+     * (fs_auth_request::hasCredentialSubmission) and the verdict is the
+     * controller's own CSRF helper (validateFormToken), so the modern door
+     * cannot drift away from the legacy one.
+     */
+    protected function shouldSkipCredentialLogin(): bool
+    {
+        if (!$this->request->isMethod('POST')) {
+            return false;
+        }
+
+        if (!\fs_auth_request::hasCredentialSubmission($this->request->getMethod(), $this->request->request->all())) {
+            return false;
+        }
+
+        return !$this->validateFormToken();
     }
 
     /**
