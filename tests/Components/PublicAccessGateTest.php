@@ -134,23 +134,52 @@ class PublicAccessGateTest extends TestCase
         $this->assertSame('/oauth/login', $response->headers->get('Location'));
     }
 
+    /**
+     * Secure contract for VULN-0002 (AAG-01): the anonymous exemption is bound to
+     * the requested page, never to the shape of the request. A credential POST to
+     * `page=login` is exempt; the same POST to any other page — including a request
+     * that names no page at all — is gated.
+     */
     public function testInterceptAllowsLegacyLoginSubmissionWhenStealthDisabled(): void
     {
-        $_GET['nlogin'] = 'admin';
-        $_POST['user'] = 'admin';
-        $_POST['password'] = 'admin';
-        $_SERVER['REQUEST_URI'] = '/index.php?nlogin=admin';
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-
         $stealth = new StealthMode($this->createDbStub(['stealth_enabled' => '0']));
         $gate = new PublicAccessGate($stealth);
 
-        $response = $gate->intercept(Request::create('/index.php', 'POST', ['nlogin' => 'admin'], [], [], [], http_build_query([
+        // Legitimate login submission: the request names the login page.
+        $_GET = ['page' => 'login', 'nlogin' => 'admin'];
+        $_POST = ['user' => 'admin', 'password' => 'admin'];
+        $_SERVER['REQUEST_URI'] = '/index.php?page=login&nlogin=admin';
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+
+        $this->assertNull($gate->intercept(Request::create('/index.php?page=login', 'POST', [
             'user' => 'admin',
             'password' => 'admin',
         ])));
 
-        $this->assertNull($response);
+        // Bypass shape 1: `?nlogin` without a page parameter must not be exempt.
+        $_GET = ['nlogin' => 'admin'];
+        $_POST = [];
+        $_SERVER['REQUEST_URI'] = '/index.php?nlogin=admin';
+
+        $nloginResponse = $gate->intercept(Request::create('/index.php?nlogin=admin', 'POST'));
+
+        $this->assertNotNull($nloginResponse);
+        $this->assertSame(302, $nloginResponse->getStatusCode());
+        $this->assertSame('/index.php?page=login', $nloginResponse->headers->get('Location'));
+
+        // Bypass shape 2: a credential body without a page parameter must not be exempt.
+        $_GET = [];
+        $_POST = ['user' => 'admin', 'password' => 'admin'];
+        $_SERVER['REQUEST_URI'] = '/index.php';
+
+        $credentialResponse = $gate->intercept(Request::create('/index.php', 'POST', [
+            'user' => 'admin',
+            'password' => 'admin',
+        ]));
+
+        $this->assertNotNull($credentialResponse);
+        $this->assertSame(302, $credentialResponse->getStatusCode());
+        $this->assertSame('/index.php?page=login', $credentialResponse->headers->get('Location'));
     }
 
     public function testInterceptAllowsPluginManagedPublicPath(): void
