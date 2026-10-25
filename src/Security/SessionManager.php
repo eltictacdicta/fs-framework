@@ -133,20 +133,18 @@ class SessionManager
             return;
         }
 
-        $idleTimeout = SessionPolicy::getIdleTimeout();
-        $secure = SecureRequestDetector::isSecure();
-        $sessionName = self::resolveSessionName();
-
         $options = [
-            'name' => $sessionName,
-            'cookie_lifetime' => $idleTimeout,
-            'cookie_path' => self::resolveCookiePath(),
-            'cookie_secure' => $secure,
-            'cookie_httponly' => true,
-            'cookie_samesite' => 'Lax',
+            'name' => self::resolveSessionName(),
             'gc_maxlifetime' => SessionPolicy::getAbsoluteTimeout(),
             'use_strict_mode' => true,
         ];
+
+        // Las seis claves de la cookie salen de la definición única
+        // (sessionCookieParams). El prefijo `cookie_` es el que espera
+        // NativeSessionStorage para cada una.
+        foreach (self::sessionCookieParams() as $attribute => $value) {
+            $options['cookie_' . $attribute] = $value;
+        }
 
         // Crear storage con handler nativo
         $handler = null;
@@ -439,7 +437,40 @@ class SessionManager
         }
     }
 
-    private static function resolveCookiePath(): string
+    /**
+     * Definición ÚNICA del conjunto de atributos de la cookie de sesión.
+     *
+     * Los tres consumidores (las opciones de NativeSessionStorage, el camino
+     * legacy de base/fs_session_manager.php y el arranque nativo de StealthMode)
+     * leen de acá: una segunda copia de los atributos es la que produjo las dos
+     * cabeceras `Set-Cookie` divergentes de VULN-0007.
+     *
+     * `secure` sigue al transporte detectado (no a una constante): detrás de un
+     * proxy que termina TLS, `$_SERVER['HTTPS']` no está seteado y la cookie
+     * viajaba sin Secure.
+     *
+     * @return array{lifetime: int, path: string, domain: string, secure: bool, httponly: bool, samesite: string}
+     *
+     * @internal Expuesto para los bootstraps que abren la sesión nativa.
+     */
+    public static function sessionCookieParams(): array
+    {
+        return [
+            'lifetime' => SessionPolicy::getIdleTimeout(),
+            'path' => self::resolveCookiePath(),
+            'domain' => '',
+            'secure' => SecureRequestDetector::isSecure(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ];
+    }
+
+    /**
+     * Ruta de la cookie de sesión de ESTA instalación.
+     *
+     * @internal Expuesto para las pruebas y para sessionCookieParams().
+     */
+    public static function resolveCookiePath(): string
     {
         $preferredPath = defined('FS_PATH') ? (string) FS_PATH : null;
         if ($preferredPath !== null && trim($preferredPath) === '' && empty($_SERVER['REQUEST_URI'])) {

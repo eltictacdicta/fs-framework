@@ -82,7 +82,6 @@ final class SessionCookieParamsTest extends TestCase
         $this->assertSame(SessionPolicy::getIdleTimeout(), $params['lifetime']);
         $this->assertSame(SessionManager::resolveCookiePath(), $params['path']);
         $this->assertSame('', $params['domain']);
-        $this->assertIsBool($params['secure']);
         $this->assertFalse($params['secure'], 'An insecure request must not mark the cookie Secure.');
         $this->assertTrue($params['httponly']);
         $this->assertSame('Lax', $params['samesite']);
