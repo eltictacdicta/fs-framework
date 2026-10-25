@@ -76,7 +76,24 @@ class PublicAccessGate
         // — e.g. page=password_reset&nlogin=1 — skip the gate and run the
         // controller's anonymous path (VULN-0002, AAG-01).
         if ($this->stealth->isLegacyLoginRequest()) {
+            // The login page keeps its plugin-override behaviour: a public login
+            // redirect registered by a plugin replaces *this* page.
             return $this->resolvePublicLoginRedirect();
+        }
+
+        // The page must be one the application serves anonymously (AAG-06), and
+        // the set is consulted with the canonical page (AAG-02), never with the
+        // raw query value. `password_reset` is the other member: the recovery
+        // flow is the only entrance for a visitor who cannot log in, so gating it
+        // leaves the "I forgot my password" link looping back to the login form.
+        // It is safe to expose because its controller owns a dedicated throttle
+        // bucket, validates before counting and requires a CSRF token, and that
+        // mitigation is the fix for VULN-0006 — not the handler's unreachability.
+        // It is deliberately NOT routed through resolvePublicLoginRedirect():
+        // that override replaces the login page, and it must not hijack the
+        // recovery flow.
+        if (\fs_auth_request::isPublicPage(\fs_auth_request::requestedPage($_GET))) {
+            return null;
         }
 
         return $this->createAnonymousLoginRedirectResponse();

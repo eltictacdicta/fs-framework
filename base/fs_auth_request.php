@@ -14,8 +14,9 @@ declare(strict_types=1);
 
 /**
  * The single definition of the request facts the authentication boundary
- * depends on: the canonical requested page, whether the request is a login
- * submission, and whether it carries credentials.
+ * depends on: the canonical requested page, the set of pages served
+ * anonymously, whether the request is a login submission, and whether it
+ * carries credentials.
  *
  * It is intentionally dependency-free (no namespace, no autoloader, no
  * superglobals) because it is consumed from two sides that cannot be loaded
@@ -31,6 +32,37 @@ declare(strict_types=1);
  */
 final class fs_auth_request
 {
+    /**
+     * The pages the application serves to an anonymous visitor: the login form
+     * and the password-recovery flow.
+     *
+     * This is the anonymous access boundary. Widening it is a security decision,
+     * not a convenience: a page listed here is reachable by anyone who can send a
+     * request, so it may not perform authenticated work. `password_reset` earns
+     * its place because it is the only entrance to the recovery flow — the "I
+     * forgot my password" link on the login form points at it — and because its
+     * controller owns a dedicated throttle bucket, validates before counting and
+     * requires a CSRF token (login-throttle-isolation LTI-01…LTI-05).
+     *
+     * The list is consulted with the *canonical* page name (requestedPage()), so a
+     * raw query value can never widen it and a non-string page names no page at
+     * all.
+     *
+     * @var list<string>
+     */
+    public const PUBLIC_PAGES = ['login', 'password_reset'];
+
+    /**
+     * Whether an anonymous request may reach this canonical page.
+     *
+     * Fail-closed by construction: the empty string the canonicaliser returns for
+     * an absent, malformed or non-string page is not in the set.
+     */
+    public static function isPublicPage(string $page): bool
+    {
+        return in_array($page, self::PUBLIC_PAGES, true);
+    }
+
     /**
      * Canonical requested-page name, or an empty string when the request names
      * no valid page.
