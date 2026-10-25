@@ -83,6 +83,46 @@ class LegacyAuthBridgeTest extends TestCase
         $this->assertSame('/', $this->invokeResolveLegacyCookiePath($bridge));
     }
 
+    /**
+     * RMR-01: the account whose remember-me token is revoked is named by the
+     * authenticated session, never by the unsigned `user` cookie. A different
+     * cookie value must not override the session identity.
+     */
+    public function testResolveLegacyLogoutNickPrefersTheSessionNicknameOverTheCookie(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $session->set('user_nick', 'session-user');
+        $_COOKIE['user'] = 'cookie-user';
+
+        $bridge = new LegacyAuthBridge($session);
+
+        $this->assertSame('session-user', $this->invokeResolveLegacyLogoutNick($bridge));
+    }
+
+    /**
+     * RMR-01: with no session nickname the resolver must not fall back to the
+     * unsigned cookie, otherwise an anonymous request names the account it
+     * rotates (`fs_users.log_key`) and writes an audit row for.
+     */
+    public function testResolveLegacyLogoutNickReturnsNullWhenOnlyTheCookieIsPresent(): void
+    {
+        $_COOKIE['user'] = 'named-account';
+
+        $bridge = new LegacyAuthBridge(new Session(new MockArraySessionStorage()));
+
+        $this->assertNull(
+            $this->invokeResolveLegacyLogoutNick($bridge),
+            'La cookie `user` sin firmar no puede nombrar la cuenta a revocar'
+        );
+    }
+
+    public function testResolveLegacyLogoutNickReturnsNullWithoutSessionOrCookie(): void
+    {
+        $bridge = new LegacyAuthBridge(new Session(new MockArraySessionStorage()));
+
+        $this->assertNull($this->invokeResolveLegacyLogoutNick($bridge));
+    }
+
     public function testClearLegacyCookiesUnsetsCookieGlobalsIncludingFsNick(): void
     {
         $_COOKIE['user'] = 'demo';
@@ -137,5 +177,13 @@ class LegacyAuthBridgeTest extends TestCase
         $method->setAccessible(true);
 
         return (string) $method->invoke($bridge);
+    }
+
+    private function invokeResolveLegacyLogoutNick(LegacyAuthBridge $bridge): ?string
+    {
+        $method = new \ReflectionMethod(LegacyAuthBridge::class, 'resolveLegacyLogoutNick');
+        $method->setAccessible(true);
+
+        return $method->invoke($bridge);
     }
 }
