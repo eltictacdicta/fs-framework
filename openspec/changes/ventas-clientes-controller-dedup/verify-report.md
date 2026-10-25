@@ -59,11 +59,11 @@ exception_message=Call to a member function get_errors() on null
 Forged a Symfony session file via `NativeSessionStorage` + `NativeFileSessionHandler` and computed the `auth_sig` cookie via `FSFramework\Security\CookieSigner::signRememberMe('admin', <logKey>)`. LogKey for the admin user retrieved from `fs_users.log_key`. All four required cookies were sent on every request.
 
 ```
-$ curl -b "FSSESS_a8512aa711f7=vfya2a1f4634c8e26f1; user=admin; logkey=798d1bdcdd3c60619af4ee8f50c86d6b429f65e082482afb839879fa6f8fe859; auth_sig=4f11d5fafa997c5013ef4081ecfc7f105b2747ec8d5afd90c1b82544005d50fc" \
+$ curl -b "FSSESS_<redacted>=<redacted>; user=admin; logkey=<redacted>; auth_sig=<redacted>" \
        "https://panel-ab.ddev.site/index.php?page=ventas_clientes"
 HTTP=200  page size=42057  title="Clientes"
 Action sentinel count in body: 1   ✓ (line 248 of the Twig form is in effect)
-CSRF token: name="_token" value="d130491d0d05099e4f3f40608..."
+CSRF token: name="_token" value="<redacted>"
 → PASS (page renders with the new hidden action field)
 
 $ curl POST action=nuevo_cliente codcliente="" nombre=VerifyTest cifnif=B-VFY-001 _token=...
