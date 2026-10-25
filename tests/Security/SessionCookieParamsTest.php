@@ -142,6 +142,23 @@ final class SessionCookieParamsTest extends TestCase
         $this->assertStringNotContainsString('resolveCookiePath(', $body);
     }
 
+    /**
+     * STH-01 scenario "no second copy of the attribute set": StealthMode — the
+     * outermost path that may start the session — consumes the shared
+     * definition instead of restating the attributes before session_start().
+     */
+    public function testStealthModeConsumesTheSharedDefinition(): void
+    {
+        $source = (string) file_get_contents(dirname(__DIR__, 2) . '/src/Core/StealthMode.php');
+        $body = $this->methodBody($source, 'ensurePhpSessionStarted');
+
+        $this->assertStringContainsString('sessionCookieParams(', $body);
+        $this->assertStringContainsString('session_set_cookie_params(', $body);
+        $this->assertStringContainsString('session.use_strict_mode', $body);
+        $this->assertStringNotContainsString('httponly', $body);
+        $this->assertStringNotContainsString('samesite', $body);
+    }
+
     private function resetTrustedProxyConfigurator(): void
     {
         $property = new \ReflectionProperty(TrustedProxyConfigurator::class, 'configured');

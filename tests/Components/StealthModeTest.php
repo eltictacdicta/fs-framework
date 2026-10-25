@@ -7,11 +7,14 @@ use FSFramework\Core\StealthMode;
 use FSFramework\Security\SessionManager;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use Tests\Controller\Concerns\ExtractsMethodBody;
 
 require_once __DIR__ . '/../../base/fs_db2.php';
 
 class StealthModeTest extends TestCase
 {
+    use ExtractsMethodBody;
+
     protected function setUp(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
@@ -225,6 +228,80 @@ class StealthModeTest extends TestCase
         $expectedName = SessionManager::resolveSessionName();
         $this->assertSame($expectedName, session_name(), 'session_name() debe coincidir con resolveSessionName() después de ensurePhpSessionStarted()');
         $this->assertSame(PHP_SESSION_ACTIVE, session_status(), 'La sesión debe quedar activa después de ensurePhpSessionStarted()');
+    }
+
+    /**
+     * STH-02/STH-03 — the parameters are in force BEFORE the session starts.
+     *
+     * The CLI SAPI cannot observe `Set-Cookie` (headers_list() is empty), so
+     * this asserts the input seam the application supplies to the session:
+     * session_get_cookie_params() after the call is the attribute set that was
+     * applied before session_start(), and session_name() can only be the shared
+     * value if it was set before the start (PHP refuses to rename an active
+     * session).
+     */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function testEnsurePhpSessionStartedAppliesTheSharedCookieParamsAndStrictModeBeforeTheStart(): void
+    {
+        if (!defined('FS_FOLDER')) {
+            define('FS_FOLDER', '/var/www/html');
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        // Prove strict mode is off first: the method must turn it on.
+        ini_set('session.use_strict_mode', '0');
+
+        $stealth = new StealthMode($this->createDbStub());
+
+        $ref = new ReflectionClass(StealthMode::class);
+        $method = $ref->getMethod('ensurePhpSessionStarted');
+        $method->setAccessible(true);
+
+        $prevErrorLog = ini_get('error_log');
+        ini_set('error_log', '/dev/null');
+        try {
+            $method->invoke($stealth);
+        } finally {
+            ini_set('error_log', $prevErrorLog);
+        }
+
+        $this->assertSame(PHP_SESSION_ACTIVE, session_status());
+        $this->assertSame(SessionManager::resolveSessionName(), session_name());
+
+        $applied = session_get_cookie_params();
+        $expected = SessionManager::sessionCookieParams();
+
+        $this->assertSame($expected['path'], $applied['path'], 'The path must come from the shared resolver, not a hardcoded /.');
+        $this->assertSame($expected['lifetime'], $applied['lifetime']);
+        $this->assertTrue($applied['httponly']);
+        $this->assertSame('Lax', $applied['samesite']);
+        $this->assertSame(
+            $expected['secure'],
+            $applied['secure'],
+            'Secure must follow the detected transport through the shared definition.'
+        );
+
+        $this->assertSame('1', ini_get('session.use_strict_mode'), 'STH-03: strict mode must be on before the start.');
+    }
+
+    /**
+     * STH-02 — the duplicate emission is REMOVED, not reconciled.
+     *
+     * A source assertion because a second setcookie() for the same cookie name
+     * is unobservable in-process: it would be a header, and CLI keeps no header
+     * list. The live count is the operator probe O.3.
+     */
+    public function testEnsurePhpSessionStartedDoesNotEmitItsOwnSessionCookie(): void
+    {
+        $source = (string) file_get_contents(dirname(__DIR__, 2) . '/src/Core/StealthMode.php');
+        $body = $this->methodBody($source, 'ensurePhpSessionStarted');
+
+        $this->assertStringNotContainsString('setcookie(', $body);
+        $this->assertStringNotContainsString("'samesite' =>", $body, 'A local attribute literal is a second copy of the cookie attribute set.');
+        $this->assertStringContainsString('sessionCookieParams(', $body);
     }
 
     /**
