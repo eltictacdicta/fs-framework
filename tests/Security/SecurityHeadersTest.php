@@ -153,4 +153,28 @@ final class SecurityHeadersTest extends TestCase
         $this->assertStringNotContainsString('X-Content-Type-Options', $body);
         $this->assertStringNotContainsString('X-Frame-Options', $body);
     }
+
+    /**
+     * STH-04 coverage boundary (U6.7): the two non-browser entry points emit the
+     * transport header and nothing else.
+     */
+    public function testTheApiAndCronEntryPointsEmitTheTransportHeaders(): void
+    {
+        $root = dirname(__DIR__, 2);
+
+        foreach (['api.php', 'cron.php'] as $entryPoint) {
+            $source = (string) file_get_contents($root . '/' . $entryPoint);
+
+            $this->assertStringContainsString(
+                'applyTransportHeaders()',
+                $source,
+                $entryPoint . ' must emit HSTS through the transport-only helper.'
+            );
+            $this->assertStringNotContainsString(
+                'applyDefaultHeaders()',
+                $source,
+                $entryPoint . ' must not gain CSP, nosniff or X-Frame-Options.'
+            );
+        }
+    }
 }
