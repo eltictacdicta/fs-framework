@@ -213,10 +213,9 @@ class StealthModeTest extends TestCase
         $ref = new ReflectionClass(StealthMode::class);
         $method = $ref->getMethod('ensurePhpSessionStarted');
         $method->setAccessible(true);
-        // Aísla la salida de error_log() que produce ensurePhpSessionStarted() para
-        // evitar un falso "risky"/error por output del subproceso. Se redirige el log
-        // a /dev/null SOLO durante esta invocación y se restaura después; no altera la
-        // lógica de sesión verificada abajo ni el código de producción.
+        // ensurePhpSessionStarted() ya no emite error_log (el diagnóstico vivía en
+        // el cookie-sync eliminado). La redirección se mantiene para que cualquier
+        // aviso de PHP durante el start no cuente como output del subproceso.
         $prevErrorLog = ini_get('error_log');
         ini_set('error_log', '/dev/null');
         try {
