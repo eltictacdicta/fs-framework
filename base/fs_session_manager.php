@@ -107,19 +107,18 @@ class fs_session_manager
         $gcLifetime = class_exists($sessionPolicyClass)
             ? $sessionPolicyClass::getAbsoluteTimeout()
             : $idleTimeout;
-        // Proxy-aware: detrás de un TLS terminado en proxy, $_SERVER['HTTPS']
-        // no está seteado y la cookie de sesión viajaba sin Secure.
-        $secure = \FSFramework\Security\SecureRequestDetector::isSecure();
 
-        $cookieParams = [
-            'lifetime' => $idleTimeout,
-            'path' => self::resolveCookiePath(),
-            'domain' => '',
-            'secure' => $secure,
-            'httponly' => true,
-            'samesite' => 'Lax'
-        ];
-        session_set_cookie_params($cookieParams);
+        // Los seis atributos de la cookie salen de la definición única
+        // (SessionManager::sessionCookieParams). Antes cada camino de arranque
+        // tenía su copia, y una copia divergente es exactamente lo que emitía
+        // una segunda cabecera Set-Cookie con otros atributos.
+        //
+        // Sin class_exists() a propósito: este camino ya exigía src/ resoluble
+        // (usaba SecureRequestDetector::isSecure(), que se quitó de aquí porque
+        // ahora lo resuelve la definición compartida), así que una guarda no
+        // evita ningún fallo nuevo y sí obligaría a repetir los seis atributos,
+        // que es el defecto que este cambio elimina.
+        session_set_cookie_params(SessionManager::sessionCookieParams());
 
         ini_set('session.gc_maxlifetime', (string) $gcLifetime);
 

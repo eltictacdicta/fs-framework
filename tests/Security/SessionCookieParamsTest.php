@@ -159,6 +159,24 @@ final class SessionCookieParamsTest extends TestCase
         $this->assertStringNotContainsString('samesite', $body);
     }
 
+    /**
+     * STH-01 scenario "no second copy of the attribute set": the legacy PHP
+     * session path in base/fs_session_manager.php consumes the shared
+     * definition instead of keeping its own copy.
+     */
+    public function testLegacyPhpSessionManagerConsumesTheSharedDefinition(): void
+    {
+        $source = (string) file_get_contents(dirname(__DIR__, 2) . '/base/fs_session_manager.php');
+        $body = $this->methodBody($source, 'initializeLegacySession');
+
+        $this->assertStringContainsString('sessionCookieParams(', $body);
+        $this->assertStringContainsString('session_set_cookie_params(', $body);
+        $this->assertStringNotContainsString("'httponly'", $body);
+        $this->assertStringNotContainsString("'samesite'", $body);
+        $this->assertStringNotContainsString("'lifetime'", $body);
+        $this->assertStringNotContainsString("'secure'", $body);
+    }
+
     private function resetTrustedProxyConfigurator(): void
     {
         $property = new \ReflectionProperty(TrustedProxyConfigurator::class, 'configured');
