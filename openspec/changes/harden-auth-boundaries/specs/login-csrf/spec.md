@@ -62,14 +62,15 @@ pedido ("el throttle debe reflejar submissions reales"), no una regresión.
 - THEN no se autentica ninguna cuenta
 - AND la respuesta contiene el error de CSRF
 - AND la respuesta NO contiene ningún mensaje de evaluación de credenciales (`Usuario o contraseña incorrectos.`, `baneada`, `desactivado`)
-- AND se registra exactamente un `set_attempt()` para esa submission
+- AND NO se registra ningún `set_attempt()` para esa submission — el veredicto CSRF es autoritativo (LC-06), así que la petición nunca alcanza `fs_login::log_in()`, que es donde vive `set_attempt()`. Registrar un intento en el camino de rechazo permitiría que un POST cross-site baneara la IP de una víctima, y contradice LTI-03 (*"una submission vacía no incrementa ningún contador"*).
+  - *Corregido durante PR 2.* El texto original exigía "exactamente un `set_attempt()`" en el camino de rechazo, que es inalcanzable bajo el guard que este mismo delta manda y que habría introducido un vector de ban cross-site. La implementación asserta el camino de rechazo como inerte (0 intentos); esta cláusula ahora coincide con ella.
 
 #### Scenario: Sin campo de token se comporta igual que con token inválido
 
 - GIVEN el mismo POST sin ningún campo de token CSRF
 - WHEN la petición se procesa
 - THEN el resultado observable es idéntico al del token inválido
-- AND se registra exactamente un `set_attempt()`
+- AND no se registra ningún `set_attempt()` — el camino de rechazo es inerte, idéntico al del token inválido (ver la corrección de PR 2 en el scenario anterior)
 
 #### Scenario: Token válido y credenciales incorrectas evalúan una sola vez
 
