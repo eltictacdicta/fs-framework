@@ -10,11 +10,13 @@ parameters:
     paths:
         - src
         - tests
+        - base/fs_auth_request.php
     dynamicConstantNames:
         - FS_DB_TYPE
         - FS_FOREIGN_KEYS
         - FS_CHECK_DB_TYPES
     scanFiles:
+        - base/fs_auth_request.php
         - base/fs_maintenance_mode.php
         - base/fs_plugin_manager.php
         - base/install_security.php
