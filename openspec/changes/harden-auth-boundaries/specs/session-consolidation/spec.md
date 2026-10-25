@@ -36,6 +36,24 @@ the session before any other component does, they are also required to apply the
 session cookie parameters before the start; that obligation is owned by
 `session-transport-hardening` (STH-02, STH-05) and is not restated here.
 
+The file's other `session_start()` — the instance method
+`NativeSessionCsrfStorage::ensureSession()` — is named here so "no residual deviation" is
+not ambiguous about which `ensureSession()` is meant. It is a storage fallback, not a
+bootstrap path, and it is not a third deviating site: whenever `SessionManager` is
+available it applies `SessionManager::resolveSessionName()` before starting, and with
+`SessionManager` absent its only construction site (`CsrfManager::getManager()`) has
+already opened a named session through `CsrfManager::ensureSession()` /
+`startSharedNativeSession()`. The one shape that would start unnamed — a token operation
+after the session was closed mid-request, while `SessionManager` is absent — is not
+exercised by any shipped flow. It is recorded here rather than claimed impossible, and it
+**MUST** be fixed (a one-line delegation to `CsrfManager::startSharedNativeSession()`)
+before any change makes that shape reachable, instead of being documented as an exception.
+
+> *(Added during verify.)* The earlier text named "the `ensureSession()` branch" without
+> disambiguating, while `src/Security/CsrfManager.php` has two methods with that name: the
+> fixed static `CsrfManager::ensureSession()` and this storage residual. The paragraph
+> above states which one the requirement fixes and why the other is out of scope.
+
 (Previously: SC-01 stated the invariant that actually held and carried an explicit
 `### Known deviation` list of the two bare `session_start()` sites, which were left as a
 separate hardening follow-up.)
@@ -44,7 +62,8 @@ separate hardening follow-up.)
 
 - GIVEN every core `session_start()` call site
 - WHEN each is inspected for a preceding `session_name(...)` derived from the shared resolver
-- THEN every site complies, and the installer (`base/install_security.php`) is the only exception
+- THEN every reachable site complies, and the installer (`base/install_security.php`) is the only exception
+- AND the storage residual is recorded with the exact shape that would not comply (a token operation after a mid-request session close with `SessionManager` absent), not claimed to comply
 
 #### Scenario: The duplicate-petition guard uses the shared session name
 
@@ -82,6 +101,12 @@ list as an open deviation (`controller/admin_agentes.php` and
 session, so SC-01 holds with no residual deviation and this section no longer records one.
 The change is recorded here rather than silently dropped, because the canonical file
 previously documented the deviation as real.
+
+The `NativeSessionCsrfStorage::ensureSession()` residual described in SC-01 is not an
+exception to this closing: it is a storage fallback rather than a bootstrap path, it names
+the session whenever `SessionManager` is available, and the only shape that would not name
+it requires a mid-request session close that no shipped flow performs. It is stated there
+so the claim is checkable rather than assumed.
 
 The installer (`base/install_security.php`) remains the deliberate exception: it applies
 its own `FSINSTALL_` prefix on top of the same identity seed so the installer session never

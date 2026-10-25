@@ -242,6 +242,22 @@ re-opens the exact dual-cookie regression `consolidate-session-csrf` closed.
 The installer (`base/install_security.php`) **MUST** remain the sole exception, keeping
 its own `FSINSTALL_` prefix on the same identity seed.
 
+The same file's other `session_start()` — the instance method
+`NativeSessionCsrfStorage::ensureSession()` — is not a third deviating site. It is a
+storage fallback, not a bootstrap path: it applies `SessionManager::resolveSessionName()`
+before starting whenever `SessionManager` is available, and with `SessionManager` absent
+the only site that constructs it (`CsrfManager::getManager()`) has already opened a named
+session. The one shape that would start unnamed — a token operation after a mid-request
+session close, with `SessionManager` absent — is not exercised by any shipped flow.
+`session-consolidation` SC-01 records that condition; it **MUST** be fixed (one-line
+delegation to `CsrfManager::startSharedNativeSession()`) before any change makes the shape
+reachable.
+
+> *(Amended during verify.)* The original text named only the two bare sites. Silence about
+> this one made "every core bootstrap path" read as if it covered it, when in fact it is
+> excluded by being a storage helper rather than an entry point and by the timing of its
+> only construction site. The distinction is now stated instead of implied.
+
 #### Scenario: The duplicate-petition guard uses the shared session name
 
 - GIVEN a separate process with no active session

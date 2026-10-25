@@ -48,15 +48,28 @@ dependency-free definition, because today it exists in two copies
 ### Requirement: AAG-01 — The anonymous exemption depends on the requested page
 
 `PublicAccessGate::intercept()` **MUST** exempt an anonymous request from the gate only
-when the request's canonical requested page is `login`. It **MUST NOT** exempt a request
-because of its HTTP method, its body, or the presence of `nlogin`. The exemption
-condition is `isLegacyLoginRequest()` alone; `isLegacyLoginSubmission()` **MUST NOT**
-participate in the exemption decision (it stays in use where the stealth secret has
-already been verified with `hash_equals()`, so it does not become dead code).
+when the request's canonical requested page is one the application serves anonymously — the
+publicly served page set defined by AAG-06 (`login` and `password_reset`, enumerated once
+in `fs_auth_request::PUBLIC_PAGES`). It **MUST NOT** exempt a request because of its HTTP
+method, its body, or the presence of `nlogin`. The exemption condition is the requested
+page alone — `isLegacyLoginRequest()` for the login page, plus
+`fs_auth_request::isPublicPage(requestedPage(...))` for the rest of the set;
+`isLegacyLoginSubmission()` **MUST NOT** participate in the exemption decision (it stays
+in use where the stealth secret has already been verified with `hash_equals()`, so it does
+not become dead code).
 
-Any anonymous request that is not the login page **MUST** fall through to the anonymous
+Any anonymous request naming no page in that set **MUST** fall through to the anonymous
 login redirect (`302` to `index.php?page=login`), for every page of the application, and
 the target controller **MUST NOT** be instantiated.
+
+> *(Amended during verify.)* The body originally read "only when the request's canonical
+> requested page is `login`". That was true when AAG-01 was written; AAG-06 later made
+> `password_reset` a public page, and the shipped gate exempts it
+> (`src/Core/PublicAccessGate.php:95`). Left unamended, the two requirements contradicted
+> each other, and an implementation following AAG-01 literally would have deleted the
+> password-recovery exemption — the regression AAG-06 exists to prevent. The noun was
+> widened to the anonymously served page set; AAG-01's actual constraint — the decision
+> depends on the requested **page**, never on the request **shape** — is unchanged.
 
 #### Scenario: Anonymous POST with `?nlogin` to a non-login page is gated
 
@@ -72,9 +85,9 @@ the target controller **MUST NOT** be instantiated.
 - WHEN `PublicAccessGate::intercept()` evaluates the request
 - THEN it returns a response with status `302` and `Location` `index.php?page=login`
 
-#### Scenario: Every non-login controller page is gated for both bypass shapes
+#### Scenario: Every non-public controller page is gated for both bypass shapes
 
-- GIVEN a table of non-login page names covering the administrative and plugin surfaces
+- GIVEN a table of non-public page names covering the administrative and plugin surfaces
 - WHEN each page is requested anonymously as `POST ?page=<name>&nlogin=1`, and again as `POST ?page=<name>` with `user`/`password`
 - THEN every response is a `302` to `index.php?page=login`
 - AND no response is a `200` carrying a controller body
@@ -112,8 +125,10 @@ the gate and the dispatcher disagree again for `page=login%20` (the dispatcher r
 `login`; a raw comparison would see a non-login page and redirect a legitimate submission
 away), which is the defect this capability exists to remove.
 
-A non-canonical page value **MUST** be fail-closed: the request is gated and the redirect
-still lands on the real login page.
+A non-canonical page value — one the canonical rule rejects, i.e. it resolves to the empty
+string — **MUST** be fail-closed: the request is gated and the redirect still lands on the
+real login page. A value the rule *accepts* (such as `login `, which resolves to `login`)
+is resolved, not rejected, and is exempt on the same footing as its canonical form.
 
 #### Scenario: Canonical page values resolve as the dispatcher resolves them
 
@@ -131,12 +146,31 @@ still lands on the real login page.
 | `['page' => '9lives']` | `''` |
 | `[]` (absent) | `''` |
 
-#### Scenario: Non-canonical page values are gated, not exempted
+#### Scenario: A non-canonical page value is gated, not exempted
 
-- GIVEN an anonymous request naming `?page=LOGIN` and another naming `?page=login%20`
-- WHEN the gate evaluates each request
-- THEN both return a `302` whose `Location` is the real login page
-- AND neither is treated as a login page by the gate
+- GIVEN an anonymous request naming `?page=LOGIN`
+- WHEN the gate evaluates the request
+- THEN it returns a `302` whose `Location` is the real login page
+- AND the request is not treated as a login page by the gate
+
+#### Scenario: A value the dispatcher canonicalises is exempt
+
+- GIVEN an anonymous request naming `?page=login%20`
+- WHEN the gate and the dispatcher evaluate it
+- THEN both resolve the requested page to `login`
+- AND the gate returns `null` (not intercepted), because `index.php` trims the value and dispatches the login controller
+
+> *(Corrected during verify.)* These were a single scenario asserting that `?page=LOGIN`
+> **and** `?page=login%20` both return `302` and that neither is treated as a login page.
+> The second half was false: `login ` trims to `login`, exactly as the resolution table
+> above states, and the shipped gate exempts it
+> (`tests/Components/PublicAccessGateTest.php:444-470`). Worse, that pair of assertions is
+> precisely what a **raw** `$_GET['page']` comparison would produce — `LOGIN` and `login `
+> both differ from the string `login` — so the scenario would have ratified the defect
+> AAG-02 exists to remove, and it contradicted AAG-02's own table, AAG-05, design D2 and
+> `index.php:216-229`. The split keeps the fail-closed half (`LOGIN` is rejected by the
+> canonical rule, so the gate agrees with a dispatcher that dispatches nothing) and states
+> the mirroring half honestly.
 
 #### Scenario: The gate consumes the canonical rule, not the raw query value
 
@@ -311,7 +345,7 @@ on a public path stays gated.
 - THEN the authentication lockout is not incremented (LTI-01, LTI-03)
 - AND authentication from the same address is not banned (LTI-05)
 
-#### Scenario: Every other non-login page stays gated
+#### Scenario: Every page outside the public set stays gated
 
 - GIVEN the public-page set is exactly `login` and `password_reset`
 - WHEN an anonymous request names any other controller page

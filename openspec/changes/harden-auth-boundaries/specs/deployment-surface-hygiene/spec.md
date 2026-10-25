@@ -42,15 +42,32 @@ credential value is a 40- or 64-character hexadecimal blob **adjacent** to one o
 tokens `logkey`, `auth_sig`, `password` or `token`, or a literal session identifier /
 CSRF token value.
 
+A line carrying the documented inline opt-out marker (`# nosecret` or `// nosecret`, the
+same marker DSH-03 authorises) is **not** a finding: the marker records a reviewed,
+non-credential value on that line. Three lines use it today — the SHA-1-of-the-empty-string
+fixtures in `tests/Security/CookieSecureAndPasswordMigrationTest.php` (`:73`, `:96`,
+`:115`), each a public legacy hash written beside a `password` property. The opt-out is a
+reviewed, per-line exception, never a relaxation of the rule: it **MUST NOT** be used to
+silence a real credential, and it does not replace the adjacency test (a matching line
+without the marker is still a finding).
+
+> *(Amended during verify.)* The definition originally carried no opt-out, so those three
+> fixtures were literal violations of a requirement that DSH-03 and the shipped scan both
+> exempt. Naming the marker is what the implemented control does; weakening the adjacency
+> rule would have been the alternative, and it is the wrong one.
+
 Redaction **MUST** replace the value with a placeholder such as `<redacted>` while
 preserving the surrounding narrative, so the document keeps its evidentiary value.
 The reference style is the already-redacted
 `openspec/changes/ventas-clientes-dispatch-regression-test/verify-report.md`.
 
 The detection rule **MUST** be adjacency-based. A rule based on "any 40/64-character hex
-blob" **MUST NOT** be used: `tests/bootstrap.php` defines a deterministic 64-hex
+blob" **MUST NOT** be used: `tests/bootstrap.php:62` defines a deterministic 64-hex
 `FS_SECRET_KEY` that is not adjacent to any of the four tokens, and a non-adjacency rule
-would produce a false positive that forces the control to be weakened or ignored.
+would produce a false positive that forces the control to be weakened or ignored. The
+per-line opt-out does not relax this requirement: it suppresses a *reviewed adjacency
+match* and says so on the line, whereas a non-adjacency rule would match values the rule
+was never meant to cover and leave no reviewable record at all.
 
 #### Scenario: The published credential no longer exists under the served tree
 
@@ -65,6 +82,13 @@ would produce a false positive that forces the control to be weakened or ignored
 - WHEN the adjacency rule is applied to that file
 - THEN no match is reported
 - AND the control is not weakened to accommodate it
+
+#### Scenario: The reviewed legacy-hash fixtures are exempt through the documented opt-out
+
+- GIVEN `tests/Security/CookieSecureAndPasswordMigrationTest.php`, whose three fixtures write the SHA-1 of the empty string beside a `password` property
+- WHEN the adjacency rule is applied to each of those lines
+- THEN each line carries the `# nosecret` marker and no finding is reported for it
+- AND a line matching the adjacency rule without the marker is still reported as a finding
 
 #### Scenario: Prose placeholders are not redacted away
 
