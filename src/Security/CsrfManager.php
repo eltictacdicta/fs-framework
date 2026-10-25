@@ -130,13 +130,44 @@ class CsrfManager
             }
 
             if (session_status() === PHP_SESSION_NONE) {
-                session_start();
+                self::startSharedNativeSession();
             }
 
             // Usar PhpBridgeSessionStorage para sesiones ya iniciadas por código legacy
             $storage = new PhpBridgeSessionStorage();
             self::$session = new Session($storage);
         }
+    }
+
+    /**
+     * Abre la sesión nativa con el nombre de sesión compartido.
+     *
+     * Esta rama sólo se alcanza cuando SessionManager NO está disponible, así
+     * que el nombre sale del resolver sin dependencias
+     * (base/fs_session_identity.php), que aplica la MISMA fórmula y la MISMA
+     * semilla: es la fuente única que ambos caminos comparten. Por la misma
+     * razón los parámetros de cookie (sessionCookieParams) no se pueden consumir
+     * acá: la definición compartida vive en SessionManager, y su ausencia es la
+     * condición de esta rama.
+     *
+     * Lo que sí es obligatorio es el nombre: un session_start() desnudo abre una
+     * sesión con el nombre por defecto, emite una cookie PHPSESSID y reabre la
+     * competición de cookies que consolidate-session-csrf cerró (SC-01, STH-05).
+     * El instalador (base/install_security.php) sigue siendo la única excepción,
+     * con su propio prefijo FSINSTALL_.
+     *
+     * @internal Expuesto para las pruebas del bootstrap de sesión.
+     */
+    public static function startSharedNativeSession(): void
+    {
+        if (session_status() !== PHP_SESSION_NONE) {
+            return;
+        }
+
+        require_once dirname(__DIR__, 2) . '/base/fs_session_identity.php';
+
+        session_name(fs_session_identity_name());
+        session_start();
     }
 
     /**

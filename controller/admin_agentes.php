@@ -268,7 +268,12 @@ class admin_agentes extends \FSFramework\Controller\HtmxCrudController
     private function isDuplicatedPetition(string $petitionId): bool
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
+            // Delegado al accessor de sesión compartido, que fija el nombre de
+            // sesión, los parámetros de cookie y use_strict_mode ANTES del
+            // start. Un arranque desnudo abría la sesión con el nombre por
+            // defecto, emitía una cookie PHPSESSID y reabría la competición de
+            // cookies que consolidate-session-csrf cerró (SC-01, STH-05).
+            \FSFramework\Security\SessionManager::getInstance();
         }
 
         $key = 'petition_' . md5($petitionId);
