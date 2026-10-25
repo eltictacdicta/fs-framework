@@ -70,6 +70,15 @@ if (file_exists('vendor/autoload.php')) {
     require_once 'vendor/autoload.php';
 }
 
+/// --- Transport headers ---
+/// HSTS solamente: aquí NO se emite el juego completo de cabeceras de
+/// navegador (CSP, nosniff, X-Frame-Options), que es ajeno a la superficie de la
+/// API. Se emite antes de cualquier salida para que cubra también los errores
+/// de negocio (404/500).
+if (class_exists(\FSFramework\Security\SecurityHeaders::class)) {
+    \FSFramework\Security\SecurityHeaders::applyTransportHeaders();
+}
+
 require_once 'base/fs_secret_migrator.php';
 fs_secret_migrator::ensure();
 require_once 'base/config2.php';

@@ -49,8 +49,6 @@ if (!fs_operator_authorize(PHP_SAPI, $_SERVER, $_REQUEST, $cronToken)) {
     exit;
 }
 
-echo 'Iniciando cron de FSFramework...';
-
 require_once 'base/fs_secret_migrator.php';
 fs_secret_migrator::ensure();
 require_once 'base/config2.php';
@@ -61,6 +59,16 @@ $composerAutoload = __DIR__ . '/vendor/autoload.php';
 if (file_exists($composerAutoload)) {
     require_once $composerAutoload;
 }
+
+/// --- Transport headers ---
+/// HSTS solamente, igual que api.php: cron.php también puede invocarse por
+/// HTTP (con X-Cron-Token), y no debe recibir CSP ni X-Frame-Options. Va antes
+/// de la primera salida para que la cabecera llegue a emitirse.
+if (class_exists(\FSFramework\Security\SecurityHeaders::class)) {
+    \FSFramework\Security\SecurityHeaders::applyTransportHeaders();
+}
+
+echo 'Iniciando cron de FSFramework...';
 
 $tiempo = explode(' ', microtime());
 $uptime = $tiempo[1] + $tiempo[0];

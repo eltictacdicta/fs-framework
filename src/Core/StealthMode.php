@@ -472,38 +472,27 @@ class StealthMode
         $_SESSION[self::SESSION_KEY] = true;
     }
 
+    /**
+     * Abre la sesión PHP aplicando los parámetros compartidos ANTES del start.
+     *
+     * Este es el punto de entrada más externo que puede abrir la sesión: corre
+     * desde PublicAccessGate::intercept() -> hasAuthenticatedSession(), antes de
+     * SessionManager::initialize(). Por eso los parámetros de cookie y el modo
+     * estricto se aplican acá y no en index.php (que no es el único entry point).
+     *
+     * El `setcookie()` defensivo que había después del start se eliminó: con los
+     * parámetros aplicados antes del start y use_strict_mode activo, la emisión
+     * de PHP es completa. Aquel setcookie() era la segunda cabecera `Set-Cookie`
+     * del mismo nombre con `Path=/` fijo y sin `Secure` (VULN-0007, W-4). No se
+     * reemplaza por un duplicado attribute-identical: se elimina.
+     */
     private function ensurePhpSessionStarted(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_name(SessionManager::resolveSessionName());
+            session_set_cookie_params(SessionManager::sessionCookieParams());
+            ini_set('session.use_strict_mode', '1');
             @session_start();
-        }
-
-        // Sincronizar el cookie de sesión con el browser SIEMPRE.
-        // Sin esto, si otro componente (SessionManager, CsrfManager) abre la sesión
-        // antes que StealthMode, PHP no envía Set-Cookie y el browser conserva
-        // una cookie vieja con un session ID que ya no existe en el servidor.
-        if (session_status() === PHP_SESSION_ACTIVE && !headers_sent()) {
-            $name = session_name();
-            $id = session_id();
-            $browserCookie = $_COOKIE[$name] ?? '(none)';
-            // El valor del cookie viene del cliente: hay que neutralizar caracteres
-            // de control (\r, \n) y acotar el largo para que no pueda inyectar
-            // líneas falsas en el log (CWE-117). El id de sesión es generado por
-            // el servidor, por eso se registra tal cual.
-            $browserCookieForLog = mb_substr(preg_replace('/[^\x20-\x7E]/', '', (string) $browserCookie) ?? '', 0, 128);
-            error_log(sprintf('[StealthMode] cookie sync | browser=%s | session=%s | match=%s', $browserCookieForLog, $id, $browserCookie === $id ? 'yes' : 'NO'));
-            if (!isset($_COOKIE[$name]) || $_COOKIE[$name] !== $id) {
-                setcookie($name, $id, [
-                    'expires' => 0,
-                    'path' => '/',
-                    'httponly' => true,
-                    'samesite' => 'Lax',
-                ]);
-                error_log('[StealthMode] cookie sync: Set-Cookie sent');
-            }
-        } else {
-            error_log(sprintf('[StealthMode] cookie sync SKIPPED | status=%s | headers_sent=%s', session_status(), headers_sent() ? 'yes' : 'no'));
         }
 
         // Forzar session_write_close() al final del request.

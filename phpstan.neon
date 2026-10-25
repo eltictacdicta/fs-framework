@@ -20,6 +20,7 @@ parameters:
         - base/fs_maintenance_mode.php
         - base/fs_plugin_manager.php
         - base/install_security.php
+        - controller/admin_agentes.php
         - controller/admin_home.php
         - controller/force_password_change.php
         - controller/admin_rol.php

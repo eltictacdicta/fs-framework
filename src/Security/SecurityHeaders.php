@@ -16,6 +16,12 @@ final class SecurityHeaders
     private static ?string $nonce = null;
 
     /**
+     * `max-age` por defecto de Strict-Transport-Security: un año. Overridable
+     * con FS_HSTS_MAX_AGE; el valor 0 desactiva la emisión.
+     */
+    private const DEFAULT_HSTS_MAX_AGE = 31536000;
+
+    /**
      * The current UI still ships many inline scripts/styles and inline event handlers across
      * legacy and plugin Twig templates, so removing unsafe-inline here would break rendering.
      * Keep this explicit until nonce/hash propagation is implemented end-to-end.
@@ -104,6 +110,8 @@ final class SecurityHeaders
             return;
         }
 
+        self::applyHstsHeader();
+
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: SAMEORIGIN');
         header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -113,6 +121,89 @@ final class SecurityHeaders
         if ($policy !== '' && !self::shouldDeferContentSecurityPolicy()) {
             header('Content-Security-Policy: ' . $policy);
         }
+    }
+
+    /**
+     * Emite SÓLO la cabecera de transporte (HSTS).
+     *
+     * Para los entry points que no deben recibir el juego completo de cabeceras
+     * de navegador: api.php y cron.php. Llamar a applyDefaultHeaders() ahí
+     * agregaría CSP, nosniff y X-Frame-Options a la superficie de la API, que es
+     * un cambio de comportamiento ajeno a VULN-0007 (design D6).
+     */
+    public static function applyTransportHeaders(): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+
+        self::applyHstsHeader();
+    }
+
+    /**
+     * Valor de `Strict-Transport-Security` para este request, o '' si no
+     * corresponde emitirlo.
+     *
+     * `max-age` sale de FS_HSTS_MAX_AGE (31536000 por defecto) y el valor 0 lo
+     * desactiva por completo: es la vía de escape documentada, porque un
+     * `max-age` ya servido a un navegador NO se deshace revirtiendo el código y
+     * puede fijar un host de desarrollo a HTTPS durante un año.
+     *
+     * `includeSubDomains` es opt-in (FS_HSTS_INCLUDE_SUBDOMAINS): fija HTTPS para
+     * toda la zona padre (p. ej. *.ddev.site) y no es barato de revertir.
+     *
+     * @internal Expuesto para las pruebas: el CLI SAPI no puede observar header().
+     */
+    public static function hstsHeaderValue(): string
+    {
+        if (!SecureRequestDetector::isSecure()) {
+            return '';
+        }
+
+        $maxAge = self::hstsMaxAge();
+        if ($maxAge <= 0) {
+            return '';
+        }
+
+        $value = 'max-age=' . $maxAge;
+
+        return self::hstsIncludeSubDomains() ? $value . '; includeSubDomains' : $value;
+    }
+
+    private static function applyHstsHeader(): void
+    {
+        $value = self::hstsHeaderValue();
+        if ($value !== '') {
+            header('Strict-Transport-Security: ' . $value);
+        }
+    }
+
+    private static function hstsMaxAge(): int
+    {
+        if (defined('FS_HSTS_MAX_AGE')) {
+            return (int) FS_HSTS_MAX_AGE;
+        }
+
+        $configured = getenv('FS_HSTS_MAX_AGE');
+        if ($configured !== false && trim($configured) !== '') {
+            return (int) trim($configured);
+        }
+
+        return self::DEFAULT_HSTS_MAX_AGE;
+    }
+
+    private static function hstsIncludeSubDomains(): bool
+    {
+        if (defined('FS_HSTS_INCLUDE_SUBDOMAINS')) {
+            return (bool) FS_HSTS_INCLUDE_SUBDOMAINS;
+        }
+
+        $configured = getenv('FS_HSTS_INCLUDE_SUBDOMAINS');
+        if ($configured === false) {
+            return false;
+        }
+
+        return in_array(strtolower(trim($configured)), ['1', 'true', 'on', 'yes'], true);
     }
 
     private static function shouldDeferContentSecurityPolicy(): bool
