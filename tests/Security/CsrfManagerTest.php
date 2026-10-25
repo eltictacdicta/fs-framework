@@ -7,9 +7,12 @@ use FSFramework\Security\SessionManager;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Symfony\Component\HttpFoundation\Request;
+use Tests\Controller\Concerns\ExtractsMethodBody;
 
 class CsrfManagerTest extends TestCase
 {
+    use ExtractsMethodBody;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -176,6 +179,55 @@ class CsrfManagerTest extends TestCase
         // Segunda llamada devuelve la misma instancia sin re-chequear
         $second = CsrfManager::getManager();
         $this->assertSame($first, $second, 'Segunda llamada debe devolver el mismo manager');
+    }
+
+    // =========================================================================
+    // STH-05 / SC-01 — the ensureSession() fallback is no longer a bare
+    // session_start().
+    //
+    // That branch is only reachable when SessionManager is unavailable, so it
+    // cannot consume SessionManager::sessionCookieParams(). It sets the SESSION
+    // NAME from the same dependency-free resolver the legacy bootstrap uses
+    // (base/fs_session_identity.php), which is the invariant SC-01 states: no
+    // default-named session outside the installer exception. The default name
+    // is what emits a PHPSESSID cookie and re-opens the dual-cookie regression.
+    //
+    // The Set-Cookie header itself is not observable here (CLI keeps no header
+    // list); session_name() after the start is the input-seam assertion, and it
+    // can only hold if the name was set BEFORE session_start().
+    // =========================================================================
+
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function testTheFallbackSessionStartUsesTheSharedSessionName(): void
+    {
+        $_SESSION = [];
+        $_COOKIE = [];
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        CsrfManager::startSharedNativeSession();
+
+        $this->assertSame(PHP_SESSION_ACTIVE, session_status());
+        $this->assertSame(SessionManager::resolveSessionName(), session_name());
+        $this->assertNotSame('PHPSESSID', session_name());
+    }
+
+    public function testTheFallbackStartSetsTheNameBeforeStarting(): void
+    {
+        $source = (string) file_get_contents(dirname(__DIR__, 2) . '/src/Security/CsrfManager.php');
+        $body = $this->methodBody($source, 'startSharedNativeSession');
+
+        $nameAt = strpos($body, 'session_name(');
+        $startAt = strpos($body, 'session_start(');
+
+        $this->assertNotFalse($nameAt, 'The fallback must set the shared session name.');
+        $this->assertNotFalse($startAt);
+        $this->assertLessThan($startAt, $nameAt, 'The name must be set BEFORE session_start().');
+
+        $ensureBody = $this->methodBody($source, 'ensureSession');
+        $this->assertStringContainsString('startSharedNativeSession(', $ensureBody);
     }
 
     private function resetCsrfState(): void
