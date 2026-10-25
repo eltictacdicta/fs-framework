@@ -66,8 +66,18 @@ Both implementations of the rule **MUST** be corrected together, in the same cha
    `log_key` — a loss of a hardening action, never a security hole.
 
 An authenticated logout **MUST** still rotate the key, because an authenticated request
-always carries the session nickname. Rollback of the two removals is **all-or-nothing**:
-reverting only one re-opens the hole through the other.
+always carries the session nickname. Rollback of the two removals is **all-or-nothing**,
+and the asymmetry was measured rather than assumed: reverting **only the bridge**
+re-opens the hole immediately, because `fs_login` delegates to it; reverting **only the
+`fs_login` deletion** does not re-open the hole while `SessionManager` exists — that copy
+is dead code there — but it restores the second copy of the rule, which is the exact
+drift hazard this finding closes and which is live in any tree without `SessionManager`.
+Revert both or neither.
+
+*(Corrected during PR 3.)* The original sentence claimed reverting either one re-opens
+the hole "through the other", which is false in the second direction. The implementation
+and its tests follow the normative requirement — correct both copies in the same change —
+and this note now states the real behaviour instead of an approximation.
 
 #### Scenario: An anonymous request cannot rotate a named account's key
 
