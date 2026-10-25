@@ -1,7 +1,7 @@
 <?php
 /**
  * Tests for fs_auth_request — the single definition of the request facts the
- * authentication boundary depends on (AAG-02, AAG-03, AAG-04).
+ * authentication boundary depends on (AAG-02, AAG-03, AAG-04, AAG-06).
  *
  * Pure array-in/boolean-out: no superglobals, no kernel, no database.
  */
@@ -60,6 +60,71 @@ class FsAuthRequestTest extends TestCase
         // would turn an access-control decision into a 500. The guard must come first.
         $this->assertSame('', \fs_auth_request::requestedPage(['page' => ['login']]));
         $this->assertSame('', \fs_auth_request::requestedPage(['page' => null]));
+    }
+
+    /**
+     * AAG-06: the anonymous access boundary is a set, and it is exactly these two
+     * pages. Asserting the set by value (not only membership of its members) is
+     * what makes widening it a deliberate, reviewable edit instead of a passing
+     * test.
+     */
+    public function testPublicPagesAreExactlyTheLoginAndResetPages(): void
+    {
+        $this->assertSame(['login', 'password_reset'], \fs_auth_request::PUBLIC_PAGES);
+    }
+
+    #[DataProvider('providePublicPageCases')]
+    public function testIsPublicPage(string $page, bool $expected): void
+    {
+        $this->assertSame($expected, \fs_auth_request::isPublicPage($page));
+    }
+
+    /**
+     * A page that is not a canonical page name is never public, so the predicate
+     * stays fail-closed on the empty string the canonicaliser returns.
+     *
+     * @return array<string, array{string, bool}>
+     */
+    public static function providePublicPageCases(): array
+    {
+        return [
+            'login' => ['login', true],
+            'the password-recovery page' => ['password_reset', true],
+            'an administrative page' => ['admin_info', false],
+            'no page named' => ['', false],
+            'uppercase is not canonical' => ['LOGIN', false],
+            'an unrelated page' => ['portal', false],
+            'a page whose name merely starts with the reset name' => ['password_reset_admin', false],
+        ];
+    }
+
+    /**
+     * AAG-02 + AAG-06: the set is consulted with the canonical page, never with a
+     * raw query value, and a non-string page can never land in it.
+     *
+     * @param array<string, mixed> $query
+     */
+    #[DataProvider('providePublicPageQueryCases')]
+    public function testIsPublicPageConsumesTheCanonicalPage(array $query, bool $expected): void
+    {
+        $this->assertSame(
+            $expected,
+            \fs_auth_request::isPublicPage(\fs_auth_request::requestedPage($query))
+        );
+    }
+
+    /**
+     * @return array<string, array{array<string, mixed>, bool}>
+     */
+    public static function providePublicPageQueryCases(): array
+    {
+        return [
+            'canonical reset page' => [['page' => 'password_reset'], true],
+            'reset page with a trailing space' => [['page' => 'password_reset '], true],
+            'array input names no page' => [['page' => ['password_reset']], false],
+            'absent page' => [[], false],
+            'uppercase reset page is not canonical' => [['page' => 'PASSWORD_RESET'], false],
+        ];
     }
 
     /**
