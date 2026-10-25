@@ -71,7 +71,11 @@ class password_reset extends fs_controller
     protected function public_core()
     {
         $this->template = 'password_reset';
-        $this->ip_filter = new fs_ip_filter();
+
+        // Lockout state is a security control: the reset flow owns its bucket
+        // and never writes the authentication one (LTI-01). The authentication
+        // bucket keeps its byte-identical default path.
+        $this->ip_filter = new fs_ip_filter('password_reset');
         $this->email_sent = FALSE;
         $this->token_valid = FALSE;
         $this->password_changed = FALSE;
@@ -117,6 +121,13 @@ class password_reset extends fs_controller
      */
     private function process_request()
     {
+        // El token CSRF es obligatorio antes de cualquier efecto: sin él no se
+        // cuenta ningún intento, no se busca ninguna cuenta y no se envía
+        // ningún correo (LTI-04). El formulario ya lo enviaba.
+        if (!$this->requireCsrf()) {
+            return;
+        }
+
         $ip = fs_get_ip();
 
         // Rate limiting
@@ -125,13 +136,15 @@ class password_reset extends fs_controller
             return;
         }
 
-        $this->ip_filter->set_attempt($ip);
-
         $nick_or_email = trim($this->request->request->get('nick_or_email', ''));
         if (empty($nick_or_email)) {
             $this->new_error_msg(FSTranslator::trans('password-reset-enter-nick-or-email'));
             return;
         }
+
+        // Validación antes del conteo: una petición que no es un intento real
+        // no incrementa ningún contador (LTI-03).
+        $this->ip_filter->set_attempt($ip);
 
         // Buscar usuario por nick o email
         $user_model = new fs_user();
@@ -181,6 +194,11 @@ class password_reset extends fs_controller
      */
     private function process_reset()
     {
+        // El token CSRF es obligatorio antes de cualquier efecto (LTI-04).
+        if (!$this->requireCsrf()) {
+            return;
+        }
+
         if (!$this->validate_signed_reset_url()) {
             $this->new_error_msg(FSTranslator::trans('password-reset-invalid-or-expired'));
             return;

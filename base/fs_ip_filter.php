@@ -31,6 +31,17 @@ class fs_ip_filter
     const MAX_ATTEMPTS = 5;
 
     /**
+     * Optional bucket namespace.
+     *
+     * Lockout state is a security control: the authentication lockout bucket
+     * (`tmp/<FS_TMP_NAME>ip.log`) may only be written by credential-submission
+     * handlers. Any other throttling feature owns its state file by passing
+     * its own namespace here, so exhausting one quota can never deny another
+     * feature.
+     */
+    private const DEFAULT_NAMESPACE = '';
+
+    /**
      *
      * @var string
      */
@@ -42,9 +53,13 @@ class fs_ip_filter
      */
     private $ipList;
 
-    public function __construct()
+    /**
+     * @param string $namespace optional bucket name; the empty namespace keeps
+     *                          resolving to the authentication lockout bucket
+     */
+    public function __construct(string $namespace = self::DEFAULT_NAMESPACE)
     {
-        $this->filePath = FS_FOLDER . '/tmp/' . FS_TMP_NAME . 'ip.log';
+        $this->filePath = FS_FOLDER . '/tmp/' . FS_TMP_NAME . $this->namespaceSuffix($namespace) . 'ip.log';
         $this->ipList = [];
 
         if (file_exists($this->filePath)) {
@@ -63,6 +78,23 @@ class fs_ip_filter
                 fclose($file);
             }
         }
+    }
+
+    /**
+     * Sanitised file-name prefix for a bucket namespace.
+     *
+     * The namespace is lower-cased and stripped of everything outside
+     * `[a-z0-9_]`, so a namespace derived from a non-literal value can never
+     * introduce a path separator or escape `tmp/`. The empty namespace yields
+     * an empty suffix, which keeps the authentication bucket byte-identical.
+     */
+    private function namespaceSuffix(string $namespace): string
+    {
+        if ($namespace === self::DEFAULT_NAMESPACE) {
+            return '';
+        }
+
+        return preg_replace('/[^a-z0-9_]/', '', strtolower($namespace)) . '_';
     }
 
     /**
