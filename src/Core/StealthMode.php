@@ -15,6 +15,13 @@ use FSFramework\Security\SessionManager;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
+// The request facts this class authorises on (the canonical requested page and
+// the login-submission predicate) live in exactly one place:
+// base/fs_auth_request.php, the dependency-free definition that
+// base/fs_maintenance_mode.php also consumes. Keeping a local copy here is what
+// allowed the two to drift apart (VULN-0002, AAG-02/AAG-04).
+require_once dirname(__DIR__, 2) . '/base/fs_auth_request.php';
+
 /**
  * Gestiona el "modo stealth" del panel de administración.
  *
@@ -432,20 +439,16 @@ class StealthMode
 
     private function isHiddenLoginPageRequest(): bool
     {
-        return ($_GET['page'] ?? '') === 'login';
+        return \fs_auth_request::requestedPage($_GET) === 'login';
     }
 
     private function isHiddenLoginSubmission(): bool
     {
-        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
-            return false;
-        }
-
-        if (isset($_GET['nlogin'])) {
-            return true;
-        }
-
-        return isset($_POST['user']) && (isset($_POST['password']) || isset($_POST['email']));
+        return \fs_auth_request::isStealthSubmission(
+            (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'),
+            $_GET,
+            $_POST
+        );
     }
 
     private function isValidSecretRequest(): bool
