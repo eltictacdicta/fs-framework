@@ -38,17 +38,19 @@ scan_staged_for_secrets() {
     local failed=0
 
     while IFS= read -r -d '' file; do
-        [ -f "$file" ] || continue
-
         # Skip third-party and plugin content: not this repository's commits.
         if [[ "$file" =~ $SCAN_EXCLUDED_PATH ]]; then
             continue
         fi
 
+        # Read the blob from the INDEX, never the working tree. A hook that greps
+        # the file on disk misses two real cases: `git add -p` followed by
+        # deleting the credential locally (the commit still carries it), and a
+        # file removed from disk while still staged.
         # -I skips binary files; a match prints `line:content`, and only the line
         # number is echoed back. The credential value is never printed.
         local matches
-        matches=$(grep -nIE "$SECRET_PATTERN" -- "$file" 2>/dev/null | grep -vE "$NOSECRET_PATTERN" || true)
+        matches=$(git show ":$file" 2>/dev/null | grep -nIE "$SECRET_PATTERN" | grep -vE "$NOSECRET_PATTERN" || true)
 
         if [ -n "$matches" ]; then
             while IFS= read -r match; do
