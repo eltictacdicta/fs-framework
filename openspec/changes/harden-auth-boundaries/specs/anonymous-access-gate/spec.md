@@ -43,6 +43,7 @@ dependency-free definition, because today it exists in two copies
 | AAG-03 | Non-string `page` input (e.g. `?page[]=login`) **MUST** be treated as "no page" and **MUST NOT** be fatal | MUST |
 | AAG-04 | There **MUST** be exactly one "login submission" predicate, shared by every consumer | MUST |
 | AAG-05 | The gate and the dispatcher **MUST** agree on which page a request names (public-path and browser-probe decisions included) | MUST |
+| AAG-06 | `password_reset` **MUST** be a public page — its render and its submission are exempt — and the flow **MUST** be made safe by CSRF plus an isolated throttle, never by unreachability | MUST |
 
 ### Requirement: AAG-01 — The anonymous exemption depends on the requested page
 
@@ -78,12 +79,14 @@ the target controller **MUST NOT** be instantiated.
 - THEN every response is a `302` to `index.php?page=login`
 - AND no response is a `200` carrying a controller body
 
-#### Scenario: The protected reset handler is no longer reachable anonymously
-
-- GIVEN an anonymous `POST /index.php?page=password_reset&nlogin=1`
-- WHEN the gate evaluates the request
-- THEN the response is a `302` to `index.php?page=login`
-- AND the response body contains neither the reset-request validation message nor the reset throttle message, i.e. `password_reset::process_request()` did not execute
+> **Superseded by AAG-06.** This scenario originally asserted that
+> `POST /index.php?page=password_reset&nlogin=1` is gated. That made the entire
+> password-recovery flow unreachable anonymously — the login page links to
+> `?page=password_reset` and the gate answered `302` back to login — and
+> unreachability was never the real mitigation for VULN-0006. LTI-01…LTI-04
+> neutralise that denial of service by isolating the reset throttle bucket,
+> validating before any counter write, and requiring a CSRF token. AAG-06 states
+> the requirement that replaced this one.
 
 #### Scenario: A legitimate login submission is still exempt
 
@@ -256,6 +259,54 @@ consumed by every site that needs it, not a duplicated `in_array(...)`.
 - WHEN `Plugins::isPublicPath()` and `Plugins::shouldRespondNoContentForBrowserProbe()` evaluate a framework exact path
 - THEN both call the same extracted predicate
 - AND the allowlist literal is not duplicated at a second call site
+
+### Requirement: AAG-06 — `password_reset` is a public page
+
+`password_reset` **MUST** be treated as a public page by the anonymous access gate: both
+the render of the form (`GET ?page=password_reset`) and its submission
+(`POST ?page=password_reset`) **MUST** be exempt, because the login page links to it and
+password recovery is a legitimate pre-authentication flow.
+
+The flow **MUST** be made safe by controls on the page itself, never by unreachability:
+an isolated throttle bucket that cannot deny authentication (LTI-01, LTI-02, LTI-05),
+validation that precedes any counter write (LTI-03), and a required CSRF token on both
+reset entry points (LTI-04).
+
+The exemption **MUST** remain page-based, never shape-based: an extra `nlogin` parameter
+on `page=password_reset` does not change the decision (AAG-01).
+
+#### Scenario: The password-reset form renders anonymously
+
+- GIVEN stealth mode disabled and no authenticated session
+- WHEN an anonymous `GET /index.php?page=password_reset` is evaluated by the gate
+- THEN the gate returns `null` (not intercepted)
+- AND the request reaches `password_reset` instead of being redirected to login
+
+#### Scenario: The password-reset submission reaches the handler
+
+- GIVEN stealth mode disabled and no authenticated session
+- WHEN an anonymous `POST /index.php?page=password_reset` carrying a valid CSRF token is evaluated by the gate
+- THEN the gate returns `null` (not intercepted)
+- AND the response is not a `302` to `index.php?page=login`
+
+#### Scenario: The exemption is page-based, not shape-based
+
+- GIVEN stealth mode disabled and no authenticated session
+- WHEN an anonymous `POST /index.php?page=password_reset&nlogin=1` is evaluated by the gate
+- THEN the gate returns `null` (not intercepted), exactly as for the same request without `nlogin`
+
+#### Scenario: Reachability does not restore the denial of service
+
+- GIVEN the password-reset page is now anonymously reachable
+- WHEN an anonymous visitor submits repeated empty reset requests
+- THEN the authentication lockout is not incremented (LTI-01, LTI-03)
+- AND authentication from the same address is not banned (LTI-05)
+
+#### Scenario: Every other non-login page stays gated
+
+- GIVEN the public-page set is exactly `login` and `password_reset`
+- WHEN an anonymous request names any other controller page
+- THEN it is still gated with a `302` to `index.php?page=login`
 
 ## Out of scope (explicit)
 
