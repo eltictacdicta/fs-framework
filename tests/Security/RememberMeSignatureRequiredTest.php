@@ -177,43 +177,53 @@ class RememberMeSignatureRequiredTest extends TestCase
     /**
      * @param array<int, array<string, string>> $rows
      */
-    private function makeDbStub(array $rows): \fs_db2
+    private function makeDbStub(array $rows): QueryRecordingDb
     {
-        return new class($rows) extends \fs_db2 {
-            /** @var array<int, string> */
-            public array $queries = [];
+        return new QueryRecordingDb($rows);
+    }
+}
 
-            /**
-             * @param array<int, array<string, string>> $rows
-             */
-            public function __construct(private array $rows)
-            {
-            }
+/**
+ * Doubles `fs_db2` for StealthMode::validateLegacyCookies().
+ *
+ * A named class (instead of an anonymous one) keeps the recorded queries
+ * visible to static analysis: the callers assert on `$db->queries`, which an
+ * anonymous subclass returned as `fs_db2` would hide.
+ */
+final class QueryRecordingDb extends \fs_db2
+{
+    /** @var array<int, string> */
+    public array $queries = [];
 
-            public function connected(): bool
-            {
-                return true;
-            }
+    /**
+     * @param array<int, array<string, string>> $rows
+     */
+    public function __construct(private array $rows)
+    {
+    }
 
-            public function connect(): bool
-            {
-                return true;
-            }
+    public function connected(): bool
+    {
+        return true;
+    }
 
-            public function escape_string($str): string
-            {
-                return addslashes((string) $str);
-            }
+    public function connect(): bool
+    {
+        return true;
+    }
 
-            /**
-             * @return array<int, array<string, string>>
-             */
-            public function select($sql, $params = []): array
-            {
-                $this->queries[] = (string) $sql;
+    public function escape_string($str): string
+    {
+        return addslashes((string) $str);
+    }
 
-                return $this->rows;
-            }
-        };
+    /**
+     * @return array<int, array<string, string>>
+     */
+    public function select($sql, $params = []): array
+    {
+        $this->queries[] = (string) $sql;
+
+        return $this->rows;
     }
 }

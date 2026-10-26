@@ -17,6 +17,8 @@ parameters:
         - FS_CHECK_DB_TYPES
     scanFiles:
         - base/fs_auth_request.php
+        - base/fs_operator_guard.php
+        - updater.php
         - base/fs_maintenance_mode.php
         - base/fs_plugin_manager.php
         - base/install_security.php
@@ -40,9 +42,13 @@ parameters:
         -
             identifier: return.type
             path: src/Core/Plugin/PluginEnableOrchestrator.php
+        # SelectLimitCastingTest asserts that a hostile LIMIT/OFFSET (a string
+        # with SQL in it) is coerced to an integer by the driver. Passing ints
+        # would delete the very behaviour under test, so the mismatch between
+        # the typed signature and the untrusted runtime value is deliberate.
         -
-            identifier: function.notFound
-            path: tests/Base/UpdaterPathValidationTest.php
+            identifier: argument.type
+            path: tests/Base/SelectLimitCastingTest.php
         # Characterization tests assert that log_in_user() and
         # applyTrustedSessionLogin() leave the by-reference controller user
         # untouched. PHPStan reads the fixture's initial logged_on = false and
