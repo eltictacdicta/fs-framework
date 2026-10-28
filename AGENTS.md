@@ -108,6 +108,12 @@ ddev exec composer phpstan:plugins
 - Adding a plugin to the gate is a deliberate change: append its paths (and any
   sibling it needs) to the candidate lists in `tools/phpstan-plugins.php`, then
   fix the debt it surfaces.
+- `phpstan:dead-code` and `phpstan:dead-code-context` are **dev-only tools, not
+  gates**. `dead-code` reports against `shipmonk/dead-code-detector`, which cannot
+  see plugin consumers: most of its findings are public API used from plugins or
+  by reflection, plus unused members in test doubles. `dead-code-context` was
+  removed with the plugin it existed for. Treat their output as a prompt to look,
+  never as a pass/fail signal.
 
 ### Testing
 
