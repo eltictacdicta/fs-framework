@@ -16,6 +16,12 @@ parameters:
         - plugins
         - src
         - tests
+    # Plugin vendors are third-party code: analysing them reports internal
+    # errors on library internals (e.g. symfony/console attributes) and cannot
+    # say anything about this codebase.
+    excludePaths:
+        analyse:
+            - %currentWorkingDirectory%/plugins/*/vendor/*
     paths:
         - api.php
         - cron.php
