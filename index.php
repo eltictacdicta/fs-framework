@@ -296,8 +296,20 @@ if (!empty($pagename)) {
                                     exit;
                                 }
                             } catch (\Throwable $e) {
-                                error_log("Error loading modern controller $fullClass: " . $e->getMessage());
-                                // Continue to try legacy controller
+                                // No caer al despacho legacy: find_modern_controller() volvería a
+                                // encontrar e instanciar este mismo controlador, ejecutando sus
+                                // efectos dos veces y ocultando el error original.
+                                if (!headers_sent()) {
+                                    http_response_code(500);
+                                }
+                                echo fs_render_fatal_error(
+                                    'FS2025',
+                                    $e->getMessage(),
+                                    $e->getFile(),
+                                    $e->getLine(),
+                                    get_class($e)
+                                );
+                                exit;
                             }
                         }
                     }
