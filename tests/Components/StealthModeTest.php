@@ -300,7 +300,81 @@ class StealthModeTest extends TestCase
 
         $this->assertStringNotContainsString('setcookie(', $body);
         $this->assertStringNotContainsString("'samesite' =>", $body, 'A local attribute literal is a second copy of the cookie attribute set.');
-        $this->assertStringContainsString('sessionCookieParams(', $body);
+        // La sesión la abre SessionManager (definición única): ni session_start()
+        // ni parámetros de cookie propios en StealthMode.
+        $this->assertStringContainsString('SessionManager::getInstance(', $body);
+        $this->assertStringNotContainsString('session_start(', $body);
+        $this->assertStringNotContainsString('session_set_cookie_params(', $body);
+    }
+
+    /**
+     * StealthMode abre la sesión antes que nadie en index.php: si lo hace con
+     * su propio session_start(), FS_SESSION_SAVE_PATH se ignora y el modo
+     * mantenimiento (que sí lo respeta) no encuentra la sesión del admin.
+     */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function testEnsurePhpSessionStartedHonoursTheConfiguredSavePathAndGc(): void
+    {
+        if (!defined('FS_FOLDER')) {
+            define('FS_FOLDER', '/var/www/html');
+        }
+
+        $savePath = sys_get_temp_dir() . '/fs_stealth_sessions_' . bin2hex(random_bytes(4));
+        mkdir($savePath, 0700, true);
+        define('FS_SESSION_SAVE_PATH', $savePath);
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        ini_set('session.gc_probability', '0');
+
+        $this->invokeEnsurePhpSessionStarted();
+
+        $this->assertSame(PHP_SESSION_ACTIVE, session_status());
+        $this->assertSame($savePath, session_save_path());
+        $this->assertSame('1', ini_get('session.gc_probability'), 'Un save_path propio no lo barre el cron del sistema.');
+        $this->assertSame((string) \FSFramework\Security\SessionPolicy::getAbsoluteTimeout(), ini_get('session.gc_maxlifetime'));
+
+        session_write_close();
+        array_map('unlink', glob($savePath . '/*') ?: []);
+        rmdir($savePath);
+    }
+
+    /**
+     * Un id residual de otra sesión (setUp() abre y cierra una PHPSESSID, igual
+     * que el sondeo de fs_maintenance_mode) no debe reutilizarse: la sesión
+     * propia sale de su propia cookie, o de un id nuevo.
+     */
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    public function testEnsurePhpSessionStartedDoesNotReuseAResidualForeignSessionId(): void
+    {
+        if (!defined('FS_FOLDER')) {
+            define('FS_FOLDER', '/var/www/html');
+        }
+
+        $_SESSION['user_nick'] = 'foreign';
+        $residualId = session_id();
+        $this->assertNotSame('', $residualId);
+        session_write_close();
+        $this->assertSame($residualId, session_id(), 'Precondición: el id queda fijado tras cerrar.');
+
+        $this->invokeEnsurePhpSessionStarted();
+
+        $this->assertSame(PHP_SESSION_ACTIVE, session_status());
+        $this->assertNotSame($residualId, session_id());
+        $this->assertArrayNotHasKey('user_nick', $_SESSION);
+    }
+
+    private function invokeEnsurePhpSessionStarted(): void
+    {
+        $method = (new ReflectionClass(StealthMode::class))->getMethod('ensurePhpSessionStarted');
+        $prevErrorLog = ini_get('error_log');
+        ini_set('error_log', '/dev/null');
+        try {
+            $method->invoke(new StealthMode($this->createDbStub()));
+        } finally {
+            ini_set('error_log', $prevErrorLog);
+        }
     }
 
     /**

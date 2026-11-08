@@ -150,6 +150,15 @@ class SessionManager
         $handler = null;
         if (defined('FS_SESSION_SAVE_PATH') && FS_SESSION_SAVE_PATH) {
             $handler = new NativeFileSessionHandler(FS_SESSION_SAVE_PATH);
+
+            // El cron de limpieza de Debian/Ubuntu sólo barre el save_path del
+            // sistema y esas distribuciones dejan session.gc_probability=0: en un
+            // directorio propio nadie borraría las sesiones caducadas. Se activa
+            // el GC de PHP (1 %) sólo si está desactivado.
+            if ((int) ini_get('session.gc_probability') === 0) {
+                $options['gc_probability'] = 1;
+                $options['gc_divisor'] = 100;
+            }
         }
 
         $storage = new NativeSessionStorage($options, $handler);

@@ -472,35 +472,37 @@ class StealthMode
         $_SESSION[self::SESSION_KEY] = true;
     }
 
+    private static bool $shutdownCloseRegistered = false;
+
     /**
-     * Abre la sesión PHP aplicando los parámetros compartidos ANTES del start.
+     * Abre la sesión a través de SessionManager, el único que la arranca.
      *
      * Este es el punto de entrada más externo que puede abrir la sesión: corre
-     * desde PublicAccessGate::intercept() -> hasAuthenticatedSession(), antes de
-     * SessionManager::initialize(). Por eso los parámetros de cookie y el modo
-     * estricto se aplican acá y no en index.php (que no es el único entry point).
+     * desde PublicAccessGate::intercept() -> hasAuthenticatedSession() en toda
+     * petición no pública, antes que cualquier otro componente. Antes abría la
+     * sesión con un session_start() propio que sólo aplicaba nombre, cookie y
+     * modo estricto; SessionManager se limitaba luego a envolverla, así que
+     * FS_SESSION_SAVE_PATH, gc_maxlifetime, la selección del id propio (frente a
+     * un id residual) y el control de pertenencia llegaban tarde o nunca.
+     * Delegar aquí aplica la definición única (sessionCookieParams() incluida)
+     * antes de leer nada de la sesión.
      *
-     * El `setcookie()` defensivo que había después del start se eliminó: con los
-     * parámetros aplicados antes del start y use_strict_mode activo, la emisión
-     * de PHP es completa. Aquel setcookie() era la segunda cabecera `Set-Cookie`
-     * del mismo nombre con `Path=/` fijo y sin `Secure` (VULN-0007, W-4). No se
-     * reemplaza por un duplicado attribute-identical: se elimina.
+     * Ni setcookie() ni atributos de cookie locales: una segunda cabecera
+     * `Set-Cookie` del mismo nombre era VULN-0007 (W-4).
      */
     private function ensurePhpSessionStarted(): void
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_name(SessionManager::resolveSessionName());
-            session_set_cookie_params(SessionManager::sessionCookieParams());
-            ini_set('session.use_strict_mode', '1');
-            @session_start();
-        }
+        SessionManager::getInstance();
 
-        // Forzar session_write_close() al final del request.
-        register_shutdown_function(function () {
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                session_write_close();
-            }
-        });
+        // Forzar session_write_close() al final del request (una sola vez).
+        if (!self::$shutdownCloseRegistered) {
+            self::$shutdownCloseRegistered = true;
+            register_shutdown_function(static function () {
+                if (session_status() === PHP_SESSION_ACTIVE) {
+                    session_write_close();
+                }
+            });
+        }
     }
 
     private function redirectToHiddenLogin(): RedirectResponse

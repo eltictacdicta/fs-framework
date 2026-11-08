@@ -144,17 +144,20 @@ final class SessionCookieParamsTest extends TestCase
 
     /**
      * STH-01 scenario "no second copy of the attribute set": StealthMode — the
-     * outermost path that may start the session — consumes the shared
-     * definition instead of restating the attributes before session_start().
+     * outermost path that may start the session — delegates the start to
+     * SessionManager, which applies the shared definition (cookie params,
+     * strict mode, save path, gc, own-id selection). It must not start the
+     * session itself nor restate any attribute. The runtime effect is covered
+     * by StealthModeTest (save path, residual id, cookie params).
      */
     public function testStealthModeConsumesTheSharedDefinition(): void
     {
         $source = (string) file_get_contents(dirname(__DIR__, 2) . '/src/Core/StealthMode.php');
         $body = $this->methodBody($source, 'ensurePhpSessionStarted');
 
-        $this->assertStringContainsString('sessionCookieParams(', $body);
-        $this->assertStringContainsString('session_set_cookie_params(', $body);
-        $this->assertStringContainsString('session.use_strict_mode', $body);
+        $this->assertStringContainsString('SessionManager::getInstance(', $body);
+        $this->assertStringNotContainsString('session_start(', $body);
+        $this->assertStringNotContainsString('session_set_cookie_params(', $body);
         $this->assertStringNotContainsString('httponly', $body);
         $this->assertStringNotContainsString('samesite', $body);
     }
