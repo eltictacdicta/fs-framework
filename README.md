@@ -63,7 +63,6 @@ Este repositorio puede mantener en GitHub el `vendor/` necesario para producció
 Atajos disponibles en el `composer.json` principal una vez instaladas las herramientas:
 
 - `ddev exec composer phpstan`
-- `ddev exec composer phpstan:baseline`
 - `ddev exec composer phpstan:dead-code`
 
 ## Novedades principales

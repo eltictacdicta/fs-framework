@@ -1,5 +1,4 @@
 includes:
-    - phpstan-baseline.neon
     - vendor/dev-tools/phpstan/phpstan-symfony/extension.neon
     - vendor/dev-tools/phpstan/phpstan-doctrine/extension.neon
 
@@ -12,6 +11,7 @@ parameters:
         - tests
         - base/fs_auth_request.php
     dynamicConstantNames:
+        - FS_PATH
         - FS_DB_TYPE
         - FS_FOREIGN_KEYS
         - FS_CHECK_DB_TYPES

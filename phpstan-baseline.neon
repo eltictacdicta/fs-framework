@@ -1,8 +1,0 @@
-parameters:
-	ignoreErrors:
-		-
-			message: '#^Strict comparison using \!\=\= between '''' and '''' will always evaluate to false\.$#'
-			identifier: notIdentical.alwaysFalse
-			count: 1
-			path: src/Core/StealthMode.php
-

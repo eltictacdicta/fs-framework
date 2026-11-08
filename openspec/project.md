@@ -110,7 +110,7 @@ All `plugins/*/tests/**/*Test.php` are picked up. Tariffs/sap-importer/exporter 
 | Tool | Available | Command |
 | --- | --- | --- |
 | Linter | ✅ | `composer phpstan` (`php vendor/dev-tools/bin/phpstan analyse --memory-limit=1G`) |
-| Type checker | ✅ | PHPStan level 5, baseline at `phpstan-baseline.neon` |
+| Type checker | ✅ | PHPStan level 5, sin baseline (ver AGENTS.md) |
 | Formatter | ❌ | — |
 | Coverage | ❌ | (not configured in `phpunit.xml`) |
 | Dead code | ✅ | `composer phpstan:dead-code` |
