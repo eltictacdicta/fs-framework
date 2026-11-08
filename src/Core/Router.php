@@ -152,17 +152,15 @@ class Router
     /**
      * Carga rutas desde atributos #[Route] en controladores.
      * Compatible con Symfony 7.x que eliminó AnnotationDirectoryLoader.
+     *
+     * Las páginas legacy (`index.php?page=X`) no se registran aquí: las despacha
+     * index.php. Una ruta con `?` en el path nunca coincide con getPathInfo().
      */
     private function loadRoutesFromAttributes(RouteCollection $collection): void
     {
         $coreControllerDir = $this->rootFolder . '/src/Controller';
         if (is_dir($coreControllerDir)) {
             $this->loadAttributeRoutesFromDirectory($collection, $coreControllerDir, 'FSFramework\\Controller\\');
-        }
-
-        $legacyControllerDir = $this->rootFolder . '/controller';
-        if (is_dir($legacyControllerDir)) {
-            $collection->addCollection($this->loadLegacyControllerRoutes($legacyControllerDir));
         }
 
         $this->loadPluginRoutes($collection);
@@ -178,11 +176,6 @@ class Router
         foreach ($GLOBALS['plugins'] as $plugin) {
             if (!Plugins::shouldLoadAutomaticRoutes($plugin)) {
                 continue;
-            }
-
-            $pluginControllerDir = $pluginsDir . '/' . $plugin . '/controller';
-            if (is_dir($pluginControllerDir)) {
-                $collection->addCollection($this->loadLegacyControllerRoutes($pluginControllerDir));
             }
 
             $pluginModernControllerDir = $pluginsDir . '/' . $plugin . '/Controller';
@@ -341,34 +334,6 @@ class Router
     {
         $className = basename($filePath, '.php');
         return preg_match('/^[A-Z][A-Za-z0-9_]*$/', $className) === 1;
-    }
-
-    private function loadLegacyControllerRoutes(string $directory): RouteCollection
-    {
-        $collection = new RouteCollection();
-        $files = glob($directory . self::PHP_GLOB_PATTERN);
-
-        foreach ($files as $file) {
-            $className = basename($file, '.php');
-
-            // Crear ruta legacy para compatibilidad
-            $route = new \Symfony\Component\Routing\Route(
-                '/index.php?page=' . $className,
-                [
-                    '_controller' => $className,
-                    'page' => $className
-                ],
-                [],
-                [],
-                '',
-                [],
-                ['GET', 'POST']
-            );
-
-            $collection->add('legacy_' . strtolower($className), $route);
-        }
-
-        return $collection;
     }
 
     public function handle(Request $request): ?Response
