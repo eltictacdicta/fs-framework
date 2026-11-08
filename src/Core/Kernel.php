@@ -17,7 +17,6 @@ class Kernel
     {
         $this->configureTrustedProxies();
         $this->request = Request::createFromGlobals();
-        $this->configureLegacyIncludePaths();
     }
 
     private function initializeRouter(): void
@@ -36,20 +35,6 @@ class Kernel
     private function configureTrustedProxies(): void
     {
         TrustedProxyConfigurator::configure();
-    }
-
-    /**
-     * Configures include paths for legacy compatibility.
-     * specifically for plugins like facturacion_base that expect 'extras/' to be in the path.
-     */
-    private function configureLegacyIncludePaths(): void
-    {
-        $root = defined('FS_FOLDER') ? FS_FOLDER : dirname(__DIR__, 2);
-        $legacyPath = $root . '/plugins/facturacion_base';
-
-        if (is_dir($legacyPath)) {
-            set_include_path(get_include_path() . PATH_SEPARATOR . $legacyPath);
-        }
     }
 
     public static function boot(): self
@@ -120,8 +105,11 @@ class Kernel
     }
 
     /**
-     * Returns the current version of the framework.
-     * Aligned with modern FacturaScripts year-based versioning.
+     * Nivel de compatibilidad FS2025 (versionado por año de FacturaScripts).
+     *
+     * NO es la versión de FSFramework, que vive en el fichero VERSION (lo lee
+     * fs_plugin_manager). Este valor es el que se compara con el min_version
+     * de los plugins FS2025, así que no debe alinearse con VERSION.
      */
     public static function version(): float
     {
