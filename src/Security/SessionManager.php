@@ -658,7 +658,7 @@ class SessionManager
         $this->session->getFlashBag()->add($type, $message);
     }
 
-    public function getFlashes(string $type = null): array
+    public function getFlashes(?string $type = null): array
     {
         if ($type) {
             return $this->session->getFlashBag()->get($type, []);
@@ -666,7 +666,7 @@ class SessionManager
         return $this->session->getFlashBag()->all();
     }
 
-    public function hasFlashes(string $type = null): bool
+    public function hasFlashes(?string $type = null): bool
     {
         if ($type) {
             return $this->session->getFlashBag()->has($type);

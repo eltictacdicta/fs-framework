@@ -157,7 +157,7 @@ if (!function_exists('__')) {
      * @param string|null $locale Locale
      * @return string
      */
-    function __(string $id = null, array $parameters = [], ?string $domain = null, ?string $locale = null): string
+    function __(?string $id = null, array $parameters = [], ?string $domain = null, ?string $locale = null): string
     {
         return FSTranslator::trans($id, $parameters, $domain, $locale);
     }
