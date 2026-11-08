@@ -126,6 +126,23 @@ class Container
             ->setPublic(true)
             ->setLazy(true);
 
+        // Alias por clase: el autowiring de un parámetro tipado recibe la
+        // instancia compartida en vez de construir una nueva.
+        $classAliases = [
+            FSEventDispatcher::class => 'event_dispatcher',
+            CsrfManager::class => 'csrf_manager',
+            PasswordHasherService::class => 'password_hasher',
+            EncryptionService::class => 'encryption',
+            CacheManager::class => 'cache',
+            SessionManager::class => 'session',
+            \Symfony\Component\HttpFoundation\Request::class => 'request',
+            \FSFramework\Core\Router::class => 'router',
+            \fs_db2::class => 'db',
+        ];
+        foreach ($classAliases as $class => $serviceId) {
+            $container->setAlias($class, $serviceId)->setPublic(true);
+        }
+
         // Registrar modelos legacy como servicios
         self::registerLegacyModels();
 
@@ -237,23 +254,132 @@ class Container
     {
         $container = self::getContainer();
 
-        // Intentar obtener por ID directo
-        if ($container->has($id)) {
-            return $container->get($id);
+        // Si es un nombre de clase sin registrar, registrarlo como autowired
+        if (!$container->has($id) && class_exists($id)) {
+            $container->register($id, $id)
+                ->setPublic(true)
+                ->setAutowired(true);
         }
 
-        // Si es un nombre de clase, intentar auto-wire
-        if (class_exists($id)) {
-            // Registrar y obtener dinámicamente
-            if (!$container->has($id)) {
-                $container->register($id, $id)
-                    ->setPublic(true)
-                    ->setAutowired(true);
-            }
+        if ($container->has($id)) {
+            self::autowire($id);
             return $container->get($id);
         }
 
         throw new \InvalidArgumentException("Service '{$id}' not found in container.");
+    }
+
+    /**
+     * Ids cuyas dependencias ya se resolvieron (o se están resolviendo).
+     *
+     * @var array<string, true>
+     */
+    private static array $autowired = [];
+
+    /**
+     * Resuelve los argumentos del constructor de una definición autowired.
+     *
+     * El contenedor no se compila (los plugins registran servicios en tiempo de
+     * ejecución), así que el AutowirePass de Symfony nunca corre y
+     * `setAutowired(true)` por sí solo instancia la clase sin argumentos. Aquí
+     * se rellenan con `Reference` los parámetros tipados con una clase o
+     * interfaz; las dependencias aún no registradas se registran como
+     * autowired, de forma recursiva. Las definiciones con argumentos
+     * explícitos o con factory se respetan tal cual.
+     */
+    private static function autowire(string $id): void
+    {
+        $container = self::getContainer();
+        while ($container->hasAlias($id)) {
+            $id = (string) $container->getAlias($id);
+        }
+        if (self::$compiled || isset(self::$autowired[$id]) || !$container->hasDefinition($id)) {
+            return;
+        }
+        // La marca se pone antes de recursar (corta ciclos), pero se retira si la
+        // resolución falla: si quedara puesta, el siguiente get() instanciaría la
+        // clase sin argumentos y ocultaría el error claro tras un ArgumentCountError.
+        self::$autowired[$id] = true;
+        try {
+            self::resolveConstructorArguments($id, $container->getDefinition($id));
+        } catch (\Throwable $e) {
+            unset(self::$autowired[$id]);
+            throw $e;
+        }
+    }
+
+    private static function resolveConstructorArguments(string $id, \Symfony\Component\DependencyInjection\Definition $definition): void
+    {
+        $class = $definition->getClass() ?? $id;
+        if (!$definition->isAutowired()
+            || $definition->getFactory() !== null
+            || $definition->getArguments() !== []
+            || !class_exists($class)
+        ) {
+            return;
+        }
+
+        $constructor = (new \ReflectionClass($class))->getConstructor();
+        if ($constructor === null) {
+            return;
+        }
+
+        $arguments = [];
+        foreach ($constructor->getParameters() as $parameter) {
+            $dependency = self::resolveDependencyId($parameter);
+            if ($dependency === null) {
+                if ($parameter->isOptional()) {
+                    break; // el resto de parámetros toma su valor por defecto
+                }
+                if ($parameter->allowsNull()) {
+                    $arguments[] = null;
+                    continue;
+                }
+                throw new \InvalidArgumentException(sprintf(
+                    'Cannot autowire service "%s": parameter $%s of %s::__construct() has no resolvable class type.',
+                    $id,
+                    $parameter->getName(),
+                    $class
+                ));
+            }
+
+            self::autowire($dependency);
+            $arguments[] = new Reference($dependency);
+        }
+
+        $definition->setArguments($arguments);
+    }
+
+    /**
+     * Devuelve el id de servicio que satisface un parámetro, registrándolo como
+     * autowired si es una clase concreta aún desconocida. NULL si no se puede.
+     */
+    private static function resolveDependencyId(\ReflectionParameter $parameter): ?string
+    {
+        $type = $parameter->getType();
+        if (!$type instanceof \ReflectionNamedType || $type->isBuiltin()) {
+            return null;
+        }
+
+        $name = $type->getName();
+        if (in_array(strtolower($name), ['self', 'static'], true)) {
+            $name = $parameter->getDeclaringClass()?->getName() ?? $name;
+        }
+
+        $container = self::getContainer();
+        if ($container->has($name)) {
+            return $name;
+        }
+
+        // Un parámetro opcional solo se cablea con servicios ya existentes.
+        if (!$parameter->isOptional() && class_exists($name) && (new \ReflectionClass($name))->isInstantiable()) {
+            $container->register($name, $name)
+                ->setPublic(true)
+                ->setAutowired(true);
+            return $name;
+        }
+
+        return null;
     }
 
     /**
@@ -356,5 +482,6 @@ class Container
         self::$container = null;
         self::$compiled = false;
         self::$reservedDefinitions = [];
+        self::$autowired = [];
     }
 }
