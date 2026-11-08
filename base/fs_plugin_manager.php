@@ -678,7 +678,9 @@ class fs_plugin_manager
     protected function clean_cache()
     {
         $this->cache->clean();
-        fs_file_manager::clear_raintpl_cache();
+        // Twig también: con FS_TWIG_AUTO_RELOAD=false la caché compilada no
+        // detecta por sí sola las plantillas del plugin activado o actualizado.
+        fs_file_manager::clear_all_template_cache();
     }
 
     /**

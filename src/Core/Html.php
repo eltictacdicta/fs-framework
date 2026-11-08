@@ -144,7 +144,13 @@ class Html
         $twig = new Environment($loader, [
             'cache' => FS_FOLDER . '/tmp/twig_cache',
             'debug' => defined('FS_DEBUG') && FS_DEBUG,
-            'auto_reload' => true,
+            // Por defecto se comprueba el mtime de cada plantilla en cada render.
+            // En producción con despliegues que limpian tmp/twig_cache se puede
+            // desactivar con define('FS_TWIG_AUTO_RELOAD', false). En FS_DEBUG
+            // siempre está activo.
+            'auto_reload' => (defined('FS_DEBUG') && FS_DEBUG)
+                || !defined('FS_TWIG_AUTO_RELOAD')
+                || (bool) constant('FS_TWIG_AUTO_RELOAD'),
         ]);
 
         self::registerExtensions($twig);
