@@ -1286,7 +1286,7 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                 <p>
                                                     <a href="https://github.com/PHPMailer/PHPMailer/">phpmailer</a> con
                                                     la misma licencia
-                                                    <a href="extras/phpmailer/LICENSE">LGPL</a>.
+                                                    <a href="https://github.com/PHPMailer/PHPMailer/blob/master/LICENSE">LGPL</a>.
                                                     <br />
                                                     Para la parte gráfica se incluye el framewrowk <a
                                                         href="http://getbootstrap.com">Bootstrap</a>, con licencia
