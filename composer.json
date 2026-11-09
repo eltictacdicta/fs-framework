@@ -36,7 +36,10 @@
         "psr-4": {
             "FSFramework\\": "src/",
             "FSFramework\\Plugins\\": "plugins/"
-        }
+        },
+        "exclude-from-classmap": [
+            "plugins/"
+        ]
     },
     "config": {
         "allow-plugins": {
@@ -45,7 +48,8 @@
         "platform": {
             "php": "8.3"
         },
-        "platform-check": false
+        "platform-check": false,
+        "optimize-autoloader": true
     },
     "autoload-dev": {
         "psr-4": {
