@@ -43,8 +43,10 @@ class Html
             self::$startTime = microtime(true);
         }
 
-        // Inject GLOBALS for compatibility with RainTPL templates that use $GLOBALS
-        $params['GLOBALS'] = $GLOBALS;
+        // RainTPL templates translated to Twig read $GLOBALS['plugins'] and
+        // $GLOBALS['config2']. Only those keys are exposed: the full $GLOBALS
+        // would hand $_SERVER, $_ENV, $_COOKIE and every global to any template.
+        $params['GLOBALS'] = self::templateGlobals();
 
         // Add controller name for FS2025 compatibility
         if (isset($params['fsc']) && is_object($params['fsc'])) {
@@ -56,6 +58,19 @@ class Html
         }
 
         return self::renderTwig($template, $params);
+    }
+
+    /**
+     * The $GLOBALS subset templates may read.
+     *
+     * @return array{plugins: list<string>, config2: array<string, mixed>}
+     */
+    public static function templateGlobals(): array
+    {
+        return [
+            'plugins' => $GLOBALS['plugins'] ?? [],
+            'config2' => $GLOBALS['config2'] ?? [],
+        ];
     }
 
     /**
