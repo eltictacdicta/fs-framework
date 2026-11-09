@@ -256,13 +256,13 @@ class Router
 
         foreach ($classAttributes as $attribute) {
             $routeAttr = $attribute->newInstance();
-            $config['prefix'] = $routeAttr->getPath() ?? $config['prefix'];
-            $config['namePrefix'] = $routeAttr->getName() ?? $config['namePrefix'];
-            $config['defaults'] = array_merge($config['defaults'], $routeAttr->getDefaults());
-            $config['methods'] = $routeAttr->getMethods() ?: $config['methods'];
-            $config['requirements'] = array_merge($config['requirements'], $routeAttr->getRequirements());
-            $config['host'] = $routeAttr->getHost() ?? $config['host'];
-            $config['schemes'] = $routeAttr->getSchemes() ?: $config['schemes'];
+            $config['prefix'] = (\is_string($routeAttr->path) ? $routeAttr->path : null) ?? $config['prefix'];
+            $config['namePrefix'] = $routeAttr->name ?? $config['namePrefix'];
+            $config['defaults'] = array_merge($config['defaults'], $routeAttr->defaults);
+            $config['methods'] = $routeAttr->methods ?: $config['methods'];
+            $config['requirements'] = array_merge($config['requirements'], $routeAttr->requirements);
+            $config['host'] = $routeAttr->host ?? $config['host'];
+            $config['schemes'] = $routeAttr->schemes ?: $config['schemes'];
         }
 
         return $config;
@@ -289,22 +289,22 @@ class Router
     ): void {
         $routeAttr = $attribute->newInstance();
 
-        $path = $classConfig['prefix'] . ($routeAttr->getPath() ?? '');
+        $path = $classConfig['prefix'] . ((\is_string($routeAttr->path) ? $routeAttr->path : null) ?? '');
         $routeName = $this->resolveRouteName($routeAttr, $classConfig, $className, $methodName);
 
-        $defaults = array_merge($classConfig['defaults'], $routeAttr->getDefaults(), [
+        $defaults = array_merge($classConfig['defaults'], $routeAttr->defaults, [
             '_controller' => $className . '::' . $methodName,
         ]);
 
         $route = new Route(
             $path,
             $defaults,
-            array_merge($classConfig['requirements'], $routeAttr->getRequirements()),
-            $routeAttr->getOptions(),
-            $routeAttr->getHost() ?? $classConfig['host'] ?: '',
-            $routeAttr->getSchemes() ?: $classConfig['schemes'],
-            $routeAttr->getMethods() ?: $classConfig['methods'] ?: [],
-            $routeAttr->getCondition() ?? ''
+            array_merge($classConfig['requirements'], $routeAttr->requirements),
+            $routeAttr->options,
+            $routeAttr->host ?? $classConfig['host'] ?: '',
+            $routeAttr->schemes ?: $classConfig['schemes'],
+            $routeAttr->methods ?: $classConfig['methods'] ?: [],
+            $routeAttr->condition ?? ''
         );
 
         $collection->add($routeName, $route);
@@ -312,7 +312,7 @@ class Router
 
     private function resolveRouteName(mixed $routeAttr, array $classConfig, string $className, string $methodName): string
     {
-        $attrName = $routeAttr->getName();
+        $attrName = $routeAttr->name;
 
         if ($classConfig['namePrefix'] && $attrName) {
             return $classConfig['namePrefix'] . $attrName;
