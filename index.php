@@ -221,89 +221,6 @@ if ($requestedPage === null && defined('FS_HOMEPAGE')) {
     $pagename = FS_HOMEPAGE;
 }
 
-// Support for Modern Controllers (Bridge) - High Priority to avoid legacy 404 headers
-// FS2025 plugins use Controller/ folder with PascalCase class names
-if (!empty($pagename)) {
-    if (isset($GLOBALS['plugins'])) {
-        foreach ($GLOBALS['plugins'] as $plugin) {
-            $modernDir = __DIR__ . '/plugins/' . $plugin . '/Controller';
-            if (is_dir($modernDir)) {
-                foreach (scandir($modernDir) as $file) {
-                    if (substr($file, -4) === '.php') {
-                        $className = substr($file, 0, -4);
-                        if (!fs_is_modern_controller_basename($className)) {
-                            continue;
-                        }
-
-                        $fullClass = "FSFramework\\Plugins\\$plugin\\Controller\\$className";
-                        
-                        // Skip if class doesn't exist (autoloader didn't find it)
-                        if (!fs_is_modern_page_controller($fullClass)) {
-                            continue;
-                        }
-                        
-                        // Check if this controller matches the requested page
-                        // FS2025 controllers can define 'name' in getPageData() or use class name
-                        $cName = $className;
-                        
-                        // Use reflection to check getPageData without instantiating
-                        $reflection = new \ReflectionClass($fullClass);
-                        if ($reflection->hasMethod('getPageData')) {
-                            // Instantiate to get page data
-                            try {
-                                // Create without running constructor logic by using newInstanceWithoutConstructor
-                                // then manually call getPageData
-                                $tempInstance = $reflection->newInstanceWithoutConstructor();
-                                if (method_exists($tempInstance, 'getPageData')) {
-                                    $pd = $tempInstance->getPageData();
-                                    if (isset($pd['name']) && !empty($pd['name'])) {
-                                        $cName = $pd['name'];
-                                    }
-                                }
-                            } catch (\Throwable $e) {
-                                // If reflection fails, just use class name
-                            }
-                        }
-
-                        if ($cName === $pagename) {
-                            // FOUND IT! Create proper instance and run
-                            try {
-                                $controller = new $fullClass();
-                                
-                                if (method_exists($controller, 'handle')) {
-                                    $resp = $controller->handle(\FSFramework\Core\Kernel::request());
-                                    if ($resp) {
-                                        $resp->send();
-                                    }
-                                    exit;
-                                } elseif (method_exists($controller, 'run')) {
-                                    $controller->run();
-                                    exit;
-                                }
-                            } catch (\Throwable $e) {
-                                // No caer al despacho legacy: find_modern_controller() volvería a
-                                // encontrar e instanciar este mismo controlador, ejecutando sus
-                                // efectos dos veces y ocultando el error original.
-                                if (!headers_sent()) {
-                                    http_response_code(500);
-                                }
-                                echo fs_render_fatal_error(
-                                    'FS2025',
-                                    $e->getMessage(),
-                                    $e->getFile(),
-                                    $e->getLine(),
-                                    get_class($e)
-                                );
-                                exit;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 $fsc_error = FALSE;
 if ($pagename == '') {
     if ($invalidPageRequested) {
@@ -312,18 +229,28 @@ if ($pagename == '') {
 
     $fsc = new fs_controller();
 } else {
-    // First check if it's a FS2025 modern controller
+    // Controlador FS2025 (Controller/ de un plugin activo): una sola búsqueda
+    // y un solo despacho. Si lanza, no se cae al legacy: ocultaría el error.
     $modernController = find_modern_controller($pagename);
-    
+
     if ($modernController) {
-        // FS2025 controller - use full namespace class
         try {
             $fsc = new $modernController['class']();
+            if (method_exists($fsc, 'handle')) {
+                $resp = $fsc->handle(\FSFramework\Core\Kernel::request());
+                if ($resp) {
+                    $resp->send();
+                }
+                exit;
+            }
             if (method_exists($fsc, 'run')) {
                 $fsc->run();
                 exit;
             }
         } catch (\Throwable $exc) {
+            if (!headers_sent()) {
+                http_response_code(500);
+            }
             echo fs_render_fatal_error(
                 'FS2025',
                 $exc->getMessage(),
@@ -331,7 +258,7 @@ if ($pagename == '') {
                 $exc->getLine(),
                 get_class($exc)
             );
-            $fsc_error = TRUE;
+            exit;
         }
     } else {
         // Legacy controller handling — use absolute path so CWD cannot break includes (LiteSpeed/LSAPI)
