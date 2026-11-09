@@ -225,6 +225,21 @@ class fs_settings
      */
     public function get_timezone_list()
     {
+        // Loading the ~600 zone definitions costs ~5 ms per request; the
+        // offsets only change with DST, so cache the list per UTC hour.
+        if (class_exists(\FSFramework\Cache\CacheManager::class)) {
+            return \FSFramework\Cache\CacheManager::getInstance()->get(
+                'fs_timezone_list_' . gmdate('YmdH'),
+                fn () => $this->build_timezone_list(),
+                3600
+            );
+        }
+
+        return $this->build_timezone_list();
+    }
+
+    private function build_timezone_list()
+    {
         $zones_array = [];
         $timestamp = time();
         $timezone = date_default_timezone_get();
