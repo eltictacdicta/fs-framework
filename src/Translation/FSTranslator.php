@@ -106,9 +106,10 @@ class FSTranslator
         self::$instance = new Translator(self::$locale);
 
         // Registrar loaders
-        self::$instance->addLoader('yaml', new YamlFileLoader());
-        self::$instance->addLoader('json', new JsonFileLoader());
-        self::$instance->addLoader('fs2025json', new FS2025JsonLoader());
+        $cacheDir = self::catalogueCacheDir();
+        self::$instance->addLoader('yaml', new CachedFileLoader(new YamlFileLoader(), $cacheDir));
+        self::$instance->addLoader('json', new CachedFileLoader(new JsonFileLoader(), $cacheDir));
+        self::$instance->addLoader('fs2025json', new CachedFileLoader(new FS2025JsonLoader(), $cacheDir));
 
         // Configurar fallbacks: locale específico -> idioma base -> idioma por defecto
         self::configureFallbacks();
@@ -317,6 +318,18 @@ class FSTranslator
      * 
      * @return string
      */
+    /**
+     * Where CachedFileLoader keeps the parsed translation files.
+     */
+    private static function catalogueCacheDir(): string
+    {
+        if (defined('FS_FOLDER')) {
+            return FS_FOLDER . '/tmp/' . (defined('FS_TMP_NAME') ? FS_TMP_NAME : '') . 'translations_cache';
+        }
+
+        return sys_get_temp_dir() . '/fsframework_translations_cache';
+    }
+
     private static function detectBasePath(): string
     {
         // Si hay constante FS_FOLDER definida (compatibilidad)
