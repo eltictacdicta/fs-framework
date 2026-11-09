@@ -43,15 +43,60 @@ class FSEventDispatcher extends EventDispatcher
     private static ?FSEventDispatcher $instance = null;
 
     /**
+     * Eventos a los que se enganchan las extensiones legacy (fs_extension).
+     */
+    private const LEGACY_EXTENSION_EVENTS = ['controller.render', 'controller.config', 'view.assets'];
+
+    /**
+     * Las extensiones legacy se cargan (una consulta a fs_extensions) la
+     * primera vez que se dispara o consulta uno de sus eventos, no en cada
+     * petición: ni el core ni los plugins conocidos disparan esos eventos.
+     */
+    private bool $legacyExtensionsPending = false;
+
+    /**
      * Obtiene la instancia singleton del dispatcher.
      */
     public static function getInstance(): self
     {
         if (self::$instance === null) {
             self::$instance = new self();
-            self::$instance->registerLegacyExtensions();
+            self::$instance->legacyExtensionsPending = true;
         }
         return self::$instance;
+    }
+
+    public function dispatch(object $event, ?string $eventName = null): object
+    {
+        $this->loadLegacyExtensionsFor($eventName ?? $event::class);
+
+        return parent::dispatch($event, $eventName);
+    }
+
+    public function getListeners(?string $eventName = null): array
+    {
+        $this->loadLegacyExtensionsFor($eventName);
+
+        return parent::getListeners($eventName);
+    }
+
+    public function hasListeners(?string $eventName = null): bool
+    {
+        $this->loadLegacyExtensionsFor($eventName);
+
+        return parent::hasListeners($eventName);
+    }
+
+    /**
+     * @param string|null $eventName null: todos los eventos
+     */
+    private function loadLegacyExtensionsFor(?string $eventName): void
+    {
+        if ($this->legacyExtensionsPending
+            && ($eventName === null || in_array($eventName, self::LEGACY_EXTENSION_EVENTS, true))) {
+            $this->legacyExtensionsPending = false;
+            $this->registerLegacyExtensions();
+        }
     }
 
     /**
