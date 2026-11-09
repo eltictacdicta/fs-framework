@@ -118,38 +118,22 @@ require_once 'base/fs_controller.php';
 /// --- Security Headers ---
 \FSFramework\Security\SecurityHeaders::applyDefaultHeaders();
 
-/// --- Stealth Mode Gate ---
+/// --- HttpKernel de Symfony ---
+/// Gate de acceso público (stealth), rutas #[FSRoute] y probes del navegador
+/// son listeners de kernel.request (FSFramework\Core\Http). Si ninguna ruta
+/// reclama la petición, el kernel lanza NotFoundHttpException y se sigue con
+/// el despacho por ?page=.
 require_once FS_FOLDER . '/src/Core/StealthMode.php';
 require_once FS_FOLDER . '/src/Core/PublicAccessGate.php';
-$_stealth = new \FSFramework\Core\StealthMode();
-$_publicAccessGate = new \FSFramework\Core\PublicAccessGate($_stealth);
-$_publicAccessResponse = $_publicAccessGate->intercept(\FSFramework\Core\Kernel::request());
-if ($_publicAccessResponse) {
-    $_publicAccessResponse->send();
-    exit;
-}
-unset($_publicAccessGate, $_publicAccessResponse, $_stealth);
-
-/// --- Symfony Routing Bridge ---
-try {
-    $response = \FSFramework\Core\Kernel::handleRequest();
-    if ($response) {
-        $response->send();
-        exit;
-    }
-} catch (\Throwable $e) {
-    error_log("Global Symfony Router Bridge Error: " . $e->getMessage());
-}
-// ------------------------------
-
-/// Probes del navegador (favicon, etc.): ya son "públicos" para el gate; sin ruta Symfony,
-/// devolver 204 y no caer en el front legacy (evita 302 a login y session_start() por stealth).
 $request = \FSFramework\Core\Kernel::request();
-if (\FSFramework\Core\Plugins::shouldRespondNoContentForBrowserProbe($request)) {
-    $response = new \Symfony\Component\HttpFoundation\Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
-    $response->prepare($request);
+try {
+    $_httpKernel = \FSFramework\Core\Kernel::httpKernel();
+    $response = $_httpKernel->handle($request);
     $response->send();
+    $_httpKernel->terminate($request, $response);
     exit;
+} catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException) {
+    unset($_httpKernel);
 }
 
 

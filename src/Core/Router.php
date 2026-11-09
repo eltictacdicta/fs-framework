@@ -336,21 +336,35 @@ class Router
         return preg_match('/^[A-Z][A-Za-z0-9_]*$/', $className) === 1;
     }
 
-    public function handle(Request $request): ?Response
+    /**
+     * Matches the request against the declared routes.
+     *
+     * @return array<string, mixed>|null route parameters (with _controller and _route), null when no route matches
+     * @throws MethodNotAllowedException when the path matches but the HTTP method does not
+     */
+    public function match(Request $request): ?array
     {
         $this->context = new RequestContext();
         $this->context->fromRequest($request);
 
-        $matcher = new UrlMatcher($this->routes, $this->context);
-
         try {
-            $parameters = $matcher->match($request->getPathInfo());
+            return (new UrlMatcher($this->routes, $this->context))->match($request->getPathInfo());
+        } catch (ResourceNotFoundException) {
+            return null;
+        }
+    }
+
+    public function handle(Request $request): ?Response
+    {
+        try {
+            $parameters = $this->match($request);
+            if ($parameters === null) {
+                return null;
+            }
             $controller = $parameters['_controller'];
             unset($parameters['_controller'], $parameters['_route']);
 
             return $this->dispatchController($controller, $request, $parameters);
-        } catch (ResourceNotFoundException) {
-            return null;
         } catch (MethodNotAllowedException) {
             return new Response('Method Not Allowed', 405);
         } catch (\Throwable $e) {

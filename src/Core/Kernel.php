@@ -3,15 +3,19 @@
 namespace FSFramework\Core;
 
 use FSFramework\Core\Exception\KernelNotBootedException;
+use FSFramework\Core\Http\HttpKernelFactory;
+use FSFramework\Event\FSEventDispatcher;
 use FSFramework\Security\TrustedProxyConfigurator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\HttpKernel;
 
 class Kernel
 {
     private static ?Kernel $instance = null;
     private Request $request;
     private ?Router $router = null;
+    private ?HttpKernel $httpKernel = null;
 
     private function __construct()
     {
@@ -63,6 +67,28 @@ class Kernel
     public function getRouter(): ?Router
     {
         return $this->router;
+    }
+
+    /**
+     * The Symfony HttpKernel of the web front controller: public-access gate,
+     * #[FSRoute] routes and browser probes. Its listeners live on the shared
+     * FSEventDispatcher, so plugins can subscribe to kernel.* events.
+     */
+    public static function httpKernel(): HttpKernel
+    {
+        $kernel = self::getInstance();
+        if ($kernel->httpKernel === null) {
+            if ($kernel->router === null) {
+                $kernel->initializeRouter();
+            }
+            $kernel->httpKernel = HttpKernelFactory::create(
+                FSEventDispatcher::getInstance(),
+                $kernel->router,
+                new PublicAccessGate(new StealthMode())
+            );
+        }
+
+        return $kernel->httpKernel;
     }
 
     /**
