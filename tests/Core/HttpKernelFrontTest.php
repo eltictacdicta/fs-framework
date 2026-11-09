@@ -15,13 +15,13 @@ declare(strict_types=1);
 namespace Tests\Core;
 
 use FSFramework\Core\Http\HttpKernelFactory;
+use FSFramework\Core\Http\PageResponse;
 use FSFramework\Core\Router;
 use FSFramework\DependencyInjection\Container;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernel;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -64,11 +64,35 @@ final class HttpKernelFrontTest extends TestCase
         self::assertSame('ok', $this->kernel()->handle(Request::create('/ping'))->getContent());
     }
 
-    public function testNoMatchingRouteLeavesTheRequestToThePageDispatch(): void
+    public function testNoMatchingRouteIsServedByThePageDispatch(): void
     {
-        $this->expectException(NotFoundHttpException::class);
+        $response = $this->kernel()->handle(Request::create('/index.php?page=admin_home'));
 
-        $this->kernel()->handle(Request::create('/index.php?page=admin_home'));
+        self::assertInstanceOf(PageResponse::class, $response);
+    }
+
+    public function testAPageResponseSendsNoHeadersOfItsOwn(): void
+    {
+        $ran = false;
+        $response = new PageResponse(static function () use (&$ran): void {
+            $ran = true;
+        });
+
+        self::assertSame($response, $response->sendHeaders());
+        $response->sendContent();
+        self::assertTrue($ran);
+    }
+
+    public function testAnUnresolvableRouteControllerAnswers500(): void
+    {
+        $previous = ini_set('error_log', '/dev/null');
+        try {
+            $response = $this->kernel(['/gone' => 'Missing\\Controller::action'])->handle(Request::create('/gone'));
+        } finally {
+            ini_set('error_log', (string) $previous);
+        }
+
+        self::assertSame(500, $response->getStatusCode());
     }
 
     public function testAWrongMethodAnswers405(): void
@@ -94,9 +118,10 @@ final class HttpKernelFrontTest extends TestCase
     public function testALegacyControllerRouteFallsThroughToThePageDispatch(): void
     {
         require_once FS_FOLDER . '/base/fs_controller.php';
-        $this->expectException(NotFoundHttpException::class);
 
-        $this->kernel(['/legacy' => \fs_controller::class])->handle(Request::create('/legacy'));
+        $response = $this->kernel(['/legacy' => \fs_controller::class])->handle(Request::create('/legacy'));
+
+        self::assertInstanceOf(PageResponse::class, $response);
     }
 
     /**

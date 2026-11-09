@@ -34,12 +34,18 @@ use Symfony\Component\HttpKernel\Controller\ControllerResolverInterface;
  * - "Class::method"      → that method
  * - class with handle()  → handle()
  * - class with run()     → run(), then its response() or an empty response
- * - an fs_controller     → none: legacy pages are dispatched by ?page=
+ * - no route matched     → the ?page= dispatch (PageDispatcher), as a PageResponse
  */
 final class ControllerResolver implements ControllerResolverInterface
 {
     public function getController(Request $request): callable|false
     {
+        if (!$request->attributes->has('_controller')) {
+            return static fn (Request $request): PageResponse => new PageResponse(
+                static fn () => (new PageDispatcher())->dispatch($request)
+            );
+        }
+
         $controller = $request->attributes->get('_controller');
 
         if (is_string($controller) && str_contains($controller, '::')) {

@@ -29,15 +29,14 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 
 /**
  * The front controller's request pipeline as HttpKernel listeners:
  * public-access gate, then route matching, then the browser-probe 204.
- * A request no route claims ends in NotFoundHttpException, which
- * index.php takes as "dispatch by ?page=".
+ * A request no route claims is served by the ?page= dispatch
+ * (see ControllerResolver).
  */
 final class FrontRequestSubscriber implements EventSubscriberInterface
 {
@@ -85,8 +84,8 @@ final class FrontRequestSubscriber implements EventSubscriberInterface
             return;
         }
 
-        // A route to an fs_controller is not claimed: legacy pages are
-        // dispatched by ?page= (Router::handle() returned null for them).
+        // A route to an fs_controller is not claimed: legacy pages go through
+        // the ?page= dispatch (Router::handle() returned null for them).
         $controller = $parameters['_controller'] ?? null;
         if (is_string($controller) && class_exists($controller) && is_a($controller, 'fs_controller', true)) {
             if (Plugins::isEnabled('legacy_support') && class_exists('FSFramework\\Plugins\\legacy_support\\LegacyUsageTracker')) {
@@ -114,17 +113,11 @@ final class FrontRequestSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * A failing route controller answers 500, as Router::handle() did. A
-     * request without a controller is left to propagate: index.php falls
-     * back to the ?page= dispatch.
+     * A failing route controller answers 500, as Router::handle() did.
      */
     public function onException(ExceptionEvent $event): void
     {
         $e = $event->getThrowable();
-        if ($e instanceof NotFoundHttpException && !$event->getRequest()->attributes->has('_controller')) {
-            return;
-        }
-
         $details = $e->getMessage();
         $previous = $e->getPrevious();
         if ($previous instanceof \Throwable && $previous->getMessage() !== '') {

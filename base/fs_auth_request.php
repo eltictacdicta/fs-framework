@@ -67,7 +67,7 @@ final class fs_auth_request
      * Canonical requested-page name, or an empty string when the request names
      * no valid page.
      *
-     * Mirrors index.php::fs_get_requested_page_name() exactly: reject a
+     * Mirrors PageDispatcher::requestedPageName() exactly: reject a
      * non-string, trim, then accept only /^[a-z][a-z0-9_]*$/. The gate MUST
      * consume this rule rather than compare the raw query value, otherwise the
      * gate and the dispatcher would disagree again (e.g. page=login%20 resolves
