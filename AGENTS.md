@@ -1036,6 +1036,7 @@ The "Limpiar caché" button in admin_info (`index.php?page=admin_info&clean_cach
 | Component | Version | Purpose |
 |-----------|---------|---------|
 | `symfony/http-foundation` | ^7.4 | Request/Response handling |
+| `symfony/http-kernel` | ^7.4 | Web front controller pipeline (`Kernel::httpKernel()`, listeners in `src/Core/Http/`) |
 | `symfony/routing` | ^7.4 | Modern routing with attributes |
 | `symfony/security-csrf` | ^7.4 | CSRF token protection |
 | `symfony/event-dispatcher` | ^7.4 | Event system |
