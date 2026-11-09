@@ -70,6 +70,12 @@ class CacheManager
      * donde los cambios deben reflejarse rápidamente.
      */
     public const DEFAULT_TTL = 180;
+
+    /** Segundos de espera de la prueba de conexión a Memcached. */
+    private const MEMCACHED_PROBE_TIMEOUT = 0.25;
+
+    /** Segundos sin reintentar Memcached tras una prueba fallida. */
+    private const MEMCACHED_RETRY_AFTER = 30;
     
     private function __construct()
     {
@@ -116,7 +122,7 @@ class CacheManager
         
         // Asegurar que el directorio de caché existe
         if (!is_dir($this->cacheDir)) {
-            @mkdir($this->cacheDir, 0777, true);
+            @mkdir($this->cacheDir, 0775, true);
         }
         
         $adapters[] = new FilesystemAdapter($prefix, self::DEFAULT_TTL, $this->cacheDir);
@@ -136,13 +142,25 @@ class CacheManager
             $host = defined('FS_CACHE_HOST') ? FS_CACHE_HOST : 'localhost';
             $port = defined('FS_CACHE_PORT') ? FS_CACHE_PORT : 11211;
             
+            // Un Memcached caído costaba el timeout de la prueba en CADA
+            // petición: tras un fallo no se reintenta durante MEMCACHED_RETRY_AFTER.
+            $downMarker = $this->legacyCacheDir . 'memcached_down';
+            $downSince = @filemtime($downMarker);
+            if ($downSince !== false && time() - $downSince < self::MEMCACHED_RETRY_AFTER) {
+                return false;
+            }
+
             // Primero verificar si el servidor responde con un socket test
-            $socket = @fsockopen($host, $port, $errno, $errstr, 1);
+            $socket = @fsockopen($host, (int) $port, $errno, $errstr, self::MEMCACHED_PROBE_TIMEOUT);
             if ($socket === false) {
                 // Servidor Memcached no accesible
+                @touch($downMarker);
                 return false;
             }
             fclose($socket);
+            if ($downSince !== false) {
+                @unlink($downMarker);
+            }
             
             // Ahora crear el adaptador
             $memcachedClient = MemcachedAdapter::createConnection(

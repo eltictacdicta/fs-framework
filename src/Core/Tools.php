@@ -100,7 +100,7 @@ class Tools
     public static function folderCheckOrCreate($path)
     {
         if (!file_exists($path)) {
-            return mkdir($path, 0777, true);
+            return mkdir($path, 0775, true);
         }
         return is_dir($path);
     }
@@ -179,7 +179,7 @@ class Tools
         }
 
         if (!is_dir($dest)) {
-            if (!mkdir($dest, 0777, true)) {
+            if (!mkdir($dest, 0775, true)) {
                 return false;
             }
         }

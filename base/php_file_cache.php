@@ -49,7 +49,7 @@ class php_file_cache
         );
 
         if (!file_exists(self::$config['cache_path'])) {
-            if (!is_dir(self::$config['cache_path']) && !mkdir(self::$config['cache_path'], 0777, true) && !is_dir(self::$config['cache_path'])) {
+            if (!is_dir(self::$config['cache_path']) && !mkdir(self::$config['cache_path'], 0775, true) && !is_dir(self::$config['cache_path'])) {
                 error_log('php_file_cache: failed to create cache directory ' . self::$config['cache_path']);
             }
         }
