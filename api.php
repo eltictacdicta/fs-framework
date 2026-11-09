@@ -154,26 +154,10 @@ if (!$db->connect()) {
     exit;
 }
 
-// Self-heal: asegurar tablas core críticas en instalaciones incompletas
-try {
-    fs_schema::selfHealCoreTables();
-} catch (\Throwable $e) {
-    error_log('Core tables self-heal failed in API: ' . $e->getMessage());
-}
-
-// Migración one-shot de páginas solo-administrador (tras el self-heal)
-try {
-    \FSFramework\Core\Schema\AdminOnlyPagesMigration::run();
-} catch (\Throwable $e) {
-    error_log('AdminOnlyPagesMigration bootstrap failed in API: ' . $e->getMessage());
-}
-
-// Migración one-shot del registro de idiomas de contenido (tras el self-heal)
-try {
-    \FSFramework\Core\Schema\ContentI18nMigration::run();
-} catch (\Throwable $e) {
-    error_log('ContentI18nMigration bootstrap failed in API: ' . $e->getMessage());
-}
+// Self-heal de tablas core y migraciones one-shot; se saltan mientras exista el sello de esta versión
+\FSFramework\Core\Schema\CoreSchemaBootstrap::ensure(static function (string $msg): void {
+    error_log($msg . ' (API)');
+});
 
 try {
     $container->get('api.runtime')->handle();

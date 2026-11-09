@@ -242,6 +242,9 @@ class admin_info extends fs_list_controller
         $messages = [];
         $hasErrors = false;
 
+        // La siguiente petición vuelve a comprobar tablas core y migraciones.
+        \FSFramework\Core\Schema\CoreSchemaBootstrap::invalidate();
+
         // Usar el nuevo CacheManager si está disponible
         if (class_exists('FSFramework\\Cache\\CacheManager')) {
             $cacheManager = \FSFramework\Cache\CacheManager::getInstance();

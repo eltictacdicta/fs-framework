@@ -247,19 +247,20 @@ final class AdminOnlyPagesMigrationTest extends TestCase
     public function bootstrapRunsTheMigrationAfterSelfHeal(): void
     {
         foreach (['index.php', 'api.php', 'cron.php'] as $file) {
-            $source = (string) file_get_contents(FS_FOLDER . '/' . $file);
-
-            $selfHeal = strpos($source, 'selfHealCoreTables');
-            $migration = strpos($source, 'AdminOnlyPagesMigration');
-
-            self::assertIsInt($selfHeal, $file . ' must call fs_schema::selfHealCoreTables().');
-            self::assertIsInt($migration, $file . ' must invoke AdminOnlyPagesMigration.');
-            self::assertGreaterThan(
-                $selfHeal,
-                $migration,
-                $file . ' must run the migration after the core self-heal.'
+            self::assertStringContainsString(
+                'CoreSchemaBootstrap::ensure(',
+                (string) file_get_contents(FS_FOLDER . '/' . $file),
+                $file . ' must run the core schema steps through CoreSchemaBootstrap.'
             );
         }
+
+        $source = (string) file_get_contents(FS_FOLDER . '/src/Core/Schema/CoreSchemaBootstrap.php');
+        $selfHeal = strpos($source, 'selfHealCoreTables');
+        $migration = strpos($source, 'AdminOnlyPagesMigration::run');
+
+        self::assertIsInt($selfHeal);
+        self::assertIsInt($migration);
+        self::assertGreaterThan($selfHeal, $migration, 'The migration must run after the core self-heal.');
     }
 
     #[Test]
@@ -268,7 +269,7 @@ final class AdminOnlyPagesMigrationTest extends TestCase
         $source = (string) file_get_contents(FS_FOLDER . '/cron.php');
 
         $autoload = strpos($source, 'vendor/autoload.php');
-        $migration = strpos($source, 'AdminOnlyPagesMigration');
+        $migration = strpos($source, 'CoreSchemaBootstrap::ensure(');
 
         self::assertIsInt(
             $autoload,

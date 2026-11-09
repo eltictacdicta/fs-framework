@@ -96,25 +96,10 @@ unset($_crawlerResponse);
 require_once 'base/fs_core_log.php';
 require_once 'base/fs_db2.php';
 require_once 'base/fs_schema.php';
-try {
-    fs_schema::selfHealCoreTables();
-} catch (\Throwable $e) {
-    error_log('Core tables self-heal failed: ' . $e->getMessage());
-}
-
-/// Migración one-shot de páginas solo-administrador (tras el self-heal)
-try {
-    \FSFramework\Core\Schema\AdminOnlyPagesMigration::run();
-} catch (\Throwable $e) {
-    error_log('AdminOnlyPagesMigration bootstrap failed: ' . $e->getMessage());
-}
-
-/// Migración one-shot del registro de idiomas de contenido (tras el self-heal)
-try {
-    \FSFramework\Core\Schema\ContentI18nMigration::run();
-} catch (\Throwable $e) {
-    error_log('ContentI18nMigration bootstrap failed: ' . $e->getMessage());
-}
+/// y migraciones one-shot; se saltan mientras exista el sello de esta versión
+\FSFramework\Core\Schema\CoreSchemaBootstrap::ensure(static function (string $msg): void {
+    error_log($msg);
+});
 
 /// Cargar la clase base legacy de controladores ANTES del boot.
 /// El Router se construye dentro de Kernel::boot() y refleja src/Controller/* y

@@ -86,26 +86,10 @@ require_once 'base/fs_log_manager.php';
 require_all_models();
 
 if ($db->connect()) {
-    // Self-heal: asegurar tablas core críticas en instalaciones incompletas
-    try {
-        fs_schema::selfHealCoreTables();
-    } catch (\Throwable $e) {
-        $core_log->new_error('Core tables self-heal failed in cron: ' . $e->getMessage());
-    }
-
-    // Migración one-shot de páginas solo-administrador (tras el self-heal)
-    try {
-        \FSFramework\Core\Schema\AdminOnlyPagesMigration::run();
-    } catch (\Throwable $e) {
-        $core_log->new_error('AdminOnlyPagesMigration bootstrap failed: ' . $e->getMessage());
-    }
-
-    // Migración one-shot del registro de idiomas de contenido (tras el self-heal)
-    try {
-        \FSFramework\Core\Schema\ContentI18nMigration::run();
-    } catch (\Throwable $e) {
-        $core_log->new_error('ContentI18nMigration bootstrap failed: ' . $e->getMessage());
-    }
+    // Self-heal de tablas core y migraciones one-shot; se saltan mientras exista el sello de esta versión
+    \FSFramework\Core\Schema\CoreSchemaBootstrap::ensure(static function (string $msg) use ($core_log): void {
+        $core_log->new_error($msg);
+    });
 
     $fsvar = new fs_var();
     $cron_vars = $fsvar->array_get(array('cron_exists' => FALSE, 'cron_lock' => FALSE, 'cron_error' => FALSE));
