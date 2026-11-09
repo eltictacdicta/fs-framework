@@ -100,7 +100,9 @@ class Router
             $storedSig = @file_get_contents(self::$cacheSigFile);
             if ($storedSig !== false && hash_equals($fingerprint, trim($storedSig))) {
                 try {
-                    $cached = include_once self::$cacheFile;
+                    // include (no include_once): un segundo Router en el mismo proceso
+                    // recibiría true en vez de las rutas y las reconstruiría.
+                    $cached = include self::$cacheFile;
                     if ($cached instanceof RouteCollection) {
                         return $cached;
                     }
