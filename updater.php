@@ -29,6 +29,11 @@ function updater_redirect($url)
 function updater_self_update_redirect($success, $reason = '')
 {
     if ($success) {
+        // Without this, opcache.validate_timestamps=0 / revalidate_freq keeps serving the old plugin.
+        // Files are already swapped, so a failed reset is not a failed update: tell the operator instead.
+        if (function_exists('opcache_reset') && ini_get('opcache.enable') && !opcache_reset()) {
+            error_log('system_updater: opcache_reset() failed (restricted?); restart PHP-FPM to load the updated plugin.');
+        }
         error_log('system_updater: self-update finalized successfully.');
         updater_redirect('index.php?page=admin_updater&success=updater-self-update');
     }

@@ -108,9 +108,18 @@ foreach ($GLOBALS['config2'] as $i => $value) {
     }
 }
 
+// 0755, not 0750: when the web server and PHP run as different users (HestiaCP, suexec, php-fpm
+// pools) the web server must traverse plugins/ to serve plugin assets and the system_updater
+// endpoints. 0750 made nginx fail with open() EACCES. Installs created with 0750 are healed here.
 if (!file_exists('plugins')) {
-    mkdir('plugins', 0750, true);
-    chmod('plugins', 0750);
+    mkdir('plugins', 0755, true);
+    chmod('plugins', 0755);
+} else {
+    $pluginsPerms = fileperms('plugins') & 07777;
+    // Only adds o+rx: keeps group-write/setgid an operator may rely on for deployments.
+    if (($pluginsPerms & 0005) !== 0005 && !chmod('plugins', $pluginsPerms | 0005)) {
+        error_log('[FSFramework] plugins/ is not readable by the web server and chmod failed: run `chmod o+rx ' . FS_FOLDER . '/plugins`');
+    }
 }
 
 /// Cargamos la lista de plugins activos
