@@ -21,6 +21,7 @@ date_default_timezone_set('Europe/Madrid');
 define('FS_COMMUNITY_URL', 'https://github.com/eltictacdicta/fs-framework');
 
 require_once __DIR__ . '/base/install_security.php';
+require_once __DIR__ . '/base/fs_pg_conninfo.php';
 require_once __DIR__ . '/vendor/autoload.php';
 
 $errors = [];
@@ -30,7 +31,7 @@ $db_host = 'localhost';
 $db_port = '3306';
 $db_name = 'fsframework';
 $db_user = '';
-$admin_nick = 'admin';
+$admin_nick = '';
 $admin_password = '';
 
 function fs_install_validate_admin_fields(array &$errors, array &$errors2): bool
@@ -38,9 +39,17 @@ function fs_install_validate_admin_fields(array &$errors, array &$errors2): bool
     $nick = fs_install_normalize_admin_nick(filter_input(INPUT_POST, 'admin_nick'));
     $password = fs_install_normalize_admin_password(filter_input(INPUT_POST, 'admin_password'));
 
+    if ($nick === '') {
+        $errors[] = 'admin_user';
+        $errors2[] = 'El usuario administrador es obligatorio.';
+
+        return false;
+    }
+
     if (!fs_install_is_valid_admin_nick($nick)) {
         $errors[] = 'admin_user';
-        $errors2[] = 'El usuario administrador debe tener entre 3 y 12 caracteres (letras, números, guiones y guiones bajos).';
+        $errors2[] = 'El usuario administrador «' . $nick . '» no es válido: debe tener entre 3 y 12 caracteres, '
+            . 'sin espacios ni @ (solo letras sin acentos, números, punto, +, - y _).';
 
         return false;
     }
@@ -237,20 +246,17 @@ function test_postgresql(&$errors, &$errors2)
         return;
     }
 
-    $host = filter_input(INPUT_POST, 'db_host', FILTER_SANITIZE_SPECIAL_CHARS);
-    $port = intval(filter_input(INPUT_POST, 'db_port', FILTER_SANITIZE_NUMBER_INT));
-    $user = filter_input(INPUT_POST, 'db_user', FILTER_SANITIZE_SPECIAL_CHARS);
-    $pass = filter_input(INPUT_POST, 'db_pass');
+    // Raw values: they are what guarda_config() writes, so test exactly those (no HTML sanitizing).
+    $server = [
+        'host' => filter_input(INPUT_POST, 'db_host'),
+        'port' => intval(filter_input(INPUT_POST, 'db_port')) ?: null, // empty → libpq default 5432
+        'user' => filter_input(INPUT_POST, 'db_user'),
+        'password' => filter_input(INPUT_POST, 'db_pass'),
+    ];
 
     try {
         // Conectar al servidor (sin especificar base de datos)
-        $connStr = sprintf(
-            'host=%s port=%d dbname=postgres user=%s password=%s',
-            pg_escape_string($host),
-            $port,
-            pg_escape_string($user),
-            pg_escape_string($pass)
-        );
+        $connStr = fs_pg_conninfo($server + ['dbname' => 'postgres']);
 
         $conn = @pg_connect($connStr, PGSQL_CONNECT_FORCE_NEW);
         if (!$conn) {
@@ -269,7 +275,7 @@ function test_postgresql(&$errors, &$errors2)
         pg_close($conn);
 
         // Verificar que podemos conectar a la base de datos específica
-        $connStr .= " dbname=" . pg_escape_string($db_name);
+        $connStr = fs_pg_conninfo($server + ['dbname' => $db_name]);
         $dbConn = @pg_connect($connStr, PGSQL_CONNECT_FORCE_NEW);
         if (!$dbConn) {
             throw new RuntimeException('No se puede conectar a la base de datos creada.');
@@ -1066,8 +1072,9 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                         </div>
                                         <div class="panel-body">
                                             <p class="help-block">
-                                                Define el usuario administrador inicial. Si dejas los campos vacíos,
-                                                se usarán <code>admin</code> / <code>admin</code>.
+                                                Define el usuario administrador inicial. Usuario: 3-12 caracteres
+                                                (letras sin acentos, números, <code>. + - _</code>).
+                                                Contraseña: 12-32 caracteres.
                                             </p>
                                             <div class="row">
                                                 <div class="col-sm-6">
@@ -1080,7 +1087,9 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                             <label for="admin_nick" class="sr-only">Usuario</label>
                                                             <input class="form-control" type="text" id="admin_nick" name="admin_nick"
                                                                 value="<?php echo htmlspecialchars($admin_nick, ENT_QUOTES, 'UTF-8'); ?>"
-                                                                autocomplete="username" />
+                                                                required minlength="3" maxlength="12" pattern="[A-Za-z0-9_+.\-]{3,12}"
+                                                                title="3-12 caracteres: letras sin acentos, números, . + - _"
+                                                                autocomplete="off" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1093,8 +1102,34 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                             </span>
                                                             <label for="admin_password" class="sr-only">Contraseña</label>
                                                             <input class="form-control" type="password" id="admin_password" name="admin_password"
-                                                                autocomplete="new-password" />
+                                                                required minlength="12" maxlength="32" autocomplete="new-password" />
+                                                            <span class="input-group-btn">
+                                                                <button class="btn btn-default" type="button" title="Mostrar/ocultar"
+                                                                    aria-label="Mostrar u ocultar contraseña"
+                                                                    onclick="var i=document.getElementById('admin_password');i.type=i.type==='password'?'text':'password';">
+                                                                    <i class="fa fa-eye"></i>
+                                                                </button>
+                                                                <button class="btn btn-default" type="button" onclick="fs_install_generate_password()">
+                                                                    <i class="fa fa-key"></i> Generar
+                                                                </button>
+                                                            </span>
                                                         </div>
+                                                        <p class="help-block">Si la generas, cópiala antes de instalar: no se volverá a mostrar.</p>
+                                                        <script>
+                                                            function fs_install_generate_password() {
+                                                                // No ambiguous chars (0/O, 1/l/I); 20 chars from crypto RNG, rejection sampling avoids modulo bias.
+                                                                var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!#$%&*+-=?@_';
+                                                                var limit = 256 - (256 % chars.length), out = '', buf = new Uint8Array(1);
+                                                                while (out.length < 20) {
+                                                                    window.crypto.getRandomValues(buf);
+                                                                    if (buf[0] < limit) out += chars[buf[0] % chars.length];
+                                                                }
+                                                                var i = document.getElementById('admin_password');
+                                                                i.value = out;
+                                                                i.type = 'text';
+                                                                i.select();
+                                                            }
+                                                        </script>
                                                     </div>
                                                 </div>
                                             </div>

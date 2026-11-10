@@ -18,6 +18,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 require_once 'base/fs_db_engine.php';
+require_once __DIR__ . '/fs_pg_conninfo.php';
 
 use FSFramework\Database\LegacySqlExecutor;
 
@@ -171,8 +172,13 @@ class fs_postgresql extends fs_db_engine
         if (self::$link) {
             $connected = TRUE;
         } else if (function_exists('pg_connect')) {
-            self::$link = pg_connect('host=' . FS_DB_HOST . ' dbname=' . FS_DB_NAME .
-                ' port=' . FS_DB_PORT . ' user=' . FS_DB_USER . ' password=' . FS_DB_PASS);
+            self::$link = pg_connect(fs_pg_conninfo([
+                'host' => FS_DB_HOST,
+                'port' => FS_DB_PORT,
+                'dbname' => FS_DB_NAME,
+                'user' => FS_DB_USER,
+                'password' => FS_DB_PASS,
+            ]));
             if (self::$link) {
                 $connected = TRUE;
 

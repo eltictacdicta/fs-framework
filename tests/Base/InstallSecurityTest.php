@@ -84,9 +84,12 @@ class InstallSecurityTest extends TestCase
         $this->assertSame(22, strlen($sessionName));
     }
 
-    public function testAdminNickDefaultsToAdminWhenEmpty(): void
+    /** No well-known default nick: an empty value stays empty so validation rejects it. */
+    public function testAdminNickIsNeverSubstitutedWithADefault(): void
     {
-        $this->assertSame('admin', fs_install_normalize_admin_nick(''));
+        $this->assertSame('', fs_install_normalize_admin_nick(''));
+        $this->assertSame('', fs_install_normalize_admin_nick(null));
+        $this->assertSame('javier', fs_install_normalize_admin_nick('  javier  '));
     }
 
     /**

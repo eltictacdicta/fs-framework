@@ -125,9 +125,7 @@ function fs_install_normalize_cookie_path_value(string $path): string
 
 function fs_install_normalize_admin_nick(?string $nick): string
 {
-    $nick = trim((string) $nick);
-
-    return $nick === '' ? 'admin' : $nick;
+    return trim((string) $nick);
 }
 
 function fs_install_normalize_admin_password(?string $password): string

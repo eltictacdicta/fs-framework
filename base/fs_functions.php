@@ -390,7 +390,7 @@ function fs_curl_ca_info()
     ];
 
     foreach ($common_paths as $path) {
-        if (file_exists($path)) {
+        if (@file_exists($path)) { // @: open_basedir warns for paths outside the allowed list
             $cached = $path;
             return $cached;
         }
