@@ -28,13 +28,14 @@ final class LegacyExtensionsLazyLoadTest extends TestCase
 {
     public static int $queries = 0;
 
+    /** @var list<object> rows the fake fs_extension::all() returns */
+    public static array $rows = [];
+
     #[RunInSeparateProcess]
     public function testExtensionsAreLoadedOnlyForTheirEventsAndOnce(): void
     {
-        // Stand-in for the legacy model: counts the queries.
-        eval('class fs_extension {'
-            . ' public function all(): array { \\Tests\\Event\\LegacyExtensionsLazyLoadTest::$queries++;'
-            . ' return [(object) ["type" => "button", "name" => "b1"], (object) ["type" => "css", "name" => "c1"]]; } }');
+        self::$rows = [(object) ['type' => 'button', 'name' => 'b1'], (object) ['type' => 'css', 'name' => 'c1']];
+        require __DIR__ . '/Fixtures/fs_extension.php';
 
         $dispatcher = FSEventDispatcher::getInstance();
         $dispatcher->dispatch(new Event(), 'model.before_save');
@@ -52,8 +53,8 @@ final class LegacyExtensionsLazyLoadTest extends TestCase
     #[RunInSeparateProcess]
     public function testListingAllListenersLoadsTheExtensions(): void
     {
-        eval('class fs_extension { public function all(): array {'
-            . ' return [(object) ["type" => "js", "name" => "j1"]]; } }');
+        self::$rows = [(object) ['type' => 'js', 'name' => 'j1']];
+        require __DIR__ . '/Fixtures/fs_extension.php';
 
         self::assertArrayHasKey('view.assets', FSEventDispatcher::getInstance()->getListeners());
     }

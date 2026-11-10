@@ -135,7 +135,7 @@ final class HttpKernelFrontTest extends TestCase
         $routes->add('ping', new Route('/ping', ['_controller' => $fixture . '::noArgs']));
         $routes->add('boom', new Route('/boom', ['_controller' => $fixture . '::boom']));
         foreach ($extra as $path => $controller) {
-            $routes->add(md5($path), new Route($path, ['_controller' => $controller]));
+            $routes->add('extra' . $path, new Route($path, ['_controller' => $controller]));
         }
 
         $router = (new \ReflectionClass(Router::class))->newInstanceWithoutConstructor();

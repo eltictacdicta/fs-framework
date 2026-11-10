@@ -165,12 +165,12 @@ class LoginThrottle
 
     private static function cacheKey(string $nick, string $ip): string
     {
-        return self::CACHE_PREFIX . md5(strtolower($nick) . '|' . $ip);
+        return self::CACHE_PREFIX . hash('xxh128', strtolower($nick) . '|' . $ip);
     }
 
     private static function accountCacheKey(string $nick): string
     {
-        return self::CACHE_PREFIX . 'account_' . md5(strtolower($nick));
+        return self::CACHE_PREFIX . 'account_' . hash('xxh128', strtolower($nick));
     }
 
     /**

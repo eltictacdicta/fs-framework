@@ -106,7 +106,7 @@ function bround($dVal, $iDec = 2)
  */
 function fs_render_fatal_error(string $context, string $message, string $file = '', int $line = 0, string $class = ''): string
 {
-    $ref = substr(sha1($context . '|' . $message . '|' . $file . '|' . $line . '|' . microtime(true) . '|' . mt_rand()), 0, 12);
+    $ref = bin2hex(random_bytes(6));
 
     error_log(sprintf(
         '[FSFramework] fatal ref=%s context=%s class=%s message=%s file=%s:%d',

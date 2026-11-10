@@ -50,7 +50,7 @@ final class CachedFileLoader implements LoaderInterface
         // mtime + size: two writes within the same second still change the key.
         // Bump FORMAT when the cached shape or a loader's parsing changes.
         $key = implode('|', [self::FORMAT, $this->loader::class, $resource, $locale, $domain, $mtime, (int) @filesize($resource)]);
-        $file = $this->cacheDir . '/' . md5($key) . '.php';
+        $file = $this->cacheDir . '/' . hash('xxh128', $key) . '.php';
         $messages = is_file($file) ? @include $file : null;
 
         if (!is_array($messages)) {
@@ -85,6 +85,6 @@ final class CachedFileLoader implements LoaderInterface
             @unlink($tmp);
             return;
         }
-        @chmod($file, 0664);
+        @chmod($file, 0660);
     }
 }
