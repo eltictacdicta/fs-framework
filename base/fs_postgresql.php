@@ -88,11 +88,13 @@ class fs_postgresql extends fs_db_engine
 
         foreach ($xml_cols as $xml_col) {
             $col = $this->quote_identifier($xml_col['nombre']);
+            $default = $this->xml_default($xml_col['defecto']);
+            $isSerial = $this->is_serial_type($xml_col['tipo']);
             $db_col = $this->search_in_array($db_cols, 'name', $xml_col['nombre']);
             if (empty($db_col)) {
                 /// columna no encontrada en $db_cols. La creamos
                 $sql .= 'ALTER TABLE ' . $table . ' ADD COLUMN ' . $col . ' ' . $xml_col['tipo'];
-                $sql .= ($xml_col['defecto'] !== NULL) ? ' DEFAULT ' . $xml_col['defecto'] : '';
+                $sql .= ($default !== NULL && !$isSerial) ? ' DEFAULT ' . $default : '';
                 $sql .= ($xml_col['nulo'] == 'NO') ? ' NOT NULL;' : ';';
                 continue;
             }
@@ -102,13 +104,15 @@ class fs_postgresql extends fs_db_engine
                 $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' TYPE ' . $xml_col['tipo'] . ';';
             }
 
-            if ($db_col['default'] == $xml_col['defecto']) {
+            // A serial column owns its nextval() default; only repair it when it is missing.
+            $serialOwnsDefault = $isSerial && ($default === NULL || stripos((string) $db_col['default'], 'nextval(') === 0);
+            if ($serialOwnsDefault || $db_col['default'] == $default) {
                 /// do nothing
-            } elseif (is_null($xml_col['defecto'])) {
+            } elseif (is_null($default)) {
                 $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' DROP DEFAULT;';
             } else {
-                $this->default2check_sequence($table_name, $xml_col['defecto'], $xml_col['nombre']);
-                $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' SET DEFAULT ' . $xml_col['defecto'] . ';';
+                $this->default2check_sequence($table_name, $default, $xml_col['nombre']);
+                $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' SET DEFAULT ' . $default . ';';
             }
 
             if ($db_col['is_nullable'] == $xml_col['nulo']) {
@@ -337,8 +341,9 @@ class fs_postgresql extends fs_db_engine
                 $sql .= ' NOT NULL';
             }
 
-            if ($col['defecto'] !== NULL && !in_array($col['tipo'], array('serial', 'bigserial'))) {
-                $sql .= ' DEFAULT ' . $col['defecto'];
+            $default = $this->xml_default($col['defecto']);
+            if ($default !== NULL && !$this->is_serial_type($col['tipo'])) {
+                $sql .= ' DEFAULT ' . $default;
             }
         }
 
@@ -625,6 +630,20 @@ class fs_postgresql extends fs_db_engine
      * @param string $xml_type
      * @return boolean
      */
+    /**
+     * An empty <defecto></defecto> or "NULL" in the XML means "no default".
+     */
+    private function xml_default($default)
+    {
+        $default = $default === NULL ? '' : trim((string) $default);
+        return ($default === '' || strtoupper($default) === 'NULL') ? NULL : $default;
+    }
+
+    private function is_serial_type($type)
+    {
+        return in_array(strtolower(trim((string) $type)), array('serial', 'serial2', 'serial4', 'serial8', 'smallserial', 'bigserial'), true);
+    }
+
     private function compare_data_types($db_type, $xml_type)
     {
         if (FS_CHECK_DB_TYPES != 1) {
@@ -632,7 +651,7 @@ class fs_postgresql extends fs_db_engine
             return TRUE;
         } else if ($db_type == $xml_type) {
             return TRUE;
-        } else if (strtolower($xml_type) == 'serial') {
+        } else if ($this->is_serial_type($xml_type)) {
             return TRUE;
         } else if (substr($db_type, 0, 4) == 'time' && substr($xml_type, 0, 4) == 'time') {
             return TRUE;
