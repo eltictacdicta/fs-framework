@@ -104,9 +104,12 @@ class fs_postgresql extends fs_db_engine
                 $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' TYPE ' . $xml_col['tipo'] . ';';
             }
 
-            // A serial column owns its nextval() default; only repair it when it is missing.
-            $serialOwnsDefault = $isSerial && ($default === NULL || stripos((string) $db_col['default'], 'nextval(') === 0);
-            if ($serialOwnsDefault || $db_col['default'] == $default) {
+            // A serial column owns its nextval() default.
+            $serialOwnsDefault = $isSerial && stripos(trim((string) $db_col['default']), 'nextval(') === 0;
+            if ($isSerial && $default === NULL && !$serialOwnsDefault) {
+                // Lost (an older sync dropped it): every INSERT failed with "null value in column".
+                $sql .= $this->serial_default_repair($table_name, $xml_col['nombre']);
+            } elseif ($serialOwnsDefault || $db_col['default'] == $default) {
                 /// do nothing
             } elseif (is_null($default)) {
                 $sql .= 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' DROP DEFAULT;';
@@ -640,6 +643,28 @@ class fs_postgresql extends fs_db_engine
     {
         $default = $default === NULL ? '' : trim((string) $default);
         return ($default === '' || strtoupper($default) === 'NULL') ? NULL : $default;
+    }
+
+    /**
+     * SQL that gives a serial column its sequence default back: the sequence
+     * (owned by the column) is created if missing and moved past MAX(col),
+     * never backwards, so no existing id is handed out again.
+     */
+    private function serial_default_repair($table_name, $column)
+    {
+        $table = $this->quote_identifier($table_name);
+        $col = $this->quote_identifier($column);
+
+        // DROP DEFAULT keeps the ownership: reuse the column's own sequence, whatever its name.
+        $owned = $this->select('SELECT pg_get_serial_sequence(' . "'" . str_replace("'", "''", $table) . "', '"
+            . str_replace("'", "''", (string) $column) . "') AS seq;");
+        $seq = !empty($owned[0]['seq']) ? (string) $owned[0]['seq'] : $this->quote_identifier($table_name . '_' . $column . '_seq');
+        $seqLiteral = "'" . str_replace("'", "''", $seq) . "'";
+
+        return (empty($owned[0]['seq']) ? 'CREATE SEQUENCE IF NOT EXISTS ' . $seq . ' OWNED BY ' . $table . '.' . $col . ';' : '')
+            . 'SELECT setval(' . $seqLiteral . ', GREATEST((SELECT COALESCE(MAX(' . $col . '), 0) FROM ' . $table . '),'
+            . ' (SELECT CASE WHEN is_called THEN last_value ELSE last_value - 1 END FROM ' . $seq . ')) + 1, false);'
+            . 'ALTER TABLE ' . $table . ' ALTER COLUMN ' . $col . ' SET DEFAULT nextval(' . $seqLiteral . '::regclass);';
     }
 
     private function is_serial_type($type)

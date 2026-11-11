@@ -92,4 +92,15 @@ final class FsPostgresqlEmptyDefaultTest extends TestCase
         );
         $this->assertSame('ALTER TABLE "t" ALTER COLUMN "n" DROP DEFAULT;', $sql);
     }
+
+    public function testASerialWithNoDefaultAtAllGetsItsSequenceBack(): void
+    {
+        $sql = $this->pg->compare_columns('cuaderno_pages',
+            [['nombre' => 'id', 'tipo' => 'serial', 'nulo' => 'NO', 'defecto' => '']],
+            [['name' => 'id', 'type' => 'integer', 'default' => null, 'is_nullable' => 'NO']]
+        );
+        $this->assertStringContainsString('CREATE SEQUENCE IF NOT EXISTS "cuaderno_pages_id_seq" OWNED BY "cuaderno_pages"."id";', $sql);
+        $this->assertStringContainsString('SELECT setval(', $sql);
+        $this->assertStringEndsWith('ALTER TABLE "cuaderno_pages" ALTER COLUMN "id" SET DEFAULT nextval(\'"cuaderno_pages_id_seq"\'::regclass);', $sql);
+    }
 }
