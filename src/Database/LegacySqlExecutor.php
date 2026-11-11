@@ -102,6 +102,21 @@ final class LegacySqlExecutor
             return $lastResult;
         }
 
-        return @pg_query_params($link, $sqlTemplate, $params);
+        // Only bound SQL has placeholders; a ? without params is literal text ('¿qué?').
+        return @pg_query_params($link, $params === [] ? $sqlTemplate : self::toPostgresPlaceholders($sqlTemplate), $params);
+    }
+
+    /**
+     * ? -> $1, $2... after the placeholder count was validated on the ? form
+     * (validating the converted SQL found no ? and rejected every bound query).
+     * Same placeholder rule as SqlSanitizer: a backslash-escaped \? is left alone.
+     */
+    public static function toPostgresPlaceholders(string $sql): string
+    {
+        $i = 0;
+
+        return (string) preg_replace_callback('/(?<!\\\\)\?/', static function () use (&$i): string {
+            return '$' . ++$i;
+        }, $sql);
     }
 }

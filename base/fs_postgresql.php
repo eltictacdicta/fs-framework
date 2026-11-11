@@ -188,6 +188,9 @@ class fs_postgresql extends fs_db_engine
 
                 /// establecemos el formato de fecha para la conexión
                 pg_query(self::$link, "SET DATESTYLE TO ISO, DMY;");
+                // PHP strings are UTF-8 throughout (like set_charset() in MySQL),
+                // whatever encoding the database was created with.
+                pg_set_client_encoding(self::$link, 'UTF8');
             }
         } else {
             self::$core_log->new_error('No tienes instalada la extensión de PHP para PostgreSQL.');
@@ -227,7 +230,7 @@ class fs_postgresql extends fs_db_engine
      */
     public function escape_string($str)
     {
-        $str = (string) $str;
+        $str = self::to_text((string) $str);
 
         if (self::$link) {
             return pg_escape_string(self::$link, $str);
@@ -690,21 +693,33 @@ class fs_postgresql extends fs_db_engine
     }
 
     /**
-     * Convierte los placeholders ? a $1, $2, etc. para PostgreSQL.
-     * @param string $sql
-     * @return string
+     * PostgreSQL text holds neither NUL bytes (libpq silently cuts the value
+     * there) nor invalid UTF-8 (pg_escape_string throws, the server rejects
+     * it). Strip NULs and read invalid UTF-8 as Windows-1252, the usual
+     * origin (old notes, CSV/Excel exports), instead of losing or aborting.
      */
-    private function convert_placeholders($sql)
+    public static function to_text(string $str): string
     {
-        $i = 0;
-        return preg_replace_callback('/\?/', function ($matches) use (&$i) {
-            $i++;
-            return '$' . $i;
-        }, $sql);
+        if (strpos($str, "\0") !== FALSE) {
+            $str = str_replace("\0", '', $str);
+        }
+        if ($str !== '' && preg_match('//u', $str) !== 1) {
+            // Only the invalid bytes are read as Windows-1252; valid UTF-8 around them stays as is.
+            $str = (string) preg_replace_callback(
+                '/[\x00-\x7F]+|[\xC2-\xDF][\x80-\xBF]|\xE0[\xA0-\xBF][\x80-\xBF]|[\xE1-\xEC\xEE\xEF][\x80-\xBF]{2}'
+                . '|\xED[\x80-\x9F][\x80-\xBF]|\xF0[\x90-\xBF][\x80-\xBF]{2}|[\xF1-\xF3][\x80-\xBF]{3}|\xF4[\x80-\x8F][\x80-\xBF]{2}|(.)/s',
+                static fn(array $m): string => isset($m[1]) ? (string) mb_convert_encoding($m[1], 'UTF-8', 'Windows-1252') : $m[0],
+                $str
+            );
+        }
+
+        return $str;
     }
 
     /**
      * Ejecuta SQL dinámico siempre vía pg_query_params (incluso sin bind params).
+     * Los placeholders ? se pasan tal cual: LegacySqlExecutor los valida y los
+     * convierte a $1, $2...
      *
      * @param array<int|string, mixed> $params
      * @return PgSql\Result|false
@@ -712,7 +727,11 @@ class fs_postgresql extends fs_db_engine
     private function runParameterizedQuery(string $sql, array $params = [])
     {
         if ($params !== []) {
-            $sql = $this->convert_placeholders($sql);
+            foreach ($params as $i => $value) {
+                if (is_string($value)) {
+                    $params[$i] = self::to_text($value);
+                }
+            }
         }
 
         return LegacySqlExecutor::executePostgresQuery(self::$link, $sql, array_values($params));

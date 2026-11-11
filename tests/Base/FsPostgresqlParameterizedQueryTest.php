@@ -21,21 +21,20 @@ class FsPostgresqlParameterizedQueryTest extends TestCase
 
     public function testConvertPlaceholdersRewritesQuestionMarks(): void
     {
-        $method = new \ReflectionMethod(\fs_postgresql::class, 'convert_placeholders');
-        $method->setAccessible(true);
-
-        $sql = $method->invoke($this->postgresql, 'SELECT * FROM fs_users WHERE nick = ? AND enabled = ?;');
-
-        $this->assertSame('SELECT * FROM fs_users WHERE nick = $1 AND enabled = $2;', $sql);
+        $this->assertSame(
+            'SELECT * FROM fs_users WHERE nick = $1 AND enabled = $2;',
+            \FSFramework\Database\LegacySqlExecutor::toPostgresPlaceholders('SELECT * FROM fs_users WHERE nick = ? AND enabled = ?;')
+        );
     }
 
     public function testConvertPlaceholdersLeavesSqlWithoutBindingsUntouched(): void
     {
-        $method = new \ReflectionMethod(\fs_postgresql::class, 'convert_placeholders');
-        $method->setAccessible(true);
+        $this->assertSame('SELECT 1;', \FSFramework\Database\LegacySqlExecutor::toPostgresPlaceholders('SELECT 1;'));
+    }
 
-        $sql = $method->invoke($this->postgresql, 'SELECT 1;');
-
-        $this->assertSame('SELECT 1;', $sql);
+    public function testAQuestionMarkWithoutParamsIsLiteralText(): void
+    {
+        $source = (string) file_get_contents(FS_FOLDER . '/src/Database/LegacySqlExecutor.php');
+        $this->assertStringContainsString('$params === [] ? $sqlTemplate : self::toPostgresPlaceholders($sqlTemplate)', $source);
     }
 }
