@@ -225,8 +225,8 @@ function test_mysql(&$errors, &$errors2)
         $errors[] = "db_mysql";
         error_log('Installer MySQL error: ' . $e->getMessage());
         $errors2[] = 'Los datos de conexión a la base de datos son incorrectos. Verifica host, puerto, usuario y contraseña.';
-        $errors2[] = "Por favor, crea manualmente la base de datos '" . htmlspecialchars($db_name) . "' o proporciona un usuario con privilegios para crear bases de datos.";
-        $errors2[] = "Comando SQL: CREATE DATABASE `" . htmlspecialchars($db_name) . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+        $errors2[] = "Por favor, crea manualmente la base de datos '" . $db_name . "' o proporciona un usuario con privilegios para crear bases de datos.";
+        $errors2[] = "Comando SQL: CREATE DATABASE `" . $db_name . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
     }
 }
 
@@ -331,7 +331,7 @@ if (version_compare(PHP_VERSION, '8.2', '<')) {
     $errors[] = "simplexml";
     $errors2[] = 'No se encuentra la extensión simplexml en tu instalación de PHP.'
         . ' Debes instalarla o activarla.';
-    $errors2[] = 'Linux: instala el paquete <b>php-xml</b> y reinicia el Apache.';
+    $errors2[] = 'Linux: instala el paquete php-xml y reinicia el Apache.';
 } else if (!extension_loaded('openssl')) {
     $errors[] = "openssl";
 } else if (!extension_loaded('zip')) {
@@ -904,7 +904,7 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                                     <ul>
                                                         <?php
                                                         foreach ($errors2 as $err2)
-                                                            echo "<li>" . $err2 . "</li>";
+                                                            echo "<li>" . htmlspecialchars($err2, ENT_QUOTES, 'UTF-8') . "</li>";
 
                                                         ?>
                                                                     </ul>
@@ -922,7 +922,7 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                                         <ul>
                                                         <?php
                                                         foreach ($errors2 as $err2)
-                                                            echo "<li>" . $err2 . "</li>";
+                                                            echo "<li>" . htmlspecialchars($err2, ENT_QUOTES, 'UTF-8') . "</li>";
 
                                                         ?>
                                                                         </ul>
@@ -941,7 +941,7 @@ $system_info_attr = htmlspecialchars($system_info, ENT_QUOTES | ENT_SUBSTITUTE, 
                                                         <?php
                                                         if (!empty($errors2)) {
                                                             foreach ($errors2 as $err2) {
-                                                                echo "<li>" . $err2 . "</li>";
+                                                                echo "<li>" . htmlspecialchars($err2, ENT_QUOTES, 'UTF-8') . "</li>";
                                                             }
                                                         } else {
                                                             echo "<li>Error desconocido.</li>";
