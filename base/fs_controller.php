@@ -39,6 +39,14 @@ if (defined('FS_LAZY_MODELS') && FS_LAZY_MODELS) {
 } else {
     // Modo legacy: cargar todos los modelos al inicio
     require_all_models();
+
+    // Los modelos namespaced de model/core (p. ej. catalogo_core) se referencian
+    // por su nombre corto legacy (`new \articulo()`). Ese alias global solo lo
+    // crea el autoloader de modelos, que en este modo no se registraba y
+    // provocaba "Class articulo not found". Se registra como fallback: solo
+    // actua ante clases que ningun otro autoloader ni require ha resuelto.
+    require_once 'base/fs_model_autoloader.php';
+    fs_model_autoloader::register();
 }
 
 /**
