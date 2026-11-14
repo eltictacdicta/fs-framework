@@ -68,21 +68,6 @@ final class LegacySqlExecutor
     }
 
     /**
-     * @param \mysqli|object $link
-     */
-    public static function executeMysqlBatch(object $link, string $sql): bool
-    {
-        foreach (SqlSanitizer::splitTrustedBatch($sql) as $statementSql) {
-            $affectedRows = 0;
-            if (!self::executeMysqlWrite($link, $statementSql, [], $affectedRows)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
      * @param \PgSql\Connection|string $link
      * @return \PgSql\Result|false
      */

@@ -131,8 +131,6 @@ final class OperatorAuthorizationTest extends TestCase
     public static function operatorScripts(): array
     {
         return [
-            'debug_loader' => ['/debug_loader.php', 'cli-only'],
-            'visual_flow_demo' => ['/visual_flow_demo.php', 'cli-only'],
             'reset_admin_password' => ['/scripts/reset-admin-password.php', 'cli-only'],
         ];
     }

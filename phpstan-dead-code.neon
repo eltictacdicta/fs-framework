@@ -25,7 +25,6 @@ parameters:
     paths:
         - api.php
         - cron.php
-        - debug_loader.php
         - index.php
         - install.php
         - src
@@ -35,7 +34,6 @@ parameters:
         - plugins
         - tests
         - updater.php
-        - visual_flow_demo.php
     ignoreErrors:
         -
             message: '#^Unused FSFramework\\Api\\Helper\\RequestHelper\:\:(getJsonInput_legacy|getIntParam|getBoolParam)\b#'

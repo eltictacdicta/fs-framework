@@ -720,29 +720,4 @@ class Html
 
         return is_numeric($base) ? (int) $base : 0;
     }
-
-    /**
-     * Register plugin Extension/View directories as a Twig namespace.
-     */
-    public static function registerExtensionViewPaths(): void
-    {
-        if (self::$twig === null) {
-            self::$twig = self::createTwigEnvironment();
-        }
-
-        $loader = self::$twig->getLoader();
-        if (!$loader instanceof FilesystemLoader) {
-            return;
-        }
-
-        foreach ($GLOBALS['plugins'] ?? [] as $plugin) {
-            $extDir = FS_FOLDER . self::PLUGINS_DIR . $plugin . '/Extension/View/';
-            if (is_dir($extDir)) {
-                $loader->addPath(
-                    $extDir,
-                    'PluginExtension' . $plugin
-                );
-            }
-        }
-    }
 }

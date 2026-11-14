@@ -8,17 +8,6 @@ use PHPUnit\Framework\TestCase;
 
 class FsPostgresqlParameterizedQueryTest extends TestCase
 {
-    private \fs_postgresql $postgresql;
-
-    protected function setUp(): void
-    {
-        require_once FS_FOLDER . '/base/fs_core_log.php';
-        require_once FS_FOLDER . '/base/fs_db_engine.php';
-        require_once FS_FOLDER . '/base/fs_postgresql.php';
-
-        $this->postgresql = new \fs_postgresql();
-    }
-
     public function testConvertPlaceholdersRewritesQuestionMarks(): void
     {
         $this->assertSame(
