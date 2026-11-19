@@ -58,6 +58,8 @@ class ApiResource
      *                                y CREATE le asigna la propiedad (exige token con nick).
      * @param Operation[] $serviceOperations Operaciones abiertas a tokens de servicio (cliente,
      *                                sin usuario) del plugin, en ámbito general. Vacío = cerrado.
+     * @param string|null $softDeleteField Columna de borrado lógico: las filas con valor no nulo
+     *                                no se listan y responden 404 (DELETE usa delete() del modelo).
      */
     public function __construct(
         public array $operations = [],
@@ -72,7 +74,8 @@ class ApiResource
         public bool $requiresAuth = true,
         public ?string $description = null,
         public ?string $ownerField = null,
-        public array $serviceOperations = []
+        public array $serviceOperations = [],
+        public ?string $softDeleteField = null
     ) {}
 
     /**
