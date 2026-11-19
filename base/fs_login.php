@@ -20,6 +20,7 @@
 require_once 'base/fs_ip_filter.php';
 
 use FSFramework\Security\LegacyAuthBridge;
+use FSFramework\Security\RememberMeTokens;
 use FSFramework\Security\SessionManager;
 
 /**
@@ -258,19 +259,25 @@ class fs_login
         return FALSE;
     }
 
+    /**
+     * La cookie `logkey` lleva el token de «Recordar sesión» de este equipo. La
+     * firma se comprueba antes que el almacén para no consultar la base con
+     * cookies falsificadas.
+     */
     private function applyValidCookieLogin($user, $logkey, $authSig, &$controller_user)
     {
-        if (!hash_equals((string) ($user->log_key ?? ''), (string) ($logkey ?? ''))) {
+        $token = (string) ($logkey ?? '');
+        if ($authSig === '' || !\FSFramework\Security\CookieSigner::verifyRememberMe($user->nick, $token, (string) $authSig)) {
             return false;
         }
 
-        if ($authSig === '' || !\FSFramework\Security\CookieSigner::verifyRememberMe($user->nick, (string) $logkey, (string) $authSig)) {
+        if (!RememberMeTokens::isValid($user, $token)) {
             return false;
         }
 
         $user->logged_on = TRUE;
         $user->update_login();
-        $this->save_session_data($user);
+        $this->save_session_data($user, token: $token);
         $controller_user = $user;
         return true;
     }
@@ -278,6 +285,13 @@ class fs_login
     private function applyTrustedSessionLogin($user, &$controller_user)
     {
         if ($this->session->get('user_nick') !== $user->nick || $this->session->get('user_logged_in') !== true) {
+            return false;
+        }
+
+        // Una sesión abierta cuyo token se anuló (cerrar sesión en todos los
+        // equipos, contraseña cambiada, caducado) no sigue: la echa
+        // handleInvalidCookieSession().
+        if (!RememberMeTokens::sessionAllows((string) $user->nick, (string) ($this->session->get('user_logkey') ?? ''))) {
             return false;
         }
 
@@ -393,7 +407,12 @@ class fs_login
 
     private function completeSuccessfulLogin(&$controller_user, $user, $password, $ip)
     {
-        $user->new_logkey();
+        // Sin rotar log_key: eso anularía el «Recordar sesión» de los otros equipos.
+        if (method_exists($user, 'mark_login')) {
+            $user->mark_login();
+        } else {
+            $user->new_logkey();
+        }
 
         if (!$user->admin && !$this->ip_filter->in_white_list($ip)) {
             $this->core_log->new_error('No puedes acceder desde esta IP.');
@@ -535,10 +554,11 @@ class fs_login
      * @param bool $regenerateSession Solo true en login por formulario (previene
      *             session fixation). En re-autenticación por cookie/sesión debe
      *             ser false para no invalidar el token CSRF del formulario actual.
+     * @param string|null $token Token de «Recordar sesión» ya comprobado (login por cookie).
      */
-    private function save_session_data($user, bool $regenerateSession = false)
+    private function save_session_data($user, bool $regenerateSession = false, ?string $token = null)
     {
-        $logKey = $this->ensurePersistentLogKey($user);
+        $token = $this->resolveDeviceToken($user, $regenerateSession, $token);
 
         if ($regenerateSession) {
             if ($this->session->isStarted()) {
@@ -553,28 +573,52 @@ class fs_login
         $this->session->set('user_email', $user->email ?? null);
         $this->session->set('user_role', !empty($user->admin) ? 'admin' : 'user');
         $this->session->set('user_admin', (bool) ($user->admin ?? false));
-        $this->session->set('user_logkey', $logKey !== '' ? $logKey : null);
+        $this->session->set('user_logkey', $token !== '' ? $token : null);
         $this->session->set('user_logged_in', true);
         $this->session->set('login_time', $now);
         $this->session->set('last_activity', $now);
 
         // 2. Guardar en Cookies (compatibilidad legacy)
         // usamos el método antiguo para no romper nada que lea $_COOKIE directamente
-        $this->save_cookie($user, $logKey);
+        $this->save_cookie($user, $token);
+    }
+
+    /**
+     * Token de «Recordar sesión» de este equipo.
+     *
+     * Un login con contraseña es un equipo nuevo: siempre token nuevo. Si no, se
+     * reutiliza el de la sesión mientras siga valiendo. Solo llega aquí sin
+     * token válido una sesión que no tenía ninguno (abierta antes de existir
+     * los tokens, o el almacén falló): las que tenían uno anulado ya las
+     * rechazó applyTrustedSessionLogin().
+     */
+    private function resolveDeviceToken($user, bool $newDevice, ?string $token): string
+    {
+        if (!$newDevice) {
+            if ($token !== null && $token !== '') {
+                return $token;
+            }
+
+            $current = (string) ($this->session->get('user_logkey') ?? '');
+            if ($current !== '' && RememberMeTokens::isValid($user, $current)) {
+                return $current;
+            }
+        }
+
+        return RememberMeTokens::issue($user);
     }
 
     /**
      * 
      * @param fs_user $user
      */
+    /**
+     * @param string $logKey token de «Recordar sesión» del equipo (la cookie conserva el nombre `logkey`)
+     */
     private function save_cookie($user, string $logKey = '')
     {
+        // Sin token no hay «Recordar sesión», pero la sesión sigue: no es un error para el usuario.
         if ($logKey === '') {
-            $logKey = isset($user->log_key) ? trim((string) $user->log_key) : '';
-        }
-
-        if ($logKey === '') {
-            $this->core_log->new_error('No se pudo emitir la cookie legacy de sesión porque falta log_key.');
             return;
         }
 
@@ -605,33 +649,6 @@ class fs_login
         $this->setLegacyCookie('user', (string) $user->nick, $expire, $path);
         $this->setLegacyCookie('logkey', $logKey, $expire, $path);
         $this->setLegacyCookie('auth_sig', $signature, $expire, $path);
-    }
-
-    private function ensurePersistentLogKey($user): string
-    {
-        $logKey = isset($user->log_key) ? trim((string) $user->log_key) : '';
-        if ($logKey !== '') {
-            return $logKey;
-        }
-
-        if (!method_exists($user, 'rotate_logkey')) {
-            return '';
-        }
-
-        $previousLogKey = $user->log_key ?? null;
-        $user->rotate_logkey();
-        $logKey = isset($user->log_key) ? trim((string) $user->log_key) : '';
-        if ($logKey === '') {
-            return '';
-        }
-
-        if (method_exists($user, 'save') && !$user->save()) {
-            $user->log_key = $previousLogKey;
-            $this->core_log->new_error('No se pudo regenerar el log_key del usuario actual.');
-            return '';
-        }
-
-        return $logKey;
     }
 
     private function getLegacyAuthBridge(): ?LegacyAuthBridge

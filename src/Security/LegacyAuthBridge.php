@@ -122,8 +122,9 @@ final class LegacyAuthBridge
                 try {
                     $userModel = new fs_user();
                     $user = $userModel->get($cookieUser);
-                    if ($this->isLegacyUserEligibleForCookieRestore($user, (string) $cookieLogkey)
-                        && $this->isRememberMeSignatureValid((string) $cookieUser, (string) $cookieLogkey, (string) $cookieSig)) {
+                    // La firma primero: una cookie falsificada no llega a consultar los tokens.
+                    if ($this->isRememberMeSignatureValid((string) $cookieUser, (string) $cookieLogkey, (string) $cookieSig)
+                        && $this->isLegacyUserEligibleForCookieRestore($user, (string) $cookieLogkey)) {
                         $legacyUserData = [
                             'nick' => $user->nick,
                             'email' => $user->email ?? null,
@@ -148,6 +149,14 @@ final class LegacyAuthBridge
         $this->syncLegacyCookieGlobals('', '', '', $expire);
     }
 
+    /**
+     * Cerrar sesión anula el «Recordar sesión» de ESTE equipo, no el de los demás.
+     *
+     * Antes rotaba el log_key de la cuenta, que era la credencial de todos los
+     * equipos. Ahora se revoca el token del equipo: el de la sesión y, si la
+     * cookie es de la misma cuenta, también el de la cookie. La cuenta sale
+     * siempre de la sesión autenticada (RMR-01), nunca de la cookie sin firmar.
+     */
     public function revokeCurrentLegacyLogin(): void
     {
         $nick = $this->resolveLegacyLogoutNick();
@@ -155,23 +164,37 @@ final class LegacyAuthBridge
             return;
         }
 
-        $this->loadUserDependencies();
-        if (!class_exists('fs_user')) {
-            return;
+        $tokens = [(string) ($this->session->get('user_logkey') ?? '')];
+        if ((string) ($_COOKIE['user'] ?? '') === $nick) {
+            $tokens[] = (string) ($_COOKIE['logkey'] ?? '');
         }
 
-        try {
-            $userModel = new fs_user();
-            $user = $userModel->get($nick);
-            if (!$user || !method_exists($user, 'rotate_logkey') || !method_exists($user, 'save')) {
-                return;
-            }
-
-            $user->rotate_logkey();
-            $user->save();
-        } catch (Throwable $e) {
-            $this->logException('revokeCurrentLegacyLogin', $e, ['nick' => $nick]);
+        foreach (array_unique(array_filter($tokens)) as $token) {
+            RememberMeTokens::revoke($nick, $token);
         }
+    }
+
+    /**
+     * ¿Hay que echar la sesión abierta? Sí si su token de equipo se anuló
+     * (cerrar sesión en ese equipo o en todos, contraseña cambiada, usuario
+     * desactivado, caducado). Se comprueba como mucho cada
+     * {@see RememberMeTokens::SESSION_RECHECK} segundos para no consultar la
+     * base en cada petición.
+     */
+    public function isSessionRevoked(): bool
+    {
+        $nick = $this->resolveLegacyLogoutNick();
+        if ($nick === null || time() - (int) $this->session->get('_rm_checked_at', 0) < RememberMeTokens::SESSION_RECHECK) {
+            return false;
+        }
+
+        if (!RememberMeTokens::sessionAllows($nick, (string) ($this->session->get('user_logkey') ?? ''))) {
+            return true;
+        }
+
+        $this->session->set('_rm_checked_at', time());
+
+        return false;
     }
 
     public function issueLegacyCookies(string $nick, string $logkey): void
@@ -289,7 +312,7 @@ final class LegacyAuthBridge
      */
     private function isLegacyUserEligibleForCookieRestore($user, string $logkey): bool
     {
-        if (!$user || !$user->enabled || $user->log_key !== $logkey) {
+        if (!$user || !$user->enabled || !RememberMeTokens::isValid($user, $logkey)) {
             return false;
         }
 
@@ -314,22 +337,6 @@ final class LegacyAuthBridge
 
         $log = new fs_core_log(self::class);
         $log->alert('No se emitieron cookies legacy porque falta log_key.', ['nick' => $nick]);
-    }
-
-    /**
-     * @param array<string, mixed> $context
-     */
-    private function logException(string $method, Throwable $e, array $context = []): void
-    {
-        if (!class_exists('fs_core_log')) {
-            return;
-        }
-
-        $log = new fs_core_log(self::class);
-        $log->error('LegacyAuthBridge exception in ' . $method . ': ' . $e->getMessage(), array_merge($context, [
-            'component' => self::class,
-            'trace' => $e->getTraceAsString(),
-        ]));
     }
 
     private function loadUserDependencies(): void

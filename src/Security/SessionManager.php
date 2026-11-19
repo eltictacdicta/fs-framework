@@ -565,7 +565,13 @@ class SessionManager
         $hasNick = $this->session->has('user_nick') && $this->session->get('user_nick');
 
         if ($hasNick && $this->isValid()) {
-            return true;
+            if (!$this->legacyAuthBridge->isSessionRevoked()) {
+                return true;
+            }
+
+            $this->logout(); // su token se anuló: fuera, cookies incluidas
+
+            return false;
         }
 
         $legacyUserData = $this->legacyAuthBridge->getLegacyUserDataFromCookies();

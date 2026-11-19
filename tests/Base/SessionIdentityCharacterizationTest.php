@@ -18,6 +18,7 @@ declare(strict_types=1);
 namespace Tests\Base;
 
 use FSFramework\Security\LegacyAuthBridge;
+use FSFramework\Security\RememberMeTokens;
 use FSFramework\Security\SessionManager;
 use FSFramework\Security\SessionPolicy;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -105,21 +106,12 @@ class SessionIdentityCharacterizationTest extends TestCase
     // =====================================================================
 
     /**
-     * A session whose user_logkey matches nothing in the database is STILL
-     * valid, and isLoggedIn() still reports true.
+     * fs_users.log_key is still NOT a session check: rotating it (what
+     * api_auth does on every app login) leaves open sessions alone.
      *
-     * This is the property the impersonation decision depends on:
-     * fs_users.log_key is NOT a session invalidation mechanism. It only
-     * guards the legacy cookie autologin path (compared in
-     * base/fs_login.php:266 with hash_equals, in
-     * src/Security/LegacyAuthBridge.php:277, and in
-     * base/fs_session_manager.php:633). Rotating a user's log_key — which is
-     * exactly what a normal login does via new_logkey() — does NOT end an
-     * existing PHP session for that user, because isValid() never reads the
-     * database and never compares user_logkey against fs_users.log_key.
-     *
-     * If an impersonation flow rotates the target's key expecting it to kill
-     * the target's other sessions, it will NOT do so.
+     * What ends an open session now is its device token: revoking it (close
+     * that device, close every device, password change) logs the session out
+     * on its next check. A session without a token is left alone.
      */
     #[Test]
     public function rotatedAwayLogKeyDoesNotInvalidateSession(): void
@@ -127,15 +119,33 @@ class SessionIdentityCharacterizationTest extends TestCase
         $manager = $this->makeManager();
         $this->seedIdentity($manager, [
             'user_nick' => 'victim',
-            'user_logkey' => 'rotated-away-key',
             'login_time' => time(),
             'last_activity' => time(),
             'user_logged_in' => true,
         ]);
 
-        $this->assertSame('rotated-away-key', $manager->get('user_logkey'));
         $this->assertTrue($manager->isValid(), 'log_key must not be a session validity check');
-        $this->assertTrue($manager->isLoggedIn(), 'an existing session survives a log_key rotation');
+        $this->assertTrue($manager->isLoggedIn(), 'a session without a device token survives');
+    }
+
+    #[Test]
+    public function revokedDeviceTokenEndsTheOpenSession(): void
+    {
+        $token = RememberMeTokens::issue((object) ['nick' => 'victim']);
+        $manager = $this->makeManager();
+        $this->seedIdentity($manager, [
+            'user_nick' => 'victim',
+            'user_logkey' => $token,
+            'login_time' => time(),
+            'last_activity' => time(),
+            'user_logged_in' => true,
+        ]);
+        $this->assertTrue($manager->isLoggedIn(), 'a live device token keeps the session');
+
+        RememberMeTokens::revokeAll('victim');
+        $manager->set('_rm_checked_at', 0); // skip the 60 s recheck window
+
+        $this->assertFalse($manager->isLoggedIn(), 'a revoked device token ends the session');
     }
 
     // =====================================================================

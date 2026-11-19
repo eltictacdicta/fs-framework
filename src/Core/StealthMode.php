@@ -396,7 +396,8 @@ class StealthMode
      *
      * The HMAC signature cookie (auth_sig) is mandatory: a request carrying
      * only `user` + `logkey` is rejected. After the signature is verified, the
-     * logkey must still exist in the database for an enabled user.
+     * `logkey` cookie (the device's remember-me token) must still be valid for
+     * an enabled user.
      */
     private function validateLegacyCookies(string $user, string $logkey, string $authSig): bool
     {
@@ -415,13 +416,12 @@ class StealthMode
 
         try {
             $escapedUser = $this->db->escape_string($user);
-            $escapedLogkey = $this->db->escape_string($logkey);
 
             $result = $this->db->select(
-                "SELECT nick FROM fs_users WHERE nick = '" . $escapedUser . "' AND log_key = '" . $escapedLogkey . "' AND enabled = TRUE LIMIT 1"
+                "SELECT nick, password FROM fs_users WHERE nick = '" . $escapedUser . "' AND enabled = TRUE LIMIT 1"
             );
 
-            return !empty($result);
+            return !empty($result) && \FSFramework\Security\RememberMeTokens::isValid((object) $result[0], $logkey);
         } catch (\Throwable $e) {
             error_log('StealthMode::validateLegacyCookies error: ' . $e->getMessage());
             return false;

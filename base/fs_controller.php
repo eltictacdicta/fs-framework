@@ -968,6 +968,11 @@ class fs_controller extends fs_app
             return FALSE;
         }
 
+        // Páginas que solo actúan sobre el propio usuario (p. ej. sus sesiones): sin concesión de rol.
+        if (\fs_page::is_admin_only_class(\get_class($this), \FSFramework\Attribute\SelfService::class)) {
+            return TRUE;
+        }
+
         return $this->user->have_access_to($this->page->name);
     }
 

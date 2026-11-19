@@ -1,0 +1,93 @@
+{{ include('header.html.twig') }}
+
+<div class="container-fluid">
+   <div class="row">
+      <div class="col-sm-8">
+         <div class="btn-group">
+            {% if fsc.user.admin and fsc.snick %}
+            <a class="btn btn-sm btn-default" href="index.php?page=admin_user&amp;snick={{ fsc.snick|url_encode }}">
+               <span class="glyphicon glyphicon-arrow-left"></span>
+               <span class="hidden-xs">&nbsp; {{ fsc.snick }}</span>
+            </a>
+            {% endif %}
+            <a class="btn btn-sm btn-default" href="{{ fsc.url() }}{% if fsc.snick and fsc.user.admin %}&amp;snick={{ fsc.snick|url_encode }}{% endif %}" title="Recargar la página">
+               <span class="glyphicon glyphicon-refresh"></span>
+            </a>
+            {% if fsc.user.admin %}
+            <a class="btn btn-sm btn-default{% if not fsc.snick %} active{% endif %}" href="{{ fsc.url() }}">Todos los usuarios</a>
+            <a class="btn btn-sm btn-default{% if fsc.snick == fsc.user.nick %} active{% endif %}" href="{{ fsc.url() }}&amp;snick={{ fsc.user.nick|url_encode }}">Mis equipos</a>
+            {% endif %}
+         </div>
+      </div>
+      <div class="col-sm-4 text-right">
+         {% if fsc.snick %}
+         <form method="post" action="{{ fsc.url() }}&amp;snick={{ fsc.snick|url_encode }}" style="display:inline"
+               onsubmit="return confirm('¿Cerrar la sesión de {{ fsc.snick|e('js') }} en todos sus equipos?{% if fsc.snick == fsc.user.nick %} También en este.{% endif %}');">
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="revoke_all"/>
+            <input type="hidden" name="nick" value="{{ fsc.snick }}"/>
+            <button type="submit" class="btn btn-sm btn-danger">
+               <i class="fa fa-sign-out" aria-hidden="true"></i>&nbsp; Cerrar sesión en todos los equipos
+            </button>
+         </form>
+         {% endif %}
+      </div>
+   </div>
+   <div class="page-header">
+      <h1>
+         <i class="fa fa-laptop" aria-hidden="true"></i>
+         {% if not fsc.snick %}Sesiones de todos los usuarios{% elseif fsc.snick == fsc.user.nick %}Mis sesiones{% else %}Sesiones de {{ fsc.snick }}{% endif %}
+      </h1>
+      <p class="help-block">
+         Equipos donde se ha entrado con contraseña. Cada uno sigue dentro hasta que se cierra aquí o en el propio equipo,
+         pasa {{ fsc.idle_days }} días sin usarse o cumple {{ fsc.max_age_days }} días.
+         Cambiar la contraseña los cierra todos.
+      </p>
+   </div>
+</div>
+
+<div class="table-responsive">
+   <table class="table table-hover">
+      <thead>
+         <tr>
+            {% if not fsc.snick %}<th>Usuario</th>{% endif %}
+            <th>Equipo</th>
+            <th>IP</th>
+            <th>Entró</th>
+            <th>Último uso</th>
+            <th></th>
+         </tr>
+      </thead>
+      {% for d in fsc.devices %}
+      <tr{% if d.current %} class="success"{% endif %}>
+         {% if not fsc.snick %}
+         <td><a href="{{ fsc.url() }}&amp;snick={{ d.nick|url_encode }}">{{ d.nick }}</a></td>
+         {% endif %}
+         <td title="{{ d.user_agent }}">
+            {{ d.device }}
+            {% if d.current %}<span class="label label-success">Este equipo</span>{% endif %}
+         </td>
+         <td>{{ d.ip }}</td>
+         <td>{{ d.created_at|date('d-m-Y H:i') }}</td>
+         <td>{{ d.last_used|date('d-m-Y H:i') }}</td>
+         <td class="text-right">
+            <form method="post" action="{{ fsc.url() }}{% if fsc.snick %}&amp;snick={{ fsc.snick|url_encode }}{% endif %}" style="display:inline">
+               {{ csrf_field() }}
+               <input type="hidden" name="action" value="revoke"/>
+               <input type="hidden" name="nick" value="{{ d.nick }}"/>
+               <input type="hidden" name="hash" value="{{ d.token_hash }}"/>
+               <button type="submit" class="btn btn-xs btn-default" title="Cerrar la sesión en este equipo">
+                  <i class="fa fa-sign-out" aria-hidden="true"></i>&nbsp; Cerrar
+               </button>
+            </form>
+         </td>
+      </tr>
+      {% else %}
+      <tr>
+         <td colspan="6" class="text-muted">No hay equipos con sesión iniciada.</td>
+      </tr>
+      {% endfor %}
+   </table>
+</div>
+
+{{ include('footer.html.twig') }}

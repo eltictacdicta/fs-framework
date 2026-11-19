@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Document   : fs_user_tokens.xml
+    Description:
+        Un token de sesión por equipo. Solo se guarda el hash del token;
+        key_ref ata cada token a la contraseña vigente del usuario, así que
+        cambiarla los anula todos.
+-->
+<tabla>
+    <columna>
+        <nombre>token_hash</nombre>
+        <tipo>character varying(64)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>nick</nombre>
+        <tipo>character varying(50)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>key_ref</nombre>
+        <tipo>character varying(64)</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>user_agent</nombre>
+        <tipo>character varying(255)</tipo>
+        <nulo>YES</nulo>
+    </columna>
+    <columna>
+        <nombre>ip</nombre>
+        <tipo>character varying(50)</tipo>
+        <nulo>YES</nulo>
+    </columna>
+    <columna>
+        <nombre>created_at</nombre>
+        <tipo>integer</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <columna>
+        <nombre>last_used</nombre>
+        <tipo>integer</tipo>
+        <nulo>NO</nulo>
+    </columna>
+    <restriccion>
+        <nombre>fs_user_tokens_pkey</nombre>
+        <consulta>PRIMARY KEY (token_hash)</consulta>
+    </restriccion>
+</tabla>

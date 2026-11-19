@@ -116,6 +116,87 @@ final class OrdinaryGateFixtureController extends \fs_controller
     }
 }
 
+/**
+ * Self-service page: any logged-in user, no role grant needed.
+ */
+#[\FSFramework\Attribute\SelfService]
+final class SelfServiceGateFixtureController extends \fs_controller
+{
+    public function __construct()
+    {
+        // Intentionally skip the heavy parent constructor (no DB).
+    }
+
+    public function evaluate(): bool
+    {
+        $method = new ReflectionMethod(\fs_controller::class, 'isAccessAllowed');
+        $method->setAccessible(true);
+
+        return (bool) $method->invoke($this);
+    }
+
+    public function withUser(object $user): self
+    {
+        $this->user = $user;
+
+        return $this;
+    }
+
+    public function withPage(string $name): self
+    {
+        $this->page = new \fs_page([
+            'name' => $name,
+            'title' => $name,
+            'folder' => 'admin',
+            'show_on_menu' => true,
+            'important' => false,
+            'orden' => 100,
+        ]);
+
+        return $this;
+    }
+}
+
+/** Both attributes: AdminOnly wins. */
+#[\FSFramework\Attribute\AdminOnly]
+#[\FSFramework\Attribute\SelfService]
+final class AdminOnlyAndSelfServiceGateFixtureController extends \fs_controller
+{
+    public function __construct()
+    {
+        // Intentionally skip the heavy parent constructor (no DB).
+    }
+
+    public function evaluate(): bool
+    {
+        $method = new ReflectionMethod(\fs_controller::class, 'isAccessAllowed');
+        $method->setAccessible(true);
+
+        return (bool) $method->invoke($this);
+    }
+
+    public function withUser(object $user): self
+    {
+        $this->user = $user;
+
+        return $this;
+    }
+
+    public function withPage(string $name): self
+    {
+        $this->page = new \fs_page([
+            'name' => $name,
+            'title' => $name,
+            'folder' => 'admin',
+            'show_on_menu' => true,
+            'important' => false,
+            'orden' => 100,
+        ]);
+
+        return $this;
+    }
+}
+
 final class AdminOnlyAccessGateTest extends TestCase
 {
     /**
@@ -160,6 +241,22 @@ final class AdminOnlyAccessGateTest extends TestCase
         self::assertFalse(
             (new OrdinaryGateFixtureController())->withUser($denied)->withPage('ventas')->evaluate()
         );
+    }
+
+    #[Test]
+    public function selfServicePageIsOpenToAnyUserWithoutAGrant(): void
+    {
+        $user = $this->user(admin: false, grants: []);
+
+        self::assertTrue((new SelfServiceGateFixtureController())->withUser($user)->withPage('user_sessions')->evaluate());
+    }
+
+    #[Test]
+    public function adminOnlyWinsOverSelfService(): void
+    {
+        $user = $this->user(admin: false, grants: []);
+
+        self::assertFalse((new AdminOnlyAndSelfServiceGateFixtureController())->withUser($user)->withPage('x')->evaluate());
     }
 
     /**

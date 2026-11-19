@@ -22,7 +22,9 @@ declare(strict_types=1);
 namespace Tests\Base;
 
 use FSFramework\Security\LegacyAuthBridge;
+use FSFramework\Security\RememberMeTokens;
 use FSFramework\Security\SessionManager;
+use Tests\Support\InMemoryRememberMeTokenStore;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -45,6 +47,7 @@ class TrustedSessionRestampTest extends TestCase
     private const SESSION_LOG_KEY = 'session-log-key';
 
     private Session $session;
+    private InMemoryRememberMeTokenStore $tokens;
     private mixed $previousSessionManagerInstance = null;
 
     /** @var array<string, mixed> */
@@ -68,6 +71,9 @@ class TrustedSessionRestampTest extends TestCase
             'REQUEST_URI',
         ]);
 
+        $this->tokens = new InMemoryRememberMeTokenStore();
+        RememberMeTokens::setStore($this->tokens);
+
         $_COOKIE = [];
         $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
         $_SERVER['HTTP_USER_AGENT'] = 'PHPUnit';
@@ -79,6 +85,7 @@ class TrustedSessionRestampTest extends TestCase
 
     protected function tearDown(): void
     {
+        RememberMeTokens::setStore(new \Tests\Support\InMemoryRememberMeTokenStore());
         $this->sessionManagerInstanceProperty()->setValue(null, $this->previousSessionManagerInstance);
 
         $_COOKIE = $this->previousCookie;
@@ -166,8 +173,29 @@ class TrustedSessionRestampTest extends TestCase
         // The identity written back is the session's nick, not anything else.
         $this->assertSame(self::SESSION_NICK, $this->session->get('user_nick'));
         $this->assertSame(self::SESSION_NICK, $controllerUser->nick);
-        $this->assertSame(self::SESSION_LOG_KEY, $this->session->get('user_logkey'));
         $this->assertTrue($this->session->get('user_logged_in'));
+
+        // A session without a device token gets one.
+        $token = (string) $this->session->get('user_logkey');
+        $this->assertNotSame(self::SESSION_LOG_KEY, $token);
+        $this->assertTrue(RememberMeTokens::isValid($user, $token));
+    }
+
+    /** A still-valid device token is kept: no new token per request. */
+    #[Test]
+    public function applyTrustedSessionLoginKeepsAValidDeviceToken(): void
+    {
+        $user = $this->makeUser(self::SESSION_NICK, self::SESSION_LOG_KEY);
+        $login = $this->makeLogin($user);
+        $this->seedSessionIdentity(self::SESSION_NICK, true);
+        $token = RememberMeTokens::issue($user);
+        $this->session->set('user_logkey', $token);
+
+        $controllerUser = (object) ['logged_on' => false];
+        $this->assertTrue($this->callPrivate($login, 'applyTrustedSessionLogin', [$user, &$controllerUser]));
+
+        $this->assertSame($token, $this->session->get('user_logkey'));
+        $this->assertCount(1, $this->tokens->rows);
     }
 
     /**
@@ -231,9 +259,10 @@ class TrustedSessionRestampTest extends TestCase
         $result = $this->callPrivate($login, 'applyTrustedSessionLogin', [$user, &$controllerUser]);
 
         $this->assertTrue($result);
-        // Re-issued for the session's nick/log_key, not the incoming cookie's.
+        // Re-issued for the session's nick and device token, not the incoming cookie's.
         $this->assertSame(self::SESSION_NICK, $_COOKIE['user']);
-        $this->assertSame(self::SESSION_LOG_KEY, $_COOKIE['logkey']);
+        $this->assertSame($this->session->get('user_logkey'), $_COOKIE['logkey']);
+        $this->assertTrue(RememberMeTokens::isValid($user, (string) $_COOKIE['logkey']));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $_COOKIE['auth_sig']);
     }
 
@@ -249,8 +278,8 @@ class TrustedSessionRestampTest extends TestCase
      * This test originally pinned that cleared mirror; it is deliberately
      * flipped now to pin the corrected contract. The flip is the point of the
      * fix, not test weakening: an expiry of 0 is a live browser-session cookie,
-     * so the mirror must be POPULATED with the session nick, the user's
-     * log_key and a 64-hex signature.
+     * so the mirror must be POPULATED with the session nick, the device's
+     * remember-me token and a 64-hex signature.
      */
     #[Test]
     public function trustedSessionLoginPopulatesLegacyCookieMirrorWhenNotRemembered(): void
@@ -270,7 +299,8 @@ class TrustedSessionRestampTest extends TestCase
         $this->assertTrue($result);
         // A live browser-session cookie (expiry 0) keeps the mirror populated.
         $this->assertSame(self::SESSION_NICK, $_COOKIE['user']);
-        $this->assertSame(self::SESSION_LOG_KEY, $_COOKIE['logkey']);
+        $this->assertSame($this->session->get('user_logkey'), $_COOKIE['logkey']);
+        $this->assertTrue(RememberMeTokens::isValid($user, (string) $_COOKIE['logkey']));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $_COOKIE['auth_sig']);
     }
 

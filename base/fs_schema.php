@@ -49,6 +49,7 @@ class fs_schema
         'fs_roles_access.xml',
         'fs_roles_users.xml',
         'fs_vars.xml',
+        'fs_user_tokens.xml',
     ];
     private const CORE_MODEL_MAP = [
         'fs_pages' => ['file' => 'model/fs_page.php', 'class' => 'fs_page'],
@@ -58,6 +59,7 @@ class fs_schema
         'fs_roles_access' => ['file' => 'model/fs_rol_access.php', 'class' => 'fs_rol_access'],
         'fs_roles_users' => ['file' => 'model/fs_rol_user.php', 'class' => 'fs_rol_user'],
         'fs_vars' => ['file' => 'model/fs_var.php', 'class' => 'fs_var'],
+        'fs_user_tokens' => ['file' => 'model/fs_user_token.php', 'class' => 'fs_user_token'],
     ];
 
     /**

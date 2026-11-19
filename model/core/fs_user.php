@@ -536,6 +536,7 @@ class fs_user extends \fs_model
         if (mb_strlen($pass) >= 8 && mb_strlen($pass) <= 32) {
             // Usar password_hash con Argon2 para mayor seguridad
             $this->password = password_hash($pass, PASSWORD_ARGON2ID, ['memory_cost' => 65536, 'time_cost' => 4]);
+            // Al guardarse, los tokens de equipo atados a la contraseña anterior dejan de valer.
             $this->rotate_logkey();
             return TRUE;
         }
@@ -590,7 +591,18 @@ class fs_user extends \fs_model
     public function new_logkey()
     {
         $this->rotate_logkey();
+        $this->mark_login();
+    }
 
+    /**
+     * Marca un inicio de sesión sin rotar log_key.
+     *
+     * El login con contraseña usa esto: rotar log_key anularía el «Recordar
+     * sesión» de los demás equipos, que ahora tienen cada uno su token
+     * ({@see \FSFramework\Security\RememberMeTokens}).
+     */
+    public function mark_login()
+    {
         $this->logged_on = TRUE;
         $this->last_login = Date('d-m-Y');
         $this->last_login_time = Date('H:i:s');
@@ -724,6 +736,7 @@ class fs_user extends \fs_model
     public function delete()
     {
         $this->clean_cache();
+        \FSFramework\Security\RememberMeTokens::revokeAll((string) $this->nick);
         return $this->db->exec("DELETE FROM " . $this->table_name . " WHERE nick = " . $this->var2str($this->nick) . ";");
     }
 

@@ -233,6 +233,9 @@
                                {% endif %}
                             </div>
                            <div class="pull-right">
+                              <a href="index.php?page=user_sessions{% if fsc.user.admin %}&amp;snick={{ fsc.user.nick|url_encode }}{% endif %}" class="btn btn-default btn-flat" title="Mis sesiones">
+                                 <i class="fa fa-laptop"></i>
+                              </a>
                               <a href="{{ fsc.logoutUrl()|raw }}" class="btn btn-default btn-flat">
                                  <i class="fa fa-sign-out"></i> {{ 'logout'|trans }}
                               </a>

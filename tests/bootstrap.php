@@ -89,3 +89,6 @@ require_once FS_FOLDER . '/base/fs_model.php';
 require_once FS_FOLDER . '/base/fs_model_autoloader.php';
 
 fs_model_autoloader::register();
+
+// Los tests nunca escriben tokens de «Recordar sesión» en la base de datos real.
+\FSFramework\Security\RememberMeTokens::setStore(new \Tests\Support\InMemoryRememberMeTokenStore());

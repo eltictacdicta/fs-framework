@@ -36,6 +36,8 @@ declare(strict_types=1);
 namespace Tests\Security;
 
 use FSFramework\Security\CookieSigner;
+use FSFramework\Security\RememberMeTokens;
+use Tests\Support\InMemoryRememberMeTokenStore;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\Attributes\Test;
@@ -52,8 +54,13 @@ require_once FS_FOLDER . '/base/fs_login.php';
 
 class AnonymousLogoutRevocationTest extends TestCase
 {
+    private InMemoryRememberMeTokenStore $tokens;
+
     protected function setUp(): void
     {
+        $this->tokens = new InMemoryRememberMeTokenStore();
+        RememberMeTokens::setStore($this->tokens);
+
         RecordingFsUser::$instances = 0;
         RecordingFsUser::$lookups = [];
         RecordingFsUser::$accountExists = true;
@@ -66,6 +73,7 @@ class AnonymousLogoutRevocationTest extends TestCase
 
     protected function tearDown(): void
     {
+        RememberMeTokens::setStore(new \Tests\Support\InMemoryRememberMeTokenStore());
         $_COOKIE = [];
         unset($_SERVER['REMOTE_ADDR']);
     }
@@ -200,27 +208,35 @@ class AnonymousLogoutRevocationTest extends TestCase
     }
 
     // =====================================================================
-    // RMR-01: an authenticated logout still rotates the key
+    // RMR-01: an authenticated logout revokes this device's token only
     // =====================================================================
 
+    /**
+     * Logging out used to rotate the account's log_key, which was the
+     * remember-me credential of EVERY device. Now each device has its own
+     * token: logout revokes this one and leaves the others signed in.
+     */
     #[Test]
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
-    public function authenticatedLogoutStillRotatesTheKeyExactlyOnce(): void
+    public function authenticatedLogoutRevokesOnlyThisDevicesToken(): void
     {
         $this->installLegacyUserDouble();
 
+        $thisDevice = RememberMeTokens::issue((object) ['nick' => 'session-owner']);
+        $otherDevice = RememberMeTokens::issue((object) ['nick' => 'session-owner']);
         $_COOKIE['user'] = 'session-owner';
-        $this->setBridgedSessionNick('session-owner');
+        $_COOKIE['logkey'] = $thisDevice;
+        $this->setBridgedSessionNick('session-owner', $thisDevice);
 
         $logger = $this->makeLogger();
         $login = $this->makeLogin($logger, $this->makeSession());
 
         $this->callPrivate($login, 'log_out', [true]);
 
-        $this->assertSame(['session-owner'], RecordingFsUser::$lookups);
-        $this->assertSame(['session-owner'], RecordingAccount::$rotations, 'El logout autenticado rota el log_key');
-        $this->assertSame(['session-owner'], RecordingAccount::$saves);
+        $this->assertFalse(RememberMeTokens::isValid((object) ['nick' => 'session-owner'], $thisDevice), 'Este equipo deja de recordarse');
+        $this->assertTrue(RememberMeTokens::isValid((object) ['nick' => 'session-owner'], $otherDevice), 'Los demás equipos siguen');
+        $this->assertSame([], RecordingAccount::$rotations, 'El logout ya no rota el log_key de la cuenta');
     }
 
     #[Test]
@@ -230,7 +246,9 @@ class AnonymousLogoutRevocationTest extends TestCase
     {
         $this->installLegacyUserDouble();
 
+        $named = RememberMeTokens::issue((object) ['nick' => 'named-account']);
         $_COOKIE['user'] = 'named-account';
+        $_COOKIE['logkey'] = $named;
 
         $bridge = new \FSFramework\Security\LegacyAuthBridge($this->makeSession());
         $bridge->revokeCurrentLegacyLogin();
@@ -238,6 +256,7 @@ class AnonymousLogoutRevocationTest extends TestCase
         $this->assertSame([], RecordingFsUser::$lookups);
         $this->assertSame([], RecordingAccount::$rotations);
         $this->assertSame(0, RecordingFsUser::$instances);
+        $this->assertTrue(RememberMeTokens::isValid((object) ['nick' => 'named-account'], $named), 'Sin sesión no se revoca nada');
     }
 
     #[Test]
@@ -247,16 +266,21 @@ class AnonymousLogoutRevocationTest extends TestCase
     {
         $this->installLegacyUserDouble();
 
+        $foreign = RememberMeTokens::issue((object) ['nick' => 'someone-else']);
+        $own = RememberMeTokens::issue((object) ['nick' => 'session-owner']);
         $_COOKIE['user'] = 'someone-else';
+        $_COOKIE['logkey'] = $foreign;
 
         $session = $this->makeSession();
         $session->set('user_nick', 'session-owner');
+        $session->set('user_logkey', $own);
 
         $bridge = new \FSFramework\Security\LegacyAuthBridge($session);
         $bridge->revokeCurrentLegacyLogin();
 
-        $this->assertSame(['session-owner'], RecordingFsUser::$lookups);
-        $this->assertSame(['session-owner'], RecordingAccount::$rotations);
+        $this->assertFalse(RememberMeTokens::isValid((object) ['nick' => 'session-owner'], $own), 'Se revoca el token de la sesión');
+        $this->assertTrue(RememberMeTokens::isValid((object) ['nick' => 'someone-else'], $foreign), 'La cookie de otra cuenta no se toca');
+        $this->assertSame([], RecordingAccount::$rotations);
     }
 
     // =====================================================================
@@ -271,7 +295,8 @@ class AnonymousLogoutRevocationTest extends TestCase
         $this->installLegacyUserDouble();
 
         $account = $this->makeCookieAccount('live-logkey');
-        $signature = CookieSigner::signRememberMe($account->nick, 'live-logkey');
+        $token = RememberMeTokens::issue($account);
+        $signature = CookieSigner::signRememberMe($account->nick, $token);
 
         $logger = $this->makeLogger();
         $login = $this->makeLogin($logger);
@@ -279,7 +304,7 @@ class AnonymousLogoutRevocationTest extends TestCase
 
         $restored = $this->callPrivate($login, 'applyValidCookieLogin', [
             $account,
-            'live-logkey',
+            $token,
             $signature,
             &$controllerUser,
         ]);
@@ -337,9 +362,13 @@ class AnonymousLogoutRevocationTest extends TestCase
         );
     }
 
-    private function setBridgedSessionNick(string $nick): void
+    private function setBridgedSessionNick(string $nick, ?string $token = null): void
     {
-        \FSFramework\Security\SessionManager::getInstance()->getSymfonySession()->set('user_nick', $nick);
+        $session = \FSFramework\Security\SessionManager::getInstance()->getSymfonySession();
+        $session->set('user_nick', $nick);
+        if ($token !== null) {
+            $session->set('user_logkey', $token);
+        }
     }
 
     private function makeSession(): Session

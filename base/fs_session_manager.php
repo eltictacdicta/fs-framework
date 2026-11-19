@@ -625,7 +625,7 @@ final class FsSessionLegacyFallback
                 $userModel = new fs_user();
                 $user = $userModel->get($nick);
 
-                if (self::isLegacyUserAuthenticated($user, $logkey) && self::isRememberMeSignatureValid($nick, $logkey, $cookieSig)) {
+                if (self::isRememberMeSignatureValid($nick, $logkey, $cookieSig) && self::isLegacyUserAuthenticated($user, $logkey)) {
                     self::hydrateLegacySession($user, $logkey);
                     $isSynchronized = true;
                 }
@@ -640,9 +640,13 @@ final class FsSessionLegacyFallback
     /**
      * @param mixed $user
      */
+    /**
+     * @param string $logkey token de «Recordar sesión» del equipo (cookie `logkey`)
+     */
     private static function isLegacyUserAuthenticated($user, string $logkey): bool
     {
-        return $user && $user->enabled && $user->log_key === $logkey;
+        return $user && $user->enabled
+            && \FSFramework\Security\RememberMeTokens::isValid($user, $logkey);
     }
 
     private static function isRememberMeSignatureValid(string $nick, string $logkey, string $cookieSig): bool

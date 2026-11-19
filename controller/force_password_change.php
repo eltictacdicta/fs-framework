@@ -78,6 +78,8 @@ class force_password_change extends fs_controller
         }
 
         $this->password_changed = true;
+        // La contraseña nueva anula los demás equipos; este sigue dentro.
+        \FSFramework\Security\RememberMeTokens::renewCurrentSession($this->user);
 
         $session = $this->getSession();
         $session->remove('force_password_change');

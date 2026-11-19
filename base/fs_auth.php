@@ -200,20 +200,28 @@ class fs_auth
      */
     private static function completeLogin($user): void
     {
-        if (method_exists($user, 'new_logkey')) {
+        // Sin rotar log_key: eso anularía el «Recordar sesión» de los otros equipos.
+        if (method_exists($user, 'mark_login')) {
+            $user->mark_login();
+        } elseif (method_exists($user, 'new_logkey')) {
             $user->new_logkey();
+        }
+        if (method_exists($user, 'save')) {
             $user->save();
         }
+
+        // Login con contraseña = equipo nuevo: token propio de «Recordar sesión».
+        $token = \FSFramework\Security\RememberMeTokens::issue($user);
 
         fs_session_manager::login([
             'nick' => $user->nick,
             'email' => isset($user->email) ? $user->email : null,
             'role' => $user->admin ? 'admin' : 'user',
             'admin' => (bool) $user->admin,
-            'logkey' => $user->log_key
+            'logkey' => $token !== '' ? $token : null,
         ]);
 
-        self::setLegacyCookies($user);
+        self::setLegacyCookies($user, $token);
         self::$currentUser = $user;
     }
 
@@ -457,9 +465,11 @@ class fs_auth
      * @param fs_user $user Usuario
      * @return void
      */
-    private static function setLegacyCookies($user)
+    /**
+     * @param string $logKey token de «Recordar sesión» del equipo (la cookie conserva el nombre `logkey`)
+     */
+    private static function setLegacyCookies($user, string $logKey)
     {
-        $logKey = isset($user->log_key) ? trim((string) $user->log_key) : '';
         if ($logKey === '') {
             self::logLegacyCookieSkipped($user);
             return;

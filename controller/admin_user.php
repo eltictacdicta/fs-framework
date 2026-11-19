@@ -270,6 +270,10 @@ class admin_user extends fs_controller
             }
 
             if ($this->suser->save()) {
+                // La contraseña nueva anula los equipos de este usuario; el propio sigue dentro.
+                if ($password_changed && $this->suser->nick === $this->user->nick) {
+                    \FSFramework\Security\RememberMeTokens::renewCurrentSession($this->suser);
+                }
                 /// Los permisos ahora se gestionan exclusivamente por roles.
                 /// No se modifican permisos individuales (fs_access) desde aquí.
                 $this->new_message("Datos modificados correctamente.");

@@ -20,6 +20,8 @@ declare(strict_types=1);
 namespace Tests\Base;
 
 use FSFramework\Security\LoginThrottle;
+use FSFramework\Security\RememberMeTokens;
+use Tests\Support\InMemoryRememberMeTokenStore;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -40,8 +42,12 @@ class FsLoginCharacterizationTest extends TestCase
 {
     private Session $session;
 
+    private InMemoryRememberMeTokenStore $tokens;
+
     protected function setUp(): void
     {
+        $this->tokens = new InMemoryRememberMeTokenStore();
+        RememberMeTokens::setStore($this->tokens);
         $_COOKIE = [];
         $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
         $_SERVER['HTTP_USER_AGENT'] = 'PHPUnit';
@@ -49,6 +55,7 @@ class FsLoginCharacterizationTest extends TestCase
 
     protected function tearDown(): void
     {
+        RememberMeTokens::setStore(new \Tests\Support\InMemoryRememberMeTokenStore());
         $_COOKIE = [];
         unset($_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']);
     }
@@ -127,7 +134,7 @@ class FsLoginCharacterizationTest extends TestCase
      * remember-me cookies.
      */
     #[Test]
-    public function successfulPasswordLoginRotatesLogKeyAndRegeneratesSession(): void
+    public function successfulPasswordLoginKeepsLogKeyIssuesDeviceTokenAndRegeneratesSession(): void
     {
         $nick = 'rotator-characterization-user';
         LoginThrottle::clear($nick);
@@ -167,15 +174,16 @@ class FsLoginCharacterizationTest extends TestCase
         $this->assertTrue($result);
         $this->assertTrue($user->logged_on);
 
-        // log_key was rotated away from its previous value.
-        $this->assertNotSame('original-key', $user->log_key);
-        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $user->log_key);
+        // log_key is NOT rotated (the remember-me no longer depends on it).
+        // This device gets its own token instead.
+        $this->assertSame('original-key', $user->log_key);
+        $token = (string) $this->session->get('user_logkey');
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $token);
+        $this->assertNotSame('original-key', $token);
+        $this->assertTrue(RememberMeTokens::isValid($user, $token));
 
         // The session was regenerated (session-fixation prevention).
         $this->assertNotSame($sessionIdBefore, $this->session->getId());
-
-        // The session snapshot carries the freshly rotated key.
-        $this->assertSame($user->log_key, $this->session->get('user_logkey'));
         $this->assertSame($nick, $this->session->get('user_nick'));
         $this->assertTrue($this->session->get('user_logged_in'));
     }
@@ -230,6 +238,50 @@ class FsLoginCharacterizationTest extends TestCase
         $this->assertFalse($this->session->has('user_logkey'));
     }
 
+    /**
+     * The old credential was the account's log_key itself. A correctly signed
+     * cookie carrying it is no longer a device token, so it must not log in.
+     */
+    #[Test]
+    public function cookieLoginRejectsTheAccountLogKeyAsAToken(): void
+    {
+        $user = $this->makeCookieUser('matching-logkey');
+        $logger = $this->makeLogger();
+        $login = $this->makeLogin($user, $logger);
+        $controllerUser = (object) ['logged_on' => false];
+
+        $result = $this->callPrivate($login, 'applyValidCookieLogin', [
+            $user,
+            'matching-logkey',
+            \FSFramework\Security\CookieSigner::signRememberMe($user->nick, 'matching-logkey'),
+            &$controllerUser,
+        ]);
+
+        $this->assertFalse($result);
+        $this->assertFalse($user->logged_on);
+    }
+
+    /** A password change voids every device token at once. */
+    #[Test]
+    public function cookieLoginFailsAfterPasswordChange(): void
+    {
+        $user = $this->makeCookieUser('account-key');
+        $token = RememberMeTokens::issue($user);
+        $user->password = 'new-password-hash';
+        $logger = $this->makeLogger();
+        $login = $this->makeLogin($user, $logger);
+        $controllerUser = (object) ['logged_on' => false];
+
+        $result = $this->callPrivate($login, 'applyValidCookieLogin', [
+            $user,
+            $token,
+            \FSFramework\Security\CookieSigner::signRememberMe($user->nick, $token),
+            &$controllerUser,
+        ]);
+
+        $this->assertFalse($result);
+    }
+
     #[Test]
     public function cookieLoginFailsWhenSignatureIsForged(): void
     {
@@ -250,24 +302,25 @@ class FsLoginCharacterizationTest extends TestCase
     }
 
     #[Test]
-    public function cookieLoginSucceedsWhenLogKeyAndSignatureMatch(): void
+    public function cookieLoginSucceedsWhenDeviceTokenAndSignatureMatch(): void
     {
         $user = $this->makeCookieUser('matching-logkey');
+        $token = RememberMeTokens::issue($user);
         $logger = $this->makeLogger();
         $login = $this->makeLogin($user, $logger);
         $controllerUser = (object) ['logged_on' => false];
 
         $result = $this->callPrivate($login, 'applyValidCookieLogin', [
             $user,
-            'matching-logkey',
-            \FSFramework\Security\CookieSigner::signRememberMe($user->nick, 'matching-logkey'),
+            $token,
+            \FSFramework\Security\CookieSigner::signRememberMe($user->nick, $token),
             &$controllerUser,
         ]);
 
         $this->assertTrue($result);
         $this->assertTrue($user->logged_on);
         $this->assertSame($user, $controllerUser);
-        $this->assertSame('matching-logkey', $this->session->get('user_logkey'));
+        $this->assertSame($token, $this->session->get('user_logkey'));
         $this->assertSame($user->nick, $this->session->get('user_nick'));
     }
 
@@ -364,6 +417,7 @@ class FsLoginCharacterizationTest extends TestCase
             public bool $admin = false;
             public bool $enabled = true;
             public string $log_key;
+            public string $password = '';
             public bool $logged_on = false;
 
             public function __construct(string $logKey)

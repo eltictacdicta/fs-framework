@@ -135,19 +135,25 @@ class RememberMeSignatureRequiredTest extends TestCase
     }
 
     #[Test]
-    public function stealthModeAcceptsValidSignatureAndLiveLogkey(): void
+    public function stealthModeAcceptsValidSignatureAndLiveDeviceToken(): void
     {
-        $db = $this->makeDbStub([['nick' => 'demo-user']]);
-        $stealth = new \FSFramework\Core\StealthMode($db);
+        $tokens = new \Tests\Support\InMemoryRememberMeTokenStore();
+        \FSFramework\Security\RememberMeTokens::setStore($tokens);
+        try {
+            $token = \FSFramework\Security\RememberMeTokens::issue((object) ['nick' => 'demo-user']);
+            $db = $this->makeDbStub([['nick' => 'demo-user', 'password' => '']]);
+            $stealth = new \FSFramework\Core\StealthMode($db);
 
-        $this->assertTrue(
-            $this->invokeValidateLegacyCookies(
-                $stealth,
-                'demo-user',
-                'live-logkey',
-                CookieSigner::signRememberMe('demo-user', 'live-logkey')
-            )
-        );
+            $this->assertTrue(
+                $this->invokeValidateLegacyCookies($stealth, 'demo-user', $token, CookieSigner::signRememberMe('demo-user', $token))
+            );
+            // El log_key de la cuenta ya no vale como credencial.
+            $this->assertFalse(
+                $this->invokeValidateLegacyCookies($stealth, 'demo-user', 'account-key', CookieSigner::signRememberMe('demo-user', 'account-key'))
+            );
+        } finally {
+            \FSFramework\Security\RememberMeTokens::setStore(new \Tests\Support\InMemoryRememberMeTokenStore());
+        }
     }
 
     /**

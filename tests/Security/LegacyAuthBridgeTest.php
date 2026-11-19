@@ -7,6 +7,8 @@ namespace Tests\Security;
 
 use FSFramework\Security\CookieSigner;
 use FSFramework\Security\LegacyAuthBridge;
+use FSFramework\Security\RememberMeTokens;
+use Tests\Support\InMemoryRememberMeTokenStore;
 use PHPUnit\Framework\TestCase;
 
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -14,8 +16,17 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 
 class LegacyAuthBridgeTest extends TestCase
 {
+    private InMemoryRememberMeTokenStore $tokens;
+
+    protected function setUp(): void
+    {
+        $this->tokens = new InMemoryRememberMeTokenStore();
+        RememberMeTokens::setStore($this->tokens);
+    }
+
     protected function tearDown(): void
     {
+        RememberMeTokens::setStore(new \Tests\Support\InMemoryRememberMeTokenStore());
         unset($_SERVER['REQUEST_URI']);
         $_COOKIE = [];
     }
@@ -53,8 +64,9 @@ class LegacyAuthBridgeTest extends TestCase
         $bridge = new LegacyAuthBridge($session);
 
         $user = $this->fakeFsUser('sameuser', true, 'lk');
+        $token = RememberMeTokens::issue($user);
 
-        $this->assertTrue($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, 'lk'));
+        $this->assertTrue($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, $token));
     }
 
     public function testLegacyCookieRestoreAllowedWhenSessionNickEmpty(): void
@@ -63,8 +75,18 @@ class LegacyAuthBridgeTest extends TestCase
         $bridge = new LegacyAuthBridge($session);
 
         $user = $this->fakeFsUser('admin', true, 'lk2');
+        $token = RememberMeTokens::issue($user);
 
-        $this->assertTrue($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, 'lk2'));
+        $this->assertTrue($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, $token));
+    }
+
+    /** The account's own log_key is no longer a remember-me credential. */
+    public function testLegacyCookieRestoreRejectsTheAccountLogKey(): void
+    {
+        $bridge = new LegacyAuthBridge(new Session(new MockArraySessionStorage()));
+        $user = $this->fakeFsUser('admin', true, 'lk3');
+
+        $this->assertFalse($this->invokeIsLegacyUserEligibleForCookieRestore($bridge, $user, 'lk3'));
     }
 
     public function testResolveLegacyCookiePathUsesCurrentInstallationPath(): void
