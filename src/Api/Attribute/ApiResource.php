@@ -53,6 +53,11 @@ class ApiResource
      * @param int $maxPerPage Máximo elementos por página
      * @param bool $requiresAuth Requiere autenticación (true por defecto)
      * @param string|null $description Descripción para documentación
+     * @param string|null $ownerField Propiedad con el nick del propietario. Si se indica,
+     *                                cada usuario solo lista, lee, edita y borra sus filas
+     *                                y CREATE le asigna la propiedad (exige token con nick).
+     * @param Operation[] $serviceOperations Operaciones abiertas a tokens de servicio (cliente,
+     *                                sin usuario) del plugin, en ámbito general. Vacío = cerrado.
      */
     public function __construct(
         public array $operations = [],
@@ -65,7 +70,9 @@ class ApiResource
         public int $perPage = 50,
         public int $maxPerPage = 100,
         public bool $requiresAuth = true,
-        public ?string $description = null
+        public ?string $description = null,
+        public ?string $ownerField = null,
+        public array $serviceOperations = []
     ) {}
 
     /**
