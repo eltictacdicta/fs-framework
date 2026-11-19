@@ -219,18 +219,16 @@
                         </li>
                          <li class="user-footer">
                             <div class="pull-left">
-                               {% if fsc.user.admin %}
+                               {# El perfil solo se ofrece a quien tiene acceso a su página. #}
+                               {% if fsc.user.admin or fsc.user.have_access_to('admin_user') %}
                                <a href="{{ fsc.user.url() }}" class="btn btn-default btn-flat">
                                   <i class="fa fa-user"></i> {{ 'profile'|trans }}
                                </a>
-                               {% else %}
-                               {# Usuarios no-admin: no tienen perfil en el ERP (admin_user es
-                                  solo-administrador), así que van al panel central del proveedor
-                                  OIDC (ruta pública del plugin api_auth -> issuer configurado). #}
-                               <a href="oidc-central" class="btn btn-default btn-flat">
-                                  <i class="fa fa-th-large"></i> {{ 'central-panel'|trans }}
-                               </a>
                                {% endif %}
+                               {# Botones que añaden los plugins (fs_extension type 'user_menu_button'). #}
+                               {% for ext in fsc.extensions %}
+                               {% if ext.type == 'user_menu_button' %}{{ ext.text|raw }}{% endif %}
+                               {% endfor %}
                             </div>
                            <div class="pull-right">
                               <a href="index.php?page=user_sessions{% if fsc.user.admin %}&amp;snick={{ fsc.user.nick|url_encode }}{% endif %}" class="btn btn-default btn-flat" title="Mis sesiones">
