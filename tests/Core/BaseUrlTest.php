@@ -24,6 +24,12 @@ final class BaseUrlTest extends TestCase
         yield 'trailing slash and case' => ['HTTPS://ERP.Example.com/', 'https://erp.example.com'];
         yield 'port and subdirectory' => ['http://host:8080/fs/', 'http://host:8080/fs'];
         yield 'surrounding spaces' => ['  https://a.example  ', 'https://a.example'];
+        yield 'localhost' => ['http://localhost', 'http://localhost'];
+        yield 'ipv4' => ['http://192.168.1.10:8000', 'http://192.168.1.10:8000'];
+        yield 'ipv6' => ['https://[::1]:8443/', 'https://[::1]:8443'];
+        yield 'bracketed non-ip' => ['https://[no-es-ipv6]', null];
+        yield 'invalid hostname' => ['https://bad_host!.example', null];
+        yield 'empty label' => ['https://a..example', null];
         yield 'empty' => ['', null];
         yield 'relative' => ['/index.php', null];
         yield 'no scheme' => ['erp.example.com', null];

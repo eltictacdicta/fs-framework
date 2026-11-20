@@ -60,10 +60,26 @@ final class BaseUrl
             return null;
         }
 
+        // parse_url() splits but does not validate: "https://[not-ipv6]" would pass.
+        if (!self::isValidHost($host)) {
+            return null;
+        }
+
         $port = isset($parts['port']) ? ':' . (int) $parts['port'] : '';
         $path = rtrim((string) ($parts['path'] ?? ''), '/');
 
         return $scheme . '://' . $host . $port . $path;
+    }
+
+    private static function isValidHost(string $host): bool
+    {
+        if (str_starts_with($host, '[')) {
+            return str_ends_with($host, ']')
+                && filter_var(substr($host, 1, -1), FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+        }
+
+        return filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
+            || filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
     }
 
     /**
