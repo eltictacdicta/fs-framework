@@ -159,6 +159,9 @@ if (!$db->connect()) {
     error_log($msg . ' (API)');
 });
 
+// URL base guardada en BD (admin_home » Avanzado) si config.php no define FS_BASE_URL
+\FSFramework\Core\BaseUrl::defineFromDatabase($db);
+
 try {
     $container->get('api.runtime')->handle();
 } catch (\Throwable $e) {

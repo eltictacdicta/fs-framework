@@ -91,6 +91,9 @@ if ($db->connect()) {
         $core_log->new_error($msg);
     });
 
+    // URL base guardada en BD si config.php no define FS_BASE_URL (enlaces de correos del cron)
+    \FSFramework\Core\BaseUrl::defineFromDatabase($db);
+
     $fsvar = new fs_var();
     $cron_vars = $fsvar->array_get(array('cron_exists' => FALSE, 'cron_lock' => FALSE, 'cron_error' => FALSE));
 

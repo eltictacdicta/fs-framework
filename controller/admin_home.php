@@ -57,6 +57,25 @@ class admin_home extends fs_controller
     public $step;
 
     /**
+     * URL base guardada en BD (fs_vars.base_url), vacía si no hay.
+     *
+     * @var string
+     */
+    public $base_url_stored = '';
+
+    /**
+     * FS_BASE_URL vigente en esta petición y de dónde sale (config|database|request).
+     *
+     * @var string
+     */
+    public $base_url_effective = '';
+
+    /**
+     * @var string|null
+     */
+    public $base_url_source = null;
+
+    /**
      * Herramientas para trabajar con divisas
      * @var \fs_divisa_tools
      */
@@ -215,6 +234,9 @@ class admin_home extends fs_controller
         }
 
         $this->exec_actions();
+        if ($this->user->admin) {
+            $this->load_base_url_info();
+        }
 
         $this->plugin_manager->cleanupOrphanPages();
         $this->paginas = $this->all_pages();
@@ -416,6 +438,51 @@ class admin_home extends fs_controller
 
         /// ¿Guardamos las opciones de la pestaña avanzado?
         $this->save_avanzado();
+        $this->save_base_url();
+    }
+
+    /**
+     * Guarda (o borra, si llega vacía) la URL base en fs_vars. Se aplica desde
+     * la siguiente petición; FS_BASE_URL en config.php sigue prevaleciendo.
+     */
+    private function save_base_url()
+    {
+        $raw = filter_input(INPUT_POST, 'base_url');
+        if ($raw === NULL || $raw === FALSE) {
+            return;
+        }
+
+        if (trim((string) $raw) === '') {
+            if ($this->fs_var->simple_delete(\FSFramework\Core\BaseUrl::VAR_NAME)) {
+                $this->new_message('URL base eliminada de la base de datos: se usará la de config.php o la de la petición.');
+            } else {
+                $this->new_error_msg('No se pudo eliminar la URL base.');
+            }
+            return;
+        }
+
+        $url = \FSFramework\Core\BaseUrl::normalize((string) $raw);
+        if ($url === NULL) {
+            $this->new_error_msg('URL base no válida: usa una URL absoluta http(s) sin parámetros, p. ej. https://erp.ejemplo.com');
+            return;
+        }
+
+        if (!$this->fs_var->simple_save(\FSFramework\Core\BaseUrl::VAR_NAME, $url)) {
+            $this->new_error_msg('No se pudo guardar la URL base.');
+            return;
+        }
+
+        $this->new_message('URL base guardada: ' . $url . '. Se aplica desde la próxima petición.');
+        if (\FSFramework\Core\BaseUrl::source() === \FSFramework\Core\BaseUrl::SOURCE_CONFIG) {
+            $this->new_advice('config.php define FS_BASE_URL y sigue prevaleciendo: quita esa línea para usar la de la base de datos.');
+        }
+    }
+
+    private function load_base_url_info()
+    {
+        $this->base_url_stored = (string) \FSFramework\Core\BaseUrl::readStored($this->db);
+        $this->base_url_effective = defined('FS_BASE_URL') ? (string) FS_BASE_URL : '';
+        $this->base_url_source = \FSFramework\Core\BaseUrl::source();
     }
 
     /**

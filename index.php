@@ -101,6 +101,9 @@ require_once 'base/fs_schema.php';
     error_log($msg);
 });
 
+/// URL base guardada en BD (admin_home » Avanzado) si config.php no define FS_BASE_URL
+\FSFramework\Core\BaseUrl::defineFromDatabase();
+
 /// Cargar la clase base legacy de controladores ANTES del boot.
 /// El Router se construye dentro de Kernel::boot() y refleja src/Controller/* y
 /// plugins/*/Controller/* para leer sus atributos de ruta; clases como

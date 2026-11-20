@@ -1,3 +1,39 @@
+{% if fsc.user.admin %}
+<form class="form" action="{{ fsc.url() }}&caca={{ fsc.random_string(4) }}#avanzado" method="post">
+    {{ csrf_field() }}
+    <div class="container-fluid" style="margin-top: 10px;">
+        <div class="row">
+            <div class="col-md-9 col-sm-8">
+                <div class="form-group">
+                    <label for="adv_base_url">URL base pública:</label>
+                    <input type="url" id="adv_base_url" name="base_url" class="form-control" maxlength="255"
+                           value="{{ fsc.base_url_stored ?: (fsc.base_url_source == 'config' ? fsc.base_url_effective : '') }}"
+                           placeholder="https://erp.ejemplo.com" autocomplete="off" spellcheck="false">
+                    <p class="help-block">
+                        Vigente: <code>{{ fsc.base_url_effective ?: 'sin definir' }}</code>
+                        {% if fsc.base_url_source == 'config' %}
+                            (definida en <code>config.php</code>, que prevalece sobre la base de datos)
+                        {% elseif fsc.base_url_source == 'database' %}
+                            (guardada en la base de datos)
+                        {% else %}
+                            (deducida de la petición)
+                        {% endif %}.
+                        Se usa en los enlaces generados, los correos y las redirecciones seguras:
+                        <b>cambiarla puede obligar a reconfigurar los servicios que la tengan registrada.</b>
+                        Déjala vacía y guarda para borrarla. Una restauración desde copia de seguridad conserva la de este servidor.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-4 text-right" style="padding-top: 25px;">
+                <button class="btn btn-sm btn-primary" type="submit" data-submit-once="true">
+                    <span class="glyphicon glyphicon-floppy-disk"></span>&nbsp; Guardar URL base
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+<hr>
+{% endif %}
 <form class="form" action="{{ fsc.url() }}&caca={{ fsc.random_string(4) }}#avanzado" method="post">
     {{ csrf_field() }}
     <div class="container-fluid" style="margin-top: 10px;">
